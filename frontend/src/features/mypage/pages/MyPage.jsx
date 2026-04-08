@@ -1,3 +1,5 @@
+// 마이페이지:
+// 현재 로그인 사용자 기준으로 주문/수강 이력을 조회해 보여줍니다.
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";

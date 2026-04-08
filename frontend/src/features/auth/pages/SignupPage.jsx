@@ -1,3 +1,5 @@
+// 회원가입 페이지:
+// 필수 정보 + 필수 약관 동의가 충족될 때만 가입을 완료합니다.
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
@@ -37,6 +39,7 @@ export function SignupPage() {
   }
 
   function toggleAllAgreement() {
+    // "전체 동의"를 누르면 모든 약관 체크를 동일 상태로 맞춥니다.
     const next = !allAgree;
     setAgreements({
       service: next,
@@ -54,6 +57,7 @@ export function SignupPage() {
     event.preventDefault();
 
     try {
+      // 필수 약관/비밀번호 검증은 UI 비활성화와 별도로 한 번 더 안전하게 검사
       if (!requiredAgree) {
         alert("필수 약관에 동의해주세요.");
         return;

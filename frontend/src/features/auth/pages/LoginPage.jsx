@@ -1,3 +1,5 @@
+// 로그인 페이지:
+// 이메일/비밀번호 인증 후 이전 페이지(state.from) 또는 마이페이지로 이동합니다.
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
@@ -13,6 +15,7 @@ export function LoginPage() {
     event.preventDefault();
 
     try {
+      // 공백 입력으로 인한 로그인 실패를 줄이기 위해 trim 적용
       store.loginUser(form.email.trim(), form.password.trim());
       alert("로그인되었습니다.");
       navigate(location.state?.from || "/mypage");
@@ -58,8 +61,11 @@ export function LoginPage() {
               로그인
             </button>
           </form>
-          <p className="section-text">
-            아직 계정이 없으신가요? <Link to="/signup">회원가입</Link>
+          <p className="section-text login-signup-cta">
+            아직 계정이 없으신가요?
+            <Link className="login-signup-link" to="/signup">
+              회원가입
+            </Link>
           </p>
         </section>
       </main>

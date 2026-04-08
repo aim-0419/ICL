@@ -1,3 +1,5 @@
+// 결제 실패 페이지:
+// 쿼리스트링(code/message)으로 전달된 오류 정보를 사용자에게 안내합니다.
 import { Link, useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 

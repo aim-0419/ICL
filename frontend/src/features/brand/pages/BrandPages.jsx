@@ -243,22 +243,103 @@ export function BrandInstructorsPage() {
 }
 
 export function BrandTourPage() {
+  const galleryItems = [
+    {
+      id: "01",
+      name: "로비 & 웰컴 라운지",
+      image:
+        "https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1400&q=80",
+    },
+    {
+      id: "02",
+      name: "프라이빗 상담 공간",
+      image:
+        "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1400&q=80",
+    },
+    {
+      id: "03",
+      name: "리포머 메인룸",
+      image:
+        "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=1400&q=80",
+    },
+    {
+      id: "04",
+      name: "체어 & 바렐 존",
+      image:
+        "https://images.unsplash.com/photo-1591291621164-2c6367723315?auto=format&fit=crop&w=1400&q=80",
+    },
+    {
+      id: "05",
+      name: "소도구 트레이닝 존",
+      image:
+        "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1400&q=80",
+    },
+    {
+      id: "06",
+      name: "샤워 & 파우더 룸",
+      image:
+        "https://images.unsplash.com/photo-1630699144339-420fe5f7f8d8?auto=format&fit=crop&w=1400&q=80",
+    },
+    {
+      id: "07",
+      name: "야간 무드 라운지",
+      image:
+        "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=1400&q=80",
+    },
+    {
+      id: "08",
+      name: "클래스 대기 공간",
+      image:
+        "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1400&q=80",
+    },
+  ];
+
   return (
-    <BrandPageLayout
-      kicker="이끌림 · 둘러보기"
-      title="스튜디오 둘러보기"
-      description="라운지, 수업 공간, 상담 존까지 실제 이용 동선을 중심으로 소개합니다."
-      points={[
-        {
-          title: "공간 동선",
-          description: "체크인부터 수업 종료까지 편안하게 이어지는 동선으로 설계했습니다.",
-        },
-        {
-          title: "분위기",
-          description: "아이보리와 골드 톤의 무드로 집중감 있는 수업 환경을 제공합니다.",
-        },
-      ]}
-    />
+    <div className="site-shell">
+      <SiteHeader />
+      <main className="content-page tour-content-page">
+        <section className="tour-hero-section">
+          <div className="tour-hero-media">
+            <img
+              src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=2000&q=80"
+              alt="이끌림 필라테스 스튜디오 메인 공간"
+            />
+            <div className="tour-hero-overlay">
+              <p className="section-kicker">이끌림 · 스튜디오 둘러보기</p>
+              <h1>Studio Tour</h1>
+              <p>안락한 동선과 균형 잡힌 공간 설계로, 수업 전후의 경험까지 편안하게 이어집니다.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="tour-intro-section">
+          <div className="section-intro center">
+            <p className="section-kicker">Interior Preview</p>
+            <h2>편안함과 집중을 함께 담은 공간</h2>
+            <p className="section-text narrow">
+              라운지부터 수업룸, 상담 공간까지 하나의 무드로 연결했습니다. 실제 동선에 맞춘 공간 설계로 처음
+              방문하는 날에도 자연스럽게 적응할 수 있습니다.
+            </p>
+          </div>
+        </section>
+
+        <section className="tour-gallery-section">
+          <div className="tour-gallery-track" aria-label="스튜디오 갤러리">
+            {galleryItems.map((item) => (
+              <article className="tour-gallery-item" key={item.id}>
+                <div className="tour-gallery-image">
+                  <img src={item.image} alt={item.name} />
+                </div>
+                <div className="tour-gallery-caption">
+                  <p className="tour-gallery-number">{item.id}</p>
+                  <h3>{item.name}</h3>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }
 
@@ -283,21 +364,79 @@ export function BrandEquipmentPage() {
 }
 
 export function BrandDirectionsPage() {
+  const branches = [
+    {
+      name: "이끌림 필라테스 장덕점",
+      address: "광주광역시 광산구 풍영로 189, 2층",
+      phone: "062-000-0001",
+      parking: "건물 내 주차 가능 (방문 전 문의)",
+      mapEmbedUrl:
+        "https://maps.google.com/maps?hl=ko&q=35.188459164928,126.81392571847&z=16&output=embed",
+      mapLink:
+        "https://www.google.com/maps/search/?api=1&query=35.188459164928,126.81392571847",
+    },
+    {
+      name: "이끌림 필라테스 효천점",
+      address: "광주광역시 남구 효천2로가길 5, 201·202호",
+      phone: "062-000-0002",
+      parking: "인근 공영/건물 주차 이용 가능",
+      mapEmbedUrl:
+        "https://maps.google.com/maps?hl=ko&q=35.102161560951,126.87396526156&z=16&output=embed",
+      mapLink:
+        "https://www.google.com/maps/search/?api=1&query=35.102161560951,126.87396526156",
+    },
+  ];
+
   return (
-    <BrandPageLayout
-      kicker="이끌림 · 오시는길"
-      title="오시는 길"
-      description="지하철/버스/주차 안내와 상담 예약 연락처를 확인할 수 있습니다."
-      points={[
-        {
-          title: "주소",
-          description: "서울특별시 강남구 테헤란로 00, 2층 (예시 주소)",
-        },
-        {
-          title: "연락처",
-          description: "02-1234-5678 · hello@iclpilates.kr",
-        },
-      ]}
-    />
+    <div className="site-shell">
+      <SiteHeader />
+      <main className="content-page directions-page">
+        <section className="content-hero">
+          <p className="section-kicker">이끌림 · 오시는길</p>
+          <h1>오시는 길</h1>
+          <p className="section-text">
+            장덕점과 효천점을 한 페이지에서 확인할 수 있도록, 가로 기준 레이아웃을 세로 섹션으로 나눠
+            구성했습니다.
+          </p>
+        </section>
+
+        <section className="directions-stack">
+          {branches.map((branch) => (
+            <article className="direction-branch-card" key={branch.name}>
+              <div className="direction-branch-head">
+                <h3>{branch.name}</h3>
+                <a href={branch.mapLink} target="_blank" rel="noreferrer">
+                  지도 크게 보기
+                </a>
+              </div>
+              <div className="direction-branch-content">
+                <div className="direction-branch-meta">
+                  <p>
+                    <strong>주소</strong>
+                    <span>{branch.address}</span>
+                  </p>
+                  <p>
+                    <strong>연락처</strong>
+                    <span>{branch.phone}</span>
+                  </p>
+                  <p>
+                    <strong>주차 안내</strong>
+                    <span>{branch.parking}</span>
+                  </p>
+                </div>
+                <div className="direction-map-wrap">
+                  <iframe
+                    title={`${branch.name} 지도`}
+                    src={branch.mapEmbedUrl}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
+              </div>
+            </article>
+          ))}
+        </section>
+      </main>
+    </div>
   );
 }

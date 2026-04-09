@@ -1,5 +1,9 @@
-import { db } from "../../shared/data/in-memory-db.js";
+import { query } from "../../shared/db/mysql.js";
 
-export function listProducts() {
-  return db.products;
+export async function listProducts() {
+  return query(
+    `SELECT id, name, price, description, period
+     FROM products
+     ORDER BY name`
+  );
 }

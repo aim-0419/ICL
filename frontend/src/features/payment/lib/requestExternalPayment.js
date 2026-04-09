@@ -1,7 +1,12 @@
+import { requestPayment } from "@portone/browser-sdk/v2";
+
 const DEFAULT_PAYMENT_CONFIG = {
-  clientKey: "test_ck_your_client_key",
+  provider: "portone-v2",
+  storeId: "",
+  channelKey: "",
   successUrl: `${window.location.origin}/success`,
   failUrl: `${window.location.origin}/fail`,
+  approvalApiUrl: `${window.location.origin}/api/payments/confirm`,
 };
 
 function getPaymentConfig() {
@@ -12,64 +17,126 @@ function getPaymentConfig() {
 }
 
 function mapPaymentMethod(method) {
-  if (method === "card") return "카드";
-  if (method === "transfer") return "가상계좌";
-  return "카드";
+  if (method === "transfer") {
+    return { payMethod: "TRANSFER" };
+  }
+
+  if (method === "naverpay") {
+    return {
+      payMethod: "EASY_PAY",
+      easyPay: {
+        easyPayProvider: "NAVERPAY",
+      },
+    };
+  }
+
+  if (method === "tosspay") {
+    return {
+      payMethod: "EASY_PAY",
+      easyPay: {
+        easyPayProvider: "TOSSPAY",
+      },
+    };
+  }
+
+  return { payMethod: "CARD" };
+}
+
+async function confirmByBackend({ approvalApiUrl, paymentId, orderId, amount }) {
+  const response = await fetch(approvalApiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ paymentId, orderId, amount }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    return {
+      type: "fail",
+      code: body?.code || "PAYMENT_CONFIRM_FAIL",
+      message: body?.message || "결제 검증에 실패했습니다.",
+    };
+  }
+
+  if (!body?.approved) {
+    return {
+      type: "fail",
+      code: "PAYMENT_NOT_APPROVED",
+      message: "결제 승인 상태를 확인하지 못했습니다.",
+    };
+  }
+
+  return {
+    type: "success",
+    paymentId,
+  };
 }
 
 export async function requestExternalPayment({ orderPayload, paymentMethod }) {
   const config = getPaymentConfig();
 
-  // Priority 1: custom external adapter
-  // window.PILATES_EXTERNAL_PAYMENT_API.requestPayment(payload) 를 붙이면
-  // 프론트 코드 수정 없이 외부 결제 API로 연결할 수 있습니다.
-  if (
-    window.PILATES_EXTERNAL_PAYMENT_API &&
-    typeof window.PILATES_EXTERNAL_PAYMENT_API.requestPayment === "function"
-  ) {
-    const result = await window.PILATES_EXTERNAL_PAYMENT_API.requestPayment({
-      ...orderPayload,
-      paymentMethod,
-      successUrl: config.successUrl,
-      failUrl: config.failUrl,
+  if (config.provider !== "portone-v2") {
+    return {
+      type: "fail",
+      code: "UNSUPPORTED_PROVIDER",
+      message: "현재 결제 설정은 PortOne V2 전용입니다.",
+    };
+  }
+
+  if (!config.storeId || !config.channelKey) {
+    return {
+      type: "fail",
+      code: "PAYMENT_CONFIG_MISSING",
+      message: "storeId 또는 channelKey가 설정되지 않았습니다.",
+    };
+  }
+
+  try {
+    const paymentResponse = await requestPayment({
+      storeId: config.storeId,
+      channelKey: config.channelKey,
+      paymentId: orderPayload.orderId,
+      orderName: orderPayload.orderName,
+      totalAmount: Number(orderPayload.amount),
+      currency: "KRW",
+      customer: {
+        fullName: orderPayload.customerName || "회원",
+        email: orderPayload.customerEmail || undefined,
+        phoneNumber: orderPayload.customerPhone || undefined,
+      },
+      redirectUrl: config.successUrl,
+      ...mapPaymentMethod(paymentMethod),
     });
 
-    if (result?.redirectUrl) {
-      window.location.href = result.redirectUrl;
+    // 모바일 리다이렉트 결제의 경우 SDK가 화면 이동을 수행한 뒤 반환값이 없을 수 있습니다.
+    if (!paymentResponse) {
       return { type: "external_redirect" };
     }
 
-    if (result?.status === "fail") {
+    if (paymentResponse.code) {
       return {
         type: "fail",
-        code: result.code || "EXTERNAL_FAIL",
-        message: result.message || "외부 결제 API에서 실패 응답을 반환했습니다.",
+        code: paymentResponse.code,
+        message: paymentResponse.message || "결제 요청이 실패했습니다.",
       };
     }
 
-    return { type: "success", paymentKey: result?.paymentKey || "" };
-  }
+    const paymentId = paymentResponse.paymentId || orderPayload.orderId;
 
-  // Priority 2: Toss Payments
-  if (
-    typeof window.TossPayments === "function" &&
-    config.clientKey &&
-    config.clientKey !== "test_ck_your_client_key"
-  ) {
-    const tossPayments = window.TossPayments(config.clientKey);
-    await tossPayments.requestPayment(mapPaymentMethod(paymentMethod), {
-      amount: orderPayload.amount,
+    return confirmByBackend({
+      approvalApiUrl: config.approvalApiUrl,
+      paymentId,
       orderId: orderPayload.orderId,
-      orderName: orderPayload.orderName,
-      customerName: orderPayload.customerName,
-      customerEmail: orderPayload.customerEmail,
-      customerMobilePhone: orderPayload.customerPhone,
-      successUrl: config.successUrl,
-      failUrl: config.failUrl,
+      amount: orderPayload.amount,
     });
-    return { type: "external_redirect" };
+  } catch (error) {
+    return {
+      type: "fail",
+      code: "PAYMENT_REQUEST_EXCEPTION",
+      message: error?.message || "결제 요청 중 오류가 발생했습니다.",
+    };
   }
-
-  // Priority 3: local demo fallback
-  return { type: "mock_success" };
 }

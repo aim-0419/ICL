@@ -1,6 +1,8 @@
 window.PILATES_PAYMENT_CONFIG = {
-  clientKey: "test_ck_your_client_key",
+  provider: "portone-v2",
+  storeId: "store-your-store-id",
+  channelKey: "channel-key-your-channel-key",
   successUrl: `${window.location.origin}/success`,
   failUrl: `${window.location.origin}/fail`,
-  approvalApiUrl: "https://your-domain.com/api/payments/confirm",
+  approvalApiUrl: `${window.location.origin}/api/payments/confirm`,
 };

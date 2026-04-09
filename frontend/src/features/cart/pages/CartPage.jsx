@@ -35,10 +35,13 @@ const PAYMENT_METHODS = [
 ];
 
 function getPreviewByProductId(productId) {
-  const video = ACADEMY_VIDEOS.find((item) => item.productId === productId);
+  const video = ACADEMY_VIDEOS.find(
+    (item) => item.productId === productId || item.id === productId
+  );
   if (!video) {
     return {
       image: "",
+      title: "교육 영상",
       instructor: "ICL Pilates",
       category: "교육 영상",
     };
@@ -46,6 +49,7 @@ function getPreviewByProductId(productId) {
 
   return {
     image: video.image,
+    title: video.title,
     instructor: video.instructor,
     category: video.category,
   };
@@ -113,18 +117,27 @@ export function CartPage() {
     });
   }
 
-  function updateQuantity(productId, quantity) {
+  async function updateQuantity(productId, quantity) {
     const safeQuantity = Math.max(1, toNumber(quantity));
-    store.updateCartItem(productId, safeQuantity);
+    try {
+      await store.updateCartItem(productId, safeQuantity);
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
-  function removeSelectedItems() {
+  async function removeSelectedItems() {
     if (selectedProductIds.length === 0) {
       alert("삭제할 상품을 먼저 선택해주세요.");
       return;
     }
-    selectedProductIds.forEach((productId) => store.removeCartItem(productId));
-    setSelectedProductIds([]);
+
+    try {
+      await Promise.all(selectedProductIds.map((productId) => store.removeCartItem(productId)));
+      setSelectedProductIds([]);
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
   async function handleCheckout() {
@@ -157,7 +170,6 @@ export function CartPage() {
     };
 
     setIsProcessing(true);
-    store.persistOrder(orderPayload);
 
     try {
       const result = await requestExternalPayment({
@@ -184,6 +196,9 @@ export function CartPage() {
             "현재는 데모 결제 상태입니다. 외부 결제 API 또는 토스페이먼츠 운영 키를 연결하면 실결제가 열립니다."
           );
         }
+
+        await store.persistOrder(orderPayload);
+        await Promise.all(selectedProductIds.map((productId) => store.removeCartItem(productId)));
 
         navigate(
           `/success?orderId=${encodeURIComponent(orderPayload.orderId)}&orderName=${encodeURIComponent(
@@ -263,7 +278,11 @@ export function CartPage() {
                           )}
                         </div>
                         <div className="checkout-item-copy">
-                          <h3>{item.product.name}</h3>
+                          <h3>
+                            {item.product.name === "상품 정보 확인 중"
+                              ? item.preview.title
+                              : item.product.name}
+                          </h3>
                           <p>{item.product.description}</p>
                           <div className="checkout-item-meta-line">
                             <span>{item.preview.instructor}</span>
@@ -286,7 +305,13 @@ export function CartPage() {
                         <button
                           type="button"
                           className="checkout-item-remove"
-                          onClick={() => store.removeCartItem(item.productId)}
+                          onClick={async () => {
+                            try {
+                              await store.removeCartItem(item.productId);
+                            } catch (error) {
+                              alert(error.message);
+                            }
+                          }}
                           aria-label={`${item.product.name} 삭제`}
                         >
                           ×
@@ -297,29 +322,6 @@ export function CartPage() {
                 </div>
               </section>
 
-              <section className="checkout-surface checkout-buyer-box">
-                <div>
-                  <strong>구매자 정보</strong>
-                  <p>
-                    {store.currentUser
-                      ? `${store.currentUser.name} · ${store.currentUser.email}`
-                      : "로그인 후 결제를 진행하면 구매자 정보가 자동 입력됩니다."}
-                  </p>
-                </div>
-                {!store.currentUser ? (
-                  <button
-                    type="button"
-                    className="checkout-text-button"
-                    onClick={() => navigate("/login")}
-                  >
-                    로그인
-                  </button>
-                ) : (
-                  <button type="button" className="checkout-text-button" onClick={() => navigate("/mypage")}>
-                    정보 확인
-                  </button>
-                )}
-              </section>
             </div>
 
             <aside className="checkout-cart-right">

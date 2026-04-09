@@ -1,9 +1,23 @@
 import * as ordersService from "./orders.service.js";
 
-export function getOrders(req, res) {
-  res.json(ordersService.listOrders());
+export async function getOrders(req, res, next) {
+  try {
+    const customerEmail = String(req.query.email || "").trim();
+    if (customerEmail) {
+      res.json(await ordersService.listOrdersByCustomerEmail(customerEmail));
+      return;
+    }
+
+    res.json(await ordersService.listOrders());
+  } catch (error) {
+    next(error);
+  }
 }
 
-export function createOrder(req, res) {
-  res.status(201).json(ordersService.createOrder(req.body));
+export async function createOrder(req, res, next) {
+  try {
+    res.status(201).json(await ordersService.createOrder(req.body));
+  } catch (error) {
+    next(error);
+  }
 }

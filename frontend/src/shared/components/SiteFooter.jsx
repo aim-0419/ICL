@@ -1,5 +1,3 @@
-// 사이트 공통 푸터:
-// 브랜드/연락처/지점 정보와 외부 SNS 링크를 제공합니다.
 import { Link } from "react-router-dom";
 
 export function SiteFooter() {
@@ -13,26 +11,28 @@ export function SiteFooter() {
         <Link to="/community/inquiry">CONTACT</Link>
       </nav>
 
-      <div className="site-footer-info">
-        <p>
-          <strong>대표</strong> 정지윤 <span aria-hidden="true">|</span> <strong>Business License</strong>{" "}
-          123-45-67890
+      <div className="site-footer-info-grid">
+        <p className="site-footer-info-line footer-left">
+          <strong>대표</strong> 정지윤 <span aria-hidden="true">|</span>{" "}
+          <strong>Business License</strong> 123-45-67890
         </p>
-        <p>
-          <strong>상담예약·제휴문의</strong> hello@iclpilates.kr <span aria-hidden="true">|</span>{" "}
-          카카오채널 @icl_pilates
+        <p className="site-footer-info-line footer-right">
+          <strong>장덕점</strong> 광주광역시 광산구 풍영로 189, 2층{" "}
+          <span aria-hidden="true">|</span> <strong>Tel</strong> 062-000-0001
         </p>
-        <p>
-          <strong>장덕점</strong> 광주광역시 광산구 풍영로 189, 2층 <span aria-hidden="true">|</span>{" "}
-          <strong>Tel</strong> 062-000-0001
+
+        <p className="site-footer-info-line footer-left footer-no-wrap">
+          <strong>상담예약·제휴문의</strong> hello@iclpilates.kr{" "}
+          <span aria-hidden="true">|</span> 카카오채널 @icl_pilates
         </p>
-        <p>
-          <strong>효천점</strong> 광주광역시 남구 효천2로가길 5, 201·202호 <span aria-hidden="true">|</span>{" "}
-          <strong>Tel</strong> 062-000-0002
+        <p className="site-footer-info-line footer-right">
+          <strong>효천점</strong> 광주광역시 남구 효천2로가길 5, 201·202호{" "}
+          <span aria-hidden="true">|</span> <strong>Tel</strong> 062-000-0002
         </p>
       </div>
 
       <div className="site-footer-socials">
+        <span className="site-footer-copy-inline">Copyright ICL Pilates</span>
         <a
           href="https://www.instagram.com/icl.pilates/"
           target="_blank"
@@ -58,8 +58,6 @@ export function SiteFooter() {
           <span>B</span>
         </a>
       </div>
-
-      <p className="site-footer-copy">Copyright © ICL Pilates</p>
     </footer>
   );
 }

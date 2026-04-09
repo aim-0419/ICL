@@ -1,12 +1,24 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAppStore } from "../store/AppContext.jsx";
 
+function isAdminUser(user) {
+  if (!user) return false;
+  const normalizedRole = String(user.role || "").toLowerCase();
+  const adminFlag = user.isAdmin === true || user.isAdmin === 1 || user.isAdmin === "1";
+  return normalizedRole === "admin" || adminFlag || user.email === "admin@iclpilates.com";
+}
+
 export function SiteHeader({ subpage = false }) {
-  const { currentUser } = useAppStore();
+  const { currentUser, logoutUser, cart, adminPageEditMode, setAdminPageEditMode } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  const cartQuantity = useMemo(
+    () => cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+    [cart]
+  );
 
   useEffect(() => {
     function handleScroll() {
@@ -34,6 +46,14 @@ export function SiteHeader({ subpage = false }) {
 
   function handleScrollTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function handleLogout() {
+    try {
+      await logoutUser();
+    } finally {
+      navigate("/");
+    }
   }
 
   return (
@@ -72,20 +92,54 @@ export function SiteHeader({ subpage = false }) {
           </nav>
         ) : null}
         <div className="header-actions">
-          <Link className="text-link-button" to="/login">
-            로그인
-          </Link>
-          <Link className="text-link-button" to="/signup">
-            회원가입
-          </Link>
-          <Link className="text-link-button" to="/cart">
-            장바구니
-          </Link>
           {currentUser ? (
-            <Link className="text-link-button" to="/mypage">
-              마이페이지
-            </Link>
-          ) : null}
+            <>
+              <Link className="text-link-button user-greeting-link" to="/mypage">
+                {currentUser.name}님
+              </Link>
+              {isAdminUser(currentUser) ? (
+                <button
+                  className={`text-link-button admin-page-edit-button${adminPageEditMode ? " active" : ""}`}
+                  type="button"
+                  onClick={() => setAdminPageEditMode((current) => !current)}
+                >
+                  {adminPageEditMode ? "페이지수정 ON" : "페이지수정"}
+                </button>
+              ) : null}
+              <button className="text-link-button" type="button" onClick={handleLogout}>
+                로그아웃
+              </button>
+            </>
+          ) : (
+            <>
+              <Link className="text-link-button" to="/login">
+                로그인
+              </Link>
+              <Link className="text-link-button" to="/signup">
+                회원가입
+              </Link>
+            </>
+          )}
+          <Link
+            className="cart-header-link"
+            to="/cart"
+            aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}
+            title="장바구니"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="cart-header-icon">
+              <path
+                d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="10" cy="19" r="1.2" />
+              <circle cx="17" cy="19" r="1.2" />
+            </svg>
+            {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
+          </Link>
         </div>
       </header>
 

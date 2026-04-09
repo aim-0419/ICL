@@ -1,5 +1,9 @@
 import * as productsService from "./products.service.js";
 
-export function getProducts(req, res) {
-  res.json(productsService.listProducts());
+export async function getProducts(req, res, next) {
+  try {
+    res.json(await productsService.listProducts());
+  } catch (error) {
+    next(error);
+  }
 }

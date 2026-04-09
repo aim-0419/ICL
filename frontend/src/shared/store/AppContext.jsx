@@ -1,38 +1,45 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { apiRequest } from "../api/client.js";
+import { ACADEMY_VIDEOS } from "../../features/academy/data/academyVideos.js";
 
 const AppContext = createContext(null);
 
-const PRODUCTS = {
-  starter: {
+const DEFAULT_PRODUCTS = [
+  {
     id: "starter",
     name: "Starter Guide Pack",
     price: 129000,
-    description: "기초 해부학, 자세 분석, 수업 도입 스크립트를 담은 입문 패키지",
+    description: "입문자를 위한 필라테스 기본 가이드",
     period: "90일",
   },
-  cueing: {
+  {
     id: "cueing",
     name: "Cueing & Sequencing Master",
     price: 219000,
-    description: "회원 반응을 끌어내는 큐잉 언어와 시퀀스 설계 노하우 집중 과정",
+    description: "실전 코칭 큐잉과 시퀀싱 심화 과정",
     period: "180일",
   },
-  premium: {
+  {
     id: "premium",
     name: "Premium Academy Bundle",
     price: 349000,
-    description: "강사 교육, 회원 상담, 스튜디오 운영 가이드를 한 번에 묶은 통합 번들",
+    description: "강사 교육 + 운영 가이드를 묶은 통합 번들",
     period: "365일",
   },
-};
+];
 
-function readJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
+const DEFAULT_VIDEO_PRODUCTS = ACADEMY_VIDEOS.map((video) => ({
+  id: video.productId || video.id,
+  name: video.title,
+  price: Number(video.salePrice || 0),
+  description: `${video.instructor} · ${video.category}`,
+  period: "온라인 수강",
+}));
+
+const FALLBACK_PRODUCT_MAP = toProductMap([...DEFAULT_PRODUCTS, ...DEFAULT_VIDEO_PRODUCTS]);
+
+function toProductMap(products) {
+  return Object.fromEntries(products.map((item) => [item.id, item]));
 }
 
 function formatCurrency(amount) {
@@ -44,116 +51,255 @@ function formatCurrency(amount) {
 }
 
 export function AppProvider({ children }) {
-  const [users, setUsers] = useState(() => readJson("pilates-users", []));
-  const [currentUser, setCurrentUser] = useState(() => readJson("pilates-current-user", null));
-  const [cart, setCart] = useState(() => readJson("pilates-cart", []));
-  const [orders, setOrders] = useState(() => readJson("pilates-orders", []));
+  const [products, setProducts] = useState(() => FALLBACK_PRODUCT_MAP);
+  const [users] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [adminPageEditMode, setAdminPageEditMode] = useState(false);
+  const [isAuthResolved, setIsAuthResolved] = useState(false);
+  const [cart, setCart] = useState([]);
+  const [orders, setOrders] = useState([]);
 
-  useEffect(() => {
-    localStorage.setItem("pilates-users", JSON.stringify(users));
-  }, [users]);
+  async function refreshProducts() {
+    const rows = await apiRequest("/products");
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    setProducts(toProductMap([...DEFAULT_PRODUCTS, ...DEFAULT_VIDEO_PRODUCTS, ...rows]));
+  }
 
-  useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem("pilates-current-user", JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem("pilates-current-user");
+  async function refreshCart(userId = currentUser?.id) {
+    if (!userId) {
+      setCart([]);
+      return;
     }
-  }, [currentUser]);
+
+    const result = await apiRequest(`/cart?userId=${encodeURIComponent(userId)}`);
+    setCart(Array.isArray(result?.items) ? result.items : []);
+  }
+
+  async function refreshOrders(customerEmail = currentUser?.email) {
+    if (!customerEmail) {
+      setOrders([]);
+      return;
+    }
+
+    const rows = await apiRequest(`/orders?email=${encodeURIComponent(customerEmail)}`);
+    setOrders(Array.isArray(rows) ? rows : []);
+  }
 
   useEffect(() => {
-    localStorage.setItem("pilates-cart", JSON.stringify(cart));
-  }, [cart]);
+    refreshProducts().catch((error) => {
+      console.error("[products] load failed", error);
+    });
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem("pilates-orders", JSON.stringify(orders));
-  }, [orders]);
+    let mounted = true;
 
-  function addToCart(productId, quantity = 1) {
-    setCart((current) => {
-      const next = [...current];
-      const existing = next.find((item) => item.productId === productId);
-      if (existing) {
-        existing.quantity += quantity;
-      } else {
-        next.push({ productId, quantity });
+    async function restoreSession() {
+      try {
+        const result = await apiRequest("/auth/me");
+        if (!mounted) return;
+        setCurrentUser(result?.user || null);
+      } catch {
+        if (!mounted) return;
+        setCurrentUser(null);
+      } finally {
+        if (mounted) setIsAuthResolved(true);
       }
-      return next;
+    }
+
+    restoreSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser?.id || !currentUser?.email) {
+      setCart([]);
+      setOrders([]);
+      setAdminPageEditMode(false);
+      return;
+    }
+
+    Promise.all([refreshCart(currentUser.id), refreshOrders(currentUser.email)]).catch((error) => {
+      console.error("[store] user data load failed", error);
+    });
+  }, [currentUser?.id, currentUser?.email]);
+
+  async function signupUser(payload) {
+    const result = await apiRequest("/auth/signup", {
+      method: "POST",
+      body: payload,
+    });
+
+    const authenticatedUser = { ...(result.user || {}) };
+    setCurrentUser(authenticatedUser);
+    return authenticatedUser;
+  }
+
+  async function loginUser(loginId, password) {
+    const result = await apiRequest("/auth/login", {
+      method: "POST",
+      body: { loginId, password },
+    });
+
+    const authenticatedUser = { ...(result.user || {}) };
+    setCurrentUser(authenticatedUser);
+    return authenticatedUser;
+  }
+
+  async function findUserLoginId(name, phone) {
+    const result = await apiRequest("/auth/find-id", {
+      method: "POST",
+      body: { name, phone },
+    });
+    return String(result?.loginId || "");
+  }
+
+  async function resetUserPassword({ loginId, name, phone, newPassword }) {
+    return apiRequest("/auth/reset-password", {
+      method: "POST",
+      body: { loginId, name, phone, newPassword },
     });
   }
 
-  function updateCartItem(productId, quantity) {
-    setCart((current) =>
-      current
-        .map((item) => (item.productId === productId ? { ...item, quantity } : item))
-        .filter((item) => item.quantity > 0)
+  async function requestEmailVerification(email) {
+    return apiRequest("/users/me/email-verification/request", {
+      method: "POST",
+      body: { email },
+    });
+  }
+
+  async function confirmEmailVerification(email, code) {
+    return apiRequest("/users/me/email-verification/confirm", {
+      method: "POST",
+      body: { email, code },
+    });
+  }
+
+  async function updateMyProfile(payload) {
+    const result = await apiRequest("/users/me", {
+      method: "PATCH",
+      body: payload,
+    });
+    const updatedUser = { ...(result?.user || {}) };
+    setCurrentUser(updatedUser);
+    await Promise.all([refreshCart(updatedUser.id), refreshOrders(updatedUser.email)]);
+    return updatedUser;
+  }
+
+  async function logoutUser() {
+    try {
+      await apiRequest("/auth/logout", { method: "POST" });
+    } catch {
+      // 로그아웃 API 실패 시에도 클라이언트 상태는 비웁니다.
+    } finally {
+      setCurrentUser(null);
+      setCart([]);
+      setOrders([]);
+      setAdminPageEditMode(false);
+    }
+  }
+
+  async function addToCart(productId, quantity = 1) {
+    if (!currentUser?.id) {
+      throw new Error("장바구니는 로그인 후 이용 가능합니다.");
+    }
+
+    const result = await apiRequest(`/cart/items?userId=${encodeURIComponent(currentUser.id)}`, {
+      method: "POST",
+      body: { productId, quantity },
+    });
+    setCart(Array.isArray(result?.items) ? result.items : []);
+    return result;
+  }
+
+  async function updateCartItem(productId, quantity) {
+    if (!currentUser?.id) {
+      throw new Error("장바구니 수정은 로그인 후 이용 가능합니다.");
+    }
+
+    const result = await apiRequest(
+      `/cart/items/${encodeURIComponent(productId)}?userId=${encodeURIComponent(currentUser.id)}`,
+      {
+        method: "PUT",
+        body: { quantity },
+      }
     );
+    setCart(Array.isArray(result?.items) ? result.items : []);
+    return result;
   }
 
-  function removeCartItem(productId) {
-    setCart((current) => current.filter((item) => item.productId !== productId));
-  }
-
-  function signupUser(payload) {
-    if (users.some((user) => user.email === payload.email)) {
-      throw new Error("이미 가입된 이메일입니다.");
+  async function removeCartItem(productId) {
+    if (!currentUser?.id) {
+      throw new Error("장바구니 삭제는 로그인 후 이용 가능합니다.");
     }
 
-    const user = {
-      id: `user-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      ...payload,
-    };
-
-    setUsers((current) => [user, ...current]);
-    setCurrentUser(user);
-    return user;
+    const result = await apiRequest(
+      `/cart/items/${encodeURIComponent(productId)}?userId=${encodeURIComponent(currentUser.id)}`,
+      {
+        method: "DELETE",
+      }
+    );
+    setCart(Array.isArray(result?.items) ? result.items : []);
+    return result;
   }
 
-  function loginUser(email, password) {
-    const user = users.find((item) => item.email === email && item.password === password);
-    if (!user) {
-      throw new Error("이메일 또는 비밀번호를 확인해주세요.");
-    }
-    setCurrentUser(user);
-    return user;
-  }
+  async function persistOrder(order) {
+    const createdOrder = await apiRequest("/orders", {
+      method: "POST",
+      body: order,
+    });
 
-  function logoutUser() {
-    setCurrentUser(null);
-  }
-
-  function persistOrder(order) {
-    setOrders((current) => [order, ...current].slice(0, 20));
+    await refreshOrders(order?.customerEmail || currentUser?.email || "");
+    return createdOrder;
   }
 
   function buildOrderId() {
-    return `pilates-${Date.now()}`;
+    return `pilates-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  const cartDetailed = cart
-    .map((item) => {
-      const product = PRODUCTS[item.productId];
-      if (!product) {
-        return null;
-      }
+  const cartDetailed = useMemo(
+    () =>
+      cart
+        .map((item) => {
+          const product = products[item.productId] || FALLBACK_PRODUCT_MAP[item.productId];
+          if (!product) {
+            return {
+              ...item,
+              product: {
+                id: item.productId,
+                name: "상품 정보 확인 중",
+                price: 0,
+                description: "상품 정보를 불러오는 중입니다.",
+                period: "-",
+              },
+              lineTotal: 0,
+            };
+          }
 
-      return {
-        ...item,
-        product,
-        lineTotal: product.price * item.quantity,
-      };
-    })
-    .filter(Boolean);
+          return {
+            ...item,
+            product,
+            lineTotal: Number(product.price || 0) * Number(item.quantity || 0),
+          };
+        })
+        .filter(Boolean),
+    [cart, products]
+  );
 
   const cartTotal = cartDetailed.reduce((sum, item) => sum + item.lineTotal, 0);
 
   return (
     <AppContext.Provider
       value={{
-        products: PRODUCTS,
+        products,
         users,
         currentUser,
+        adminPageEditMode,
+        setAdminPageEditMode,
+        isAuthResolved,
         cart,
         cartDetailed,
         cartTotal,
@@ -164,7 +310,14 @@ export function AppProvider({ children }) {
         removeCartItem,
         signupUser,
         loginUser,
+        findUserLoginId,
+        resetUserPassword,
+        requestEmailVerification,
+        confirmEmailVerification,
+        updateMyProfile,
         logoutUser,
+        refreshCart,
+        refreshOrders,
         persistOrder,
         buildOrderId,
       }}

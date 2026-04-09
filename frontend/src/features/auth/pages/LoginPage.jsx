@@ -1,24 +1,19 @@
-// 로그인 페이지:
-// 이메일/비밀번호 인증 후 이전 페이지(state.from) 또는 마이페이지로 이동합니다.
 import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const store = useAppStore();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ loginId: "", password: "" });
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     try {
-      // 공백 입력으로 인한 로그인 실패를 줄이기 위해 trim 적용
-      store.loginUser(form.email.trim(), form.password.trim());
-      alert("로그인되었습니다.");
-      navigate(location.state?.from || "/mypage");
+      await store.loginUser(form.loginId.trim(), form.password.trim());
+      navigate("/");
     } catch (error) {
       alert(error.message);
     }
@@ -38,12 +33,15 @@ export function LoginPage() {
           </p>
           <form className="auth-form" onSubmit={handleSubmit}>
             <label>
-              이메일
+              아이디
               <input
-                type="email"
+                type="text"
                 required
-                value={form.email}
-                onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                autoComplete="username"
+                value={form.loginId}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, loginId: event.target.value }))
+                }
               />
             </label>
             <label>
@@ -51,6 +49,7 @@ export function LoginPage() {
               <input
                 type="password"
                 required
+                autoComplete="current-password"
                 value={form.password}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, password: event.target.value }))
@@ -61,6 +60,11 @@ export function LoginPage() {
               로그인
             </button>
           </form>
+          <div className="auth-sub-links">
+            <Link to="/find-id">아이디 찾기</Link>
+            <span aria-hidden="true">|</span>
+            <Link to="/reset-password">비밀번호 찾기</Link>
+          </div>
           <p className="section-text login-signup-cta">
             아직 계정이 없으신가요?
             <Link className="login-signup-link" to="/signup">

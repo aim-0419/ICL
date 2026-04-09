@@ -5,8 +5,12 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAppStore } from "../store/AppContext.jsx";
 
 export function RequireAuth({ children }) {
-  const { currentUser } = useAppStore();
+  const { currentUser, isAuthResolved } = useAppStore();
   const location = useLocation();
+
+  if (!isAuthResolved) {
+    return null;
+  }
 
   if (!currentUser) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;

@@ -158,7 +158,7 @@ export function HomePage() {
                 <span>special feature 01.</span>
                 <h3>프리미엄 무드의 브랜딩</h3>
                 <p>
-                  차분한 아이보리와 골드 포인트를 바탕으로 고급스러운 첫인상을 전달합니다.
+                  차분한 아이보리와 골드 포인트를 바탕으로 고급스러운 첫인상을 전달합니다.<br></br>
                   상담 문의 전환에 유리한 구조를 고려했습니다.
                 </p>
               </article>
@@ -167,8 +167,7 @@ export function HomePage() {
                 <span>special feature 02.</span>
                 <h3>오프라인과 온라인의 결합</h3>
                 <p>
-                  스튜디오 소개뿐 아니라 교육 가이드 영상 판매까지 같은 브랜드 경험 안에서
-                  이어지도록 설계했습니다.
+                  스튜디오 소개뿐 아니라 교육 가이드 영상 판매까지 같은 브랜드 경험 안에서 이어지도록 설계했습니다.
                 </p>
               </article>
 
@@ -184,7 +183,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="status-panel section-block">
+        <section className="status-panel section-block" data-admin-bg-editable>
           <div className="section-intro center on-dark">
             <div className="section-star">✳</div>
             <p className="section-kicker">Brand Status</p>
@@ -272,10 +271,14 @@ export function HomePage() {
                       <button
                         type="button"
                         className="ghost-button small-ghost academy-video-cart-button"
-                        onClick={(event) => {
+                        onClick={async (event) => {
                           event.stopPropagation();
-                          store.addToCart(video.productId, 1);
-                          alert("장바구니에 담았습니다.");
+                          try {
+                            await store.addToCart(video.productId, 1);
+                            alert("장바구니에 담았습니다.");
+                          } catch (error) {
+                            alert(error.message);
+                          }
                         }}
                       >
                         장바구니 담기

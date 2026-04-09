@@ -1,5 +1,3 @@
-// 회원가입 페이지:
-// 필수 정보 + 필수 약관 동의가 충족될 때만 가입을 완료합니다.
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
@@ -9,6 +7,7 @@ export function SignupPage() {
   const navigate = useNavigate();
   const store = useAppStore();
   const [form, setForm] = useState({
+    loginId: "",
     name: "",
     email: "",
     password: "",
@@ -26,6 +25,7 @@ export function SignupPage() {
   const requiredAgree = agreements.service && agreements.privacy && agreements.age;
 
   const canSubmit =
+    form.loginId.trim() &&
     form.name.trim() &&
     form.email.trim() &&
     form.phone.trim() &&
@@ -39,7 +39,6 @@ export function SignupPage() {
   }
 
   function toggleAllAgreement() {
-    // "전체 동의"를 누르면 모든 약관 체크를 동일 상태로 맞춥니다.
     const next = !allAgree;
     setAgreements({
       service: next,
@@ -50,16 +49,15 @@ export function SignupPage() {
   }
 
   function handleViewDetail() {
-    alert("약관 상세 내용은 다음 단계에서 연결 예정입니다.");
+    alert("동의 상세 내용은 다음 단계에서 연결 예정입니다.");
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     try {
-      // 필수 약관/비밀번호 검증은 UI 비활성화와 별도로 한 번 더 안전하게 검사
       if (!requiredAgree) {
-        alert("필수 약관에 동의해주세요.");
+        alert("필수 약관에 동의해 주세요.");
         return;
       }
 
@@ -68,7 +66,8 @@ export function SignupPage() {
         return;
       }
 
-      store.signupUser({
+      await store.signupUser({
+        loginId: form.loginId.trim(),
         name: form.name.trim(),
         email: form.email.trim(),
         password: form.password.trim(),
@@ -98,10 +97,23 @@ export function SignupPage() {
 
           <form className="auth-form signup-form-shell" onSubmit={handleSubmit}>
             <label>
+              아이디
+              <input
+                type="text"
+                placeholder="영문/숫자 조합 아이디를 입력해 주세요."
+                required
+                value={form.loginId}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, loginId: event.target.value }))
+                }
+              />
+            </label>
+
+            <label>
               이름
               <input
                 type="text"
-                placeholder="한글로 공백 없이 입력해주세요."
+                placeholder="한글로 공백 없이 입력해 주세요."
                 required
                 value={form.name}
                 onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
@@ -131,7 +143,7 @@ export function SignupPage() {
               <input
                 type="tel"
                 required
-                placeholder="- 없이 숫자만 입력해주세요."
+                placeholder="- 없이 숫자만 입력해 주세요."
                 value={form.phone}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -147,7 +159,7 @@ export function SignupPage() {
               <input
                 type="password"
                 required
-                placeholder="비밀번호를 입력해주세요."
+                placeholder="비밀번호를 입력해 주세요."
                 value={form.password}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, password: event.target.value }))
@@ -160,7 +172,7 @@ export function SignupPage() {
               <input
                 type="password"
                 required
-                placeholder="비밀번호를 다시 입력해주세요."
+                placeholder="비밀번호를 다시 입력해 주세요."
                 value={form.passwordConfirm}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, passwordConfirm: event.target.value }))

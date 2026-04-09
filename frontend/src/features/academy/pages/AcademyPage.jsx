@@ -109,10 +109,14 @@ export function AcademyPage() {
                       <button
                         type="button"
                         className="ghost-button small-ghost academy-video-cart-button"
-                        onClick={(event) => {
+                        onClick={async (event) => {
                           event.stopPropagation();
-                          store.addToCart(video.productId, 1);
-                          alert("장바구니에 담았습니다.");
+                          try {
+                            await store.addToCart(video.productId, 1);
+                            alert("장바구니에 담았습니다.");
+                          } catch (error) {
+                            alert(error.message);
+                          }
                         }}
                       >
                         장바구니 담기

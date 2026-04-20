@@ -1,7 +1,10 @@
 // 전역 라우팅 테이블:
 // 페이지 URL과 화면 컴포넌트 매핑을 한 곳에서 관리합니다.
 import { Navigate, Route, Routes } from "react-router-dom";
+// 서비스 전체 페이지 라우팅을 한곳에서 관리한다.
+// 보호가 필요한 화면은 RequireAuth / RequireAdminStaff로 감싸 권한을 제어한다.
 import { RequireAuth } from "../shared/components/RequireAuth.jsx";
+import { RequireAdminStaff } from "../shared/components/RequireAdminStaff.jsx";
 import { SiteFooter } from "../shared/components/SiteFooter.jsx";
 import { AdminImageEditor } from "../shared/components/AdminImageEditor.jsx";
 import { HomePage } from "../features/home/pages/HomePage.jsx";
@@ -11,6 +14,8 @@ import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage.jsx"
 import { SignupPage } from "../features/auth/pages/SignupPage.jsx";
 import { CartPage } from "../features/cart/pages/CartPage.jsx";
 import { MyPage } from "../features/mypage/pages/MyPage.jsx";
+import { AdminDashboardPage } from "../features/admin/pages/AdminDashboardPage.jsx";
+import { AdminSalesDashboardPage } from "../features/admin/pages/AdminSalesDashboardPage.jsx";
 import { AcademyPage } from "../features/academy/pages/AcademyPage.jsx";
 import { AcademyDetailPage } from "../features/academy/pages/AcademyDetailPage.jsx";
 import { AcademyPlayerPage } from "../features/academy/pages/AcademyPlayerPage.jsx";
@@ -78,6 +83,22 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route
+          path="/admin"
+          element={
+            <RequireAdminStaff>
+              <AdminSalesDashboardPage />
+            </RequireAdminStaff>
+          }
+        />
+        <Route
+          path="/admin/members"
+          element={
+            <RequireAdminStaff>
+              <AdminDashboardPage />
+            </RequireAdminStaff>
+          }
+        />
 
         {/* 결제 결과 페이지 */}
         <Route path="/success" element={<SuccessPage />} />
@@ -86,6 +107,7 @@ export default function App() {
         {/* 존재하지 않는 경로는 홈으로 리다이렉트 */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      {/* 관리자0이 켠 페이지 수정 모드는 모든 페이지에서 공통으로 동작한다. */}
       <AdminImageEditor />
       <SiteFooter />
     </>

@@ -1,18 +1,13 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAppStore } from "../store/AppContext.jsx";
+import { canEditPage } from "../auth/userRoles.js";
 
+// 관리자0의 페이지 수정 기능은 서버 저장이 아니라 브라우저 localStorage 기반으로 동작한다.
 const IMAGE_STORAGE_KEY = "icl_admin_image_overrides_v1";
 const TEXT_STORAGE_KEY = "icl_admin_text_overrides_v1";
 const EDITABLE_IMAGE_SELECTOR = "img, [role='img'], .staff-image-slot, [data-admin-bg-editable]";
 const EDITABLE_TEXT_SELECTOR = "h1, h2, h3, p, span, strong, em, small, li, label, time, dt, dd";
-
-function isAdminUser(user) {
-  if (!user) return false;
-  const normalizedRole = String(user.role || "").toLowerCase();
-  const adminFlag = user.isAdmin === true || user.isAdmin === 1 || user.isAdmin === "1";
-  return normalizedRole === "admin" || adminFlag || user.email === "admin@iclpilates.com";
-}
 
 function readOverrides(storageKey) {
   if (typeof window === "undefined") return {};
@@ -37,6 +32,7 @@ function saveOverrides(storageKey, nextOverrides) {
   }
 }
 
+// DOM 위치를 기준으로 요소를 식별해 페이지별 수정 내용을 다시 적용한다.
 function getDomPathSignature(element) {
   const path = [];
   let current = element;
@@ -61,6 +57,7 @@ function getEditableElementKey(element, pathname) {
   return element.dataset.adminEditKey;
 }
 
+// 원본 이미지를 기억해 두면 관리자 초기화 버튼으로 쉽게 복원할 수 있다.
 function rememberOriginalImageValue(element) {
   if (element.dataset.adminImageOriginalSaved === "true") return;
 
@@ -110,6 +107,7 @@ function restoreOriginalImageValue(element) {
   element.dataset.adminImageCustomized = "false";
 }
 
+// 텍스트 편집도 같은 방식으로 원본 값과 줄바꿈 스타일을 보존한다.
 function rememberOriginalTextValue(element) {
   if (element.dataset.adminTextOriginalSaved === "true") return;
   element.dataset.adminTextOriginalValue = element.textContent || "";
@@ -145,6 +143,7 @@ function restoreOriginalTextValue(element) {
   element.dataset.adminTextCustomized = "false";
 }
 
+// 텍스트는 선택 후 클릭, 이미지는 더블클릭으로 편집 대상을 찾는다.
 function findEditableImageTarget(eventTarget) {
   if (!(eventTarget instanceof Element)) return null;
   if (eventTarget.closest(".admin-image-editor-panel")) return null;
@@ -207,10 +206,11 @@ function insertLineBreakAtCaret(container) {
   selection.addRange(range);
 }
 
+// 이 컴포넌트는 모든 페이지에 떠 있지만, 관리자0 + 페이지 수정 활성화 상태에서만 동작한다.
 export function AdminImageEditor() {
   const { currentUser, adminPageEditMode, setAdminPageEditMode } = useAppStore();
   const location = useLocation();
-  const isAdmin = useMemo(() => isAdminUser(currentUser), [currentUser]);
+  const isAdmin = useMemo(() => canEditPage(currentUser), [currentUser]);
 
   const [imageOverrides, setImageOverrides] = useState(() => readOverrides(IMAGE_STORAGE_KEY));
   const [textOverrides, setTextOverrides] = useState(() => readOverrides(TEXT_STORAGE_KEY));
@@ -244,6 +244,7 @@ export function AdminImageEditor() {
     isInlineTextEditingRef.current = isInlineTextEditing;
   }, [isInlineTextEditing]);
 
+  // 인라인 편집 종료 시 현재 DOM 값과 저장소 값을 함께 정리한다.
   const finishInlineTextEditing = useCallback(
     (save = true) => {
       const session = textSessionRef.current;
@@ -298,6 +299,7 @@ export function AdminImageEditor() {
     setPanelPosition(null);
   }, [finishInlineTextEditing]);
 
+  // 편집 패널이 대상 요소를 가리지 않도록 타입별로 위치를 계산한다.
   const updatePanelPosition = useCallback(() => {
     const target = activeElementRef.current;
     if (!target || !document.body.contains(target)) {
@@ -330,6 +332,7 @@ export function AdminImageEditor() {
     setPanelPosition({ top, left });
   }, [clearActiveTarget]);
 
+  // 텍스트는 contentEditable 기반으로 즉시 수정하고, Ctrl/Cmd + Enter로 저장한다.
   const startInlineTextEditing = useCallback(
     (target) => {
       if (!(target instanceof HTMLElement)) return;
@@ -387,6 +390,7 @@ export function AdminImageEditor() {
     [finishInlineTextEditing, updatePanelPosition]
   );
 
+  // 화면이 다시 렌더링되거나 라우트가 바뀌어도 저장된 덮어쓰기 값을 재적용한다.
   const applyOverridesToPage = useCallback(() => {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
@@ -475,6 +479,7 @@ export function AdminImageEditor() {
   useEffect(() => {
     if (!isAdmin || !adminPageEditMode) return undefined;
 
+    // DOM 변경을 감시해 동적으로 렌더링된 요소에도 편집 상태를 다시 붙인다.
     const mutationObserver = new MutationObserver(() => {
       applyOverridesToPage();
     });

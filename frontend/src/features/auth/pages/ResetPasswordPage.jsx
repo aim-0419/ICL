@@ -41,7 +41,7 @@ export function ResetPasswordPage() {
       <SiteHeader subpage />
       <main className="auth-page">
         <section className="auth-card">
-          <p className="section-kicker">Reset Password</p>
+          <p className="section-kicker">비밀번호 재설정</p>
           <h1>비밀번호 찾기</h1>
           <p className="section-text">아이디, 이름, 휴대폰 번호를 확인한 뒤 새 비밀번호를 설정합니다.</p>
           <form className="auth-form" onSubmit={handleSubmit}>

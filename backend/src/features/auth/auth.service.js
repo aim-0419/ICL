@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../shared/db/mysql.js";
 
+// 로그인 성공 시 세션 테이블에 토큰을 저장해 쿠키 기반 인증을 유지한다.
 async function createSession(userId) {
   const token = `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   await query(
@@ -17,10 +18,24 @@ function normalizePhone(value) {
     .trim();
 }
 
+function normalizeBirthYear(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+
+  const year = Number.parseInt(text, 10);
+  const currentYear = new Date().getFullYear();
+  if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
+    return null;
+  }
+
+  return year;
+}
+
 export async function deleteSession(token) {
   await query(`DELETE FROM sessions WHERE token = ?`, [token]);
 }
 
+// 세션 토큰으로 현재 로그인한 사용자의 공개 정보를 복원한다.
 export async function findUserBySessionToken(token) {
   if (!token) return null;
 
@@ -33,6 +48,8 @@ export async function findUserBySessionToken(token) {
       u.phone,
       u.role,
       u.is_admin AS isAdmin,
+      u.user_grade AS userGrade,
+      u.birth_year AS birthYear,
       u.created_at AS createdAt
      FROM sessions s
      JOIN users u ON u.id = s.user_id
@@ -42,12 +59,14 @@ export async function findUserBySessionToken(token) {
   );
 }
 
+// 회원가입은 중복 이메일/아이디를 검증한 뒤 즉시 로그인 상태까지 만든다.
 export async function signup(payload) {
   const loginId = String(payload.loginId || "").trim();
   const name = String(payload.name || "").trim();
   const email = String(payload.email || "").trim().toLowerCase();
   const phone = normalizePhone(payload.phone);
   const password = String(payload.password || "").trim();
+  const birthYear = normalizeBirthYear(payload.birthYear);
 
   if (!loginId || !name || !email || !password) {
     const error = new Error("필수 정보를 모두 입력해 주세요.");
@@ -76,12 +95,13 @@ export async function signup(payload) {
     email,
     password,
     phone,
+    birthYear,
   };
 
   await query(
-    `INSERT INTO users (id, login_id, name, email, password, phone, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-    [user.id, user.loginId, user.name, user.email, user.password, user.phone || null]
+    `INSERT INTO users (id, login_id, name, email, password, phone, birth_year, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [user.id, user.loginId, user.name, user.email, user.password, user.phone || null, user.birthYear]
   );
 
   const created = await queryOne(
@@ -93,6 +113,8 @@ export async function signup(payload) {
       phone,
       role,
       is_admin AS isAdmin,
+      user_grade AS userGrade,
+      birth_year AS birthYear,
       created_at AS createdAt
      FROM users
      WHERE id = ?`,
@@ -103,6 +125,7 @@ export async function signup(payload) {
   return { user: created, token };
 }
 
+// 현재 구조는 비밀번호 해시가 아니라 DB 평문 비교를 사용한다.
 export async function login(payload) {
   const loginId = String(payload.loginId || "").trim();
   const password = String(payload.password || "").trim();
@@ -122,6 +145,8 @@ export async function login(payload) {
       phone,
       role,
       is_admin AS isAdmin,
+      user_grade AS userGrade,
+      birth_year AS birthYear,
       created_at AS createdAt
      FROM users
      WHERE login_id = ? AND password = ?
@@ -139,6 +164,7 @@ export async function login(payload) {
   return { user, token };
 }
 
+// 아이디 찾기는 이름 + 전화번호 조합으로 조회한다.
 export async function findLoginId(payload) {
   const name = String(payload.name || "").trim();
   const phone = normalizePhone(payload.phone);
@@ -166,6 +192,7 @@ export async function findLoginId(payload) {
   return user.loginId;
 }
 
+// 비밀번호 재설정은 본인 확인 후 새 비밀번호로 바로 업데이트한다.
 export async function resetPassword(payload) {
   const loginId = String(payload.loginId || "").trim();
   const name = String(payload.name || "").trim();

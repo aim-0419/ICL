@@ -10,9 +10,32 @@ function normalizePhone(value) {
     .trim();
 }
 
+function normalizeBirthYear(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+
+  const year = Number.parseInt(text, 10);
+  const currentYear = new Date().getFullYear();
+  if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
+    return null;
+  }
+
+  return year;
+}
+
 export async function listUsers() {
   const rows = await query(
-    `SELECT id, login_id AS loginId, name, email, phone, role, is_admin AS isAdmin, created_at AS createdAt
+    `SELECT
+      id,
+      login_id AS loginId,
+      name,
+      email,
+      phone,
+      role,
+      is_admin AS isAdmin,
+      user_grade AS userGrade,
+      birth_year AS birthYear,
+      created_at AS createdAt
      FROM users
      ORDER BY created_at DESC`
   );
@@ -27,15 +50,17 @@ export async function updateMyProfile(userId, payload) {
     .toLowerCase();
   const phone = normalizePhone(payload.phone);
   const newPassword = String(payload.newPassword || "").trim();
+  const hasBirthYearInput = Object.prototype.hasOwnProperty.call(payload || {}, "birthYear");
+  const birthYear = normalizeBirthYear(payload?.birthYear);
 
   if (!currentPassword) {
-    const error = new Error("정보 수정을 위해 현재 비밀번호를 입력해 주세요.");
+    const error = new Error("?�보 ?�정???�해 ?�재 비�?번호�??�력??주세??");
     error.status = 400;
     throw error;
   }
 
   const existing = await queryOne(
-    `SELECT id, login_id AS loginId, name, email, phone, password
+    `SELECT id, login_id AS loginId, name, email, phone, password, birth_year AS birthYear
      FROM users
      WHERE id = ?
      LIMIT 1`,
@@ -43,14 +68,20 @@ export async function updateMyProfile(userId, payload) {
   );
 
   if (!existing) {
-    const error = new Error("회원 정보를 찾을 수 없습니다.");
+    const error = new Error("?�원 ?�보�?찾을 ???�습?�다.");
     error.status = 404;
     throw error;
   }
 
   if (existing.password !== currentPassword) {
-    const error = new Error("현재 비밀번호가 일치하지 않습니다.");
+    const error = new Error("?�재 비�?번호가 ?�치?��? ?�습?�다.");
     error.status = 401;
+    throw error;
+  }
+
+  if (hasBirthYearInput && String(payload?.birthYear ?? "").trim() && birthYear === null) {
+    const error = new Error("Birth year must be a 4-digit number.");
+    error.status = 400;
     throw error;
   }
 
@@ -58,10 +89,11 @@ export async function updateMyProfile(userId, payload) {
   const nextEmail = email || existing.email;
   const nextPhone = phone || existing.phone || null;
   const nextPassword = newPassword || existing.password;
+  const nextBirthYear = hasBirthYearInput ? birthYear : existing.birthYear ?? null;
   const isEmailChanged = nextEmail !== existing.email;
 
   if (!nextLoginId || !nextEmail) {
-    const error = new Error("아이디와 이메일은 비워둘 수 없습니다.");
+    const error = new Error("?�이?��? ?�메?��? 비워?????�습?�다.");
     error.status = 400;
     throw error;
   }
@@ -71,7 +103,7 @@ export async function updateMyProfile(userId, payload) {
     [nextLoginId, userId]
   );
   if (duplicatedLoginId) {
-    const error = new Error("이미 사용 중인 아이디입니다.");
+    const error = new Error("?��? ?�용 중인 ?�이?�입?�다.");
     error.status = 409;
     throw error;
   }
@@ -81,7 +113,7 @@ export async function updateMyProfile(userId, payload) {
     userId,
   ]);
   if (duplicatedEmail) {
-    const error = new Error("이미 사용 중인 이메일입니다.");
+    const error = new Error("?��? ?�용 중인 ?�메?�입?�다.");
     error.status = 409;
     throw error;
   }
@@ -96,7 +128,7 @@ export async function updateMyProfile(userId, payload) {
       Number(verification.expiresAt || 0) >= now;
 
     if (!isVerified) {
-      const error = new Error("이메일 변경을 위해 인증번호 확인을 완료해 주세요.");
+      const error = new Error("?�메??변경을 ?�해 ?�증번호 ?�인???�료??주세??");
       error.status = 400;
       throw error;
     }
@@ -104,9 +136,9 @@ export async function updateMyProfile(userId, payload) {
 
   await query(
     `UPDATE users
-     SET login_id = ?, email = ?, phone = ?, password = ?
+     SET login_id = ?, email = ?, phone = ?, password = ?, birth_year = ?
      WHERE id = ?`,
-    [nextLoginId, nextEmail, nextPhone, nextPassword, userId]
+    [nextLoginId, nextEmail, nextPhone, nextPassword, nextBirthYear, userId]
   );
 
   if (isEmailChanged) {
@@ -122,6 +154,8 @@ export async function updateMyProfile(userId, payload) {
       phone,
       role,
       is_admin AS isAdmin,
+      user_grade AS userGrade,
+      birth_year AS birthYear,
       created_at AS createdAt
      FROM users
      WHERE id = ?
@@ -143,7 +177,7 @@ function generateVerificationCode() {
 export async function requestEmailVerificationCode(userId, email) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) {
-    const error = new Error("인증할 이메일을 입력해 주세요.");
+    const error = new Error("?�증???�메?�을 ?�력??주세??");
     error.status = 400;
     throw error;
   }
@@ -153,7 +187,7 @@ export async function requestEmailVerificationCode(userId, email) {
     [normalizedEmail, userId]
   );
   if (existingUser) {
-    const error = new Error("이미 사용 중인 이메일입니다.");
+    const error = new Error("?��? ?�용 중인 ?�메?�입?�다.");
     error.status = 409;
     throw error;
   }
@@ -187,27 +221,27 @@ export async function confirmEmailVerificationCode(userId, email, code) {
   const normalizedCode = String(code || "").trim();
 
   if (!normalizedEmail || !normalizedCode) {
-    const error = new Error("이메일과 인증번호를 모두 입력해 주세요.");
+    const error = new Error("?�메?�과 ?�증번호�?모두 ?�력??주세??");
     error.status = 400;
     throw error;
   }
 
   const saved = emailVerificationStore.get(userId);
   if (!saved || saved.email !== normalizedEmail) {
-    const error = new Error("인증 요청 이력이 없습니다. 인증번호를 다시 발송해 주세요.");
+    const error = new Error("?�증 ?�청 ?�력???�습?�다. ?�증번호�??�시 발송??주세??");
     error.status = 400;
     throw error;
   }
 
   if (Date.now() > Number(saved.expiresAt || 0)) {
     emailVerificationStore.delete(userId);
-    const error = new Error("인증번호가 만료되었습니다. 다시 발송해 주세요.");
+    const error = new Error("?�증번호가 만료?�었?�니?? ?�시 발송??주세??");
     error.status = 400;
     throw error;
   }
 
   if (saved.code !== normalizedCode) {
-    const error = new Error("인증번호가 일치하지 않습니다.");
+    const error = new Error("?�증번호가 ?�치?��? ?�습?�다.");
     error.status = 400;
     throw error;
   }
@@ -222,3 +256,4 @@ export async function confirmEmailVerificationCode(userId, email, code) {
     verified: true,
   };
 }
+

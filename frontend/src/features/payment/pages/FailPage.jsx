@@ -11,7 +11,7 @@ export function FailPage() {
       <main className="content-page payment-result-page">
         <section className="payment-result-card payment-result-fail">
           <div className="payment-result-copy">
-            <p className="section-kicker">Payment Failed</p>
+            <p className="section-kicker">결제 실패</p>
             <h2 className="payment-result-title-sm">결제가 완료되지 않았습니다.</h2>
             <p className="section-text">
               다시 시도하거나 다른 결제 수단으로 진행해 주세요.

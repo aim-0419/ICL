@@ -24,7 +24,7 @@ export function FindIdPage() {
       <SiteHeader subpage />
       <main className="auth-page">
         <section className="auth-card">
-          <p className="section-kicker">Find ID</p>
+          <p className="section-kicker">아이디 찾기</p>
           <h1>아이디 찾기</h1>
           <p className="section-text">이름과 휴대폰 번호를 입력하면 가입된 아이디를 확인할 수 있습니다.</p>
           <form className="auth-form" onSubmit={handleSubmit}>

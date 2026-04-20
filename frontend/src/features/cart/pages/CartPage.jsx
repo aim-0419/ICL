@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ACADEMY_VIDEOS } from "../../academy/data/academyVideos.js";
+import { resolveAcademyMediaUrl } from "../../academy/api/academyApi.js";
 import { requestExternalPayment } from "../../payment/lib/requestExternalPayment.js";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
@@ -34,8 +34,8 @@ const PAYMENT_METHODS = [
   },
 ];
 
-function getPreviewByProductId(productId) {
-  const video = ACADEMY_VIDEOS.find(
+function getPreviewByProductId(productId, academyVideos) {
+  const video = (Array.isArray(academyVideos) ? academyVideos : []).find(
     (item) => item.productId === productId || item.id === productId
   );
   if (!video) {
@@ -63,6 +63,7 @@ function toNumber(value) {
 export function CartPage() {
   const navigate = useNavigate();
   const store = useAppStore();
+  const academyVideos = Array.isArray(store.academyVideos) ? store.academyVideos : [];
   const [selectedProductIds, setSelectedProductIds] = useState([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("tosspay");
   const [pointInput, setPointInput] = useState("");
@@ -72,9 +73,9 @@ export function CartPage() {
     () =>
       store.cartDetailed.map((item) => ({
         ...item,
-        preview: getPreviewByProductId(item.productId),
+        preview: getPreviewByProductId(item.productId, academyVideos),
       })),
-    [store.cartDetailed]
+    [academyVideos, store.cartDetailed]
   );
 
   const cartProductIds = useMemo(() => cartItems.map((item) => item.productId), [cartItems]);
@@ -222,7 +223,7 @@ export function CartPage() {
       <SiteHeader subpage />
       <main className="dashboard-page cart-checkout-page">
         <section className="dashboard-hero cart-hero">
-          <p className="section-kicker">Cart Checkout</p>
+          <p className="section-kicker">장바구니 결제</p>
           <h1>장바구니</h1>
           <p className="section-text">상품 선택부터 결제수단 선택까지 한 번에 진행할 수 있습니다.</p>
         </section>
@@ -272,9 +273,9 @@ export function CartPage() {
                         </label>
                         <div className="checkout-item-thumb">
                           {item.preview.image ? (
-                            <img src={item.preview.image} alt={item.product.name} />
+                            <img src={resolveAcademyMediaUrl(item.preview.image)} alt={item.product.name} />
                           ) : (
-                            <span>NO IMAGE</span>
+                            <span>이미지 없음</span>
                           )}
                         </div>
                         <div className="checkout-item-copy">

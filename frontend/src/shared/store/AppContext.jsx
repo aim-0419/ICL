@@ -1,9 +1,20 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api/client.js";
-import { ACADEMY_VIDEOS } from "../../features/academy/data/academyVideos.js";
+import {
+  ACADEMY_VIDEOS,
+  getAcademyPlaybackSourceByVideoId,
+} from "../../features/academy/data/academyVideos.js";
+import {
+  listAcademyProgress,
+  listAcademyVideos,
+  saveAcademyChapterProgress as saveAcademyChapterProgressApi,
+  saveAcademyProgress as saveAcademyProgressApi,
+} from "../../features/academy/api/academyApi.js";
+import { canEditPage } from "../auth/userRoles.js";
 
 const AppContext = createContext(null);
 
+// 서버가 비어 있거나 로딩에 실패해도 화면이 최소한으로 동작하도록 사용하는 기본 상품 데이터다.
 const DEFAULT_PRODUCTS = [
   {
     id: "starter",
@@ -38,6 +49,12 @@ const DEFAULT_VIDEO_PRODUCTS = ACADEMY_VIDEOS.map((video) => ({
 
 const FALLBACK_PRODUCT_MAP = toProductMap([...DEFAULT_PRODUCTS, ...DEFAULT_VIDEO_PRODUCTS]);
 
+const DEFAULT_ACADEMY_VIDEOS = ACADEMY_VIDEOS.map((video) => ({
+  ...video,
+  productId: video.productId || video.id,
+  videoUrl: video.videoUrl || getAcademyPlaybackSourceByVideoId(video.id),
+}));
+
 function toProductMap(products) {
   return Object.fromEntries(products.map((item) => [item.id, item]));
 }
@@ -50,8 +67,58 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
+function normalizeProgressItem(item) {
+  const duration = Number(item?.duration || 0);
+  const currentTime = Number(item?.currentTime || 0);
+  const completed = Boolean(item?.completed);
+  const fallbackProgress =
+    duration > 0 ? Math.round((Math.max(0, Math.min(duration, currentTime)) / duration) * 100) : 0;
+  const progressPercent = Math.max(
+    0,
+    Math.min(100, Number(item?.progressPercent ?? fallbackProgress) || 0)
+  );
+
+  return {
+    videoId: String(item?.videoId || ""),
+    currentTime: Math.max(0, currentTime),
+    duration: Math.max(0, duration),
+    progressPercent,
+    completed,
+    lastWatchedAt: item?.lastWatchedAt || item?.updatedAt || item?.createdAt || "",
+  };
+}
+
+function normalizeChapterProgressItem(item) {
+  const duration = Number(item?.duration || 0);
+  const currentTime = Number(item?.currentTime || 0);
+  const completed = Boolean(item?.completed);
+  const fallbackProgress =
+    duration > 0 ? Math.round((Math.max(0, Math.min(duration, currentTime)) / duration) * 100) : 0;
+  const progressPercent = Math.max(
+    0,
+    Math.min(100, Number(item?.progressPercent ?? fallbackProgress) || 0)
+  );
+
+  return {
+    videoId: String(item?.videoId || ""),
+    chapterId: String(item?.chapterId || ""),
+    chapterOrder: Number(item?.chapterOrder || 0),
+    chapterTitle: String(item?.chapterTitle || ""),
+    currentTime: Math.max(0, currentTime),
+    duration: Math.max(0, duration),
+    progressPercent,
+    completed,
+    lastWatchedAt: item?.lastWatchedAt || item?.updatedAt || item?.createdAt || "",
+  };
+}
+
+// AppProvider는 로그인 사용자, 장바구니, 주문, 강의 목록처럼
+// 여러 페이지에서 함께 쓰는 데이터를 한곳에서 관리한다.
 export function AppProvider({ children }) {
   const [products, setProducts] = useState(() => FALLBACK_PRODUCT_MAP);
+  const [academyVideos, setAcademyVideos] = useState(() => DEFAULT_ACADEMY_VIDEOS);
+  const [academyProgress, setAcademyProgress] = useState([]);
+  const [academyChapterProgress, setAcademyChapterProgress] = useState([]);
   const [users] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [adminPageEditMode, setAdminPageEditMode] = useState(false);
@@ -59,12 +126,43 @@ export function AppProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
 
+  // 상품 목록은 서버 데이터에 기본값을 섞어 화면이 비는 상황을 줄인다.
   async function refreshProducts() {
     const rows = await apiRequest("/products");
     if (!Array.isArray(rows) || rows.length === 0) return;
     setProducts(toProductMap([...DEFAULT_PRODUCTS, ...DEFAULT_VIDEO_PRODUCTS, ...rows]));
   }
 
+  // 강의 메타데이터는 서버 응답과 프론트 기본값을 합쳐 누락 필드를 보완한다.
+  async function refreshAcademyVideos() {
+    const rows = await listAcademyVideos();
+    if (!Array.isArray(rows) || rows.length === 0) {
+      setAcademyVideos(DEFAULT_ACADEMY_VIDEOS);
+      return;
+    }
+
+    const fallbackMap = new Map(
+      DEFAULT_ACADEMY_VIDEOS.map((video) => [String(video.id || video.productId), video])
+    );
+
+    const merged = rows.map((row) => {
+      const fallback = fallbackMap.get(String(row.id || row.productId)) || {};
+      return {
+        ...fallback,
+        ...row,
+        id: String(row.id || row.productId || fallback.id || ""),
+        productId: String(row.productId || row.id || fallback.productId || ""),
+        image: row.image || fallback.image || "",
+        videoUrl:
+          row.videoUrl || fallback.videoUrl || getAcademyPlaybackSourceByVideoId(row.id || row.productId),
+        chapters: Array.isArray(row.chapters) ? row.chapters : Array.isArray(fallback.chapters) ? fallback.chapters : [],
+      };
+    });
+
+    setAcademyVideos(merged);
+  }
+
+  // 로그인한 사용자 기준으로 장바구니를 다시 가져온다.
   async function refreshCart(userId = currentUser?.id) {
     if (!userId) {
       setCart([]);
@@ -75,22 +173,110 @@ export function AppProvider({ children }) {
     setCart(Array.isArray(result?.items) ? result.items : []);
   }
 
+  // 주문 내역은 고객 이메일 기준으로 조회한다.
   async function refreshOrders(customerEmail = currentUser?.email) {
-    if (!customerEmail) {
-      setOrders([]);
-      return;
-    }
-
-    const rows = await apiRequest(`/orders?email=${encodeURIComponent(customerEmail)}`);
+    const normalizedEmail = String(customerEmail || "").trim();
+    const rows = normalizedEmail
+      ? await apiRequest(`/orders?email=${encodeURIComponent(normalizedEmail)}`)
+      : await apiRequest("/orders");
     setOrders(Array.isArray(rows) ? rows : []);
   }
 
+  async function refreshAcademyProgress(userId = currentUser?.id) {
+    if (!userId) {
+      setAcademyProgress([]);
+      setAcademyChapterProgress([]);
+      return [];
+    }
+
+    const result = await listAcademyProgress();
+    const normalized = (Array.isArray(result?.items) ? result.items : [])
+      .map(normalizeProgressItem)
+      .filter((item) => item.videoId);
+    const normalizedChapter = (Array.isArray(result?.chapterItems) ? result.chapterItems : [])
+      .map(normalizeChapterProgressItem)
+      .filter((item) => item.videoId && item.chapterId);
+
+    setAcademyProgress(normalized);
+    setAcademyChapterProgress(normalizedChapter);
+    return normalized;
+  }
+
+  async function saveAcademyProgress(videoId, payload) {
+    if (!currentUser?.id) {
+      throw new Error("학습 진도 저장은 로그인 후 이용 가능합니다.");
+    }
+
+    const saved = normalizeProgressItem(
+      await saveAcademyProgressApi(videoId, {
+        currentTime: Number(payload?.currentTime || 0),
+        duration: Number(payload?.duration || 0),
+        completed: Boolean(payload?.completed),
+      })
+    );
+
+    if (!saved.videoId) return saved;
+
+    setAcademyProgress((current) => {
+      const next = current.filter((item) => item.videoId !== saved.videoId);
+      next.push(saved);
+      return next.sort(
+        (a, b) => new Date(b.lastWatchedAt || 0).getTime() - new Date(a.lastWatchedAt || 0).getTime()
+      );
+    });
+
+    return saved;
+  }
+
+  async function saveAcademyChapterProgress(videoId, chapterId, payload) {
+    if (!currentUser?.id) {
+      throw new Error("학습 진도 저장은 로그인 후 이용 가능합니다.");
+    }
+
+    const response = await saveAcademyChapterProgressApi(videoId, chapterId, {
+      currentTime: Number(payload?.currentTime || 0),
+      duration: Number(payload?.duration || 0),
+      completed: Boolean(payload?.completed),
+    });
+    const savedChapter = normalizeChapterProgressItem(response);
+    const savedLecture = normalizeProgressItem(response?.lectureProgress || {});
+
+    if (savedChapter.videoId && savedChapter.chapterId) {
+      setAcademyChapterProgress((current) => {
+        const next = current.filter(
+          (item) => !(item.videoId === savedChapter.videoId && item.chapterId === savedChapter.chapterId)
+        );
+        next.push(savedChapter);
+        return next.sort(
+          (a, b) => new Date(b.lastWatchedAt || 0).getTime() - new Date(a.lastWatchedAt || 0).getTime()
+        );
+      });
+    }
+
+    if (savedLecture.videoId) {
+      setAcademyProgress((current) => {
+        const next = current.filter((item) => item.videoId !== savedLecture.videoId);
+        next.push(savedLecture);
+        return next.sort(
+          (a, b) => new Date(b.lastWatchedAt || 0).getTime() - new Date(a.lastWatchedAt || 0).getTime()
+        );
+      });
+    }
+
+    return { ...savedChapter, lectureProgress: savedLecture };
+  }
+
+  // 앱 최초 진입 시 상품/강의 목록을 먼저 불러온다.
   useEffect(() => {
     refreshProducts().catch((error) => {
       console.error("[products] load failed", error);
     });
+    refreshAcademyVideos().catch((error) => {
+      console.error("[academy] load failed", error);
+    });
   }, []);
 
+  // 새로고침 후에도 로그인 상태를 유지할 수 있도록 세션 복구를 시도한다.
   useEffect(() => {
     let mounted = true;
 
@@ -114,18 +300,32 @@ export function AppProvider({ children }) {
     };
   }, []);
 
+  // 로그인 사용자가 바뀌면 장바구니/주문 데이터를 함께 갱신한다.
   useEffect(() => {
     if (!currentUser?.id || !currentUser?.email) {
       setCart([]);
       setOrders([]);
+      setAcademyProgress([]);
+      setAcademyChapterProgress([]);
       setAdminPageEditMode(false);
       return;
     }
 
-    Promise.all([refreshCart(currentUser.id), refreshOrders(currentUser.email)]).catch((error) => {
+    Promise.all([
+      refreshCart(currentUser.id),
+      refreshOrders(currentUser.email),
+      refreshAcademyProgress(currentUser.id),
+    ]).catch((error) => {
       console.error("[store] user data load failed", error);
     });
   }, [currentUser?.id, currentUser?.email]);
+
+  // 관리자0이 아니면 페이지 수정 모드를 강제로 끈다.
+  useEffect(() => {
+    if (!canEditPage(currentUser)) {
+      setAdminPageEditMode(false);
+    }
+  }, [currentUser]);
 
   async function signupUser(payload) {
     const result = await apiRequest("/auth/signup", {
@@ -185,7 +385,11 @@ export function AppProvider({ children }) {
     });
     const updatedUser = { ...(result?.user || {}) };
     setCurrentUser(updatedUser);
-    await Promise.all([refreshCart(updatedUser.id), refreshOrders(updatedUser.email)]);
+    await Promise.all([
+      refreshCart(updatedUser.id),
+      refreshOrders(updatedUser.email),
+      refreshAcademyProgress(updatedUser.id),
+    ]);
     return updatedUser;
   }
 
@@ -198,6 +402,8 @@ export function AppProvider({ children }) {
       setCurrentUser(null);
       setCart([]);
       setOrders([]);
+      setAcademyProgress([]);
+      setAcademyChapterProgress([]);
       setAdminPageEditMode(false);
     }
   }
@@ -260,6 +466,7 @@ export function AppProvider({ children }) {
     return `pilates-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
+  // 장바구니 항목에 실제 상품 정보를 붙여 결제/합계 계산에 바로 쓸 수 있게 만든다.
   const cartDetailed = useMemo(
     () =>
       cart
@@ -295,6 +502,9 @@ export function AppProvider({ children }) {
     <AppContext.Provider
       value={{
         products,
+        academyVideos,
+        academyProgress,
+        academyChapterProgress,
         users,
         currentUser,
         adminPageEditMode,
@@ -318,6 +528,11 @@ export function AppProvider({ children }) {
         logoutUser,
         refreshCart,
         refreshOrders,
+        refreshProducts,
+        refreshAcademyVideos,
+        refreshAcademyProgress,
+        saveAcademyProgress,
+        saveAcademyChapterProgress,
         persistOrder,
         buildOrderId,
       }}

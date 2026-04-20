@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ACADEMY_VIDEOS, getDiscountRate } from "../../academy/data/academyVideos.js";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { apiRequest } from "../../../shared/api/client.js";
 
 const IMAGE_FALLBACK_POOL = [
   "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1600&q=80",
@@ -11,6 +12,39 @@ const IMAGE_FALLBACK_POOL = [
   "https://images.unsplash.com/photo-1506629905607-c36a594d95f3?auto=format&fit=crop&w=1600&q=80",
   "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1600&q=80",
   "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1600&q=80",
+];
+
+const SOCIAL_SOURCE_NAME_MAP = {
+  youtube: "YouTube",
+  blog: "Naver Blog",
+  instagram: "Instagram",
+};
+
+const DEFAULT_SOCIAL_ITEMS = [
+  {
+    source: "youtube",
+    label: "유튜브 최신 영상",
+    title: "최신 영상을 불러오는 중입니다.",
+    url: "https://www.youtube.com/@ICL-PILATES/videos",
+    publishedAt: "",
+    thumbnail: "",
+  },
+  {
+    source: "blog",
+    label: "네이버 블로그 최신 글",
+    title: "최신 게시글을 불러오는 중입니다.",
+    url: "https://blog.naver.com/icl_pilates",
+    publishedAt: "",
+    thumbnail: "",
+  },
+  {
+    source: "instagram",
+    label: "인스타 최신 게시글",
+    title: "최신 게시글을 불러오는 중입니다.",
+    url: "https://www.instagram.com/icl.pilates/",
+    publishedAt: "",
+    thumbnail: "",
+  },
 ];
 
 function getHash(input) {
@@ -41,14 +75,114 @@ function attachImageFallback(event) {
   image.src = IMAGE_FALLBACK_POOL[fallbackIndex];
 }
 
+function handleSocialThumbnailError(event) {
+  const image = event.currentTarget;
+  const wrapper = image.closest(".social-thumb-link");
+  if (wrapper) wrapper.style.display = "none";
+}
+
+function formatSocialPublishedDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function SocialSourceIcon({ source }) {
+  if (source === "youtube") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M23.2 7.2a3.1 3.1 0 0 0-2.2-2.2C19 4.5 12 4.5 12 4.5s-7 0-9 .5A3.1 3.1 0 0 0 .8 7.2 32.9 32.9 0 0 0 .3 12c0 1.6.2 3.2.5 4.8A3.1 3.1 0 0 0 3 19c2 .5 9 .5 9 .5s7 0 9-.5a3.1 3.1 0 0 0 2.2-2.2c.3-1.6.5-3.2.5-4.8s-.2-3.2-.5-4.8M9.8 15.7V8.3L16 12z"
+        />
+      </svg>
+    );
+  }
+
+  if (source === "instagram") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect
+          x="3.6"
+          y="3.6"
+          width="16.8"
+          height="16.8"
+          rx="5"
+          ry="5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.9"
+        />
+        <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.9" />
+        <circle cx="17.4" cy="6.6" r="1.2" fill="currentColor" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="2.8" y="2.8" width="18.4" height="18.4" rx="3.5" ry="3.5" fill="currentColor" />
+      <path d="M7.7 7.2h3.6l5 9.6h-3.7z" fill="#fff" />
+      <path d="M11.4 7.2h3.5l-5.1 9.6H6.3z" fill="#fff" />
+    </svg>
+  );
+}
+
+function normalizeSocialItems(apiItems) {
+  const sourceMap = new Map(
+    (Array.isArray(apiItems) ? apiItems : [])
+      .map((item) => (item?.source ? [String(item.source).toLowerCase(), item] : null))
+      .filter(Boolean)
+  );
+
+  return DEFAULT_SOCIAL_ITEMS.map((fallbackItem) => {
+    const fromApi = sourceMap.get(fallbackItem.source);
+    return {
+      ...fallbackItem,
+      ...(fromApi || {}),
+      source: fallbackItem.source,
+      label: String(fromApi?.label || fallbackItem.label),
+      title: String(fromApi?.title || fallbackItem.title),
+      url: String(fromApi?.url || fallbackItem.url),
+      publishedAt: formatSocialPublishedDate(fromApi?.publishedAt),
+      thumbnail: String(fromApi?.thumbnail || ""),
+      isLive: Boolean(fromApi?.isLive),
+    };
+  });
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const store = useAppStore();
+  const [socialItems, setSocialItems] = useState(() => DEFAULT_SOCIAL_ITEMS);
 
   useEffect(() => {
     if (window.location.hash) {
       document.querySelector(window.location.hash)?.scrollIntoView({ behavior: "smooth" });
     }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    apiRequest("/community/social/latest")
+      .then((result) => {
+        if (!mounted) return;
+        setSocialItems(normalizeSocialItems(result?.items));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setSocialItems(DEFAULT_SOCIAL_ITEMS);
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const featuredVideos = useMemo(() => {
@@ -67,14 +201,14 @@ export function HomePage() {
     <div className="site-shell">
       <SiteHeader />
 
-      <main>
+      <main className="home-main">
         <section className="hero-panel" id="hero">
           <div className="hero-center">
-            <div className="hero-star">✳</div>
-            <h1>ICL Pilates is different.</h1>
+            <div className="hero-star">✶</div>
+            <h1>이끌림 필라테스는 다릅니다.</h1>
             <p className="hero-text">
               이끌림 필라테스는 고급스러운 공간 경험과 실전 중심 교육 콘텐츠를 함께 제안합니다.
-              스튜디오 홍보부터 수강생용 가이드 영상 판매까지 한 흐름으로 이어집니다.
+              스튜디오 소개부터 수강생용 가이드 영상 판매까지 한 흐름으로 이어집니다.
             </p>
             <button
               className="pill-button white"
@@ -95,8 +229,8 @@ export function HomePage() {
 
         <section className="intro-panel bright-panel section-block" id="story">
           <div className="section-intro center">
-            <div className="section-star">✳</div>
-            <p className="section-kicker">Brand</p>
+            <div className="section-star">✶</div>
+            <p className="section-kicker">이끌림</p>
             <h2>특별한 시작</h2>
             <p className="section-text narrow">
               회원에게는 프리미엄 필라테스 경험을, 강사와 예비 창업자에게는 실전형 교육 콘텐츠를
@@ -114,21 +248,21 @@ export function HomePage() {
             <div className="mosaic-card short offset-down">
               <img
                 src="https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&w=1200&q=80"
-                alt="발끝 정렬을 보여주는 필라테스"
+                alt="발끝 정렬 자세"
                 onError={attachImageFallback}
               />
             </div>
             <div className="mosaic-card tall">
               <img
                 src="https://images.unsplash.com/photo-1593079831268-3381b0db4a77?auto=format&fit=crop&w=1200&q=80"
-                alt="필라테스 자세를 보여주는 상체"
+                alt="상체 정렬 시범"
                 onError={attachImageFallback}
               />
             </div>
             <div className="mosaic-card wide offset-up">
               <img
                 src="https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=1200&q=80"
-                alt="옆구리 스트레칭 필라테스"
+                alt="옆구리 스트레칭"
                 onError={attachImageFallback}
               />
             </div>
@@ -140,17 +274,13 @@ export function HomePage() {
             <div className="feature-image">
               <img
                 src="https://images.unsplash.com/photo-1506629905607-c36a594d95f3?auto=format&fit=crop&w=1200&q=80"
-                alt="스튜디오에서 필라테스 하는 모습"
+                alt="스튜디오 수업 모습"
                 onError={attachImageFallback}
               />
             </div>
             <div className="feature-copy">
               <h2 className="feature-title">이끌림을 선택하는 3가지 이유</h2>
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={() => navigate("/academy")}
-              >
+              <button className="ghost-button" type="button" onClick={() => navigate("/academy")}>
                 교육 상품 보러가기
               </button>
 
@@ -158,7 +288,8 @@ export function HomePage() {
                 <span>special feature 01.</span>
                 <h3>프리미엄 무드의 브랜딩</h3>
                 <p>
-                  차분한 아이보리와 골드 포인트를 바탕으로 고급스러운 첫인상을 전달합니다.<br></br>
+                  차분한 아이보리와 골드 포인트를 바탕으로 고급스러운 첫인상을 전달합니다.
+                  <br />
                   상담 문의 전환에 유리한 구조를 고려했습니다.
                 </p>
               </article>
@@ -167,7 +298,8 @@ export function HomePage() {
                 <span>special feature 02.</span>
                 <h3>오프라인과 온라인의 결합</h3>
                 <p>
-                  스튜디오 소개뿐 아니라 교육 가이드 영상 판매까지 같은 브랜드 경험 안에서 이어지도록 설계했습니다.
+                  스튜디오 소개뿐 아니라 교육 가이드 영상 판매까지 같은 브랜드 경험 안에서
+                  이어지도록 설계했습니다.
                 </p>
               </article>
 
@@ -185,33 +317,64 @@ export function HomePage() {
 
         <section className="status-panel section-block" data-admin-bg-editable>
           <div className="section-intro center on-dark">
-            <div className="section-star">✳</div>
-            <p className="section-kicker">Brand Status</p>
+            <div className="section-star">✶</div>
+            <p className="section-kicker">브랜드 운영 현황</p>
             <h2>브랜드 운영 현황</h2>
           </div>
           <div className="status-grid">
-            <article className="status-card">
-              <div className="status-icon">↗</div>
-              <p>상담 전환 중심 구조</p>
-              <strong>프리미엄 랜딩 구성</strong>
-            </article>
-            <article className="status-card">
-              <div className="status-icon">⌘</div>
-              <p>교육 상품 판매</p>
-              <strong>영상 3종 즉시 선택</strong>
-            </article>
-            <article className="status-card">
-              <div className="status-icon">◎</div>
-              <p>실결제 확장 가능</p>
-              <strong>토스페이먼츠 연동</strong>
-            </article>
+            {socialItems.map((item) => (
+              <article className="status-card social-feed-card" key={item.source}>
+                <div className="social-card-source">
+                  <span className={`social-source-badge ${item.source}`}>
+                    <SocialSourceIcon source={item.source} />
+                    <em>{SOCIAL_SOURCE_NAME_MAP[item.source] || item.source}</em>
+                  </span>
+                </div>
+                {item.source === "youtube" && item.thumbnail ? (
+                  <a
+                    className="social-thumb-link"
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    aria-label={`${item.label} 썸네일`}
+                  >
+                    <img
+                      src={item.thumbnail}
+                      alt={item.title}
+                      loading="lazy"
+                      onError={handleSocialThumbnailError}
+                    />
+                  </a>
+                ) : null}
+                <p>{item.label}</p>
+                <strong>
+                  <a
+                    className="social-title-link"
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    {item.title}
+                  </a>
+                </strong>
+                <div className="status-card-meta">
+                  {item.publishedAt ? (
+                    <span>{item.publishedAt}</span>
+                  ) : item.isLive ? (
+                    <span>연동됨</span>
+                  ) : (
+                    <span>업데이트 대기</span>
+                  )}
+                </div>
+              </article>
+            ))}
           </div>
         </section>
 
         <section className="academy-panel bright-panel section-block" id="academy">
           <div className="section-intro center">
-            <div className="section-star">✳</div>
-            <p className="section-kicker">Academy · 교육 영상</p>
+            <div className="section-star">✶</div>
+            <p className="section-kicker">아카데미 · 교육 영상</p>
             <h2>교육 가이드 영상</h2>
             <p className="section-text narrow">
               교육 영상 페이지와 동일한 상품 중 NEW 2개, HOT 2개를 먼저 확인할 수 있습니다.
@@ -293,12 +456,12 @@ export function HomePage() {
 
         <section className="reviews-panel bright-panel section-block" id="reviews">
           <div className="section-intro center">
-            <div className="section-star">✳</div>
-            <p className="section-kicker">Reviews</p>
+            <div className="section-star">✶</div>
+            <p className="section-kicker">후기</p>
             <h2>함께하고 있는 회원 후기</h2>
             <p className="section-text narrow">
-              공간의 무드와 수업의 전문성, 그리고 교육 콘텐츠의 실용성까지 자연스럽게
-              연결되는 브랜드 경험을 전달합니다.
+              공간의 무드와 수업의 전문성, 그리고 교육 콘텐츠의 실용성까지 자연스럽게 연결되는
+              브랜드 경험을 전달합니다.
             </p>
           </div>
 
@@ -310,7 +473,7 @@ export function HomePage() {
                 onError={attachImageFallback}
               />
               <div className="review-copy">
-                <p>“상담 전부터 브랜드 무드가 명확해서 신뢰감이 높았어요.”</p>
+                <p>시설과 분위기가 명확한 콘셉트로 잡혀 있어 몰입감이 정말 좋았어요.</p>
                 <strong>개인 레슨 회원</strong>
               </div>
             </article>
@@ -321,7 +484,7 @@ export function HomePage() {
                 onError={attachImageFallback}
               />
               <div className="review-copy">
-                <p>“교육 영상이 현장 티칭에 바로 연결돼서 복습 자료로도 좋았습니다.”</p>
+                <p>교육 영상과 현장 수업이 바로 연결되어 복습 자료로도 활용하기 좋습니다.</p>
                 <strong>예비 필라테스 강사</strong>
               </div>
             </article>
@@ -332,13 +495,12 @@ export function HomePage() {
                 onError={attachImageFallback}
               />
               <div className="review-copy">
-                <p>“오프라인 홍보와 온라인 판매가 자연스럽게 이어져 운영에 도움이 됐어요.”</p>
+                <p>오프라인 홍보와 온라인 판매가 자연스럽게 이어져 운영 효율이 올라갔어요.</p>
                 <strong>스튜디오 운영자</strong>
               </div>
             </article>
           </div>
         </section>
-
       </main>
     </div>
   );

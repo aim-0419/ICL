@@ -24,7 +24,7 @@ export function LoginPage() {
       <SiteHeader subpage />
       <main className="auth-page">
         <section className="auth-card">
-          <p className="section-kicker">Member Login</p>
+          <p className="section-kicker">로그인</p>
           <h1 className="login-title">몸이 바뀌는 방향, 이끌림에서 시작됩니다</h1>
           <p className="section-text">
             {store.currentUser

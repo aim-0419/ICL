@@ -3,6 +3,7 @@ import * as communityController from "./community.controller.js";
 
 export const communityRoutes = Router();
 
+communityRoutes.get("/social/latest", communityController.getSocialLatest);
 communityRoutes.get("/reviews", communityController.getReviews);
 communityRoutes.post("/reviews", communityController.createReview);
 communityRoutes.get("/reviews/:reviewId", communityController.getReview);

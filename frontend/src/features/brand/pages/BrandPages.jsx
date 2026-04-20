@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 
 function BrandPageLayout({ kicker, title, description, points }) {
@@ -30,32 +30,32 @@ export function BrandIntroPage() {
       id: "01",
       title: "개인 체형 기반 수업 설계",
       description:
-        "상담과 움직임 체크를 바탕으로 회원마다 다른 수업 루틴을 구성합니다. 입문자부터 경력자까지 목표에 맞춰 난이도를 세밀하게 조정합니다.",
+        "상담과 움직임 체크를 바탕으로 회원별 루틴을 맞춤 구성합니다. 입문자부터 경력자까지 목표에 맞는 난이도로 단계별 진행합니다.",
     },
     {
       id: "02",
       title: "강사 코칭 매뉴얼 운영",
       description:
-        "강사별 큐잉 편차를 줄이기 위해 내부 코칭 가이드를 운영합니다. 회원이 느끼는 수업 품질이 지점과 시간대에 따라 흔들리지 않도록 설계했습니다.",
+        "강사별 편차를 줄이기 위해 공통 코칭 기준을 운영하고, 수업 흐름과 피드백 품질을 일정하게 유지합니다.",
     },
     {
       id: "03",
       title: "교육 콘텐츠 연동 시스템",
       description:
-        "오프라인 수업과 온라인 교육 가이드가 끊기지 않도록 연결합니다. 복습과 재학습이 필요한 순간에 바로 활용할 수 있는 학습 흐름을 제공합니다.",
+        "오프라인 수업과 온라인 가이드 영상이 끊기지 않도록 연결해 복습과 자가학습이 자연스럽게 이어집니다.",
     },
     {
       id: "04",
-      title: "사후 루틴 케어",
+      title: "사후 루틴 체크",
       description:
-        "수업 직후 피드백과 주간 루틴 점검을 통해 변화가 일회성으로 끝나지 않게 관리합니다. 회원 만족도와 지속률을 함께 높이는 운영을 지향합니다.",
+        "수업 직후 피드백과 주간 루틴 안내를 통해 변화가 일회성으로 끝나지 않도록 관리하며 회원 만족도를 높입니다.",
     },
   ];
 
   const promises = [
     "이끌림은 회원의 안전을 최우선 기준으로 수업을 운영합니다.",
-    "이끌림은 작은 불편도 놓치지 않도록 꾸준히 소통합니다.",
-    "이끌림은 상담 전과 수업 후의 태도가 달라지지 않습니다.",
+    "작은 불편도 놓치지 않도록 지속적으로 소통합니다.",
+    "상담과 수업의 기준이 흔들리지 않도록 시스템을 유지합니다.",
   ];
 
   return (
@@ -67,10 +67,10 @@ export function BrandIntroPage() {
             <span>메인 비주얼 이미지 영역</span>
             <div className="intro-cover-overlay">
               <p className="section-kicker">이끌림 · 소개</p>
-              <h1>특별한 케어의 시작</h1>
+              <h1>브랜드 케어의 시작</h1>
               <p>
-                브랜드 소개와 교육 콘텐츠 경험이 끊기지 않도록, 시작부터 상담-수업-학습까지 하나의 흐름으로
-                설계합니다.
+                브랜드 소개와 교육 콘텐츠 경험이 끊기지 않도록,
+                상담-수업-학습까지 하나의 흐름으로 설계했습니다.
               </p>
               <a href="#intro-identity" className="intro-scroll-link" aria-label="다음 섹션으로 이동">
                 ↓
@@ -85,11 +85,11 @@ export function BrandIntroPage() {
               <span>이미지 영역 01</span>
             </div>
             <article className="intro-text-block intro-identity-copy">
-              <p className="intro-eyebrow">Special Care for You</p>
-              <h2>특별한 고객님께 특별한 관리를</h2>
+              <p className="intro-eyebrow">고객 맞춤 케어 시스템</p>
+              <h2>브랜드 고객맞춤 관리법</h2>
               <p>
-                이끌림은 고객님의 몸 상태와 목표를 기준으로 수업을 맞춤 설계합니다. 상담부터 수업 운영, 그리고
-                강사용 교육 콘텐츠까지 경험이 분절되지 않도록 구조를 통합했습니다.
+                이끌림은 고객의 현재 상태와 목표를 기준으로 수업을 설계합니다.
+                상담부터 수업 운영, 강사 교육 콘텐츠까지 경험이 분리되지 않도록 통합했습니다.
               </p>
             </article>
           </div>
@@ -104,8 +104,8 @@ export function BrandIntroPage() {
             >
               <span>이미지 영역 02</span>
               <div className="intro-speciality-main-copy">
-                <p>고객만족을 위한 개별 맞춤 운영</p>
-                <h2>ICL Speciality</h2>
+                <p>고객만족을 위한 단계별 운영</p>
+                <h2>ICL 스페셜리티</h2>
               </div>
             </div>
             <div className="intro-speciality-list">
@@ -133,7 +133,7 @@ export function BrandIntroPage() {
           </div>
           <div className="intro-promise-inner">
             <div className="section-intro center">
-              <p className="section-kicker">Our Promise</p>
+              <p className="section-kicker">이끌림 약속</p>
               <h2>이끌림의 세 가지 약속</h2>
             </div>
             <div className="intro-promise-grid">
@@ -151,10 +151,10 @@ export function BrandIntroPage() {
 
         <section className="intro-booking-section">
           <div className="intro-image-slot intro-booking-media" role="img" aria-label="상담 예약 배경 이미지 영역">
-            <span>CTA 배경 이미지 영역</span>
+            <span>배경 이미지 영역</span>
             <div className="intro-booking-overlay">
-              <p>온라인으로 예약하시면 원하는 일정에 맞춰 시작할 수 있습니다.</p>
-              <p className="intro-cta-copy">상담 후 목표에 맞는 수업/교육 플랜을 함께 설계해드립니다.</p>
+              <p>온라인으로 예약하시면 원하는 일정에 맞춰 상담이 가능합니다.</p>
+              <p className="intro-cta-copy">상담 후 목표에 맞는 수업/교육 플랜을 안내해드립니다.</p>
               <div className="intro-cta-actions">
                 <Link className="pill-button white" to="/community/inquiry">
                   상담 문의하기
@@ -167,36 +167,35 @@ export function BrandIntroPage() {
     </div>
   );
 }
-
 export function BrandInstructorsPage() {
   const instructors = [
     {
       name: "대표 강사 소개",
-      role: "대표 원장 · Master Instructor",
+      role: "대표원장 · Master Instructor",
       intro:
-        "움직임의 원리를 회원의 몸에 맞게 통역하는 수업을 지향합니다. 정확한 기본기와 섬세한 큐잉으로 변화의 방향을 설계합니다.",
+        "움직임의 원리를 회원의 몸에 맞게 적용하는 수업을 지향합니다. 정확한 기본기와 섬세한 큐잉으로 변화의 방향을 설계합니다.",
       careers: [
-        "現 이끌림 필라테스 대표 원장",
+        "이끌림 필라테스 대표원장",
         "국내외 필라테스 지도자 과정 이수",
-        "재활/체형교정 기반 개인 수업 운영",
+        "재활/체형교정 기반 개인 레슨 운영",
       ],
     },
     {
-      name: "Instructor Team",
-      role: "Professional Teaching Team",
+      name: "전문 강사팀",
+      role: "프로페셔널 티칭 팀",
       intro:
         "이끌림 강사진은 수업 전후 회원 상태를 꼼꼼히 체크하고, 개인 목표에 맞는 프로그램을 유연하게 조정합니다.",
       careers: [
         "기구/매트 통합 수업 운영",
         "회원별 컨디션 기록 및 단계별 피드백",
-        "정기 내부 트레이닝 진행",
+        "정기 티칭 트레이닝 진행",
       ],
     },
     {
-      name: "Care & Coaching Team",
-      role: "Member Care Team",
+      name: "케어 & 코칭 팀",
+      role: "멤버 케어 팀",
       intro:
-        "첫 상담부터 루틴 정착까지 꾸준히 동행합니다. 수업 만족도와 지속률을 높이는 커뮤니케이션을 담당합니다.",
+        "첫 상담부터 루틴 정착까지 끝까지 동행합니다. 수업 만족도와 지속 관리 품질을 높이는 커뮤니케이션을 담당합니다.",
       careers: [
         "상담/예약/수강 관리 프로세스 운영",
         "회원별 목표 기반 수강 플랜 제안",
@@ -210,10 +209,10 @@ export function BrandInstructorsPage() {
       <SiteHeader />
       <main className="content-page">
         <section className="content-hero">
-          <p className="section-kicker">이끌림 · 강사</p>
+          <p className="section-kicker">이끌림 · 강사진</p>
           <h1>강사 소개</h1>
           <p className="section-text">
-            경력과 전문성, 티칭 철학을 바탕으로 구성된 강사진을 안내합니다.
+            경력과 전문성, 그리고 코칭 철학을 바탕으로 구성된 강사진을 안내합니다.
           </p>
         </section>
 
@@ -282,13 +281,13 @@ export function BrandTourPage() {
     },
     {
       id: "07",
-      name: "야간 무드 라운지",
+      name: "휴식 무드 라운지",
       image:
         "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=1400&q=80",
     },
     {
       id: "08",
-      name: "클래스 대기 공간",
+      name: "프라이빗 대기 공간",
       image:
         "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1400&q=80",
     },
@@ -306,19 +305,19 @@ export function BrandTourPage() {
             />
             <div className="tour-hero-overlay">
               <p className="section-kicker">이끌림 · 스튜디오 둘러보기</p>
-              <h1>Studio Tour</h1>
-              <p>안락한 동선과 균형 잡힌 공간 설계로, 수업 전후의 경험까지 편안하게 이어집니다.</p>
+              <h1>스튜디오 투어</h1>
+              <p>동선과 균형을 고려한 공간 설계로 수업 전후의 경험까지 편안하게 이어집니다.</p>
             </div>
           </div>
         </section>
 
         <section className="tour-intro-section">
           <div className="section-intro center">
-            <p className="section-kicker">Interior Preview</p>
-            <h2>편안함과 집중을 함께 담은 공간</h2>
+            <p className="section-kicker">공간 미리보기</p>
+            <h2>안락함과 집중도를 높인 공간</h2>
             <p className="section-text narrow">
               라운지부터 수업룸, 상담 공간까지 하나의 무드로 연결했습니다. 실제 동선에 맞춘 공간 설계로 처음
-              방문하는 날에도 자연스럽게 적응할 수 있습니다.
+              방문하는 회원도 자연스럽게 적응할 수 있습니다.
             </p>
           </div>
         </section>
@@ -344,32 +343,59 @@ export function BrandTourPage() {
 }
 
 export function BrandEquipmentPage() {
+  const equipmentItems = Array.from({ length: 5 }, (_, index) => ({
+    id: `equipment-slot-${index + 1}`,
+  }));
+
   return (
-    <BrandPageLayout
-      kicker="이끌림 · 장비소개"
-      title="장비 소개"
-      description="리포머, 캐딜락, 체어 등 수업 목적에 맞춘 장비 구성을 안내합니다."
-      points={[
-        {
-          title: "기구 구성",
-          description: "개인/듀엣/소그룹 수업을 모두 지원하는 기구 라인업을 갖추고 있습니다.",
-        },
-        {
-          title: "점검/위생",
-          description: "정기 점검과 위생 관리 기준을 운영하여 안전한 수업 환경을 유지합니다.",
-        },
-      ]}
-    />
+    <div className="site-shell">
+      <SiteHeader />
+      <main className="content-page equipment-reference-page">
+        <section className="equipment-reference-hero">
+          <div className="equipment-reference-hero-media" role="img" aria-label="장비소개 배경 이미지" />
+          <div className="equipment-reference-hero-overlay" />
+          <div className="equipment-reference-hero-copy">
+            <p>ICL PILATES STUDIO</p>
+            <h1>장비소개</h1>
+            <span>정확한 움직임의 시작, 빈틈없는 필라테스 장비 구성</span>
+          </div>
+        </section>
+
+        <section className="equipment-reference-heading">
+          <h2>장비소개</h2>
+          <p>이끌림 필라테스는 회원 만족을 위해 장비 선택 기준을 엄격하게 유지합니다.</p>
+        </section>
+
+        <section className="equipment-reference-list" aria-label="장비 목록">
+          {equipmentItems.map((item, index) => (
+            <article
+              className={`equipment-reference-item${index % 2 === 1 ? " reverse" : ""}`}
+              key={item.id}
+            >
+              <div className="equipment-reference-image equipment-reference-image-placeholder" role="img" aria-label="비어있는 이미지 영역">
+                <span>비어있는 이미지</span>
+              </div>
+              <div className="equipment-reference-copy equipment-reference-copy-placeholder">
+                <h5>비어있는 텍스트</h5>
+                <h3>비어있는 텍스트</h3>
+                <p className="equipment-reference-lead">비어있는 텍스트</p>
+                <p>비어있는 텍스트</p>
+                <p className="equipment-reference-effect">비어있는 텍스트</p>
+              </div>
+            </article>
+          ))}
+        </section>
+      </main>
+    </div>
   );
 }
-
 export function BrandDirectionsPage() {
   const branches = [
     {
       name: "이끌림 필라테스 장덕점",
       address: "광주광역시 광산구 풍영로 189, 2층",
       phone: "062-000-0001",
-      parking: "건물 내 주차 가능 (방문 전 문의)",
+      parking: "건물 앞 주차 가능 (방문 전 문의)",
       mapEmbedUrl:
         "https://maps.google.com/maps?hl=ko&q=35.188459164928,126.81392571847&z=16&output=embed",
       mapLink:
@@ -377,9 +403,9 @@ export function BrandDirectionsPage() {
     },
     {
       name: "이끌림 필라테스 효천점",
-      address: "광주광역시 남구 효천2로가길 5, 201·202호",
+      address: "광주광역시 남구 효천2로가길 5, 201-202호",
       phone: "062-000-0002",
-      parking: "인근 공영/건물 주차 이용 가능",
+      parking: "인근 공영/건물 주차장 이용 가능",
       mapEmbedUrl:
         "https://maps.google.com/maps?hl=ko&q=35.102161560951,126.87396526156&z=16&output=embed",
       mapLink:
@@ -392,11 +418,10 @@ export function BrandDirectionsPage() {
       <SiteHeader />
       <main className="content-page directions-page">
         <section className="content-hero">
-          <p className="section-kicker">이끌림 · 오시는길</p>
+          <p className="section-kicker">이끌림 · 오시는 길</p>
           <h1>오시는 길</h1>
           <p className="section-text">
-            장덕점과 효천점을 한 페이지에서 확인할 수 있도록, 가로 기준 레이아웃을 세로 섹션으로 나눠
-            구성했습니다.
+            장덕점과 효천점을 한 페이지에서 확인할 수 있도록, 이동 동선을 고려한 카드형 레이아웃으로 구성했습니다.
           </p>
         </section>
 
@@ -440,3 +465,5 @@ export function BrandDirectionsPage() {
     </div>
   );
 }
+
+

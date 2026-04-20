@@ -1,13 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
-import { getPurchasedVideos } from "../../academy/lib/purchases.js";
+import { deleteAcademyVideo, resolveAcademyMediaUrl, updateAcademyVideo, uploadAcademyAsset } from "../../academy/api/academyApi.js";
+import { countPurchasedVideoItems, getPurchasedVideos } from "../../academy/lib/purchases.js";
+import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleDateString("ko-KR");
+}
+
+function toProgressPercent(progress) {
+  const rawPercent = Number(progress?.progressPercent);
+  if (Number.isFinite(rawPercent)) {
+    return Math.max(0, Math.min(100, Math.round(rawPercent)));
+  }
+
+  const duration = Number(progress?.duration || 0);
+  const currentTime = Number(progress?.currentTime || 0);
+  if (!duration) return 0;
+  return Math.max(0, Math.min(100, Math.round((currentTime / duration) * 100)));
 }
 
 function EyeIcon({ open }) {
@@ -49,18 +63,95 @@ function EyeIcon({ open }) {
   );
 }
 
+function toSafeNumber(value, fallback = 0) {
+  const parsed = Number(String(value || "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export function MyPage() {
   const navigate = useNavigate();
   const store = useAppStore();
   const currentUser = store.currentUser || {};
+  const isAdmin = isAdminStaff(currentUser);
+  const normalizedCurrentUserEmail = String(currentUser.email || "").trim().toLowerCase();
 
   const userOrders = useMemo(
-    () => store.orders.filter((order) => order.customerEmail === currentUser.email),
-    [store.orders, currentUser.email]
+    () =>
+      store.orders.filter((order) => {
+        const orderEmail = String(order?.customerEmail || "").trim().toLowerCase();
+        return Boolean(orderEmail) && orderEmail === normalizedCurrentUserEmail;
+      }),
+    [store.orders, normalizedCurrentUserEmail]
   );
   const purchasedVideos = useMemo(
-    () => getPurchasedVideos(store.orders, currentUser.email),
-    [store.orders, currentUser.email]
+    () => getPurchasedVideos(store.orders, currentUser.email, store.academyVideos),
+    [store.orders, currentUser.email, store.academyVideos]
+  );
+  const purchasedVideoItemCount = useMemo(
+    () => countPurchasedVideoItems(store.orders, currentUser.email, store.academyVideos),
+    [store.orders, currentUser.email, store.academyVideos]
+  );
+  const academyProgressMap = useMemo(() => {
+    const map = new Map();
+    (Array.isArray(store.academyProgress) ? store.academyProgress : []).forEach((item) => {
+      const key = String(item?.videoId || "");
+      if (key) map.set(key, item);
+    });
+    return map;
+  }, [store.academyProgress]);
+  const academyChapterProgressMap = useMemo(() => {
+    const map = new Map();
+    (Array.isArray(store.academyChapterProgress) ? store.academyChapterProgress : []).forEach((item) => {
+      const key = String(item?.videoId || "");
+      if (!key) return;
+      const list = map.get(key) || [];
+      list.push(item);
+      map.set(key, list);
+    });
+
+    for (const [key, list] of map.entries()) {
+      map.set(
+        key,
+        [...list].sort((a, b) => {
+          const aOrder = Number(a?.chapterOrder || 0);
+          const bOrder = Number(b?.chapterOrder || 0);
+          if (aOrder !== bOrder) return aOrder - bOrder;
+          return String(a?.chapterId || "").localeCompare(String(b?.chapterId || ""));
+        })
+      );
+    }
+
+    return map;
+  }, [store.academyChapterProgress]);
+  const learningHistory = useMemo(() => {
+    return purchasedVideos
+      .map((video) => {
+        const progress = academyProgressMap.get(String(video.id)) || null;
+        const chapterProgress = academyChapterProgressMap.get(String(video.id)) || [];
+        const progressPercent = toProgressPercent(progress);
+        const completed = Boolean(progress?.completed) || progressPercent >= 100;
+        const chapterCountFromVideo = Array.isArray(video?.chapters) ? video.chapters.length : 0;
+        const chapterCount = chapterCountFromVideo || chapterProgress.length;
+        const completedChapterCount = chapterProgress.filter((item) => Boolean(item?.completed)).length;
+        const latestChapter = [...chapterProgress]
+          .filter((item) => item?.lastWatchedAt)
+          .sort((a, b) => new Date(b.lastWatchedAt || 0).getTime() - new Date(a.lastWatchedAt || 0).getTime())[0];
+
+        return {
+          ...video,
+          progressPercent,
+          completed,
+          lastWatchedAt: progress?.lastWatchedAt || "",
+          chapterCount,
+          completedChapterCount,
+          latestChapterTitle: latestChapter?.chapterTitle || "",
+        };
+      })
+      .sort((a, b) => new Date(b.lastWatchedAt || 0).getTime() - new Date(a.lastWatchedAt || 0).getTime());
+  }, [academyProgressMap, academyChapterProgressMap, purchasedVideos]);
+  const completedVideoCount = useMemo(
+    () => learningHistory.filter((video) => video.completed).length,
+    [learningHistory]
   );
   const totalSpent = useMemo(
     () => userOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0),
@@ -72,6 +163,7 @@ export function MyPage() {
     name: currentUser.name || "",
     email: currentUser.email || "",
     phone: currentUser.phone || "",
+    birthYear: currentUser.birthYear ? String(currentUser.birthYear) : "",
     newPassword: "",
     currentPassword: "",
   });
@@ -103,12 +195,13 @@ export function MyPage() {
       name: currentUser.name || "",
       email: currentUser.email || "",
       phone: currentUser.phone || "",
+      birthYear: currentUser.birthYear ? String(currentUser.birthYear) : "",
       newPassword: "",
       currentPassword: "",
     });
     setEmailVerificationCode("");
     setEmailVerificationState({ status: "", text: "", verifiedEmail: "", debugCode: "" });
-  }, [currentUser.loginId, currentUser.name, currentUser.email, currentUser.phone]);
+  }, [currentUser.loginId, currentUser.name, currentUser.email, currentUser.phone, currentUser.birthYear]);
 
   useEffect(() => {
     if (!isEmailChanged) {
@@ -117,6 +210,13 @@ export function MyPage() {
     }
   }, [isEmailChanged]);
 
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    store.refreshAcademyProgress?.().catch((error) => {
+      console.error("[academy-progress] refresh failed", error);
+    });
+  }, [currentUser?.id]);
+
   async function handleRequestEmailVerification() {
     setSaveMessage({ type: "", text: "" });
     setEmailVerificationState({ status: "", text: "", verifiedEmail: "", debugCode: "" });
@@ -124,7 +224,7 @@ export function MyPage() {
     if (!normalizedFormEmail) {
       setEmailVerificationState({
         status: "error",
-        text: "이메일을 먼저 입력해 주세요.",
+        text: "??좎럥李??좎럩???믪눦?? ??좎럥???雅뚯눘苑??",
         verifiedEmail: "",
         debugCode: "",
       });
@@ -136,14 +236,14 @@ export function MyPage() {
       const result = await store.requestEmailVerification(normalizedFormEmail);
       setEmailVerificationState({
         status: "pending",
-        text: result?.message || "인증번호를 발송했습니다.",
+        text: result?.message || "??좎럩弛녻린?딆깈??獄쏆뮇???좎럩???좎럥??",
         verifiedEmail: "",
         debugCode: result?.debugCode || "",
       });
     } catch (error) {
       setEmailVerificationState({
         status: "error",
-        text: error?.message || "인증번호 발송 중 오류가 발생했습니다.",
+        text: error?.message || "??좎럩弛녻린?딆깈 獄쏆뮇??????좎럥履잌첎? 獄쏆뮇源??좎럩???좎럥??",
         verifiedEmail: "",
         debugCode: "",
       });
@@ -158,7 +258,7 @@ export function MyPage() {
     if (!normalizedFormEmail) {
       setEmailVerificationState({
         status: "error",
-        text: "이메일을 먼저 입력해 주세요.",
+        text: "??좎럥李??좎럩???믪눦?? ??좎럥???雅뚯눘苑??",
         verifiedEmail: "",
         debugCode: "",
       });
@@ -168,7 +268,7 @@ export function MyPage() {
     if (!String(emailVerificationCode || "").trim()) {
       setEmailVerificationState({
         status: "error",
-        text: "인증번호를 입력해 주세요.",
+        text: "??좎럩弛녻린?딆깈????좎럥???雅뚯눘苑??",
         verifiedEmail: "",
         debugCode: "",
       });
@@ -180,14 +280,14 @@ export function MyPage() {
       const result = await store.confirmEmailVerification(normalizedFormEmail, emailVerificationCode);
       setEmailVerificationState({
         status: "success",
-        text: result?.message || "이메일 인증이 완료되었습니다.",
+        text: result?.message || "??좎럥李????좎럩弛????좎럥利??좎럩肉??좎럥???",
         verifiedEmail: normalizedFormEmail,
         debugCode: "",
       });
     } catch (error) {
       setEmailVerificationState({
         status: "error",
-        text: error?.message || "인증번호 확인 중 오류가 발생했습니다.",
+        text: error?.message || "??좎럩弛녻린?딆깈 ??좎럩??????좎럥履잌첎? 獄쏆뮇源??좎럩???좎럥??",
         verifiedEmail: "",
         debugCode: "",
       });
@@ -201,12 +301,12 @@ export function MyPage() {
     setSaveMessage({ type: "", text: "" });
 
     if (!form.currentPassword.trim()) {
-      setSaveMessage({ type: "error", text: "정보 변경을 위해 현재 비밀번호를 입력해 주세요." });
+      setSaveMessage({ type: "error", text: "??좎럥??癰궰野껋럩????좎?鍮???좎럩????쒀??甕곕뜇?뉐뜝???좎럥???雅뚯눘苑??" });
       return;
     }
 
     if (isEmailChanged && !isEmailVerified) {
-      setSaveMessage({ type: "error", text: "이메일 변경 전 인증번호 확인을 완료해 주세요." });
+      setSaveMessage({ type: "error", text: "??좎럥李??癰궰??????좎럩弛녻린?딆깈 ??좎럩?????좎럥利??雅뚯눘苑??" });
       return;
     }
 
@@ -216,6 +316,7 @@ export function MyPage() {
         loginId: form.loginId.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
+        birthYear: form.birthYear.trim() ? form.birthYear.trim() : null,
         newPassword: form.newPassword.trim(),
         currentPassword: form.currentPassword.trim(),
       });
@@ -226,16 +327,17 @@ export function MyPage() {
         name: updatedUser.name || prev.name,
         email: updatedUser.email || "",
         phone: updatedUser.phone || "",
+        birthYear: updatedUser.birthYear ? String(updatedUser.birthYear) : "",
         newPassword: "",
         currentPassword: "",
       }));
       setEmailVerificationCode("");
       setEmailVerificationState({ status: "", text: "", verifiedEmail: "", debugCode: "" });
-      setSaveMessage({ type: "success", text: "개인정보가 정상적으로 저장되었습니다." });
+      setSaveMessage({ type: "success", text: "揶쏆뮇???좎럥?ュ첎? ??좎럩湲??좎럩?앭뜝?????좎럥由??좎럩???좎럥??" });
     } catch (error) {
       setSaveMessage({
         type: "error",
-        text: error?.message || "개인정보 저장 중 오류가 발생했습니다.",
+        text: error?.message || "揶쏆뮇???좎럥??????????좎럥履잌첎? 獄쏆뮇源??좎럩???좎럥??",
       });
     } finally {
       setIsSaving(false);
@@ -247,10 +349,11 @@ export function MyPage() {
       <SiteHeader subpage />
       <main className="dashboard-page">
         <section className="dashboard-hero mypage-hero-card">
-          <p className="section-kicker">My Page</p>
+          <p className="section-kicker">마이페이지</p>
           <h1>{currentUser.name} 님의 마이페이지</h1>
           <div className="mypage-identity-row">
-            <span className="mypage-identity-chip">구매 영상 {purchasedVideos.length}개</span>
+            <span className="mypage-identity-chip">구매 영상 {purchasedVideoItemCount}건</span>
+            <span className="mypage-identity-chip">수강 완료 {completedVideoCount}개</span>
             <span className="mypage-identity-chip">주문 {userOrders.length}건</span>
             <span className="mypage-identity-chip">누적 결제 {store.formatCurrency(totalSpent)}</span>
           </div>
@@ -259,36 +362,61 @@ export function MyPage() {
         <section className="dashboard-grid">
           <div>
             <div className="dashboard-section-header">
-              <h2>구매 영상 재생</h2>
+              <h2>구매 영상 수강</h2>
+              <p className="section-text">
+                중복 제외 {purchasedVideos.length}개 강의 / 총 구매 {purchasedVideoItemCount}건
+              </p>
             </div>
             <div className="dashboard-card-grid">
-              {purchasedVideos.length ? (
-                purchasedVideos.map((video) => (
+              {learningHistory.length ? (
+                learningHistory.map((video) => (
                   <article key={video.id} className="dashboard-card mypage-course-card mypage-video-card">
-                    <img src={video.image} alt={video.title} className="mypage-video-thumb" />
+                    <img
+                      src={resolveAcademyMediaUrl(video.image)}
+                      alt={video.title}
+                      className="mypage-video-thumb"
+                    />
                     <div className="mypage-video-copy">
-                      <p className="mini-kicker">Purchased Video</p>
+                      <p className="mini-kicker">
+                        {video.completed
+                          ? "수강 완료"
+                          : video.progressPercent > 0
+                            ? "이어 학습"
+                            : "새 강의"}
+                      </p>
                       <h3>{video.title}</h3>
                       <p className="mypage-course-date">
                         {video.instructor} · {video.category}
                       </p>
+                      <p className="mypage-course-date">
+                        진도 {video.progressPercent}%{video.lastWatchedAt ? ` · 최근 수강 ${formatDate(video.lastWatchedAt)}` : " · 아직 시청 전"}
+                      </p>
+                      {video.chapterCount > 0 ? (
+                        <p className="mypage-course-date">
+                          차시 {video.completedChapterCount}/{video.chapterCount}
+                          {video.latestChapterTitle ? ` · 최근 차시 ${video.latestChapterTitle}` : ""}
+                        </p>
+                      ) : null}
                     </div>
                     <button
                       type="button"
                       className="ghost-button small-ghost"
                       onClick={() => navigate(`/academy/player/${video.id}`)}
                     >
-                      영상 재생
+                      {video.completed
+                        ? "다시보기"
+                        : video.progressPercent > 0
+                          ? "이어보기"
+                          : "지금 수강"}
                     </button>
                   </article>
                 ))
               ) : (
                 <article className="dashboard-card empty-state">
                   <h3>아직 구매한 교육 영상이 없습니다</h3>
-                  <p>교육 영상 페이지에서 원하는 강의를 구매해 보세요.</p>
+                  <p>교육 영상 페이지에서 원하는 강의를 구매해보세요.</p>
                   <button className="pill-button small" type="button" onClick={() => navigate("/academy")}>
-                    교육 영상 보러가기
-                  </button>
+                    교육 영상 보러가기                  </button>
                 </article>
               )}
             </div>
@@ -300,7 +428,7 @@ export function MyPage() {
             </div>
             <form className="dashboard-card mypage-profile-form" onSubmit={handleSubmit}>
               <p className="mypage-form-caption">
-                이름은 고정되며, 다른 정보는 현재 비밀번호 인증 후 변경할 수 있습니다.
+                이름은 고정되고, 나머지 정보는 현재 비밀번호 인증 후 변경할 수 있습니다.
               </p>
 
               <div className="mypage-form-grid">
@@ -337,7 +465,6 @@ export function MyPage() {
                     </button>
                   </div>
                 </div>
-
                 <label className="mypage-field">
                   연락처
                   <input
@@ -345,6 +472,22 @@ export function MyPage() {
                     value={form.phone}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, phone: event.target.value.replace(/\D/g, "") }))
+                    }
+                  />
+                </label>
+                <label className="mypage-field">
+                  출생연도 (선택)
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    placeholder="예: 1994"
+                    value={form.birthYear}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        birthYear: event.target.value.replace(/\D/g, "").slice(0, 4),
+                      }))
                     }
                   />
                 </label>
@@ -435,12 +578,12 @@ export function MyPage() {
             </form>
 
             <div className="dashboard-section-header">
-              <h2>최근 주문 내역</h2>
+                <h2>최근 주문 내역</h2>
             </div>
             <div className="dashboard-card order-list">
               {userOrders.length ? (
-                userOrders.map((order) => (
-                  <article key={order.orderId} className="order-row">
+                userOrders.map((order, index) => (
+                  <article key={order.orderId || order.id || `${order.createdAt || "order"}-${index}`} className="order-row">
                     <div>
                       <strong>{order.orderName}</strong>
                       <p>{formatDate(order.createdAt)}</p>
@@ -449,7 +592,7 @@ export function MyPage() {
                   </article>
                 ))
               ) : (
-                <p className="empty-copy">주문 내역이 없습니다.</p>
+                  <p className="empty-copy">주문 내역이 없습니다.</p>
               )}
             </div>
           </aside>
@@ -458,3 +601,5 @@ export function MyPage() {
     </div>
   );
 }
+
+

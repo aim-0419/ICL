@@ -1,13 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { canEditPage, isAdminStaff } from "../auth/userRoles.js";
 import { useAppStore } from "../store/AppContext.jsx";
-
-function isAdminUser(user) {
-  if (!user) return false;
-  const normalizedRole = String(user.role || "").toLowerCase();
-  const adminFlag = user.isAdmin === true || user.isAdmin === 1 || user.isAdmin === "1";
-  return normalizedRole === "admin" || adminFlag || user.email === "admin@iclpilates.com";
-}
 
 export function SiteHeader({ subpage = false }) {
   const { currentUser, logoutUser, cart, adminPageEditMode, setAdminPageEditMode } = useAppStore();
@@ -73,7 +67,7 @@ export function SiteHeader({ subpage = false }) {
                 <Link to="/ikleulrim/instructors">강사</Link>
                 <Link to="/ikleulrim/tour">둘러보기</Link>
                 <Link to="/ikleulrim/equipment">장비소개</Link>
-                <Link to="/ikleulrim/directions">오시는길</Link>
+                <Link to="/ikleulrim/directions">오시는 길</Link>
               </div>
             </div>
             <Link className="nav-link" to="/academy">
@@ -94,19 +88,26 @@ export function SiteHeader({ subpage = false }) {
         <div className="header-actions">
           {currentUser ? (
             <>
-              <Link className="text-link-button user-greeting-link" to="/mypage">
+              <Link className="text-link-button header-pill-button user-greeting-link" to="/mypage">
                 {currentUser.name}님
               </Link>
-              {isAdminUser(currentUser) ? (
+              {isAdminStaff(currentUser) ? (
+                <Link className="text-link-button header-pill-button" to="/admin">
+                  관리자 대시보드
+                </Link>
+              ) : null}
+              {canEditPage(currentUser) ? (
                 <button
-                  className={`text-link-button admin-page-edit-button${adminPageEditMode ? " active" : ""}`}
+                  className={`text-link-button header-pill-button admin-page-edit-button${
+                    adminPageEditMode ? " active" : ""
+                  }`}
                   type="button"
                   onClick={() => setAdminPageEditMode((current) => !current)}
                 >
-                  {adminPageEditMode ? "페이지수정 ON" : "페이지수정"}
+                  {adminPageEditMode ? "페이지 수정 ON" : "페이지 수정"}
                 </button>
               ) : null}
-              <button className="text-link-button" type="button" onClick={handleLogout}>
+              <button className="text-link-button header-pill-button" type="button" onClick={handleLogout}>
                 로그아웃
               </button>
             </>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
@@ -13,6 +13,7 @@ export function SignupPage() {
     password: "",
     passwordConfirm: "",
     phone: "",
+    birthYear: "",
   });
   const [agreements, setAgreements] = useState({
     service: false,
@@ -72,6 +73,7 @@ export function SignupPage() {
         email: form.email.trim(),
         password: form.password.trim(),
         phone: form.phone.trim(),
+        birthYear: form.birthYear.trim() ? form.birthYear.trim() : null,
       });
       alert("회원가입이 완료되었습니다.");
       navigate("/mypage");
@@ -85,11 +87,9 @@ export function SignupPage() {
       <SiteHeader subpage />
       <main className="auth-page">
         <section className="auth-card signup-auth-card">
-          <p className="section-kicker">Create Account</p>
+          <p className="section-kicker">회원가입</p>
           <h1>회원가입</h1>
-          <p className="section-text">
-            회원가입 후 교육 영상 구매와 수강 이력을 관리할 수 있습니다.
-          </p>
+          <p className="section-text">회원가입 후 교육 영상 구매와 수강 이력을 관리할 수 있습니다.</p>
           <div className="signup-coupon-box">
             <strong>신규 회원 웰컴 혜택 진행 중</strong>
             <p>10초만에 가입하고 다양한 혜택을 받아보세요.</p>
@@ -100,12 +100,10 @@ export function SignupPage() {
               아이디
               <input
                 type="text"
-                placeholder="영문/숫자 조합 아이디를 입력해 주세요."
+                placeholder="영문/숫자 조합 아이디를 입력해 주세요"
                 required
                 value={form.loginId}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, loginId: event.target.value }))
-                }
+                onChange={(event) => setForm((current) => ({ ...current, loginId: event.target.value }))}
               />
             </label>
 
@@ -113,7 +111,7 @@ export function SignupPage() {
               이름
               <input
                 type="text"
-                placeholder="한글로 공백 없이 입력해 주세요."
+                placeholder="실명으로 공백 없이 입력해 주세요"
                 required
                 value={form.name}
                 onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
@@ -126,11 +124,9 @@ export function SignupPage() {
                 <input
                   type="email"
                   required
-                  placeholder="실제 사용하는 이메일 주소"
+                  placeholder="실제 사용하시는 이메일 주소"
                   value={form.email}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, email: event.target.value }))
-                  }
+                  onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
                 />
                 <button className="field-inline-button" type="button" onClick={handleViewDetail}>
                   인증메일 발송
@@ -139,11 +135,11 @@ export function SignupPage() {
             </div>
 
             <label>
-              휴대폰 번호 (숫자만)
+              연락처 (숫자만)
               <input
                 type="tel"
                 required
-                placeholder="- 없이 숫자만 입력해 주세요."
+                placeholder="- 없이 숫자만 입력해 주세요"
                 value={form.phone}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -155,15 +151,30 @@ export function SignupPage() {
             </label>
 
             <label>
+              출생연도 (선택)
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="예: 1994"
+                value={form.birthYear}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    birthYear: event.target.value.replace(/\D/g, "").slice(0, 4),
+                  }))
+                }
+              />
+            </label>
+
+            <label>
               비밀번호
               <input
                 type="password"
                 required
-                placeholder="비밀번호를 입력해 주세요."
+                placeholder="비밀번호를 입력해 주세요"
                 value={form.password}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, password: event.target.value }))
-                }
+                onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
               />
             </label>
 
@@ -172,7 +183,7 @@ export function SignupPage() {
               <input
                 type="password"
                 required
-                placeholder="비밀번호를 다시 입력해 주세요."
+                placeholder="비밀번호를 다시 입력해 주세요"
                 value={form.passwordConfirm}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, passwordConfirm: event.target.value }))
@@ -200,6 +211,7 @@ export function SignupPage() {
                     보기
                   </button>
                 </div>
+
                 <div className="agreement-row">
                   <label>
                     <input
@@ -213,16 +225,14 @@ export function SignupPage() {
                     보기
                   </button>
                 </div>
+
                 <div className="agreement-row">
                   <label>
-                    <input
-                      type="checkbox"
-                      checked={agreements.age}
-                      onChange={() => toggleAgreement("age")}
-                    />
+                    <input type="checkbox" checked={agreements.age} onChange={() => toggleAgreement("age")} />
                     <span>만 14세 이상입니다 (필수)</span>
                   </label>
                 </div>
+
                 <div className="agreement-row">
                   <label>
                     <input
@@ -230,7 +240,7 @@ export function SignupPage() {
                       checked={agreements.marketing}
                       onChange={() => toggleAgreement("marketing")}
                     />
-                    <span>마케팅 수신 동의 (선택)</span>
+                    <span>마케팅 정보 수신 동의 (선택)</span>
                   </label>
                   <button type="button" className="agreement-view-btn" onClick={handleViewDetail}>
                     보기

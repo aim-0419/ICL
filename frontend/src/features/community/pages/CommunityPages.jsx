@@ -2,8 +2,10 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
+import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
+// 커뮤니티 페이지 파일은 후기 / 문의 / 이벤트 목록과 상세 화면을 함께 담고 있다.
 const POSTS_PER_PAGE = 8;
 const REVIEW_IMAGES = [
   "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1600&q=80",
@@ -18,13 +20,6 @@ const FALLBACK_EVENT_IMAGE =
 function toNumber(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
-}
-
-function isAdminUser(user) {
-  if (!user) return false;
-  const normalizedRole = String(user.role || "").toLowerCase();
-  const adminFlag = user.isAdmin === true || user.isAdmin === 1 || user.isAdmin === "1";
-  return normalizedRole === "admin" || adminFlag || user.email === "admin@iclpilates.com";
 }
 
 function formatPeriod(startDate, endDate) {
@@ -43,6 +38,7 @@ function usePaging(items, page) {
   return { totalPages, safePage, start, currentItems: items.slice(start, start + POSTS_PER_PAGE) };
 }
 
+// 게시판 유형이 달라도 같은 페이지네이션 UI를 재사용한다.
 function Pagination({ page, totalPages, setPage, ariaLabel }) {
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
   return (
@@ -61,6 +57,7 @@ function Pagination({ page, totalPages, setPage, ariaLabel }) {
   );
 }
 
+// 후기 게시판은 회원이 직접 글을 작성할 수 있는 공개 게시판이다.
 export function CommunityReviewsPage() {
   const store = useAppStore();
   const navigate = useNavigate();
@@ -100,6 +97,7 @@ export function CommunityReviewsPage() {
 
   const { totalPages, safePage, start, currentItems } = usePaging(sorted, page);
 
+  // 등록 성공 시 목록 앞에 즉시 반영하고 상세 페이지로 이동한다.
   async function handleCreateReview(event) {
     event.preventDefault();
 
@@ -272,6 +270,7 @@ export function CommunityReviewsPage() {
   );
 }
 
+// 후기 상세는 본문과 댓글을 함께 다루며, 진입 시 조회수를 증가시킨다.
 export function CommunityReviewDetailPage() {
   const store = useAppStore();
   const { reviewId } = useParams();
@@ -437,6 +436,7 @@ export function CommunityReviewDetailPage() {
   );
 }
 
+// 문의 게시판은 로그인 사용자가 비밀글 여부를 선택해 글을 남길 수 있다.
 export function CommunityInquiryPage() {
   const store = useAppStore();
   const navigate = useNavigate();
@@ -655,6 +655,7 @@ export function CommunityInquiryPage() {
   );
 }
 
+// 비밀 문의는 작성자 또는 관리자만 본문을 열람할 수 있다.
 export function CommunityInquiryDetailPage() {
   const store = useAppStore();
   const { inquiryId } = useParams();
@@ -667,7 +668,7 @@ export function CommunityInquiryDetailPage() {
       try {
         const inquiry = await apiRequest(`/community/inquiries/${inquiryId}`);
         const isAuthor = Boolean(store.currentUser && store.currentUser.id === inquiry.authorId);
-        const canRead = Boolean(!inquiry.isSecret || isAuthor || isAdminUser(store.currentUser));
+        const canRead = Boolean(!inquiry.isSecret || isAuthor || isAdminStaff(store.currentUser));
 
         if (canRead && viewedRef.current !== inquiryId) {
           viewedRef.current = inquiryId;
@@ -699,7 +700,7 @@ export function CommunityInquiryDetailPage() {
   }
 
   const isAuthor = Boolean(store.currentUser && store.currentUser.id === post.authorId);
-  const canRead = Boolean(!post.isSecret || isAuthor || isAdminUser(store.currentUser));
+  const canRead = Boolean(!post.isSecret || isAuthor || isAdminStaff(store.currentUser));
 
   if (!canRead) {
     return (
@@ -771,10 +772,11 @@ export function CommunityInquiryDetailPage() {
   );
 }
 
+// 이벤트 게시판은 관리자만 작성할 수 있고, 일반 사용자는 조회만 가능하다.
 export function CommunityEventsPage() {
   const store = useAppStore();
   const navigate = useNavigate();
-  const canWriteEvent = isAdminUser(store.currentUser);
+  const canWriteEvent = isAdminStaff(store.currentUser);
   const [events, setEvents] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("전체");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1012,6 +1014,7 @@ export function CommunityEventsPage() {
   );
 }
 
+// 이벤트 상세 화면은 단일 이벤트의 기간/상태/소개 이미지를 보여준다.
 export function CommunityEventDetailPage() {
   const { eventId } = useParams();
   const [eventItem, setEventItem] = useState(null);

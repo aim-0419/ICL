@@ -12,7 +12,7 @@ export function SuccessPage() {
       <main className="content-page payment-result-page">
         <section className="payment-result-card">
           <div className="payment-result-copy">
-            <p className="section-kicker">Payment Complete</p>
+            <p className="section-kicker">결제 완료</p>
             <h2 className="payment-result-success-title">결제 요청이 정상적으로 접수되었습니다</h2>
             <p className="section-text">주문 정보를 확인한 뒤 영상 수강 안내를 전달드립니다.</p>
             <Link className="pill-button" to="/mypage">

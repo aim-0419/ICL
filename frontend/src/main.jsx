@@ -1,6 +1,8 @@
 // 애플리케이션 진입점:
 // 라우터(BrowserRouter)와 전역 상태(AppProvider)를 루트에 연결합니다.
 import React from "react";
+// 프론트엔드 애플리케이션의 진입점이다.
+// 라우터와 전역 상태 저장소를 루트 컴포넌트에 연결해 전체 화면에서 공통으로 사용한다.
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./app/App.jsx";

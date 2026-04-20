@@ -1,5 +1,6 @@
 ﻿import * as authService from "../auth/auth.service.js";
 import * as communityService from "./community.service.js";
+import * as communitySocialService from "./community.social.service.js";
 
 const SESSION_COOKIE_NAME = "icl_session";
 const EVENT_STATUSES = new Set(["진행중", "종료"]);
@@ -25,14 +26,29 @@ async function getAuthUser(req) {
 
 function isAdminUser(user) {
   if (!user) return false;
+  const normalizedGrade = String(user.userGrade || "").toLowerCase();
+  if (normalizedGrade === "admin0" || normalizedGrade === "admin1") return true;
   const normalizedRole = String(user.role || "").toLowerCase();
   const adminFlag = user.isAdmin === true || user.isAdmin === 1 || user.isAdmin === "1";
-  return normalizedRole === "admin" || adminFlag || user.email === "admin@iclpilates.com";
+  return (
+    normalizedRole === "admin" ||
+    normalizedRole === "admin1" ||
+    adminFlag ||
+    user.email === "admin@iclpilates.com"
+  );
 }
 
 export async function getReviews(req, res, next) {
   try {
     res.json(await communityService.listReviews());
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getSocialLatest(req, res, next) {
+  try {
+    res.json(await communitySocialService.getBrandSocialLatest());
   } catch (error) {
     next(error);
   }

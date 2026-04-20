@@ -22,3 +22,6 @@ Thumbs.db
 # Local temp files
 frontend/_tmp_davenue.html
 frontend/_tmp_davenue_intro.html
+
+# Uploaded media
+backend/uploads/

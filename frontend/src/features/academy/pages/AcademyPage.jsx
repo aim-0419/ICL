@@ -20,6 +20,34 @@ function toSafeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parseDurationInputToSeconds(value) {
+  const text = String(value || "").trim();
+  if (!text) return { seconds: 0, error: "" };
+
+  const normalized = text.replace(/\s+/g, "").replace(/：/g, ":");
+
+  // 하위 호환: 숫자만 입력하면 초 단위로 처리
+  if (/^\d+$/.test(normalized)) {
+    return {
+      seconds: Math.max(0, Math.round(Number(normalized))),
+      error: "",
+    };
+  }
+
+  // 권장 입력: 분:초 (예: 12:30)
+  const mmss = normalized.match(/^(\d+):(\d{1,2})$/);
+  if (mmss) {
+    const minutes = Number(mmss[1]);
+    const seconds = Number(mmss[2]);
+    if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || seconds >= 60) {
+      return { seconds: 0, error: "invalid" };
+    }
+    return { seconds: minutes * 60 + seconds, error: "" };
+  }
+
+  return { seconds: 0, error: "invalid" };
+}
+
 function createEmptyChapter(index) {
   return {
     key: `chapter-${Date.now()}-${index}`,
@@ -34,6 +62,10 @@ function createEmptyChapter(index) {
 function normalizeFileName(file) {
   if (!(file instanceof File)) return "";
   return String(file.name || "").trim();
+}
+
+function isDefaultChapterTitle(value) {
+  return /^\d+\s*차시$/.test(String(value || "").trim());
 }
 
 export function AcademyPage() {
@@ -93,7 +125,10 @@ export function AcademyPage() {
       const updated = [...prev];
       const [moved] = updated.splice(srcIndex, 1);
       updated.splice(dropIndex, 0, moved);
-      return updated;
+      return updated.map((item, index) => ({
+        ...item,
+        title: isDefaultChapterTitle(item.title) ? `${index + 1}차시` : item.title,
+      }));
     });
     dragSrcIndexRef.current = null;
     setDragOverIndex(null);
@@ -211,10 +246,16 @@ export function AcademyPage() {
       for (const [index, chapter] of chapterInputs.entries()) {
         if (!(chapter.file instanceof File)) continue;
         const uploadedVideoPath = await uploadAcademyAsset(chapter.file, "video");
+
+        const parsedDuration = parseDurationInputToSeconds(chapter.durationSec);
+        if (parsedDuration.error) {
+          throw new Error(`${index + 1}차시 영상 길이는 분:초 형식으로 입력해 주세요. (예: 12:30)`);
+        }
+
         uploadedChapters.push({
           title: String(chapter.title || "").trim() || `${index + 1}차시`,
           description: String(chapter.description || "").trim(),
-          durationSec: Math.max(0, Math.round(toSafeNumber(chapter.durationSec, 0))),
+          durationSec: parsedDuration.seconds,
           isPreview: Boolean(chapter.isPreview),
           videoPath: uploadedVideoPath,
         });
@@ -561,15 +602,15 @@ export function AcademyPage() {
                       </label>
 
                       <label>
-                        영상 길이(초)
+                        영상 길이(분:초)
                         <input
                           type="text"
-                          inputMode="numeric"
+                          inputMode="text"
                           value={chapter.durationSec}
                           onChange={(event) =>
-                            updateChapter(index, { durationSec: event.target.value.replace(/[^0-9]/g, "") })
+                            updateChapter(index, { durationSec: event.target.value.replace(/[^0-9:：]/g, "") })
                           }
-                          placeholder="예: 1200"
+                          placeholder="예: 12:30"
                         />
                       </label>
 

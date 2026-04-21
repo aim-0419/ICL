@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import * as adminController from "./admin.controller.js";
 
 export const adminRoutes = Router();
@@ -9,3 +9,8 @@ adminRoutes.get("/dashboard/lectures/progress", adminController.getDashboardLect
 adminRoutes.get("/dashboard/sales", adminController.getDashboardSales);
 adminRoutes.patch("/users/:userId/grade", adminController.updateUserGrade);
 adminRoutes.post("/lectures", adminController.createLecture);
+
+adminRoutes.get("/page-overrides", adminController.getPageOverrides);
+adminRoutes.post("/page-overrides", express.json(), adminController.savePageOverride);
+adminRoutes.delete("/page-overrides", express.json(), adminController.deletePageOverride);
+adminRoutes.delete("/page-overrides/:type", adminController.deleteAllPageOverridesByType);

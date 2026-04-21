@@ -146,3 +146,12 @@ export function getPurchasedVideos(orders = [], customerEmail = "", videos = ACA
     purchasedProductIds.has(String(video.productId || video.id))
   );
 }
+
+export function hasPreviewChapter(video) {
+  if (!video || !Array.isArray(video.chapters)) return false;
+  return video.chapters.some((chapter) => Boolean(chapter?.isPreview));
+}
+
+export function getPreviewAccessibleVideos(videos = ACADEMY_VIDEOS) {
+  return (Array.isArray(videos) ? videos : ACADEMY_VIDEOS).filter((video) => hasPreviewChapter(video));
+}

@@ -93,6 +93,49 @@ export async function deleteAcademyVideo(videoId) {
   });
 }
 
+export async function listAcademyReviews(videoId) {
+  const result = await apiRequest(`/academy/videos/${encodeURIComponent(String(videoId))}/reviews`);
+  return Array.isArray(result?.reviews) ? result.reviews : [];
+}
+
+export async function createAcademyReview(videoId, payload) {
+  return apiRequest(`/academy/videos/${encodeURIComponent(String(videoId))}/reviews`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function deleteAcademyReview(reviewId) {
+  return apiRequest(`/academy/reviews/${encodeURIComponent(String(reviewId))}`, { method: "DELETE" });
+}
+
+export async function listAcademyQna(videoId) {
+  const result = await apiRequest(`/academy/videos/${encodeURIComponent(String(videoId))}/qna`);
+  return Array.isArray(result?.posts) ? result.posts : [];
+}
+
+export async function createAcademyQnaPost(videoId, payload) {
+  return apiRequest(`/academy/videos/${encodeURIComponent(String(videoId))}/qna`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function createAcademyQnaReply(postId, payload) {
+  return apiRequest(`/academy/qna/${encodeURIComponent(String(postId))}/replies`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function deleteAcademyQnaPost(postId) {
+  return apiRequest(`/academy/qna/${encodeURIComponent(String(postId))}`, { method: "DELETE" });
+}
+
+export async function deleteAcademyQnaReply(replyId) {
+  return apiRequest(`/academy/qna/replies/${encodeURIComponent(String(replyId))}`, { method: "DELETE" });
+}
+
 export async function uploadAcademyAsset(file, kind) {
   if (!(file instanceof File)) {
     throw new Error("업로드할 파일을 먼저 선택해 주세요.");

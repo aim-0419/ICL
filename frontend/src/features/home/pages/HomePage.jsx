@@ -5,14 +5,6 @@ import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
 
-const IMAGE_FALLBACK_POOL = [
-  "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1600&q=80",
-  "https://images.unsplash.com/photo-1545389336-cf090694435e?auto=format&fit=crop&w=1600&q=80",
-  "https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=1600&q=80",
-  "https://images.unsplash.com/photo-1506629905607-c36a594d95f3?auto=format&fit=crop&w=1600&q=80",
-  "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1600&q=80",
-  "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1600&q=80",
-];
 
 const SOCIAL_SOURCE_NAME_MAP = {
   youtube: "YouTube",
@@ -46,34 +38,6 @@ const DEFAULT_SOCIAL_ITEMS = [
     thumbnail: "",
   },
 ];
-
-function getHash(input) {
-  let hash = 0;
-  for (let index = 0; index < input.length; index += 1) {
-    hash = (hash << 5) - hash + input.charCodeAt(index);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
-function attachImageFallback(event) {
-  const image = event.currentTarget;
-  const attempt = Number(image.dataset.fallbackAttempt || "0");
-  if (attempt >= IMAGE_FALLBACK_POOL.length) {
-    image.onerror = null;
-    return;
-  }
-
-  const seed = `${image.alt || ""}|${image.dataset.originalSrc || image.currentSrc || image.src || ""}`;
-  const baseIndex = getHash(seed) % IMAGE_FALLBACK_POOL.length;
-  const fallbackIndex = (baseIndex + attempt) % IMAGE_FALLBACK_POOL.length;
-
-  if (!image.dataset.originalSrc) {
-    image.dataset.originalSrc = image.currentSrc || image.src || "";
-  }
-  image.dataset.fallbackAttempt = String(attempt + 1);
-  image.src = IMAGE_FALLBACK_POOL[fallbackIndex];
-}
 
 function handleSocialThumbnailError(event) {
   const image = event.currentTarget;
@@ -160,6 +124,17 @@ export function HomePage() {
   const navigate = useNavigate();
   const store = useAppStore();
   const [socialItems, setSocialItems] = useState(() => DEFAULT_SOCIAL_ITEMS);
+  const [latestReviews, setLatestReviews] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/academy/reviews/latest?limit=3", { credentials: "include" })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        const rows = Array.isArray(data?.reviews) ? data.reviews : [];
+        if (rows.length > 0) setLatestReviews(rows);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (window.location.hash) {
@@ -207,8 +182,8 @@ export function HomePage() {
             <div className="hero-star">✶</div>
             <h1>이끌림 필라테스는 다릅니다.</h1>
             <p className="hero-text">
-              이끌림 필라테스는 고급스러운 공간 경험과 실전 중심 교육 콘텐츠를 함께 제안합니다.
-              스튜디오 소개부터 수강생용 가이드 영상 판매까지 한 흐름으로 이어집니다.
+              고급스러운 공간 경험과 실전 중심 교육 콘텐츠를 함께 제안합니다.
+              스튜디오 소개부터 교육 영상 판매까지 한 흐름으로 이어집니다.
             </p>
             <button
               className="pill-button white"
@@ -219,11 +194,7 @@ export function HomePage() {
             </button>
           </div>
           <div className="hero-image">
-            <img
-              src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1600&q=80"
-              alt="필라테스 수업 장면"
-              onError={attachImageFallback}
-            />
+            <div className="img-placeholder"><span>비어있는 이미지 1입니다</span></div>
           </div>
         </section>
 
@@ -233,38 +204,23 @@ export function HomePage() {
             <p className="section-kicker">이끌림</p>
             <h2>특별한 시작</h2>
             <p className="section-text narrow">
-              회원에게는 프리미엄 필라테스 경험을, 강사와 예비 창업자에게는 실전형 교육 콘텐츠를
-              제공합니다. 오프라인과 온라인 수익 구조를 동시에 설계할 수 있는 브랜드형 홈페이지입니다.
+              회원에게는 프리미엄 필라테스 경험을,
+              강사와 예비 창업자에게는 실전형 교육 콘텐츠를 제공합니다.
+              오프라인과 온라인 수익 구조를 동시에 설계할 수 있습니다.
             </p>
           </div>
           <div className="mosaic-grid">
             <div className="mosaic-card tall">
-              <img
-                src="https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a?auto=format&fit=crop&w=1200&q=80"
-                alt="매트 필라테스 동작"
-                onError={attachImageFallback}
-              />
+              <div className="img-placeholder"><span>비어있는 이미지 2입니다</span></div>
             </div>
             <div className="mosaic-card short offset-down">
-              <img
-                src="https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&w=1200&q=80"
-                alt="발끝 정렬 자세"
-                onError={attachImageFallback}
-              />
+              <div className="img-placeholder"><span>비어있는 이미지 3입니다</span></div>
             </div>
             <div className="mosaic-card tall">
-              <img
-                src="https://images.unsplash.com/photo-1593079831268-3381b0db4a77?auto=format&fit=crop&w=1200&q=80"
-                alt="상체 정렬 시범"
-                onError={attachImageFallback}
-              />
+              <div className="img-placeholder"><span>비어있는 이미지 4입니다</span></div>
             </div>
             <div className="mosaic-card wide offset-up">
-              <img
-                src="https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=1200&q=80"
-                alt="옆구리 스트레칭"
-                onError={attachImageFallback}
-              />
+              <div className="img-placeholder"><span>비어있는 이미지 5입니다</span></div>
             </div>
           </div>
         </section>
@@ -272,11 +228,7 @@ export function HomePage() {
         <section className="feature-panel dark-panel section-block" id="features">
           <div className="feature-layout">
             <div className="feature-image">
-              <img
-                src="https://images.unsplash.com/photo-1506629905607-c36a594d95f3?auto=format&fit=crop&w=1200&q=80"
-                alt="스튜디오 수업 모습"
-                onError={attachImageFallback}
-              />
+              <div className="img-placeholder"><span>비어있는 이미지 6입니다</span></div>
             </div>
             <div className="feature-copy">
               <h2 className="feature-title">이끌림을 선택하는 3가지 이유</h2>
@@ -288,8 +240,7 @@ export function HomePage() {
                 <span>special feature 01.</span>
                 <h3>프리미엄 무드의 브랜딩</h3>
                 <p>
-                  차분한 아이보리와 골드 포인트를 바탕으로 고급스러운 첫인상을 전달합니다.
-                  <br />
+                  차분한 아이보리와 골드 포인트로 고급스러운 첫인상을 전달합니다.
                   상담 문의 전환에 유리한 구조를 고려했습니다.
                 </p>
               </article>
@@ -298,8 +249,7 @@ export function HomePage() {
                 <span>special feature 02.</span>
                 <h3>오프라인과 온라인의 결합</h3>
                 <p>
-                  스튜디오 소개뿐 아니라 교육 가이드 영상 판매까지 같은 브랜드 경험 안에서
-                  이어지도록 설계했습니다.
+                  스튜디오 소개와 교육 영상 판매가 같은 브랜드 경험 안에서 이어집니다.
                 </p>
               </article>
 
@@ -307,8 +257,7 @@ export function HomePage() {
                 <span>special feature 03.</span>
                 <h3>실결제로 확장 가능한 구조</h3>
                 <p>
-                  토스페이먼츠 연동을 고려한 체크아웃 흐름이 들어 있어 실제 판매 사이트로
-                  확장하기 좋습니다.
+                  실결제 체크아웃 흐름이 포함되어 있어 실제 판매 사이트로 바로 확장할 수 있습니다.
                 </p>
               </article>
             </div>
@@ -410,7 +359,10 @@ export function HomePage() {
                   }}
                 >
                   <div className="academy-video-thumb">
-                    <img src={video.image} alt={video.title} onError={attachImageFallback} />
+                    {video.image
+                      ? <img src={video.image} alt={video.title} />
+                      : <div className="img-placeholder"><span>비어있는 이미지입니다</span></div>
+                    }
                   </div>
                   <div className="academy-video-body">
                     <h3>{video.title}</h3>
@@ -460,45 +412,50 @@ export function HomePage() {
             <p className="section-kicker">후기</p>
             <h2>함께하고 있는 회원 후기</h2>
             <p className="section-text narrow">
-              공간의 무드와 수업의 전문성, 그리고 교육 콘텐츠의 실용성까지 자연스럽게 연결되는
-              브랜드 경험을 전달합니다.
+              공간의 무드, 수업의 전문성, 교육 콘텐츠의 실용성이 하나의 브랜드 경험으로 연결됩니다.
             </p>
           </div>
 
           <div className="review-gallery">
-            <article className="review-card image-first">
-              <img
-                src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=900&q=80"
-                alt="후기 이미지 1"
-                onError={attachImageFallback}
-              />
-              <div className="review-copy">
-                <p>시설과 분위기가 명확한 콘셉트로 잡혀 있어 몰입감이 정말 좋았어요.</p>
-                <strong>개인 레슨 회원</strong>
-              </div>
-            </article>
-            <article className="review-card image-first">
-              <img
-                src="https://images.unsplash.com/photo-1545389336-cf090694435e?auto=format&fit=crop&w=900&q=80"
-                alt="후기 이미지 2"
-                onError={attachImageFallback}
-              />
-              <div className="review-copy">
-                <p>교육 영상과 현장 수업이 바로 연결되어 복습 자료로도 활용하기 좋습니다.</p>
-                <strong>예비 필라테스 강사</strong>
-              </div>
-            </article>
-            <article className="review-card image-first">
-              <img
-                src="https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=900&q=80"
-                alt="후기 이미지 3"
-                onError={attachImageFallback}
-              />
-              <div className="review-copy">
-                <p>오프라인 홍보와 온라인 판매가 자연스럽게 이어져 운영 효율이 올라갔어요.</p>
-                <strong>스튜디오 운영자</strong>
-              </div>
-            </article>
+            {latestReviews.length > 0 ? (
+              latestReviews.map((review) => (
+                <article className="review-card image-first" key={review.id}>
+                  <div className="img-placeholder"><span>이미지 영역</span></div>
+                  <div className="review-copy">
+                    <div className="review-stars" aria-label={`${review.rating}점`}>
+                      {"★".repeat(Math.min(5, Math.max(0, Number(review.rating) || 0)))}
+                      {"☆".repeat(5 - Math.min(5, Math.max(0, Number(review.rating) || 0)))}
+                    </div>
+                    <p>{review.content}</p>
+                    <strong>{review.userName}</strong>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <>
+                <article className="review-card image-first">
+                  <div className="img-placeholder"><span>비어있는 이미지 7입니다</span></div>
+                  <div className="review-copy">
+                    <p>시설과 분위기가 명확한 콘셉트로 잡혀 있어 몰입감이 정말 좋았어요.</p>
+                    <strong>개인 레슨 회원</strong>
+                  </div>
+                </article>
+                <article className="review-card image-first">
+                  <div className="img-placeholder"><span>비어있는 이미지 8입니다</span></div>
+                  <div className="review-copy">
+                    <p>교육 영상과 현장 수업이 바로 연결되어 복습 자료로도 활용하기 좋습니다.</p>
+                    <strong>예비 필라테스 강사</strong>
+                  </div>
+                </article>
+                <article className="review-card image-first">
+                  <div className="img-placeholder"><span>비어있는 이미지 9입니다</span></div>
+                  <div className="review-copy">
+                    <p>오프라인 홍보와 온라인 판매가 자연스럽게 이어져 운영 효율이 올라갔어요.</p>
+                    <strong>스튜디오 운영자</strong>
+                  </div>
+                </article>
+              </>
+            )}
           </div>
         </section>
       </main>

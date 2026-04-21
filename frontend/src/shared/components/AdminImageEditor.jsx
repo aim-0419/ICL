@@ -3,11 +3,69 @@ import { useLocation } from "react-router-dom";
 import { useAppStore } from "../store/AppContext.jsx";
 import { canEditPage } from "../auth/userRoles.js";
 
-// 관리자0의 페이지 수정 기능은 서버 저장이 아니라 브라우저 localStorage 기반으로 동작한다.
+// 관리자0의 페이지 수정 기능은 localStorage를 캐시로 사용하고 DB를 원본으로 동기화한다.
 const IMAGE_STORAGE_KEY = "icl_admin_image_overrides_v1";
 const TEXT_STORAGE_KEY = "icl_admin_text_overrides_v1";
+const VIDEO_STORAGE_KEY = "icl_admin_video_overrides_v1";
+const POSITION_STORAGE_KEY = "icl_admin_position_overrides_v1";
 const EDITABLE_IMAGE_SELECTOR = "img, [role='img'], .staff-image-slot, [data-admin-bg-editable]";
 const EDITABLE_TEXT_SELECTOR = "h1, h2, h3, p, span, strong, em, small, li, label, time, dt, dd";
+const DRAGGABLE_CARD_SELECTOR = [
+  ".academy-video-card",
+  ".review-card",
+  ".status-card",
+  ".social-feed-card",
+  ".content-card",
+  ".mosaic-card",
+  ".tour-gallery-item",
+  ".reason-item",
+  ".staff-split",
+  ".direction-branch-card",
+  ".intro-speciality-card",
+  ".intro-promise-card",
+].join(", ");
+
+function isVideoUrl(url) {
+  const lower = String(url).toLowerCase().split("?")[0];
+  return [".mp4", ".webm", ".mov", ".m4v", ".ogg"].some((ext) => lower.endsWith(ext));
+}
+
+function applyVideoOverlay(element, videoUrl) {
+  removeVideoOverlay(element);
+  const computed = window.getComputedStyle(element);
+  if (computed.position === "static") {
+    element.style.position = "relative";
+    element.dataset.adminVideoAddedPosition = "true";
+  }
+  element.style.overflow = "hidden";
+  const video = document.createElement("video");
+  video.className = "admin-video-overlay";
+  video.src = videoUrl;
+  video.autoplay = true;
+  video.loop = true;
+  video.muted = true;
+  video.setAttribute("playsinline", "");
+  video.style.cssText =
+    "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;z-index:1;";
+  element.appendChild(video);
+  video.play().catch(() => {});
+  element.dataset.adminVideoCustomized = "true";
+}
+
+function removeVideoOverlay(element) {
+  element.querySelectorAll(".admin-video-overlay").forEach((v) => v.remove());
+  if (element.dataset.adminVideoAddedPosition === "true") {
+    element.style.removeProperty("position");
+    delete element.dataset.adminVideoAddedPosition;
+  }
+  const originalOverflow = element.dataset.adminImageOriginalOverflow || "";
+  if (originalOverflow) {
+    element.style.overflow = originalOverflow;
+  } else {
+    element.style.removeProperty("overflow");
+  }
+  element.dataset.adminVideoCustomized = "false";
+}
 
 function readOverrides(storageKey) {
   if (typeof window === "undefined") return {};
@@ -29,6 +87,42 @@ function saveOverrides(storageKey, nextOverrides) {
   } catch (error) {
     console.error("[admin-editor] failed to save overrides", error);
     return false;
+  }
+}
+
+async function syncOverrideToDb(type, key, value) {
+  try {
+    await fetch("/api/admin/page-overrides", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ type, key, value }),
+    });
+  } catch {
+    // best-effort; localStorage는 캐시로 유지된다
+  }
+}
+
+async function deleteOverrideFromDb(type, key) {
+  try {
+    await fetch("/api/admin/page-overrides", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ type, key }),
+    });
+  } catch {
+    // best-effort
+  }
+}
+
+async function fetchOverridesFromDb() {
+  try {
+    const res = await fetch("/api/admin/page-overrides", { credentials: "include" });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
   }
 }
 
@@ -61,6 +155,13 @@ function getEditableElementKey(element, pathname) {
 function rememberOriginalImageValue(element) {
   if (element.dataset.adminImageOriginalSaved === "true") return;
 
+  element.dataset.adminImageOriginalObjectFit = element.style.objectFit || "";
+  element.dataset.adminImageOriginalObjectPosition = element.style.objectPosition || "";
+  element.dataset.adminImageOriginalBackgroundSize = element.style.backgroundSize || "";
+  element.dataset.adminImageOriginalBackgroundPosition = element.style.backgroundPosition || "";
+  element.dataset.adminImageOriginalBackgroundRepeat = element.style.backgroundRepeat || "";
+  element.dataset.adminImageOriginalOverflow = element.style.overflow || "";
+
   if (element.tagName === "IMG") {
     element.dataset.adminImageOriginalValue = element.getAttribute("src") || "";
   } else {
@@ -73,13 +174,15 @@ function rememberOriginalImageValue(element) {
 function applyImageValue(element, value) {
   if (element.tagName === "IMG") {
     element.setAttribute("src", value);
+    element.style.objectFit = "contain";
+    element.style.objectPosition = "center";
     element.dataset.adminImageCustomized = "true";
     return;
   }
 
   const safeUrl = String(value).replace(/"/g, '\\"');
   element.style.backgroundImage = `url("${safeUrl}")`;
-  element.style.backgroundSize = "cover";
+  element.style.backgroundSize = "contain";
   element.style.backgroundPosition = "center";
   element.style.backgroundRepeat = "no-repeat";
   element.dataset.adminImageCustomized = "true";
@@ -87,6 +190,12 @@ function applyImageValue(element, value) {
 
 function restoreOriginalImageValue(element) {
   const originalValue = element.dataset.adminImageOriginalValue || "";
+  const originalObjectFit = element.dataset.adminImageOriginalObjectFit || "";
+  const originalObjectPosition = element.dataset.adminImageOriginalObjectPosition || "";
+  const originalBackgroundSize = element.dataset.adminImageOriginalBackgroundSize || "";
+  const originalBackgroundPosition = element.dataset.adminImageOriginalBackgroundPosition || "";
+  const originalBackgroundRepeat = element.dataset.adminImageOriginalBackgroundRepeat || "";
+  const originalOverflow = element.dataset.adminImageOriginalOverflow || "";
 
   if (element.tagName === "IMG") {
     if (originalValue) {
@@ -94,15 +203,40 @@ function restoreOriginalImageValue(element) {
     } else {
       element.removeAttribute("src");
     }
+    if (originalObjectFit) {
+      element.style.objectFit = originalObjectFit;
+    } else {
+      element.style.removeProperty("object-fit");
+    }
+    if (originalObjectPosition) {
+      element.style.objectPosition = originalObjectPosition;
+    } else {
+      element.style.removeProperty("object-position");
+    }
     element.dataset.adminImageCustomized = "false";
     return;
   }
 
   element.style.backgroundImage = originalValue;
-  if (!originalValue) {
+  if (originalBackgroundSize) {
+    element.style.backgroundSize = originalBackgroundSize;
+  } else {
     element.style.removeProperty("background-size");
+  }
+  if (originalBackgroundPosition) {
+    element.style.backgroundPosition = originalBackgroundPosition;
+  } else {
     element.style.removeProperty("background-position");
+  }
+  if (originalBackgroundRepeat) {
+    element.style.backgroundRepeat = originalBackgroundRepeat;
+  } else {
     element.style.removeProperty("background-repeat");
+  }
+  if (originalOverflow) {
+    element.style.overflow = originalOverflow;
+  } else {
+    element.style.removeProperty("overflow");
   }
   element.dataset.adminImageCustomized = "false";
 }
@@ -214,12 +348,17 @@ export function AdminImageEditor() {
 
   const [imageOverrides, setImageOverrides] = useState(() => readOverrides(IMAGE_STORAGE_KEY));
   const [textOverrides, setTextOverrides] = useState(() => readOverrides(TEXT_STORAGE_KEY));
+  const [videoOverrides, setVideoOverrides] = useState(() => readOverrides(VIDEO_STORAGE_KEY));
+  const [positionOverrides, setPositionOverrides] = useState(() => readOverrides(POSITION_STORAGE_KEY));
   const [panelPosition, setPanelPosition] = useState(null);
   const [activeType, setActiveType] = useState(null);
   const [isInlineTextEditing, setIsInlineTextEditing] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
 
   const imageOverridesRef = useRef(imageOverrides);
   const textOverridesRef = useRef(textOverrides);
+  const videoOverridesRef = useRef(videoOverrides);
+  const positionOverridesRef = useRef(positionOverrides);
   const activeElementRef = useRef(null);
   const activeTypeRef = useRef(activeType);
   const isInlineTextEditingRef = useRef(false);
@@ -227,6 +366,7 @@ export function AdminImageEditor() {
   const fileInputRef = useRef(null);
   const rafRef = useRef(0);
   const textSessionRef = useRef(null);
+  const dragRef = useRef(null);
 
   useEffect(() => {
     imageOverridesRef.current = imageOverrides;
@@ -237,12 +377,43 @@ export function AdminImageEditor() {
   }, [textOverrides]);
 
   useEffect(() => {
+    videoOverridesRef.current = videoOverrides;
+  }, [videoOverrides]);
+
+  useEffect(() => {
+    positionOverridesRef.current = positionOverrides;
+  }, [positionOverrides]);
+
+  useEffect(() => {
     activeTypeRef.current = activeType;
   }, [activeType]);
 
   useEffect(() => {
     isInlineTextEditingRef.current = isInlineTextEditing;
   }, [isInlineTextEditing]);
+
+  // DB에서 override를 불러와 localStorage와 병합한다 (DB가 원본).
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchOverridesFromDb().then((rows) => {
+      if (!Array.isArray(rows)) return;
+      const grouped = { image: {}, text: {}, video: {}, position: {} };
+      rows.forEach(({ type, key, value }) => {
+        if (grouped[type]) grouped[type][key] = value;
+      });
+      const mergeAndApply = (storageKey, type, setter, ref) => {
+        const local = readOverrides(storageKey);
+        const merged = { ...local, ...grouped[type] };
+        saveOverrides(storageKey, merged);
+        ref.current = merged;
+        setter(merged);
+      };
+      mergeAndApply(IMAGE_STORAGE_KEY, "image", setImageOverrides, imageOverridesRef);
+      mergeAndApply(TEXT_STORAGE_KEY, "text", setTextOverrides, textOverridesRef);
+      mergeAndApply(VIDEO_STORAGE_KEY, "video", setVideoOverrides, videoOverridesRef);
+      mergeAndApply(POSITION_STORAGE_KEY, "position", setPositionOverrides, positionOverridesRef);
+    });
+  }, [isAdmin]);
 
   // 인라인 편집 종료 시 현재 DOM 값과 저장소 값을 함께 정리한다.
   const finishInlineTextEditing = useCallback(
@@ -277,6 +448,7 @@ export function AdminImageEditor() {
         textOverridesRef.current = nextOverrides;
         setTextOverrides(nextOverrides);
         saveOverrides(TEXT_STORAGE_KEY, nextOverrides);
+        syncOverrideToDb("text", key, normalizedValue);
       }
 
       textSessionRef.current = null;
@@ -417,6 +589,11 @@ export function AdminImageEditor() {
         if (overrideValue) {
           applyImageValue(element, overrideValue);
         }
+
+        const videoOverrideValue = videoOverridesRef.current[key];
+        if (videoOverrideValue) {
+          applyVideoOverlay(element, videoOverrideValue);
+        }
       });
 
       const editableTexts = Array.from(document.querySelectorAll(EDITABLE_TEXT_SELECTOR)).filter(
@@ -441,6 +618,27 @@ export function AdminImageEditor() {
         const overrideValue = textOverridesRef.current[key];
         if (typeof overrideValue === "string") {
           applyTextValue(element, overrideValue);
+        }
+      });
+
+      const editableCards = Array.from(document.querySelectorAll(DRAGGABLE_CARD_SELECTOR)).filter(
+        (el) => el instanceof HTMLElement && !el.closest(".admin-image-editor-panel")
+      );
+
+      editableCards.forEach((element) => {
+        if (isAdmin && adminPageEditMode) {
+          element.classList.add("admin-draggable-card");
+        } else {
+          element.classList.remove("admin-draggable-card");
+          return;
+        }
+
+        const key = getEditableElementKey(element, location.pathname);
+        const saved = positionOverridesRef.current[key];
+        if (saved) {
+          element.style.transform = `translate(${saved.x}px, ${saved.y}px)`;
+          element.style.position = "relative";
+          element.style.zIndex = "1";
         }
       });
 
@@ -548,7 +746,90 @@ export function AdminImageEditor() {
       const activeElement = activeElementRef.current;
       if (!activeElement || !(target instanceof Node)) return;
       if (panelRef.current?.contains(target) || activeElement.contains(target)) return;
+      if (event.ctrlKey) return;
       clearActiveTarget();
+    };
+
+    const onCtrlMouseDown = (event) => {
+      if (!event.ctrlKey || event.button !== 0) return;
+      if (event.target.closest(".admin-image-editor-panel")) return;
+      if (isInlineTextEditingRef.current) return;
+
+      const card = event.target.closest(DRAGGABLE_CARD_SELECTOR);
+      if (!card) return;
+
+      const key = getEditableElementKey(card, location.pathname);
+      const saved = positionOverridesRef.current[key] || { x: 0, y: 0 };
+
+      dragRef.current = {
+        element: card,
+        key,
+        startMouseX: event.clientX,
+        startMouseY: event.clientY,
+        startOffsetX: saved.x,
+        startOffsetY: saved.y,
+        isDragging: false,
+      };
+
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    const onMouseMoveForDrag = (event) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+
+      const dx = event.clientX - drag.startMouseX;
+      const dy = event.clientY - drag.startMouseY;
+
+      if (!drag.isDragging && Math.sqrt(dx * dx + dy * dy) > 5) {
+        drag.isDragging = true;
+        drag.element.classList.add("admin-card-dragging");
+        document.body.style.userSelect = "none";
+      }
+
+      if (!drag.isDragging) return;
+
+      const newX = drag.startOffsetX + dx;
+      const newY = drag.startOffsetY + dy;
+
+      drag.element.style.transform = `translate(${newX}px, ${newY}px)`;
+      drag.element.style.position = "relative";
+      drag.element.style.zIndex = "100";
+    };
+
+    const onMouseUpForDrag = () => {
+      const drag = dragRef.current;
+      if (!drag) return;
+
+      drag.element.classList.remove("admin-card-dragging");
+      document.body.style.userSelect = "";
+
+      if (drag.isDragging) {
+        const matrix = new DOMMatrix(window.getComputedStyle(drag.element).transform);
+        const finalX = Math.round(matrix.m41);
+        const finalY = Math.round(matrix.m42);
+
+        drag.element.style.zIndex = "1";
+
+        const nextOverrides = { ...positionOverridesRef.current, [drag.key]: { x: finalX, y: finalY } };
+        positionOverridesRef.current = nextOverrides;
+        setPositionOverrides(nextOverrides);
+        saveOverrides(POSITION_STORAGE_KEY, nextOverrides);
+        syncOverrideToDb("position", drag.key, { x: finalX, y: finalY });
+      } else {
+        if (activeElementRef.current && activeElementRef.current !== drag.element) {
+          activeElementRef.current.classList.remove("admin-editing-selected");
+        }
+        activeElementRef.current = drag.element;
+        activeTypeRef.current = "card";
+        setActiveType("card");
+        drag.element.classList.add("admin-editing-selected");
+        setPanelPosition({ top: 0, left: 0 });
+        requestAnimationFrame(updatePanelPosition);
+      }
+
+      dragRef.current = null;
     };
 
     const onViewportChange = () => {
@@ -561,6 +842,9 @@ export function AdminImageEditor() {
     document.addEventListener("click", onClickCapture, true);
     document.addEventListener("dblclick", onDoubleClickCapture, true);
     document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("mousedown", onCtrlMouseDown, true);
+    document.addEventListener("mousemove", onMouseMoveForDrag);
+    document.addEventListener("mouseup", onMouseUpForDrag);
     window.addEventListener("scroll", onViewportChange, true);
     window.addEventListener("resize", onViewportChange);
 
@@ -572,6 +856,9 @@ export function AdminImageEditor() {
       document.removeEventListener("click", onClickCapture, true);
       document.removeEventListener("dblclick", onDoubleClickCapture, true);
       document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("mousedown", onCtrlMouseDown, true);
+      document.removeEventListener("mousemove", onMouseMoveForDrag);
+      document.removeEventListener("mouseup", onMouseUpForDrag);
       window.removeEventListener("scroll", onViewportChange, true);
       window.removeEventListener("resize", onViewportChange);
     };
@@ -608,15 +895,29 @@ export function AdminImageEditor() {
       event.target.value = "";
 
       if (!selectedFile) return;
-      if (!selectedFile.type.startsWith("image/")) {
-        window.alert("이미지 파일만 업로드할 수 있습니다.");
-        return;
-      }
 
       const target = activeElementRef.current;
       if (!target || activeTypeRef.current !== "image") return;
 
       const key = getEditableElementKey(target, location.pathname);
+
+      if (selectedFile.type.startsWith("video/")) {
+        const objectUrl = URL.createObjectURL(selectedFile);
+        applyVideoOverlay(target, objectUrl);
+        const nextOverrides = { ...videoOverridesRef.current, [key]: objectUrl };
+        videoOverridesRef.current = nextOverrides;
+        setVideoOverrides(nextOverrides);
+        saveOverrides(VIDEO_STORAGE_KEY, nextOverrides);
+        // blob URL은 세션 한정이라 DB에 저장하지 않는다.
+        updatePanelPosition();
+        return;
+      }
+
+      if (!selectedFile.type.startsWith("image/")) {
+        window.alert("이미지 또는 영상 파일만 업로드할 수 있습니다.");
+        return;
+      }
+
       const reader = new FileReader();
 
       reader.onload = () => {
@@ -632,6 +933,7 @@ export function AdminImageEditor() {
         if (!saved) {
           window.alert("이미지 용량이 커서 저장에 실패했습니다. 작은 파일로 시도해 주세요.");
         }
+        syncOverrideToDb("image", key, nextValue);
 
         updatePanelPosition();
       };
@@ -645,19 +947,74 @@ export function AdminImageEditor() {
     [location.pathname, updatePanelPosition]
   );
 
+  const handleUrlApply = useCallback(() => {
+    const url = urlInput.trim();
+    if (!url) return;
+
+    const target = activeElementRef.current;
+    if (!target || activeTypeRef.current !== "image") return;
+
+    const key = getEditableElementKey(target, location.pathname);
+
+    if (isVideoUrl(url)) {
+      applyVideoOverlay(target, url);
+      const nextOverrides = { ...videoOverridesRef.current, [key]: url };
+      videoOverridesRef.current = nextOverrides;
+      setVideoOverrides(nextOverrides);
+      saveOverrides(VIDEO_STORAGE_KEY, nextOverrides);
+      syncOverrideToDb("video", key, url);
+    } else {
+      applyImageValue(target, url);
+      const nextOverrides = { ...imageOverridesRef.current, [key]: url };
+      imageOverridesRef.current = nextOverrides;
+      setImageOverrides(nextOverrides);
+      saveOverrides(IMAGE_STORAGE_KEY, nextOverrides);
+      syncOverrideToDb("image", key, url);
+    }
+
+    setUrlInput("");
+    updatePanelPosition();
+  }, [urlInput, location.pathname, updatePanelPosition]);
+
   const handleReset = useCallback(() => {
     const target = activeElementRef.current;
     if (!target) return;
 
     const key = getEditableElementKey(target, location.pathname);
 
+    if (activeTypeRef.current === "card") {
+      target.style.removeProperty("transform");
+      target.style.removeProperty("position");
+      target.style.removeProperty("z-index");
+
+      const nextOverrides = { ...positionOverridesRef.current };
+      delete nextOverrides[key];
+      positionOverridesRef.current = nextOverrides;
+      setPositionOverrides(nextOverrides);
+      saveOverrides(POSITION_STORAGE_KEY, nextOverrides);
+      deleteOverrideFromDb("position", key);
+      clearActiveTarget();
+      return;
+    }
+
     if (activeTypeRef.current === "image") {
       restoreOriginalImageValue(target);
-      const nextOverrides = { ...imageOverridesRef.current };
-      delete nextOverrides[key];
-      imageOverridesRef.current = nextOverrides;
-      setImageOverrides(nextOverrides);
-      saveOverrides(IMAGE_STORAGE_KEY, nextOverrides);
+      removeVideoOverlay(target);
+
+      const nextImageOverrides = { ...imageOverridesRef.current };
+      delete nextImageOverrides[key];
+      imageOverridesRef.current = nextImageOverrides;
+      setImageOverrides(nextImageOverrides);
+      saveOverrides(IMAGE_STORAGE_KEY, nextImageOverrides);
+      deleteOverrideFromDb("image", key);
+
+      const nextVideoOverrides = { ...videoOverridesRef.current };
+      delete nextVideoOverrides[key];
+      videoOverridesRef.current = nextVideoOverrides;
+      setVideoOverrides(nextVideoOverrides);
+      saveOverrides(VIDEO_STORAGE_KEY, nextVideoOverrides);
+      deleteOverrideFromDb("video", key);
+
       updatePanelPosition();
       return;
     }
@@ -670,6 +1027,7 @@ export function AdminImageEditor() {
     textOverridesRef.current = nextOverrides;
     setTextOverrides(nextOverrides);
     saveOverrides(TEXT_STORAGE_KEY, nextOverrides);
+    deleteOverrideFromDb("text", key);
     updatePanelPosition();
   }, [finishInlineTextEditing, location.pathname, updatePanelPosition]);
 
@@ -692,24 +1050,45 @@ export function AdminImageEditor() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             style={{ display: "none" }}
             onChange={handleFileChange}
           />
-          <button type="button" className="admin-image-editor-button" onClick={handleEdit}>
-            {activeType === "text"
-              ? isInlineTextEditing
-                ? "입력 완료"
-                : "텍스트 입력"
-              : "이미지 수정"}
-          </button>
+          {activeType === "card" ? (
+            <span className="admin-editor-card-label">카드 위치 선택됨</span>
+          ) : (
+            <button type="button" className="admin-image-editor-button" onClick={handleEdit}>
+              {activeType === "text"
+                ? isInlineTextEditing ? "입력 완료" : "텍스트 입력"
+                : "파일 선택"}
+            </button>
+          )}
           <button
             type="button"
             className="admin-image-editor-button secondary"
             onClick={handleReset}
           >
-            초기화
+            {activeType === "card" ? "위치 초기화" : "초기화"}
           </button>
+          {activeType === "image" ? (
+            <div className="admin-image-editor-url-row">
+              <input
+                type="text"
+                className="admin-image-editor-url-input"
+                placeholder="영상/이미지 URL 붙여넣기 (.mp4 등)"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleUrlApply()}
+              />
+              <button
+                type="button"
+                className="admin-image-editor-button"
+                onClick={handleUrlApply}
+              >
+                적용
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </>

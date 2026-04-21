@@ -118,16 +118,25 @@ export async function saveAcademyProgress(req, res, next) {
       return;
     }
 
+    const chapterId = String(req.body?.chapterId || "").trim();
     const canAccess = await academyService.hasAcademyVideoAccess(authUser, videoId);
     if (!canAccess) {
-      res.status(403).json({ message: "수강 권한이 없는 강의입니다." });
-      return;
+      if (!chapterId) {
+        res.status(403).json({ message: "수강 권한이 없는 강의입니다." });
+        return;
+      }
+
+      const canPreview = await academyService.hasAcademyPreviewChapterAccess(videoId, chapterId);
+      if (!canPreview) {
+        res.status(403).json({ message: "미리보기 허용 차시만 재생할 수 있습니다." });
+        return;
+      }
     }
 
     const item = await academyService.saveAcademyProgress({
       userId: authUser.id,
       videoId,
-      chapterId: req.body?.chapterId,
+      chapterId,
       currentTime: req.body?.currentTime,
       duration: req.body?.duration,
       completed: req.body?.completed,
@@ -156,8 +165,11 @@ export async function saveAcademyChapterProgress(req, res, next) {
 
     const canAccess = await academyService.hasAcademyVideoAccess(authUser, videoId);
     if (!canAccess) {
-      res.status(403).json({ message: "수강 권한이 없는 강의입니다." });
-      return;
+      const canPreview = await academyService.hasAcademyPreviewChapterAccess(videoId, chapterId);
+      if (!canPreview) {
+        res.status(403).json({ message: "미리보기 허용 차시만 재생할 수 있습니다." });
+        return;
+      }
     }
 
     const saved = await academyService.saveAcademyChapterProgress({
@@ -278,6 +290,143 @@ export async function uploadAcademyAsset(req, res, next) {
     });
 
     res.status(201).json({ assetPath });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── 리뷰 ──────────────────────────────────────────────────────────────────────
+
+export async function getLatestAcademyReviews(req, res, next) {
+  try {
+    const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 6));
+    const rows = await academyService.listLatestAcademyReviews(limit);
+    res.json({ reviews: rows });
+  } catch (error) { next(error); }
+}
+
+export async function getAcademyReviews(req, res, next) {
+  try {
+    const { videoId } = req.params;
+    const reviews = await academyService.listAcademyReviews(videoId);
+    res.json({ reviews });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createAcademyReview(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser) return res.status(401).json({ message: "로그인이 필요합니다." });
+
+    const { videoId } = req.params;
+    const { rating, content } = req.body || {};
+    const review = await academyService.createAcademyReview(
+      authUser.id,
+      authUser.name || authUser.loginId || "회원",
+      videoId,
+      rating,
+      content
+    );
+    res.status(201).json({ review });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteAcademyReview(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser) return res.status(401).json({ message: "로그인이 필요합니다." });
+
+    const { reviewId } = req.params;
+    await academyService.deleteAcademyReview(reviewId, authUser.id, canManageAcademy(authUser));
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── Q&A ───────────────────────────────────────────────────────────────────────
+
+export async function getAcademyQna(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    const { videoId } = req.params;
+    const posts = await academyService.listAcademyQna(
+      videoId,
+      authUser?.id || null,
+      canManageAcademy(authUser)
+    );
+    res.json({ posts });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createAcademyQnaPost(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser) return res.status(401).json({ message: "로그인이 필요합니다." });
+
+    const { videoId } = req.params;
+    const { title, content, isSecret } = req.body || {};
+    const post = await academyService.createAcademyQnaPost(
+      authUser.id,
+      authUser.name || authUser.loginId || "회원",
+      videoId,
+      title,
+      content,
+      Boolean(isSecret)
+    );
+    res.status(201).json({ post });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createAcademyQnaReply(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser) return res.status(401).json({ message: "로그인이 필요합니다." });
+
+    const { postId } = req.params;
+    const { content } = req.body || {};
+    const reply = await academyService.createAcademyQnaReply(
+      authUser.id,
+      authUser.name || authUser.loginId || "회원",
+      postId,
+      content,
+      canManageAcademy(authUser)
+    );
+    res.status(201).json({ reply });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteAcademyQnaPost(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser) return res.status(401).json({ message: "로그인이 필요합니다." });
+
+    const { postId } = req.params;
+    await academyService.deleteAcademyQnaPost(postId, authUser.id, canManageAcademy(authUser));
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteAcademyQnaReply(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser) return res.status(401).json({ message: "로그인이 필요합니다." });
+
+    const { replyId } = req.params;
+    await academyService.deleteAcademyQnaReply(replyId, authUser.id, canManageAcademy(authUser));
+    res.json({ ok: true });
   } catch (error) {
     next(error);
   }

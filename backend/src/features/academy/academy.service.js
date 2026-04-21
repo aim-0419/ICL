@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { query, queryOne } from "../../shared/db/mysql.js";
 
+
 const CATEGORY_SET = new Set(["입문", "초급", "중급", "고급"]);
 const BADGE_SET = new Set(["", "New", "Hot"]);
 
@@ -305,8 +306,185 @@ function normalizeCreateChapterPayload(chaptersInput, fallbackVideoPath) {
   }));
 }
 
+function normalizeUpdateChapterPayload(chaptersInput, existingChapters, fallbackVideoPath) {
+  const rows = Array.isArray(chaptersInput) ? chaptersInput : [];
+  const existingRows = Array.isArray(existingChapters) ? existingChapters : [];
+  const existingById = new Map(
+    existingRows
+      .map((chapter) => [toSafeText(chapter?.id), chapter])
+      .filter(([id]) => Boolean(id))
+  );
+  const normalized = [];
+
+  for (const [index, row] of rows.entries()) {
+    const requestedId = toSafeText(row?.id || row?.chapterId);
+    const existing = requestedId ? existingById.get(requestedId) : null;
+    const nextVideoPath =
+      normalizeAssetPath(row?.videoPath || row?.videoUrl || "") ||
+      normalizeAssetPath(existing?.videoUrl || "");
+    if (!nextVideoPath) continue;
+
+    const title = toSafeText(row?.title) || toSafeText(existing?.title) || `${index + 1}차시`;
+    const description =
+      row && Object.prototype.hasOwnProperty.call(row, "description")
+        ? toSafeText(row?.description)
+        : toSafeText(existing?.description);
+    const durationSec =
+      row && Object.prototype.hasOwnProperty.call(row, "durationSec")
+        ? Math.max(0, Math.round(toNumber(row?.durationSec)))
+        : Math.max(0, Math.round(toNumber(existing?.durationSec)));
+    const isPreview =
+      row && Object.prototype.hasOwnProperty.call(row, "isPreview")
+        ? Boolean(row?.isPreview)
+        : Boolean(existing?.isPreview);
+
+    normalized.push({
+      id: existing?.id || "",
+      chapterOrder: index + 1,
+      title,
+      description,
+      videoPath: nextVideoPath,
+      durationSec,
+      isPreview,
+    });
+  }
+
+  const normalizedFallbackPath = normalizeAssetPath(fallbackVideoPath);
+  if (!normalized.length && normalizedFallbackPath) {
+    normalized.push({
+      id: "",
+      chapterOrder: 1,
+      title: "1차시",
+      description: "",
+      videoPath: normalizedFallbackPath,
+      durationSec: 0,
+      isPreview: false,
+    });
+  }
+
+  return normalized.map((chapter, index) => ({
+    ...chapter,
+    chapterOrder: index + 1,
+    title: toSafeText(chapter.title) || `${index + 1}차시`,
+  }));
+}
+
 function createChapterId(videoId, chapterOrder) {
   return `${videoId}-ch-${chapterOrder}`;
+}
+
+function createUniqueChapterId(videoId, chapterOrder, reservedIds) {
+  const base = createChapterId(videoId, chapterOrder);
+  if (!reservedIds.has(base)) return base;
+
+  let suffix = 2;
+  while (true) {
+    const next = `${base}-${suffix}`.slice(0, 120);
+    if (!reservedIds.has(next)) return next;
+    suffix += 1;
+  }
+}
+
+async function upsertAcademyVideoChapters(videoId, chapters, existingChapters = []) {
+  const normalizedVideoId = toSafeText(videoId);
+  const rows = Array.isArray(chapters) ? chapters : [];
+  if (!normalizedVideoId || !rows.length) return;
+
+  const existingRows = Array.isArray(existingChapters) ? existingChapters : [];
+  const existingById = new Map(
+    existingRows
+      .map((chapter) => [toSafeText(chapter?.id), chapter])
+      .filter(([id]) => Boolean(id))
+  );
+  const reservedIds = new Set(existingById.keys());
+  const keptIds = new Set();
+
+  // chapter_order unique 충돌을 피하기 위해 기존 순서를 안전 구간으로 먼저 이동한다.
+  await query(
+    `UPDATE academy_video_chapters
+     SET chapter_order = chapter_order + 1000
+     WHERE video_id = ?`,
+    [normalizedVideoId]
+  );
+
+  for (const chapter of rows) {
+    const currentOrder = Math.max(1, Math.round(toNumber(chapter?.chapterOrder, 1)));
+    const title = toSafeText(chapter?.title) || `${currentOrder}차시`;
+    const description = toSafeText(chapter?.description);
+    const videoPath = normalizeAssetPath(chapter?.videoPath || chapter?.videoUrl || "");
+    if (!videoPath) continue;
+
+    const durationSec = Math.max(0, Math.round(toNumber(chapter?.durationSec)));
+    const isPreview = Boolean(chapter?.isPreview);
+
+    let chapterId = toSafeText(chapter?.id || chapter?.chapterId);
+    const hasExisting = chapterId && existingById.has(chapterId) && !keptIds.has(chapterId);
+    if (!hasExisting) {
+      chapterId = createUniqueChapterId(normalizedVideoId, currentOrder, reservedIds);
+    }
+
+    reservedIds.add(chapterId);
+    keptIds.add(chapterId);
+
+    if (existingById.has(chapterId)) {
+      await query(
+        `UPDATE academy_video_chapters
+         SET chapter_order = ?,
+             title = ?,
+             description = ?,
+             video_path = ?,
+             duration_sec = ?,
+             is_preview = ?
+         WHERE id = ?
+           AND video_id = ?`,
+        [
+          currentOrder,
+          title,
+          description || null,
+          videoPath,
+          durationSec,
+          isPreview ? 1 : 0,
+          chapterId,
+          normalizedVideoId,
+        ]
+      );
+    } else {
+      await query(
+        `INSERT INTO academy_video_chapters (
+          id,
+          video_id,
+          chapter_order,
+          title,
+          description,
+          video_path,
+          duration_sec,
+          is_preview,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [
+          chapterId,
+          normalizedVideoId,
+          currentOrder,
+          title,
+          description || null,
+          videoPath,
+          durationSec,
+          isPreview ? 1 : 0,
+        ]
+      );
+    }
+  }
+
+  const removableIds = [...existingById.keys()].filter((id) => !keptIds.has(id));
+  if (removableIds.length) {
+    const placeholders = removableIds.map(() => "?").join(", ");
+    await query(
+      `DELETE FROM academy_video_chapters
+       WHERE video_id = ?
+         AND id IN (${placeholders})`,
+      [normalizedVideoId, ...removableIds]
+    );
+  }
 }
 
 async function listChapterRowsByVideoIds(videoIds) {
@@ -647,6 +825,37 @@ export async function hasAcademyVideoAccess(user, videoId) {
   return !isExpiredByPeriod(firstStartedAt, periodDays);
 }
 
+export async function hasAcademyPreviewChapterAccess(videoId, chapterId = "") {
+  const normalizedVideoId = toSafeText(videoId);
+  const normalizedChapterId = toSafeText(chapterId);
+  if (!normalizedVideoId) return false;
+
+  const previewChapter = normalizedChapterId
+    ? await queryOne(
+        `SELECT chapter.id
+         FROM academy_video_chapters chapter
+         INNER JOIN academy_videos av ON av.id = chapter.video_id
+         WHERE chapter.video_id = ?
+           AND chapter.id = ?
+           AND chapter.is_preview = 1
+           AND (av.publish_at IS NULL OR av.publish_at <= NOW())
+         LIMIT 1`,
+        [normalizedVideoId, normalizedChapterId]
+      )
+    : await queryOne(
+        `SELECT chapter.id
+         FROM academy_video_chapters chapter
+         INNER JOIN academy_videos av ON av.id = chapter.video_id
+         WHERE chapter.video_id = ?
+           AND chapter.is_preview = 1
+           AND (av.publish_at IS NULL OR av.publish_at <= NOW())
+         LIMIT 1`,
+        [normalizedVideoId]
+      );
+
+  return Boolean(previewChapter?.id);
+}
+
 export async function createAcademyVideo(payload) {
   const explicitId = toSafeText(payload?.id);
   const productId = explicitId || `video-${Date.now()}`;
@@ -835,6 +1044,24 @@ export async function updateAcademyVideo(videoId, payload) {
     throw error;
   }
 
+  const existingChapterRows = await query(
+    `SELECT
+      id,
+      video_id AS videoId,
+      chapter_order AS chapterOrder,
+      title,
+      description,
+      video_path AS videoUrl,
+      duration_sec AS durationSec,
+      is_preview AS isPreview,
+      created_at AS createdAt
+     FROM academy_video_chapters
+     WHERE video_id = ?
+     ORDER BY chapter_order ASC`,
+    [normalizedVideoId]
+  );
+  const existingChapters = existingChapterRows.map(normalizeChapterRow);
+
   const title = toSafeText(payload?.title || payload?.name);
   if (!title) {
     const error = new Error("강의명을 입력해 주세요.");
@@ -853,6 +1080,32 @@ export async function updateAcademyVideo(videoId, payload) {
   const imagePath = normalizeAssetPath(payload?.imagePath || payload?.image || "");
   const rawPublishAt = toSafeText(payload?.publishAt);
   const publishAt = rawPublishAt ? toSqlDateTimeString(rawPublishAt) : "";
+  const explicitVideoPath = normalizeAssetPath(payload?.videoPath || payload?.videoUrl || "");
+
+  const hasChapterField = Object.prototype.hasOwnProperty.call(payload || {}, "chapters");
+  if (hasChapterField && !Array.isArray(payload?.chapters)) {
+    const error = new Error("차시 목록 형식이 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  const nextChapters = hasChapterField
+    ? normalizeUpdateChapterPayload(
+        payload?.chapters,
+        existingChapters,
+        explicitVideoPath || existingChapters[0]?.videoUrl || ""
+      )
+    : [];
+
+  if (hasChapterField && !nextChapters.length) {
+    const error = new Error("최소 1개 이상의 차시 영상이 필요합니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  const primaryVideoPath = hasChapterField
+    ? normalizeAssetPath(nextChapters[0]?.videoPath || "")
+    : explicitVideoPath;
 
   if (rawPublishAt && !publishAt) {
     const error = new Error("예약 등록일시 형식이 올바르지 않습니다.");
@@ -879,12 +1132,20 @@ export async function updateAcademyVideo(videoId, payload) {
     setClauses.push("image_path = ?");
     setValues.push(imagePath);
   }
+  if (primaryVideoPath) {
+    setClauses.push("video_path = ?");
+    setValues.push(primaryVideoPath);
+  }
 
   setValues.push(normalizedVideoId);
   await query(
     `UPDATE academy_videos SET ${setClauses.join(", ")} WHERE id = ?`,
     setValues
   );
+
+  if (hasChapterField) {
+    await upsertAcademyVideoChapters(normalizedVideoId, nextChapters, existingChapters);
+  }
 
   const row = await queryOne(
     `SELECT
@@ -1230,4 +1491,151 @@ export async function saveAcademyProgress({
     lastWatchedAt: "",
     createdAt: "",
   };
+}
+
+// ─── 아카데미 리뷰 ────────────────────────────────────────────────────────────
+
+export async function listLatestAcademyReviews(limit = 6) {
+  const rows = await query(
+    `SELECT r.id, r.video_id AS videoId, r.user_name AS userName,
+            r.rating, r.content, r.created_at AS createdAt,
+            v.title AS videoTitle
+     FROM academy_reviews r
+     LEFT JOIN academy_videos v ON v.id = r.video_id
+     ORDER BY r.created_at DESC LIMIT ?`,
+    [limit]
+  );
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function listAcademyReviews(videoId) {
+  const rows = await query(
+    `SELECT id, video_id AS videoId, user_id AS userId, user_name AS userName,
+            rating, content, created_at AS createdAt
+     FROM academy_reviews
+     WHERE video_id = ?
+     ORDER BY created_at DESC`,
+    [String(videoId)]
+  );
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function createAcademyReview(userId, userName, videoId, rating, content) {
+  const id = randomUUID();
+  const safeRating = Math.max(1, Math.min(5, Math.round(Number(rating) || 5)));
+  const safeContent = String(content || "").trim().slice(0, 1000);
+  if (!safeContent) throw new Error("리뷰 내용을 입력해 주세요.");
+
+  await query(
+    `INSERT INTO academy_reviews (id, video_id, user_id, user_name, rating, content, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, NOW())
+     ON DUPLICATE KEY UPDATE rating = VALUES(rating), content = VALUES(content), created_at = NOW()`,
+    [id, String(videoId), String(userId), String(userName), safeRating, safeContent]
+  );
+  return { id, videoId, userId, userName, rating: safeRating, content: safeContent };
+}
+
+export async function deleteAcademyReview(reviewId, requestUserId, isAdmin = false) {
+  const row = await queryOne(
+    `SELECT user_id AS userId FROM academy_reviews WHERE id = ?`,
+    [String(reviewId)]
+  );
+  if (!row) throw new Error("리뷰를 찾을 수 없습니다.");
+  if (!isAdmin && String(row.userId) !== String(requestUserId)) {
+    throw new Error("본인이 작성한 리뷰만 삭제할 수 있습니다.");
+  }
+  await query(`DELETE FROM academy_reviews WHERE id = ?`, [String(reviewId)]);
+}
+
+// ─── 아카데미 Q&A ─────────────────────────────────────────────────────────────
+
+export async function listAcademyQna(videoId, requestUserId = null, isAdmin = false) {
+  const posts = await query(
+    `SELECT id, video_id AS videoId, user_id AS userId, user_name AS userName,
+            title, content, is_secret AS isSecret, created_at AS createdAt
+     FROM academy_qna_posts
+     WHERE video_id = ?
+     ORDER BY created_at DESC`,
+    [String(videoId)]
+  );
+
+  const postList = Array.isArray(posts) ? posts : [];
+
+  return Promise.all(
+    postList.map(async (post) => {
+      const isOwner = requestUserId && String(post.userId) === String(requestUserId);
+      const canSee = !post.isSecret || isOwner || isAdmin;
+
+      const replies = await query(
+        `SELECT id, post_id AS postId, user_id AS userId, user_name AS userName,
+                content, is_admin AS isAdmin, created_at AS createdAt
+         FROM academy_qna_replies WHERE post_id = ? ORDER BY created_at ASC`,
+        [String(post.id)]
+      );
+
+      return {
+        ...post,
+        isSecret: Boolean(post.isSecret),
+        title: canSee ? post.title : "비공개 질문입니다.",
+        content: canSee ? post.content : "",
+        hidden: !canSee,
+        replies: Array.isArray(replies) ? replies.map((r) => ({ ...r, isAdmin: Boolean(r.isAdmin) })) : [],
+      };
+    })
+  );
+}
+
+export async function createAcademyQnaPost(userId, userName, videoId, title, content, isSecret = false) {
+  const id = randomUUID();
+  const safeTitle = String(title || "").trim().slice(0, 200);
+  const safeContent = String(content || "").trim().slice(0, 3000);
+  if (!safeTitle) throw new Error("질문 제목을 입력해 주세요.");
+  if (!safeContent) throw new Error("질문 내용을 입력해 주세요.");
+
+  await query(
+    `INSERT INTO academy_qna_posts (id, video_id, user_id, user_name, title, content, is_secret, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [id, String(videoId), String(userId), String(userName), safeTitle, safeContent, isSecret ? 1 : 0]
+  );
+  return { id, videoId, userId, userName, title: safeTitle, content: safeContent, isSecret };
+}
+
+export async function createAcademyQnaReply(userId, userName, postId, content, isAdmin = false) {
+  const row = await queryOne(`SELECT id FROM academy_qna_posts WHERE id = ?`, [String(postId)]);
+  if (!row) throw new Error("질문을 찾을 수 없습니다.");
+
+  const id = randomUUID();
+  const safeContent = String(content || "").trim().slice(0, 3000);
+  if (!safeContent) throw new Error("답변 내용을 입력해 주세요.");
+
+  await query(
+    `INSERT INTO academy_qna_replies (id, post_id, user_id, user_name, content, is_admin, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+    [id, String(postId), String(userId), String(userName), safeContent, isAdmin ? 1 : 0]
+  );
+  return { id, postId, userId, userName, content: safeContent, isAdmin };
+}
+
+export async function deleteAcademyQnaPost(postId, requestUserId, isAdmin = false) {
+  const row = await queryOne(
+    `SELECT user_id AS userId FROM academy_qna_posts WHERE id = ?`,
+    [String(postId)]
+  );
+  if (!row) throw new Error("질문을 찾을 수 없습니다.");
+  if (!isAdmin && String(row.userId) !== String(requestUserId)) {
+    throw new Error("본인이 작성한 질문만 삭제할 수 있습니다.");
+  }
+  await query(`DELETE FROM academy_qna_posts WHERE id = ?`, [String(postId)]);
+}
+
+export async function deleteAcademyQnaReply(replyId, requestUserId, isAdmin = false) {
+  const row = await queryOne(
+    `SELECT user_id AS userId FROM academy_qna_replies WHERE id = ?`,
+    [String(replyId)]
+  );
+  if (!row) throw new Error("답변을 찾을 수 없습니다.");
+  if (!isAdmin && String(row.userId) !== String(requestUserId)) {
+    throw new Error("본인이 작성한 답변만 삭제할 수 있습니다.");
+  }
+  await query(`DELETE FROM academy_qna_replies WHERE id = ?`, [String(replyId)]);
 }

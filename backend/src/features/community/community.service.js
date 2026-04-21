@@ -162,3 +162,39 @@ export async function createInquiry(payload) {
 
   return getInquiry(inquiryId);
 }
+
+// ─── 문의 답변 ────────────────────────────────────────────────────────────────
+
+export async function listInquiryReplies(inquiryId) {
+  const rows = await query(
+    `SELECT id, inquiry_id AS inquiryId, author_id AS authorId,
+            author_name AS authorName, content, created_at AS createdAt
+     FROM inquiry_replies
+     WHERE inquiry_id = ?
+     ORDER BY created_at ASC`,
+    [inquiryId]
+  );
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function createInquiryReply({ inquiryId, authorId, authorName, content }) {
+  const { randomUUID } = await import("node:crypto");
+  const id = randomUUID();
+  await query(
+    `INSERT INTO inquiry_replies (id, inquiry_id, author_id, author_name, content, created_at)
+     VALUES (?, ?, ?, ?, ?, NOW())`,
+    [id, inquiryId, authorId, authorName || "관리자", content]
+  );
+  return { id, inquiryId, authorId, authorName: authorName || "관리자", content };
+}
+
+export async function deleteInquiryReply(replyId, requestUserId, isAdmin) {
+  const row = await queryOne(`SELECT author_id AS authorId FROM inquiry_replies WHERE id = ?`, [replyId]);
+  if (!row) return;
+  if (!isAdmin && String(row.authorId) !== String(requestUserId)) {
+    const err = new Error("삭제 권한이 없습니다.");
+    err.status = 403;
+    throw err;
+  }
+  await query(`DELETE FROM inquiry_replies WHERE id = ?`, [replyId]);
+}

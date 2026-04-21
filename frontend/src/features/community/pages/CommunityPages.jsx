@@ -662,6 +662,10 @@ export function CommunityInquiryDetailPage() {
   const viewedRef = useRef("");
   const [post, setPost] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [replies, setReplies] = useState([]);
+  const [replyText, setReplyText] = useState("");
+  const [replySubmitting, setReplySubmitting] = useState(false);
+  const [replyError, setReplyError] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -677,11 +681,46 @@ export function CommunityInquiryDetailPage() {
         } else {
           setPost(inquiry);
         }
+
+        if (canRead) {
+          const replyData = await apiRequest(`/community/inquiries/${inquiryId}/replies`);
+          setReplies(Array.isArray(replyData?.replies) ? replyData.replies : []);
+        }
       } catch (error) {
         setErrorMessage(error.message);
       }
     })();
   }, [inquiryId, store.currentUser?.id, store.currentUser?.role, store.currentUser?.isAdmin]);
+
+  async function handleReplySubmit(e) {
+    e.preventDefault();
+    const content = replyText.trim();
+    if (!content) return;
+    setReplySubmitting(true);
+    setReplyError("");
+    try {
+      const data = await apiRequest(`/community/inquiries/${inquiryId}/replies`, {
+        method: "POST",
+        body: { content },
+      });
+      setReplies((prev) => [...prev, data.reply]);
+      setReplyText("");
+    } catch (err) {
+      setReplyError(err.message || "답변 등록에 실패했습니다.");
+    } finally {
+      setReplySubmitting(false);
+    }
+  }
+
+  async function handleReplyDelete(replyId) {
+    if (!confirm("답변을 삭제하시겠습니까?")) return;
+    try {
+      await apiRequest(`/community/inquiries/replies/${replyId}`, { method: "DELETE" });
+      setReplies((prev) => prev.filter((r) => r.id !== replyId));
+    } catch (err) {
+      alert(err.message);
+    }
+  }
 
   if (errorMessage || !post) {
     return (
@@ -760,6 +799,66 @@ export function CommunityInquiryDetailPage() {
                 <p key={`${post.id}-${i}`}>{p || "\u00A0"}</p>
               ))}
           </article>
+
+          <section className="inquiry-reply-section">
+            <h2 className="inquiry-reply-title">
+              관리자 답변 {replies.length > 0 ? `(${replies.length})` : ""}
+            </h2>
+
+            {replies.length === 0 ? (
+              <p className="inquiry-reply-empty">아직 답변이 등록되지 않았습니다.</p>
+            ) : (
+              <div className="inquiry-reply-list">
+                {replies.map((reply) => (
+                  <article className="inquiry-reply-item" key={reply.id}>
+                    <div className="inquiry-reply-meta">
+                      <span className="inquiry-reply-author-badge">관리자</span>
+                      <strong>{reply.authorName}</strong>
+                      <time>{String(reply.createdAt || "").slice(0, 10)}</time>
+                      {isAdminStaff(store.currentUser) && (
+                        <button
+                          type="button"
+                          className="inquiry-reply-delete"
+                          onClick={() => handleReplyDelete(reply.id)}
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
+                    <div className="inquiry-reply-body">
+                      {String(reply.content || "").split("\n").map((line, i) => (
+                        <p key={i}>{line || "\u00A0"}</p>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            {isAdminStaff(store.currentUser) && (
+              <form className="inquiry-reply-form" onSubmit={handleReplySubmit}>
+                <h3>답변 작성</h3>
+                <textarea
+                  className="inquiry-reply-textarea"
+                  placeholder="답변 내용을 입력하세요."
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  rows={5}
+                  required
+                />
+                {replyError && <p className="inquiry-reply-error">{replyError}</p>}
+                <div className="inquiry-reply-actions">
+                  <button
+                    type="submit"
+                    className="pill-button"
+                    disabled={replySubmitting || !replyText.trim()}
+                  >
+                    {replySubmitting ? "등록 중..." : "답변 등록"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
 
           <footer className="review-detail-actions">
             <Link className="ghost-button" to="/community/inquiry">

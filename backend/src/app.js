@@ -12,6 +12,7 @@ import { paymentsRoutes } from "./features/payments/payments.routes.js";
 import { communityRoutes } from "./features/community/community.routes.js";
 import { adminRoutes } from "./features/admin/admin.routes.js";
 import { academyRoutes } from "./features/academy/academy.routes.js";
+import { brandRoutes } from "./features/brand/brand.routes.js";
 import { pingDatabase } from "./shared/db/mysql.js";
 import { errorHandler, notFoundHandler } from "./shared/middlewares/error-handler.js";
 
@@ -55,6 +56,7 @@ export function createApp() {
   app.use("/api/community", communityRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/academy", academyRoutes);
+  app.use("/api/brand", brandRoutes);
   app.use("/uploads", express.static(uploadRoot));
 
   // 등록되지 않은 경로와 예외는 마지막에 공통 핸들러로 정리한다.

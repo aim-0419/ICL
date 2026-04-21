@@ -116,7 +116,7 @@ function normalizeChapterProgressItem(item) {
 // 여러 페이지에서 함께 쓰는 데이터를 한곳에서 관리한다.
 export function AppProvider({ children }) {
   const [products, setProducts] = useState(() => FALLBACK_PRODUCT_MAP);
-  const [academyVideos, setAcademyVideos] = useState(() => DEFAULT_ACADEMY_VIDEOS);
+  const [academyVideos, setAcademyVideos] = useState([]);
   const [academyProgress, setAcademyProgress] = useState([]);
   const [academyChapterProgress, setAcademyChapterProgress] = useState([]);
   const [users] = useState([]);
@@ -125,6 +125,7 @@ export function AppProvider({ children }) {
   const [isAuthResolved, setIsAuthResolved] = useState(false);
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [userPoints, setUserPoints] = useState(0);
 
   // 상품 목록은 서버 데이터에 기본값을 섞어 화면이 비는 상황을 줄인다.
   async function refreshProducts() {
@@ -137,7 +138,7 @@ export function AppProvider({ children }) {
   async function refreshAcademyVideos() {
     const rows = await listAcademyVideos();
     if (!Array.isArray(rows) || rows.length === 0) {
-      setAcademyVideos(DEFAULT_ACADEMY_VIDEOS);
+      setAcademyVideos([]);
       return;
     }
 
@@ -180,6 +181,15 @@ export function AppProvider({ children }) {
       ? await apiRequest(`/orders?email=${encodeURIComponent(normalizedEmail)}`)
       : await apiRequest("/orders");
     setOrders(Array.isArray(rows) ? rows : []);
+  }
+
+  async function refreshPoints() {
+    try {
+      const result = await apiRequest("/users/me/points");
+      setUserPoints(Number(result?.points ?? 0));
+    } catch {
+      setUserPoints(0);
+    }
   }
 
   async function refreshAcademyProgress(userId = currentUser?.id) {
@@ -266,34 +276,27 @@ export function AppProvider({ children }) {
     return { ...savedChapter, lectureProgress: savedLecture };
   }
 
-  // 앱 최초 진입 시 상품/강의 목록을 먼저 불러온다.
-  useEffect(() => {
-    refreshProducts().catch((error) => {
-      console.error("[products] load failed", error);
-    });
-    refreshAcademyVideos().catch((error) => {
-      console.error("[academy] load failed", error);
-    });
-  }, []);
-
-  // 새로고침 후에도 로그인 상태를 유지할 수 있도록 세션 복구를 시도한다.
+  // 앱 최초 진입 시 세션 복구와 공개 데이터를 병렬로 불러온다.
+  // 세션 복구가 끝난 뒤 사용자 전용 데이터(cart/orders/progress)는
+  // currentUser 변경 이펙트에서 자동으로 로드된다.
   useEffect(() => {
     let mounted = true;
 
-    async function restoreSession() {
-      try {
-        const result = await apiRequest("/auth/me");
-        if (!mounted) return;
-        setCurrentUser(result?.user || null);
-      } catch {
-        if (!mounted) return;
-        setCurrentUser(null);
-      } finally {
-        if (mounted) setIsAuthResolved(true);
-      }
+    async function bootstrap() {
+      const [, , authResult] = await Promise.allSettled([
+        refreshProducts(),
+        refreshAcademyVideos(),
+        apiRequest("/auth/me"),
+      ]);
+
+      if (!mounted) return;
+
+      const user = authResult.status === "fulfilled" ? (authResult.value?.user || null) : null;
+      setCurrentUser(user);
+      setIsAuthResolved(true);
     }
 
-    restoreSession();
+    bootstrap();
 
     return () => {
       mounted = false;
@@ -308,6 +311,7 @@ export function AppProvider({ children }) {
       setAcademyProgress([]);
       setAcademyChapterProgress([]);
       setAdminPageEditMode(false);
+      setUserPoints(0);
       return;
     }
 
@@ -315,6 +319,7 @@ export function AppProvider({ children }) {
       refreshCart(currentUser.id),
       refreshOrders(currentUser.email),
       refreshAcademyProgress(currentUser.id),
+      refreshPoints(),
     ]).catch((error) => {
       console.error("[store] user data load failed", error);
     });
@@ -405,6 +410,7 @@ export function AppProvider({ children }) {
       setAcademyProgress([]);
       setAcademyChapterProgress([]);
       setAdminPageEditMode(false);
+      setUserPoints(0);
     }
   }
 
@@ -535,6 +541,8 @@ export function AppProvider({ children }) {
         saveAcademyChapterProgress,
         persistOrder,
         buildOrderId,
+        userPoints,
+        refreshPoints,
       }}
     >
       {children}

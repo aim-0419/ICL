@@ -1,5 +1,7 @@
 import * as authService from "../auth/auth.service.js";
 import * as adminService from "./admin.service.js";
+import { query } from "../../shared/db/mysql.js";
+import { randomUUID } from "node:crypto";
 
 const SESSION_COOKIE_NAME = "icl_session";
 const DASHBOARD_RANGE_DAYS = {
@@ -226,4 +228,61 @@ export async function createLecture(req, res, next) {
   } catch (error) {
     next(error);
   }
+}
+
+// ─── 페이지 오버라이드 (관리자 편집 DB 저장) ──────────────────────────────────
+
+export async function getPageOverrides(req, res, next) {
+  try {
+    const rows = await query(
+      `SELECT override_type AS type, override_key AS \`key\`, override_value AS value, updated_at AS updatedAt
+       FROM admin_page_overrides ORDER BY updated_at DESC`
+    );
+    const result = {};
+    for (const row of (Array.isArray(rows) ? rows : [])) {
+      if (!result[row.type]) result[row.type] = {};
+      try { result[row.type][row.key] = typeof row.value === "string" ? JSON.parse(row.value) : row.value; }
+      catch { result[row.type][row.key] = row.value; }
+    }
+    res.json({ overrides: result });
+  } catch (error) { next(error); }
+}
+
+export async function savePageOverride(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!canManageAcademy(authUser)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const { type, key, value } = req.body || {};
+    if (!type || !key) return res.status(400).json({ message: "type과 key는 필수입니다." });
+    await query(
+      `INSERT INTO admin_page_overrides (id, override_type, override_key, override_value, updated_at)
+       VALUES (?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE override_value = VALUES(override_value), updated_at = NOW()`,
+      [randomUUID(), String(type), String(key).slice(0, 599), JSON.stringify(value ?? null)]
+    );
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function deletePageOverride(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!canManageAcademy(authUser)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const { type, key } = req.body || {};
+    await query(
+      `DELETE FROM admin_page_overrides WHERE override_type = ? AND override_key = ?`,
+      [String(type || ""), String(key || "")]
+    );
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function deleteAllPageOverridesByType(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!canManageAcademy(authUser)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const { type } = req.params;
+    await query(`DELETE FROM admin_page_overrides WHERE override_type = ?`, [String(type || "")]);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
 }

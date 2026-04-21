@@ -21,3 +21,14 @@ academyRoutes.post(
   express.raw({ type: "application/octet-stream", limit: "1024mb" }),
   academyController.uploadAcademyAsset
 );
+
+academyRoutes.get("/reviews/latest", academyController.getLatestAcademyReviews);
+academyRoutes.get("/videos/:videoId/reviews", academyController.getAcademyReviews);
+academyRoutes.post("/videos/:videoId/reviews", express.json(), academyController.createAcademyReview);
+academyRoutes.delete("/reviews/:reviewId", academyController.deleteAcademyReview);
+
+academyRoutes.get("/videos/:videoId/qna", academyController.getAcademyQna);
+academyRoutes.post("/videos/:videoId/qna", express.json(), academyController.createAcademyQnaPost);
+academyRoutes.post("/qna/:postId/replies", express.json(), academyController.createAcademyQnaReply);
+academyRoutes.delete("/qna/:postId", academyController.deleteAcademyQnaPost);
+academyRoutes.delete("/qna/replies/:replyId", academyController.deleteAcademyQnaReply);

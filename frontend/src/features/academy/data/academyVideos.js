@@ -10,8 +10,7 @@ export const ACADEMY_VIDEOS = [
     rating: 4.9,
     reviews: 530,
     badge: "",
-    image:
-      "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
   },
   {
     id: "video-2",
@@ -24,8 +23,7 @@ export const ACADEMY_VIDEOS = [
     rating: 5.0,
     reviews: 100,
     badge: "New",
-    image:
-      "https://images.unsplash.com/photo-1545389336-cf090694435e?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1545389336-cf090694435e?auto=format&fit=crop&w=1200&q=80",
   },
   {
     id: "video-3",
@@ -38,8 +36,7 @@ export const ACADEMY_VIDEOS = [
     rating: 4.8,
     reviews: 72,
     badge: "New",
-    image:
-      "https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=1200&q=80",
   },
   {
     id: "video-4",
@@ -52,8 +49,7 @@ export const ACADEMY_VIDEOS = [
     rating: 4.7,
     reviews: 61,
     badge: "Hot",
-    image:
-      "https://images.unsplash.com/photo-1506629905607-c36a594d95f3?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1506629905607-c36a594d95f3?auto=format&fit=crop&w=1200&q=80",
   },
   {
     id: "video-5",
@@ -66,8 +62,7 @@ export const ACADEMY_VIDEOS = [
     rating: 5.0,
     reviews: 8,
     badge: "New",
-    image:
-      "https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a?auto=format&fit=crop&w=1200&q=80",
   },
   {
     id: "video-6",
@@ -80,8 +75,7 @@ export const ACADEMY_VIDEOS = [
     rating: 4.8,
     reviews: 43,
     badge: "",
-    image:
-      "https://images.unsplash.com/photo-1599058917765-a780eda07a3e?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1599058917765-a780eda07a3e?auto=format&fit=crop&w=1200&q=80",
   },
   {
     id: "video-7",
@@ -94,8 +88,7 @@ export const ACADEMY_VIDEOS = [
     rating: 4.9,
     reviews: 25,
     badge: "",
-    image:
-      "https://images.unsplash.com/photo-1524863479829-916d8e77f114?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1524863479829-916d8e77f114?auto=format&fit=crop&w=1200&q=80",
   },
   {
     id: "video-8",
@@ -108,8 +101,7 @@ export const ACADEMY_VIDEOS = [
     rating: 5.0,
     reviews: 14,
     badge: "Hot",
-    image:
-      "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80",
   },
   {
     id: "video-9",
@@ -122,8 +114,7 @@ export const ACADEMY_VIDEOS = [
     rating: 4.7,
     reviews: 12,
     badge: "New",
-    image:
-      "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=80",
   },
   {
     id: "video-10",
@@ -136,16 +127,8 @@ export const ACADEMY_VIDEOS = [
     rating: 4.6,
     reviews: 30,
     badge: "",
-    image:
-      "https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&w=1200&q=80",
   },
-];
-
-const ACADEMY_PLAYBACK_SOURCES = [
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
 ];
 
 export function getDiscountRate(originalPrice, salePrice) {
@@ -157,8 +140,6 @@ export function getAcademyVideoById(videoId) {
   return ACADEMY_VIDEOS.find((video) => video.id === videoId);
 }
 
-export function getAcademyPlaybackSourceByVideoId(videoId) {
-  const targetIndex = ACADEMY_VIDEOS.findIndex((video) => video.id === videoId);
-  if (targetIndex < 0) return ACADEMY_PLAYBACK_SOURCES[0];
-  return ACADEMY_PLAYBACK_SOURCES[targetIndex % ACADEMY_PLAYBACK_SOURCES.length];
+export function getAcademyPlaybackSourceByVideoId() {
+  return "";
 }

@@ -1,4 +1,5 @@
-﻿import { Link } from "react-router-dom";
+﻿import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 
 function BrandPageLayout({ kicker, title, description, points }) {
@@ -69,8 +70,7 @@ export function BrandIntroPage() {
               <p className="section-kicker">이끌림 · 소개</p>
               <h1>브랜드 케어의 시작</h1>
               <p>
-                브랜드 소개와 교육 콘텐츠 경험이 끊기지 않도록,
-                상담-수업-학습까지 하나의 흐름으로 설계했습니다.
+                상담부터 수업, 학습까지 하나의 흐름으로 설계했습니다.
               </p>
               <a href="#intro-identity" className="intro-scroll-link" aria-label="다음 섹션으로 이동">
                 ↓
@@ -88,8 +88,8 @@ export function BrandIntroPage() {
               <p className="intro-eyebrow">고객 맞춤 케어 시스템</p>
               <h2>브랜드 고객맞춤 관리법</h2>
               <p>
-                이끌림은 고객의 현재 상태와 목표를 기준으로 수업을 설계합니다.
-                상담부터 수업 운영, 강사 교육 콘텐츠까지 경험이 분리되지 않도록 통합했습니다.
+                고객의 현재 상태와 목표를 기준으로 수업을 설계합니다.
+                상담·수업·교육 콘텐츠까지 끊김 없이 통합된 경험을 제공합니다.
               </p>
             </article>
           </div>
@@ -167,42 +167,54 @@ export function BrandIntroPage() {
     </div>
   );
 }
+const DEFAULT_INSTRUCTORS = [
+  {
+    name: "대표 강사 소개",
+    role: "대표원장 · Master Instructor",
+    intro:
+      "움직임의 원리를 회원의 몸에 맞게 적용하는 수업을 지향합니다. 정확한 기본기와 섬세한 큐잉으로 변화의 방향을 설계합니다.",
+    careers: [
+      "이끌림 필라테스 대표원장",
+      "국내외 필라테스 지도자 과정 이수",
+      "재활/체형교정 기반 개인 레슨 운영",
+    ],
+  },
+  {
+    name: "전문 강사팀",
+    role: "프로페셔널 티칭 팀",
+    intro:
+      "이끌림 강사진은 수업 전후 회원 상태를 꼼꼼히 체크하고, 개인 목표에 맞는 프로그램을 유연하게 조정합니다.",
+    careers: [
+      "기구/매트 통합 수업 운영",
+      "회원별 컨디션 기록 및 단계별 피드백",
+      "정기 티칭 트레이닝 진행",
+    ],
+  },
+  {
+    name: "케어 & 코칭 팀",
+    role: "멤버 케어 팀",
+    intro:
+      "첫 상담부터 루틴 정착까지 끝까지 동행합니다. 수업 만족도와 지속 관리 품질을 높이는 커뮤니케이션을 담당합니다.",
+    careers: [
+      "상담/예약/수강 관리 프로세스 운영",
+      "회원별 목표 기반 수강 플랜 제안",
+      "수강 후 피드백 및 루틴 코칭",
+    ],
+  },
+];
+
 export function BrandInstructorsPage() {
-  const instructors = [
-    {
-      name: "대표 강사 소개",
-      role: "대표원장 · Master Instructor",
-      intro:
-        "움직임의 원리를 회원의 몸에 맞게 적용하는 수업을 지향합니다. 정확한 기본기와 섬세한 큐잉으로 변화의 방향을 설계합니다.",
-      careers: [
-        "이끌림 필라테스 대표원장",
-        "국내외 필라테스 지도자 과정 이수",
-        "재활/체형교정 기반 개인 레슨 운영",
-      ],
-    },
-    {
-      name: "전문 강사팀",
-      role: "프로페셔널 티칭 팀",
-      intro:
-        "이끌림 강사진은 수업 전후 회원 상태를 꼼꼼히 체크하고, 개인 목표에 맞는 프로그램을 유연하게 조정합니다.",
-      careers: [
-        "기구/매트 통합 수업 운영",
-        "회원별 컨디션 기록 및 단계별 피드백",
-        "정기 티칭 트레이닝 진행",
-      ],
-    },
-    {
-      name: "케어 & 코칭 팀",
-      role: "멤버 케어 팀",
-      intro:
-        "첫 상담부터 루틴 정착까지 끝까지 동행합니다. 수업 만족도와 지속 관리 품질을 높이는 커뮤니케이션을 담당합니다.",
-      careers: [
-        "상담/예약/수강 관리 프로세스 운영",
-        "회원별 목표 기반 수강 플랜 제안",
-        "수강 후 피드백 및 루틴 코칭",
-      ],
-    },
-  ];
+  const [instructors, setInstructors] = useState(DEFAULT_INSTRUCTORS);
+
+  useEffect(() => {
+    fetch("/api/brand/instructors", { credentials: "include" })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        const rows = Array.isArray(data?.instructors) ? data.instructors : Array.isArray(data) ? data : null;
+        if (rows && rows.length > 0) setInstructors(rows);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="site-shell">
@@ -243,54 +255,14 @@ export function BrandInstructorsPage() {
 
 export function BrandTourPage() {
   const galleryItems = [
-    {
-      id: "01",
-      name: "로비 & 웰컴 라운지",
-      image:
-        "https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1400&q=80",
-    },
-    {
-      id: "02",
-      name: "프라이빗 상담 공간",
-      image:
-        "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1400&q=80",
-    },
-    {
-      id: "03",
-      name: "리포머 메인룸",
-      image:
-        "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=1400&q=80",
-    },
-    {
-      id: "04",
-      name: "체어 & 바렐 존",
-      image:
-        "https://images.unsplash.com/photo-1591291621164-2c6367723315?auto=format&fit=crop&w=1400&q=80",
-    },
-    {
-      id: "05",
-      name: "소도구 트레이닝 존",
-      image:
-        "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1400&q=80",
-    },
-    {
-      id: "06",
-      name: "샤워 & 파우더 룸",
-      image:
-        "https://images.unsplash.com/photo-1630699144339-420fe5f7f8d8?auto=format&fit=crop&w=1400&q=80",
-    },
-    {
-      id: "07",
-      name: "휴식 무드 라운지",
-      image:
-        "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=1400&q=80",
-    },
-    {
-      id: "08",
-      name: "프라이빗 대기 공간",
-      image:
-        "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1400&q=80",
-    },
+    { id: "01", name: "로비 & 웰컴 라운지" },
+    { id: "02", name: "프라이빗 상담 공간" },
+    { id: "03", name: "리포머 메인룸" },
+    { id: "04", name: "체어 & 바렐 존" },
+    { id: "05", name: "소도구 트레이닝 존" },
+    { id: "06", name: "샤워 & 파우더 룸" },
+    { id: "07", name: "휴식 무드 라운지" },
+    { id: "08", name: "프라이빗 대기 공간" },
   ];
 
   return (
@@ -299,10 +271,7 @@ export function BrandTourPage() {
       <main className="content-page tour-content-page">
         <section className="tour-hero-section">
           <div className="tour-hero-media">
-            <img
-              src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=2000&q=80"
-              alt="이끌림 필라테스 스튜디오 메인 공간"
-            />
+            <div className="img-placeholder" style={{ minHeight: "480px" }}><span>비어있는 이미지 1입니다</span></div>
             <div className="tour-hero-overlay">
               <p className="section-kicker">이끌림 · 스튜디오 둘러보기</p>
               <h1>스튜디오 투어</h1>
@@ -316,18 +285,18 @@ export function BrandTourPage() {
             <p className="section-kicker">공간 미리보기</p>
             <h2>안락함과 집중도를 높인 공간</h2>
             <p className="section-text narrow">
-              라운지부터 수업룸, 상담 공간까지 하나의 무드로 연결했습니다. 실제 동선에 맞춘 공간 설계로 처음
-              방문하는 회원도 자연스럽게 적응할 수 있습니다.
+              라운지부터 수업룸, 상담 공간까지 하나의 무드로 연결했습니다.
+              실제 동선을 고려한 설계로 처음 방문하는 회원도 자연스럽게 적응할 수 있습니다.
             </p>
           </div>
         </section>
 
         <section className="tour-gallery-section">
           <div className="tour-gallery-track" aria-label="스튜디오 갤러리">
-            {galleryItems.map((item) => (
+            {galleryItems.map((item, index) => (
               <article className="tour-gallery-item" key={item.id}>
                 <div className="tour-gallery-image">
-                  <img src={item.image} alt={item.name} />
+                  <div className="img-placeholder"><span>비어있는 이미지 {index + 2}입니다</span></div>
                 </div>
                 <div className="tour-gallery-caption">
                   <p className="tour-gallery-number">{item.id}</p>
@@ -389,29 +358,48 @@ export function BrandEquipmentPage() {
     </div>
   );
 }
+const DEFAULT_BRANCHES = [
+  {
+    name: "이끌림 필라테스 장덕점",
+    address: "광주광역시 광산구 풍영로 189, 2층",
+    phone: "062-000-0001",
+    parking: "건물 앞 주차 가능 (방문 전 문의)",
+    mapEmbedUrl: "https://maps.google.com/maps?hl=ko&q=35.188459164928,126.81392571847&z=16&output=embed",
+    mapLink: "https://www.google.com/maps/search/?api=1&query=35.188459164928,126.81392571847",
+  },
+  {
+    name: "이끌림 필라테스 효천점",
+    address: "광주광역시 남구 효천2로가길 5, 201-202호",
+    phone: "062-000-0002",
+    parking: "인근 공영/건물 주차장 이용 가능",
+    mapEmbedUrl: "https://maps.google.com/maps?hl=ko&q=35.102161560951,126.87396526156&z=16&output=embed",
+    mapLink: "https://www.google.com/maps/search/?api=1&query=35.102161560951,126.87396526156",
+  },
+];
+
+function buildBranchMapUrls(branch) {
+  const lat = Number(branch.lat);
+  const lng = Number(branch.lng);
+  if (!lat || !lng) return branch;
+  return {
+    ...branch,
+    mapEmbedUrl: `https://maps.google.com/maps?hl=ko&q=${lat},${lng}&z=16&output=embed`,
+    mapLink: branch.mapLink || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+  };
+}
+
 export function BrandDirectionsPage() {
-  const branches = [
-    {
-      name: "이끌림 필라테스 장덕점",
-      address: "광주광역시 광산구 풍영로 189, 2층",
-      phone: "062-000-0001",
-      parking: "건물 앞 주차 가능 (방문 전 문의)",
-      mapEmbedUrl:
-        "https://maps.google.com/maps?hl=ko&q=35.188459164928,126.81392571847&z=16&output=embed",
-      mapLink:
-        "https://www.google.com/maps/search/?api=1&query=35.188459164928,126.81392571847",
-    },
-    {
-      name: "이끌림 필라테스 효천점",
-      address: "광주광역시 남구 효천2로가길 5, 201-202호",
-      phone: "062-000-0002",
-      parking: "인근 공영/건물 주차장 이용 가능",
-      mapEmbedUrl:
-        "https://maps.google.com/maps?hl=ko&q=35.102161560951,126.87396526156&z=16&output=embed",
-      mapLink:
-        "https://www.google.com/maps/search/?api=1&query=35.102161560951,126.87396526156",
-    },
-  ];
+  const [branches, setBranches] = useState(DEFAULT_BRANCHES);
+
+  useEffect(() => {
+    fetch("/api/brand/branches", { credentials: "include" })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        const rows = Array.isArray(data?.branches) ? data.branches : Array.isArray(data) ? data : null;
+        if (rows && rows.length > 0) setBranches(rows.map(buildBranchMapUrls));
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="site-shell">
@@ -421,7 +409,7 @@ export function BrandDirectionsPage() {
           <p className="section-kicker">이끌림 · 오시는 길</p>
           <h1>오시는 길</h1>
           <p className="section-text">
-            장덕점과 효천점을 한 페이지에서 확인할 수 있도록, 이동 동선을 고려한 카드형 레이아웃으로 구성했습니다.
+            장덕점과 효천점을 한 페이지에서 확인할 수 있습니다.
           </p>
         </section>
 

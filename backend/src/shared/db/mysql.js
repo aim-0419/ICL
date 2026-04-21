@@ -101,116 +101,16 @@ const ACADEMY_VIDEO_PRODUCTS = [
 ];
 
 const DEFAULT_ACADEMY_VIDEO_META = [
-  {
-    id: "video-1",
-    instructor: "ICL Academy",
-    category: "입문",
-    badge: "",
-    rating: 4.9,
-    reviews: 530,
-    imagePath:
-      "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
-    videoPath: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-  },
-  {
-    id: "video-2",
-    instructor: "ICL Academy",
-    category: "초급",
-    badge: "New",
-    rating: 5.0,
-    reviews: 100,
-    imagePath:
-      "https://images.unsplash.com/photo-1545389336-cf090694435e?auto=format&fit=crop&w=1200&q=80",
-    videoPath: "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-  },
-  {
-    id: "video-3",
-    instructor: "Master Instructor",
-    category: "입문",
-    badge: "New",
-    rating: 4.8,
-    reviews: 72,
-    imagePath:
-      "https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=1200&q=80",
-    videoPath: "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-  },
-  {
-    id: "video-4",
-    instructor: "Studio Coaching",
-    category: "중급",
-    badge: "Hot",
-    rating: 4.7,
-    reviews: 61,
-    imagePath:
-      "https://images.unsplash.com/photo-1506629905607-c36a594d95f3?auto=format&fit=crop&w=1200&q=80",
-    videoPath: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-  },
-  {
-    id: "video-5",
-    instructor: "Neo Team",
-    category: "입문",
-    badge: "New",
-    rating: 5.0,
-    reviews: 8,
-    imagePath:
-      "https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a?auto=format&fit=crop&w=1200&q=80",
-    videoPath: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-  },
-  {
-    id: "video-6",
-    instructor: "Pro Coach",
-    category: "초급",
-    badge: "",
-    rating: 4.8,
-    reviews: 43,
-    imagePath:
-      "https://images.unsplash.com/photo-1599058917765-a780eda07a3e?auto=format&fit=crop&w=1200&q=80",
-    videoPath: "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-  },
-  {
-    id: "video-7",
-    instructor: "Content Bridge",
-    category: "중급",
-    badge: "",
-    rating: 4.9,
-    reviews: 25,
-    imagePath:
-      "https://images.unsplash.com/photo-1524863479829-916d8e77f114?auto=format&fit=crop&w=1200&q=80",
-    videoPath: "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-  },
-  {
-    id: "video-8",
-    instructor: "ICL Business",
-    category: "고급",
-    badge: "Hot",
-    rating: 5.0,
-    reviews: 14,
-    imagePath:
-      "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80",
-    videoPath: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-  },
-  {
-    id: "video-9",
-    instructor: "AhaLinux",
-    category: "중급",
-    badge: "New",
-    rating: 4.7,
-    reviews: 12,
-    imagePath:
-      "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=80",
-    videoPath: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-  },
-  {
-    id: "video-10",
-    instructor: "Sunny Studio",
-    category: "고급",
-    badge: "",
-    rating: 4.6,
-    reviews: 30,
-    imagePath:
-      "https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&w=1200&q=80",
-    videoPath: "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-  },
+  { id: "video-1",  instructor: "ICL Academy",      category: "입문", badge: "",    rating: 4.9, reviews: 530, imagePath: null, videoPath: null },
+  { id: "video-2",  instructor: "ICL Academy",      category: "초급", badge: "New", rating: 5.0, reviews: 100, imagePath: null, videoPath: null },
+  { id: "video-3",  instructor: "Master Instructor", category: "입문", badge: "New", rating: 4.8, reviews: 72,  imagePath: null, videoPath: null },
+  { id: "video-4",  instructor: "Studio Coaching",  category: "중급", badge: "Hot", rating: 4.7, reviews: 61,  imagePath: null, videoPath: null },
+  { id: "video-5",  instructor: "Neo Team",         category: "입문", badge: "New", rating: 5.0, reviews: 8,   imagePath: null, videoPath: null },
+  { id: "video-6",  instructor: "Pro Coach",        category: "초급", badge: "",    rating: 4.8, reviews: 43,  imagePath: null, videoPath: null },
+  { id: "video-7",  instructor: "Content Bridge",   category: "중급", badge: "",    rating: 4.9, reviews: 25,  imagePath: null, videoPath: null },
+  { id: "video-8",  instructor: "ICL Business",     category: "고급", badge: "Hot", rating: 5.0, reviews: 14,  imagePath: null, videoPath: null },
+  { id: "video-9",  instructor: "AhaLinux",         category: "중급", badge: "New", rating: 4.7, reviews: 12,  imagePath: null, videoPath: null },
+  { id: "video-10", instructor: "Sunny Studio",     category: "고급", badge: "",    rating: 4.6, reviews: 30,  imagePath: null, videoPath: null },
 ];
 
 const DEFAULT_REVIEW_POSTS = [
@@ -228,68 +128,12 @@ const DEFAULT_REVIEW_POSTS = [
 ];
 
 const DEFAULT_EVENTS = [
-  {
-    id: "event-1",
-    title: "신규 회원 웰컴 패키지 증정 이벤트",
-    status: "진행중",
-    startDate: "2026-04-05",
-    endDate: "2026-04-30",
-    likes: 48,
-    image: "https://images.unsplash.com/photo-1554244933-d876deb6b2ff?auto=format&fit=crop&w=1200&q=80",
-    summary:
-      "첫 등록 회원에게 체형 분석 1회 + 개인 루틴 카드 + 필라테스 밴드를 함께 제공하는 봄 시즌 한정 프로모션입니다.",
-  },
-  {
-    id: "event-2",
-    title: "강사용 큐잉 가이드 봄 시즌 할인",
-    status: "진행중",
-    startDate: "2026-03-28",
-    endDate: "2026-04-18",
-    likes: 31,
-    image: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
-    summary:
-      "큐잉 실전 가이드 영상 패키지를 기간 한정가로 제공하며, 구매자 대상 라이브 Q&A 세션 참여 혜택이 포함됩니다.",
-  },
-  {
-    id: "event-3",
-    title: "리뉴얼 오픈 기념 상담 혜택",
-    status: "종료",
-    startDate: "2026-03-01",
-    endDate: "2026-03-15",
-    likes: 64,
-    image: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80",
-    summary: "리뉴얼 기간 동안 진행된 상담 이벤트로, 신규 상담 고객에게 수업 체험권과 등록 할인 혜택을 제공했습니다.",
-  },
-  {
-    id: "event-4",
-    title: "회원 추천 리워드 프로그램",
-    status: "진행중",
-    startDate: "2026-04-01",
-    endDate: "2026-05-01",
-    likes: 19,
-    image: "https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=1200&q=80",
-    summary: "기존 회원이 친구를 추천하면 추천인/피추천인 모두에게 수강 할인 쿠폰과 굿즈 포인트를 지급하는 이벤트입니다.",
-  },
-  {
-    id: "event-5",
-    title: "주말 집중 리포머 클래스 특가",
-    status: "종료",
-    startDate: "2026-02-10",
-    endDate: "2026-02-28",
-    likes: 27,
-    image: "https://images.unsplash.com/photo-1549576490-b0b4831ef60a?auto=format&fit=crop&w=1200&q=80",
-    summary: "주말 시간대 집중 프로그램을 한정 오픈했던 이벤트로, 단기 집중 수업을 원하는 회원 중심으로 운영되었습니다.",
-  },
-  {
-    id: "event-6",
-    title: "강사 역량 업 세미나 모집 이벤트",
-    status: "종료",
-    startDate: "2026-01-20",
-    endDate: "2026-02-05",
-    likes: 15,
-    image: "https://images.unsplash.com/photo-1524863479829-916d8e77f114?auto=format&fit=crop&w=1200&q=80",
-    summary: "강사 대상 시퀀스 설계 세미나 참가자 모집 이벤트로, 우수 후기 작성자에게 추가 교육 콘텐츠를 제공했습니다.",
-  },
+  { id: "event-1", title: "신규 회원 웰컴 패키지 증정 이벤트", status: "진행중", startDate: "2026-04-05", endDate: "2026-04-30", likes: 48, image: "", summary: "첫 등록 회원에게 체형 분석 1회 + 개인 루틴 카드 + 필라테스 밴드를 함께 제공하는 봄 시즌 한정 프로모션입니다." },
+  { id: "event-2", title: "강사용 큐잉 가이드 봄 시즌 할인",   status: "진행중", startDate: "2026-03-28", endDate: "2026-04-18", likes: 31, image: "", summary: "큐잉 실전 가이드 영상 패키지를 기간 한정가로 제공하며, 구매자 대상 라이브 Q&A 세션 참여 혜택이 포함됩니다." },
+  { id: "event-3", title: "리뉴얼 오픈 기념 상담 혜택",         status: "종료",   startDate: "2026-03-01", endDate: "2026-03-15", likes: 64, image: "", summary: "리뉴얼 기간 동안 진행된 상담 이벤트로, 신규 상담 고객에게 수업 체험권과 등록 할인 혜택을 제공했습니다." },
+  { id: "event-4", title: "회원 추천 리워드 프로그램",           status: "진행중", startDate: "2026-04-01", endDate: "2026-05-01", likes: 19, image: "", summary: "기존 회원이 친구를 추천하면 추천인/피추천인 모두에게 수강 할인 쿠폰과 굿즈 포인트를 지급하는 이벤트입니다." },
+  { id: "event-5", title: "주말 집중 리포머 클래스 특가",        status: "종료",   startDate: "2026-02-10", endDate: "2026-02-28", likes: 27, image: "", summary: "주말 시간대 집중 프로그램을 한정 오픈했던 이벤트로, 단기 집중 수업을 원하는 회원 중심으로 운영되었습니다." },
+  { id: "event-6", title: "강사 역량 업 세미나 모집 이벤트",     status: "종료",   startDate: "2026-01-20", endDate: "2026-02-05", likes: 15, image: "", summary: "강사 대상 시퀀스 설계 세미나 참가자 모집 이벤트로, 우수 후기 작성자에게 추가 교육 콘텐츠를 제공했습니다." },
 ];
 
 const DEFAULT_INQUIRIES = [
@@ -432,6 +276,84 @@ async function seedAcademyChaptersIfEmpty() {
       AND chapter.chapter_order = 1
     WHERE chapter.id IS NULL`
   );
+}
+
+async function seedInstructorsIfEmpty() {
+  const [rows] = await pool.query("SELECT COUNT(*) AS count FROM instructors");
+  if (Number(rows?.[0]?.count ?? 0) > 0) return;
+
+  const defaults = [
+    {
+      id: "instructor-1",
+      name: "대표 강사 소개",
+      role: "대표원장 · Master Instructor",
+      intro: "움직임의 원리를 회원의 몸에 맞게 적용하는 수업을 지향합니다. 정확한 기본기와 섬세한 큐잉으로 변화의 방향을 설계합니다.",
+      careers: ["이끌림 필라테스 대표원장", "국내외 필라테스 지도자 과정 이수", "재활/체형교정 기반 개인 레슨 운영"],
+      sort_order: 1,
+    },
+    {
+      id: "instructor-2",
+      name: "전문 강사팀",
+      role: "프로페셔널 티칭 팀",
+      intro: "이끌림 강사진은 수업 전후 회원 상태를 꼼꼼히 체크하고, 개인 목표에 맞는 프로그램을 유연하게 조정합니다.",
+      careers: ["기구/매트 통합 수업 운영", "회원별 컨디션 기록 및 단계별 피드백", "정기 티칭 트레이닝 진행"],
+      sort_order: 2,
+    },
+    {
+      id: "instructor-3",
+      name: "케어 & 코칭 팀",
+      role: "멤버 케어 팀",
+      intro: "첫 상담부터 루틴 정착까지 끝까지 동행합니다. 수업 만족도와 지속 관리 품질을 높이는 커뮤니케이션을 담당합니다.",
+      careers: ["상담/예약/수강 관리 프로세스 운영", "회원별 목표 기반 수강 플랜 제안", "수강 후 피드백 및 루틴 코칭"],
+      sort_order: 3,
+    },
+  ];
+
+  for (const inst of defaults) {
+    await pool.query(
+      `INSERT INTO instructors (id, name, role, intro, careers, image_path, sort_order, created_at)
+       VALUES (?, ?, ?, ?, ?, NULL, ?, NOW())`,
+      [inst.id, inst.name, inst.role, inst.intro, JSON.stringify(inst.careers), inst.sort_order]
+    );
+  }
+}
+
+async function seedBranchesIfEmpty() {
+  const [rows] = await pool.query("SELECT COUNT(*) AS count FROM branches");
+  if (Number(rows?.[0]?.count ?? 0) > 0) return;
+
+  const defaults = [
+    {
+      id: "branch-1",
+      name: "이끌림 필라테스 장덕점",
+      address: "광주광역시 광산구 풍영로 189, 2층",
+      phone: "062-000-0001",
+      parking: "건물 앞 주차 가능 (방문 전 문의)",
+      lat: 35.188459164928,
+      lng: 126.81392571847,
+      map_link: "https://www.google.com/maps/search/?api=1&query=35.188459164928,126.81392571847",
+      sort_order: 1,
+    },
+    {
+      id: "branch-2",
+      name: "이끌림 필라테스 효천점",
+      address: "광주광역시 남구 효천2로가길 5, 201-202호",
+      phone: "062-000-0002",
+      parking: "인근 공영/건물 주차장 이용 가능",
+      lat: 35.102161560951,
+      lng: 126.87396526156,
+      map_link: "https://www.google.com/maps/search/?api=1&query=35.102161560951,126.87396526156",
+      sort_order: 2,
+    },
+  ];
+
+  for (const branch of defaults) {
+    await pool.query(
+      `INSERT INTO branches (id, name, address, phone, parking, lat, lng, map_link, sort_order, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [branch.id, branch.name, branch.address, branch.phone, branch.parking, branch.lat, branch.lng, branch.map_link, branch.sort_order]
+    );
+  }
 }
 
 async function seedCommunityIfEmpty() {
@@ -629,6 +551,15 @@ async function initDatabase() {
 
   await pool.query(`ALTER TABLE users MODIFY birth_year SMALLINT NULL`);
 
+  // users.points 컬럼 (포인트 잔액)
+  const [pointsColRows] = await pool.query(
+    `SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'points'`
+  );
+  if (Number(pointsColRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE users ADD COLUMN points INT NOT NULL DEFAULT 0 AFTER birth_year`);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sessions (
       token VARCHAR(120) PRIMARY KEY,
@@ -685,11 +616,13 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE academy_videos ADD COLUMN publish_at DATETIME NULL AFTER video_path`);
   }
 
-  await pool.query(
-    `UPDATE academy_videos
-     SET publish_at = created_at
-     WHERE publish_at IS NULL`
-  );
+  if (!hasAcademyPublishColumn) {
+    await pool.query(
+      `UPDATE academy_videos
+       SET publish_at = created_at
+       WHERE publish_at IS NULL`
+    );
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS academy_progress (
@@ -864,6 +797,18 @@ async function initDatabase() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS inquiry_replies (
+      id VARCHAR(64) PRIMARY KEY,
+      inquiry_id VARCHAR(80) NOT NULL,
+      author_id VARCHAR(64) NOT NULL,
+      author_name VARCHAR(120) NOT NULL DEFAULT '관리자',
+      content TEXT NOT NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_inquiry_replies_inquiry (inquiry_id)
+    )
+  `);
+
   await seedProductsIfEmpty();
   await seedAcademyVideosIfEmpty();
   await seedAcademyChaptersIfEmpty();
@@ -898,7 +843,105 @@ async function initDatabase() {
       AND cp.chapter_id = chapter.id
     WHERE cp.user_id IS NULL`
   );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS point_history (
+      id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      amount INT NOT NULL,
+      reason VARCHAR(255) NOT NULL,
+      order_id VARCHAR(80) NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_point_history_user (user_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_page_overrides (
+      id VARCHAR(80) PRIMARY KEY,
+      override_type VARCHAR(30) NOT NULL,
+      override_key VARCHAR(600) NOT NULL,
+      override_value JSON NOT NULL,
+      updated_at DATETIME NOT NULL,
+      UNIQUE KEY uk_override (override_type, override_key(255))
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS instructors (
+      id VARCHAR(80) PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      role VARCHAR(120) NOT NULL,
+      intro TEXT NOT NULL,
+      careers JSON NOT NULL DEFAULT ('[]'),
+      image_path VARCHAR(500) NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS branches (
+      id VARCHAR(80) PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      address VARCHAR(300) NOT NULL,
+      phone VARCHAR(40) NOT NULL,
+      parking VARCHAR(200) NOT NULL DEFAULT '',
+      lat DOUBLE NULL,
+      lng DOUBLE NULL,
+      map_link VARCHAR(500) NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL
+    )
+  `);
+
+  await seedInstructorsIfEmpty();
+  await seedBranchesIfEmpty();
+
   await seedCommunityIfEmpty();
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS academy_reviews (
+      id VARCHAR(80) PRIMARY KEY,
+      video_id VARCHAR(80) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      user_name VARCHAR(120) NOT NULL,
+      rating TINYINT NOT NULL DEFAULT 5,
+      content TEXT NOT NULL,
+      created_at DATETIME NOT NULL,
+      UNIQUE KEY unique_academy_review (user_id, video_id),
+      INDEX idx_academy_reviews_video (video_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS academy_qna_posts (
+      id VARCHAR(80) PRIMARY KEY,
+      video_id VARCHAR(80) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      user_name VARCHAR(120) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      content TEXT NOT NULL,
+      is_secret TINYINT(1) NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL,
+      INDEX idx_academy_qna_video (video_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS academy_qna_replies (
+      id VARCHAR(80) PRIMARY KEY,
+      post_id VARCHAR(80) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      user_name VARCHAR(120) NOT NULL,
+      content TEXT NOT NULL,
+      is_admin TINYINT(1) NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL,
+      INDEX idx_academy_qna_replies_post (post_id),
+      CONSTRAINT fk_academy_qna_replies_post
+        FOREIGN KEY (post_id) REFERENCES academy_qna_posts(id)
+        ON DELETE CASCADE
+    )
+  `);
 }
 
 async function ensureInitialized() {
@@ -912,9 +955,9 @@ async function ensureInitialized() {
   await initPromise;
 }
 
+export { ensureInitialized };
+
 export async function query(sql, params = []) {
-  // 모든 쿼리는 초기화 보장을 거친 뒤 실행된다.
-  await ensureInitialized();
   const [rows] = await pool.execute(sql, params);
   return rows;
 }
@@ -925,6 +968,5 @@ export async function queryOne(sql, params = []) {
 }
 
 export async function pingDatabase() {
-  await ensureInitialized();
   await pool.query("SELECT 1");
 }

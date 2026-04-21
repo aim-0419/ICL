@@ -20,3 +20,6 @@ communityRoutes.get("/inquiries", communityController.getInquiries);
 communityRoutes.get("/inquiries/:inquiryId", communityController.getInquiry);
 communityRoutes.post("/inquiries/:inquiryId/views", communityController.addInquiryView);
 communityRoutes.post("/inquiries", communityController.createInquiry);
+communityRoutes.get("/inquiries/:inquiryId/replies", communityController.getInquiryReplies);
+communityRoutes.post("/inquiries/:inquiryId/replies", communityController.createInquiryReply);
+communityRoutes.delete("/inquiries/replies/:replyId", communityController.deleteInquiryReply);

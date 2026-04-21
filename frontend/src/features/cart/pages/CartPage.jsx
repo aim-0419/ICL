@@ -5,8 +5,6 @@ import { requestExternalPayment } from "../../payment/lib/requestExternalPayment
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
-const DEMO_POINT_BALANCE = 60000;
-
 const PAYMENT_METHODS = [
   {
     id: "naverpay",
@@ -95,7 +93,8 @@ export function CartPage() {
   }, [cartItems, selectedProductIds]);
 
   const selectedSubtotal = selectedItems.reduce((sum, item) => sum + item.lineTotal, 0);
-  const maxPointUsage = Math.min(DEMO_POINT_BALANCE, selectedSubtotal);
+  const pointBalance = store.userPoints ?? 0;
+  const maxPointUsage = Math.min(pointBalance, selectedSubtotal);
   const parsedPoint = toNumber(String(pointInput).replace(/[^0-9]/g, ""));
   const appliedPoint = Math.min(parsedPoint, maxPointUsage);
   const finalAmount = Math.max(0, selectedSubtotal - appliedPoint);
@@ -348,7 +347,7 @@ export function CartPage() {
                   </div>
                 </div>
                 <p className="checkout-point-note">
-                  보유 {store.formatCurrency(DEMO_POINT_BALANCE)} / 최대 사용{" "}
+                  보유 {store.formatCurrency(pointBalance)} / 최대 사용{" "}
                   {store.formatCurrency(maxPointUsage)}
                 </p>
               </section>

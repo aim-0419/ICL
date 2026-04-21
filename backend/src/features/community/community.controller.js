@@ -274,3 +274,58 @@ export async function createInquiry(req, res, next) {
     next(error);
   }
 }
+
+export async function getInquiryReplies(req, res, next) {
+  try {
+    const replies = await communityService.listInquiryReplies(req.params.inquiryId);
+    res.json({ replies });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createInquiryReply(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    if (!isAdminUser(authUser)) {
+      res.status(403).json({ message: "관리자만 답변을 작성할 수 있습니다." });
+      return;
+    }
+    const content = String(req.body?.content || "").trim();
+    if (!content) {
+      res.status(400).json({ message: "답변 내용을 입력해주세요." });
+      return;
+    }
+    const reply = await communityService.createInquiryReply({
+      inquiryId: req.params.inquiryId,
+      authorId: authUser.id,
+      authorName: authUser.name || "관리자",
+      content,
+    });
+    res.status(201).json({ reply });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteInquiryReply(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    await communityService.deleteInquiryReply(
+      req.params.replyId,
+      authUser.id,
+      isAdminUser(authUser)
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+}

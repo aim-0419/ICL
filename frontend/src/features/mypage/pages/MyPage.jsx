@@ -1,10 +1,66 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { deleteAcademyVideo, resolveAcademyMediaUrl, updateAcademyVideo, uploadAcademyAsset } from "../../academy/api/academyApi.js";
 import { countPurchasedVideoItems, getPurchasedVideos } from "../../academy/lib/purchases.js";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
+
+function parseStudyPeriodDays(periodText) {
+  if (!periodText) return null;
+  const text = String(periodText).trim();
+  if (/무제한|평생|unlimited|lifetime/i.test(text)) return null;
+  const match = text.match(/(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+function calcEnrollmentExpiryForMyPage(orders, videoProductId, periodText) {
+  const periodDays = parseStudyPeriodDays(periodText);
+  if (periodDays === null) return null;
+
+  const normalizedId = String(videoProductId || "").trim();
+  const matchingOrders = (Array.isArray(orders) ? orders : []).filter((order) => {
+    const ids = new Set();
+    const addId = (v) => { const s = String(v || "").trim(); if (s) ids.add(s); };
+    if (Array.isArray(order.selectedProductIds)) order.selectedProductIds.forEach(addId);
+    if (Array.isArray(order.items)) order.items.forEach((i) => addId(i?.productId));
+    addId(order.productId);
+    try {
+      const payload = typeof order.payload === "string" ? JSON.parse(order.payload) : (order.payload || {});
+      if (Array.isArray(payload.selectedProductIds)) payload.selectedProductIds.forEach(addId);
+      if (Array.isArray(payload.items)) payload.items.forEach((i) => addId(i?.productId));
+      addId(payload.productId);
+    } catch {}
+    return ids.has(normalizedId);
+  });
+
+  if (!matchingOrders.length) return null;
+
+  const orderDates = matchingOrders
+    .map((o) => new Date(o.createdAt || ""))
+    .filter((d) => !Number.isNaN(d.getTime()))
+    .sort((a, b) => a - b);
+
+  if (!orderDates.length) return null;
+
+  const expiryDate = new Date(orderDates[0].getTime() + periodDays * 86400000);
+  const daysLeft = Math.ceil((expiryDate - Date.now()) / 86400000);
+  return { daysLeft, expiryLabel: expiryDate.toLocaleDateString("ko-KR") };
+}
+
+function calcChaptersTotalDuration(chapters) {
+  if (!Array.isArray(chapters)) return 0;
+  return chapters.reduce((s, ch) => s + Math.max(0, Number(ch.durationSec || 0)), 0);
+}
+
+function formatDuration(sec) {
+  if (!sec || sec < 60) return null;
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (h > 0 && m > 0) return `${h}시간 ${m}분`;
+  if (h > 0) return `${h}시간`;
+  return `${m}분`;
+}
 
 function formatDate(value) {
   const date = new Date(value);
@@ -356,6 +412,7 @@ export function MyPage() {
             <span className="mypage-identity-chip">수강 완료 {completedVideoCount}개</span>
             <span className="mypage-identity-chip">주문 {userOrders.length}건</span>
             <span className="mypage-identity-chip">누적 결제 {store.formatCurrency(totalSpent)}</span>
+            <span className="mypage-identity-chip">포인트 {store.formatCurrency(store.userPoints ?? 0)}</span>
           </div>
         </section>
 
@@ -369,8 +426,18 @@ export function MyPage() {
             </div>
             <div className="dashboard-card-grid">
               {learningHistory.length ? (
-                learningHistory.map((video) => (
-                  <article key={video.id} className="dashboard-card mypage-course-card mypage-video-card">
+                learningHistory.map((video) => {
+                  const expiry = calcEnrollmentExpiryForMyPage(
+                    store.orders,
+                    video.productId || video.id,
+                    video.period
+                  );
+                  const durSec = calcChaptersTotalDuration(video.chapters);
+                  const durLabel = formatDuration(durSec);
+                  const isExpired = expiry && expiry.daysLeft <= 0;
+
+                  return (
+                  <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card ${isExpired ? "is-expired" : ""}`}>
                     <img
                       src={resolveAcademyMediaUrl(video.image)}
                       alt={video.title}
@@ -378,15 +445,12 @@ export function MyPage() {
                     />
                     <div className="mypage-video-copy">
                       <p className="mini-kicker">
-                        {video.completed
-                          ? "수강 완료"
-                          : video.progressPercent > 0
-                            ? "이어 학습"
-                            : "새 강의"}
+                        {isExpired ? "수강 기한 만료" : video.completed ? "수강 완료" : video.progressPercent > 0 ? "이어 학습" : "새 강의"}
                       </p>
                       <h3>{video.title}</h3>
                       <p className="mypage-course-date">
                         {video.instructor} · {video.category}
+                        {durLabel ? ` · ${durLabel}` : ""}
                       </p>
                       <p className="mypage-course-date">
                         진도 {video.progressPercent}%{video.lastWatchedAt ? ` · 최근 수강 ${formatDate(video.lastWatchedAt)}` : " · 아직 시청 전"}
@@ -397,20 +461,35 @@ export function MyPage() {
                           {video.latestChapterTitle ? ` · 최근 차시 ${video.latestChapterTitle}` : ""}
                         </p>
                       ) : null}
+                      {expiry ? (
+                        <p className={`mypage-expiry-label ${expiry.daysLeft <= 0 ? "is-expired" : expiry.daysLeft <= 7 ? "is-urgent" : expiry.daysLeft <= 30 ? "is-warning" : ""}`}>
+                          {expiry.daysLeft <= 0
+                            ? `수강 기한 만료 (${expiry.expiryLabel})`
+                            : `수강 만료 ${expiry.expiryLabel} · D-${expiry.daysLeft}`}
+                        </p>
+                      ) : null}
                     </div>
-                    <button
-                      type="button"
-                      className="ghost-button small-ghost"
-                      onClick={() => navigate(`/academy/player/${video.id}`)}
-                    >
-                      {video.completed
-                        ? "다시보기"
-                        : video.progressPercent > 0
-                          ? "이어보기"
-                          : "지금 수강"}
-                    </button>
+                    <div className="mypage-course-actions">
+                      {video.completed ? (
+                        <Link
+                          to={`/academy/certificate/${video.id}`}
+                          className="pill-button small"
+                        >
+                          수료증 보기
+                        </Link>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="ghost-button small-ghost"
+                        disabled={isExpired}
+                        onClick={() => navigate(`/academy/player/${video.id}`)}
+                      >
+                        {isExpired ? "만료됨" : video.completed ? "다시보기" : video.progressPercent > 0 ? "이어보기" : "지금 수강"}
+                      </button>
+                    </div>
                   </article>
-                ))
+                  );
+                })
               ) : (
                 <article className="dashboard-card empty-state">
                   <h3>아직 구매한 교육 영상이 없습니다</h3>

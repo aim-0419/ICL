@@ -1,5 +1,6 @@
 ﻿import * as authService from "../auth/auth.service.js";
 import * as academyService from "./academy.service.js";
+import * as academyPlaybackService from "./academy.playback.service.js";
 
 const SESSION_COOKIE_NAME = "icl_session";
 
@@ -44,9 +45,24 @@ async function getAuthenticatedUser(req) {
   return authService.findUserBySessionToken(token);
 }
 
+function resolveRequestIp(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)[0];
+
+  if (forwarded) return forwarded;
+  return String(req.ip || req.socket?.remoteAddress || "").trim();
+}
+
 export async function getAcademyVideos(req, res, next) {
   try {
-    const videos = await academyService.listAcademyVideos();
+    const authUser = await getAuthenticatedUser(req);
+    const canManage = canManageAcademy(authUser);
+    const videos = await academyService.listAcademyVideos({
+      includeHidden: canManage,
+      includeUnpublished: canManage,
+    });
     res.json({ videos });
   } catch (error) {
     next(error);
@@ -61,8 +77,105 @@ export async function getAcademyVideoChapters(req, res, next) {
       return;
     }
 
+    const authUser = await getAuthenticatedUser(req);
+    const canManage = canManageAcademy(authUser);
+    if (!canManage) {
+      const canSee = await academyService.isAcademyVideoVisibleForPublic(videoId);
+      if (!canSee) {
+        res.status(404).json({ message: "강의 정보를 찾을 수 없습니다." });
+        return;
+      }
+    }
+
     const chapters = await academyService.listAcademyChaptersByVideoId(videoId);
     res.json({ chapters });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createAcademyPlaybackSession(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    const videoId = String(req.body?.videoId || "").trim();
+    const chapterId = String(req.body?.chapterId || "").trim();
+
+    if (!videoId) {
+      res.status(400).json({ message: "강의 정보가 올바르지 않습니다." });
+      return;
+    }
+
+    const session = await academyPlaybackService.issueAcademyPlaybackSession({
+      user: authUser,
+      videoId,
+      chapterId,
+      ipAddress: resolveRequestIp(req),
+      userAgent: String(req.headers["user-agent"] || ""),
+    });
+
+    const host = String(req.get("host") || "").trim();
+    const protocol = String(req.protocol || "http").trim() || "http";
+    const playbackUrl = String(session?.playbackUrl || "").trim();
+    const absolutePlaybackUrl =
+      playbackUrl && /^https?:\/\//i.test(playbackUrl)
+        ? playbackUrl
+        : host && playbackUrl
+          ? `${protocol}://${host}${playbackUrl}`
+          : playbackUrl;
+
+    res.json({
+      ...session,
+      playbackUrl: absolutePlaybackUrl,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function heartbeatAcademyPlaybackSession(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    const token = String(req.body?.token || "").trim();
+    if (!token) {
+      res.status(400).json({ message: "재생 토큰이 필요합니다." });
+      return;
+    }
+
+    const result = await academyPlaybackService.heartbeatAcademyPlaybackSession({
+      token,
+      user: authUser,
+    });
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function streamAcademyPlayback(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    const chapterId = String(req.params.chapterId || "").trim();
+    const token = String(req.query?.token || "").trim();
+    if (!chapterId || !token) {
+      res.status(400).json({ message: "재생 정보가 올바르지 않습니다." });
+      return;
+    }
+
+    const streamMeta = await academyPlaybackService.resolveAcademyPlaybackStream({
+      chapterId,
+      token,
+      user: authUser,
+    });
+
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Accept-Ranges", "bytes");
+    if (streamMeta.mimeType) {
+      res.type(streamMeta.mimeType);
+    }
+
+    res.sendFile(streamMeta.filePath);
   } catch (error) {
     next(error);
   }
@@ -259,6 +372,33 @@ export async function deleteAcademyVideoHandler(req, res, next) {
   }
 }
 
+export async function setAcademyVideoVisibilityHandler(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    if (!canManageAcademy(authUser)) {
+      res.status(403).json({ message: "관리자 권한이 필요합니다." });
+      return;
+    }
+
+    const videoId = String(req.params.videoId || "").trim();
+    if (!videoId) {
+      res.status(400).json({ message: "강의 ID가 올바르지 않습니다." });
+      return;
+    }
+
+    const isHidden = Boolean(req.body?.isHidden);
+    const result = await academyService.setAcademyVideoHidden(videoId, isHidden);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function uploadAcademyAsset(req, res, next) {
   try {
     const authUser = await getAuthenticatedUser(req);
@@ -431,3 +571,5 @@ export async function deleteAcademyQnaReply(req, res, next) {
     next(error);
   }
 }
+
+

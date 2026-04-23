@@ -337,7 +337,7 @@ export function HomePage() {
           </div>
 
           <div className="academy-catalog-grid home-academy-grid">
-            {featuredVideos.map((video) => {
+            {featuredVideos.map((video, videoIndex) => {
               const discountRate = getDiscountRate(video.originalPrice, video.salePrice);
               const normalizedBadge = (video.badge || "").toLowerCase();
               const badgeTone =
@@ -361,7 +361,7 @@ export function HomePage() {
                   <div className="academy-video-thumb">
                     {video.image
                       ? <img src={video.image} alt={video.title} />
-                      : <div className="img-placeholder"><span>비어있는 이미지입니다</span></div>
+                      : <div className="img-placeholder"><span>비어있는 이미지 {videoIndex + 1}</span></div>
                     }
                   </div>
                   <div className="academy-video-body">
@@ -418,9 +418,9 @@ export function HomePage() {
 
           <div className="review-gallery">
             {latestReviews.length > 0 ? (
-              latestReviews.map((review) => (
+              latestReviews.map((review, reviewIndex) => (
                 <article className="review-card image-first" key={review.id}>
-                  <div className="img-placeholder"><span>이미지 영역</span></div>
+                  <div className="img-placeholder"><span>비어있는 이미지 {reviewIndex + 1}</span></div>
                   <div className="review-copy">
                     <div className="review-stars" aria-label={`${review.rating}점`}>
                       {"★".repeat(Math.min(5, Math.max(0, Number(review.rating) || 0)))}

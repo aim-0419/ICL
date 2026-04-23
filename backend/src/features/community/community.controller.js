@@ -38,6 +38,10 @@ function isAdminUser(user) {
   );
 }
 
+function isSameUser(leftId, rightId) {
+  return Boolean(leftId && rightId && String(leftId) === String(rightId));
+}
+
 export async function getReviews(req, res, next) {
   try {
     res.json(await communityService.listReviews());
@@ -79,6 +83,7 @@ export async function createReview(req, res, next) {
       title,
       content,
       author: authUser.name || authUser.loginId || authUser.email || "익명",
+      authorId: authUser.id,
     });
 
     res.status(201).json(review);
@@ -95,6 +100,113 @@ export async function getReview(req, res, next) {
       return;
     }
     res.json(review);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateReview(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    const reviewId = String(req.params.reviewId || "").trim();
+    if (!reviewId) {
+      res.status(400).json({ message: "수정할 후기 ID가 필요합니다." });
+      return;
+    }
+
+    const review = await communityService.getReview(reviewId);
+    if (!review) {
+      res.status(404).json({ message: "후기 정보를 찾을 수 없습니다." });
+      return;
+    }
+
+    if (!isAdminUser(authUser) && !isSameUser(authUser.id, review.authorId)) {
+      res.status(403).json({ message: "후기 수정 권한이 없습니다." });
+      return;
+    }
+
+    const title = String(req.body?.title || "").trim();
+    const content = String(req.body?.content || "").trim();
+
+    if (!title) {
+      res.status(400).json({ message: "후기 제목을 입력해주세요." });
+      return;
+    }
+
+    if (!content) {
+      res.status(400).json({ message: "후기 내용을 입력해주세요." });
+      return;
+    }
+
+    const updated = await communityService.updateReview(reviewId, { title, content });
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteReview(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    const reviewId = String(req.params.reviewId || "").trim();
+    if (!reviewId) {
+      res.status(400).json({ message: "삭제할 후기 ID가 필요합니다." });
+      return;
+    }
+
+    const review = await communityService.getReview(reviewId);
+    if (!review) {
+      res.status(404).json({ message: "후기 정보를 찾을 수 없습니다." });
+      return;
+    }
+
+    if (!isAdminUser(authUser) && !isSameUser(authUser.id, review.authorId)) {
+      res.status(403).json({ message: "후기 삭제 권한이 없습니다." });
+      return;
+    }
+
+    await communityService.deleteReview(reviewId);
+    res.json({ ok: true, id: reviewId });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function bulkDeleteReviews(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    if (!isAdminUser(authUser)) {
+      res.status(403).json({ message: "후기 일괄 삭제는 관리자만 가능합니다." });
+      return;
+    }
+
+    const deleteAll = Boolean(req.body?.deleteAll);
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+
+    if (!deleteAll && ids.length === 0) {
+      res.status(400).json({ message: "삭제할 후기를 선택해주세요." });
+      return;
+    }
+
+    const deletedCount = deleteAll
+      ? await communityService.deleteAllReviews()
+      : await communityService.deleteReviewsBulk(ids);
+
+    res.json({ ok: true, deletedCount });
   } catch (error) {
     next(error);
   }
@@ -216,6 +328,38 @@ export async function getEvent(req, res, next) {
   }
 }
 
+export async function deleteEvent(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    if (!isAdminUser(authUser)) {
+      res.status(403).json({ message: "이벤트 삭제는 관리자만 가능합니다." });
+      return;
+    }
+
+    const eventId = String(req.params.eventId || "").trim();
+    if (!eventId) {
+      res.status(400).json({ message: "삭제할 이벤트 ID가 필요합니다." });
+      return;
+    }
+
+    const event = await communityService.getEvent(eventId);
+    if (!event) {
+      res.status(404).json({ message: "이벤트 정보를 찾을 수 없습니다." });
+      return;
+    }
+
+    await communityService.deleteEvent(eventId);
+    res.json({ ok: true, id: eventId });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getInquiries(req, res, next) {
   try {
     res.json(await communityService.listInquiries());
@@ -248,9 +392,15 @@ export async function addInquiryView(req, res, next) {
 
 export async function createInquiry(req, res, next) {
   try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
     const title = String(req.body?.title || "").trim();
     const content = String(req.body?.content || "").trim();
-    const author = String(req.body?.author || "").trim() || "익명";
+    const author = authUser.name || authUser.loginId || authUser.email || "익명";
 
     if (!title) {
       res.status(400).json({ message: "문의 제목을 입력해주세요." });
@@ -265,11 +415,118 @@ export async function createInquiry(req, res, next) {
       title,
       content,
       author,
-      authorId: req.body?.authorId || "",
+      authorId: authUser.id,
       isSecret: Boolean(req.body?.isSecret),
     });
 
     res.status(201).json(inquiry);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateInquiry(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    const inquiryId = String(req.params.inquiryId || "").trim();
+    if (!inquiryId) {
+      res.status(400).json({ message: "수정할 문의 ID가 필요합니다." });
+      return;
+    }
+
+    const inquiry = await communityService.getInquiry(inquiryId);
+    if (!inquiry) {
+      res.status(404).json({ message: "문의 정보를 찾을 수 없습니다." });
+      return;
+    }
+
+    if (!isAdminUser(authUser) && !isSameUser(authUser.id, inquiry.authorId)) {
+      res.status(403).json({ message: "문의 수정 권한이 없습니다." });
+      return;
+    }
+
+    const title = String(req.body?.title || "").trim();
+    const content = String(req.body?.content || "").trim();
+    const isSecret = Boolean(req.body?.isSecret);
+
+    if (!title) {
+      res.status(400).json({ message: "문의 제목을 입력해주세요." });
+      return;
+    }
+    if (!content) {
+      res.status(400).json({ message: "문의 내용을 입력해주세요." });
+      return;
+    }
+
+    const updated = await communityService.updateInquiry(inquiryId, { title, content, isSecret });
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteInquiry(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    const inquiryId = String(req.params.inquiryId || "").trim();
+    if (!inquiryId) {
+      res.status(400).json({ message: "삭제할 문의 ID가 필요합니다." });
+      return;
+    }
+
+    const inquiry = await communityService.getInquiry(inquiryId);
+    if (!inquiry) {
+      res.status(404).json({ message: "문의 정보를 찾을 수 없습니다." });
+      return;
+    }
+
+    if (!isAdminUser(authUser) && !isSameUser(authUser.id, inquiry.authorId)) {
+      res.status(403).json({ message: "문의 삭제 권한이 없습니다." });
+      return;
+    }
+
+    await communityService.deleteInquiry(inquiryId);
+    res.json({ ok: true, id: inquiryId });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function bulkDeleteInquiries(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    if (!isAdminUser(authUser)) {
+      res.status(403).json({ message: "문의 일괄 삭제는 관리자만 가능합니다." });
+      return;
+    }
+
+    const deleteAll = Boolean(req.body?.deleteAll);
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+
+    if (!deleteAll && ids.length === 0) {
+      res.status(400).json({ message: "삭제할 문의를 선택해주세요." });
+      return;
+    }
+
+    const deletedCount = deleteAll
+      ? await communityService.deleteAllInquiries()
+      : await communityService.deleteInquiriesBulk(ids);
+
+    res.json({ ok: true, deletedCount });
   } catch (error) {
     next(error);
   }

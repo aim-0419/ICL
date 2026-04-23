@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "../shared/components/RequireAuth.jsx";
 import { RequireAdminStaff } from "../shared/components/RequireAdminStaff.jsx";
+import { SiteHeader } from "../shared/components/SiteHeader.jsx";
 import { SiteFooter } from "../shared/components/SiteFooter.jsx";
 import { AdminImageEditor } from "../shared/components/AdminImageEditor.jsx";
 
@@ -34,10 +35,23 @@ const CommunityReviewDetailPage = lazy(() => import("../features/community/pages
 const CommunityInquiryPage = lazy(() => import("../features/community/pages/CommunityPages.jsx").then((m) => ({ default: m.CommunityInquiryPage })));
 const CommunityInquiryDetailPage = lazy(() => import("../features/community/pages/CommunityPages.jsx").then((m) => ({ default: m.CommunityInquiryDetailPage })));
 
+function AppRouteFallback() {
+  return (
+    <div className="site-shell">
+      <SiteHeader subpage />
+      <main className="content-page">
+        <section className="community-board-empty">
+          <p>페이지를 불러오는 중입니다...</p>
+        </section>
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <>
-      <Suspense fallback={null}>
+      <Suspense fallback={<AppRouteFallback />}>
         <Routes>
           {/* 메인/인증/쇼핑 플로우 */}
           <Route path="/" element={<HomePage />} />

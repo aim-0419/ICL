@@ -4,6 +4,8 @@ import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import {
+  createAcademyPlaybackSession,
+  heartbeatAcademyPlaybackSession,
   resolveAcademyMediaUrl,
   listAcademyQna,
   createAcademyQnaPost,
@@ -18,6 +20,15 @@ const AUTO_SAVE_INTERVAL_SECONDS = 10;
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2];
 const RESUME_MIN_SECONDS = 5;
 const RESUME_END_BUFFER_SECONDS = 1;
+const PLAYBACK_HEARTBEAT_FALLBACK_SEC = 15;
+const WATERMARK_MOVE_INTERVAL_MS = 5000;
+const WATERMARK_POSITION_CLASSES = [
+  "is-top-center",
+  "is-center-left",
+  "is-center",
+  "is-center-right",
+  "is-bottom-center",
+];
 
 function formatDateTime(value) {
   const date = new Date(value);
@@ -146,6 +157,7 @@ export function AcademyPlayerPage() {
   const navigate = useNavigate();
   const store = useAppStore();
   const videoRef = useRef(null);
+  const playerWrapRef = useRef(null);
   const lastSavedTimeRef = useRef(0);
   const isSavingRef = useRef(false);
   const resumeAppliedRef = useRef(false);
@@ -158,6 +170,15 @@ export function AcademyPlayerPage() {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [autoNextCountdown, setAutoNextCountdown] = useState(null); // null | number
   const autoNextTimerRef = useRef(null);
+  const heartbeatTimerRef = useRef(null);
+  const playbackTokenRef = useRef("");
+  const lastSurfaceToggleAtRef = useRef(0);
+
+  const [playbackSession, setPlaybackSession] = useState(null);
+  const [playbackSessionLoading, setPlaybackSessionLoading] = useState(false);
+  const [playbackSessionError, setPlaybackSessionError] = useState("");
+  const [playbackSessionReloadKey, setPlaybackSessionReloadKey] = useState(0);
+  const [watermarkPositionIndex, setWatermarkPositionIndex] = useState(0);
 
   // Q&A state
   const [qnaList, setQnaList] = useState([]);
@@ -432,6 +453,189 @@ export function AcademyPlayerPage() {
     return () => clearAutoNext();
   }, []);
 
+  function clearHeartbeatTimer() {
+    if (heartbeatTimerRef.current) {
+      clearInterval(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = null;
+    }
+  }
+
+  const syncPlaybackHeartbeat = useCallback(async () => {
+    const token = playbackTokenRef.current;
+    if (!token) return;
+
+    try {
+      await heartbeatAcademyPlaybackSession(token);
+      if (token !== playbackTokenRef.current) return;
+      setPlaybackSessionError("");
+    } catch (error) {
+      if (token !== playbackTokenRef.current) return;
+      const message = error?.message || "보안 재생 세션이 종료되었습니다. 다시 시도해 주세요.";
+      setPlaybackSessionError(message);
+      clearHeartbeatTimer();
+      if (videoRef.current instanceof HTMLVideoElement) {
+        videoRef.current.pause();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    playbackTokenRef.current = String(playbackSession?.token || "").trim();
+  }, [playbackSession?.token]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPlaybackSession() {
+      if (!activeVideo?.id || !activeChapter?.id) {
+        if (!mounted) return;
+        setPlaybackSession(null);
+        setPlaybackSessionError("");
+        setPlaybackSessionLoading(false);
+        return;
+      }
+
+      try {
+        setPlaybackSessionLoading(true);
+        setPlaybackSessionError("");
+        const session = await createAcademyPlaybackSession(activeVideo.id, activeChapter.id);
+        if (!mounted) return;
+        setPlaybackSession(session || null);
+      } catch (error) {
+        if (!mounted) return;
+        setPlaybackSession(null);
+        setPlaybackSessionError(error?.message || "보안 재생 링크를 준비하지 못했습니다.");
+      } finally {
+        if (mounted) {
+          setPlaybackSessionLoading(false);
+        }
+      }
+    }
+
+    void loadPlaybackSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeVideo?.id, activeChapter?.id, store.currentUser?.id, playbackSessionReloadKey]);
+
+  useEffect(() => {
+    clearHeartbeatTimer();
+
+    if (!playbackSession?.token) {
+      return () => {};
+    }
+
+    const heartbeatIntervalSec = Math.max(
+      5,
+      Number(playbackSession.heartbeatIntervalSec || PLAYBACK_HEARTBEAT_FALLBACK_SEC)
+    );
+
+    void syncPlaybackHeartbeat();
+    heartbeatTimerRef.current = setInterval(() => {
+      void syncPlaybackHeartbeat();
+    }, heartbeatIntervalSec * 1000);
+
+    return () => {
+      clearHeartbeatTimer();
+    };
+  }, [playbackSession?.token, playbackSession?.heartbeatIntervalSec, syncPlaybackHeartbeat]);
+
+  useEffect(() => {
+    return () => {
+      clearHeartbeatTimer();
+    };
+  }, []);
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    function handleFsChange() {
+      const wrapper = playerWrapRef.current;
+      const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      setIsFullscreen(Boolean(fsEl && fsEl === wrapper));
+    }
+    document.addEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+    };
+  }, []);
+
+  function handleFullscreenToggle() {
+    const wrapper = playerWrapRef.current;
+    if (!wrapper) return;
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl) {
+      (document.exitFullscreen || document.webkitExitFullscreen)?.call(document).catch(() => {});
+    } else {
+      (wrapper.requestFullscreen || wrapper.webkitRequestFullscreen)?.call(wrapper).catch(() => {});
+    }
+  }
+
+  function handleVideoSurfaceToggle(event) {
+    if (event?.cancelable) {
+      event.preventDefault();
+    }
+
+    const now = Date.now();
+    if (now - lastSurfaceToggleAtRef.current < 220) return;
+
+    const target = event?.target;
+    if (target instanceof HTMLElement) {
+      if (target.closest(".academy-fullscreen-btn")) return;
+      if (target.closest(".academy-playback-status")) return;
+    }
+
+    const wrapper = playerWrapRef.current;
+    if (wrapper instanceof HTMLElement && Number.isFinite(event?.clientY)) {
+      const rect = wrapper.getBoundingClientRect();
+      const controlBarSafeZone = Math.min(84, rect.height * 0.2);
+      if (event.clientY >= rect.bottom - controlBarSafeZone) {
+        return;
+      }
+    }
+
+    const videoElement = videoRef.current;
+    if (!(videoElement instanceof HTMLVideoElement)) return;
+    if (!playbackSource || playbackSessionLoading || playbackSessionError) return;
+
+    lastSurfaceToggleAtRef.current = now;
+
+    if (videoElement.paused || videoElement.ended) {
+      if (videoElement.ended) {
+        videoElement.currentTime = 0;
+      }
+      videoElement.play().catch(() => {});
+      return;
+    }
+
+    videoElement.pause();
+  }
+
+  useEffect(() => {
+    if (!playbackSession?.sessionId || !playbackSession?.watermarkText) {
+      setWatermarkPositionIndex(0);
+      return () => {};
+    }
+
+    setWatermarkPositionIndex(0);
+    const timer = setInterval(() => {
+      setWatermarkPositionIndex((prev) => {
+        let next;
+        do {
+          next = Math.floor(Math.random() * WATERMARK_POSITION_CLASSES.length);
+        } while (next === prev);
+        return next;
+      });
+    }, WATERMARK_MOVE_INTERVAL_MS);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [playbackSession?.sessionId, playbackSession?.watermarkText]);
+
   // Q&A 로드
   const loadQna = useCallback(async (videoId) => {
     setQnaLoading(true);
@@ -548,7 +752,7 @@ export function AcademyPlayerPage() {
   if (isProgressLoading && playableVideos.length === 0) {
     return (
       <div className="site-shell">
-        <SiteHeader subpage />
+        <SiteHeader />
         <main className="content-page academy-player-page">
           <section className="academy-player-empty">
             <p className="section-kicker">교육 영상 플레이어</p>
@@ -562,7 +766,7 @@ export function AcademyPlayerPage() {
   if (playableVideos.length === 0) {
     return (
       <div className="site-shell">
-        <SiteHeader subpage />
+        <SiteHeader />
         <main className="content-page academy-player-page">
           <section className="academy-player-empty">
             <p className="section-kicker">교육 영상 플레이어</p>
@@ -592,7 +796,7 @@ export function AcademyPlayerPage() {
     if (expiry?.type === "timed" && expiry.daysLeft <= 0) {
       return (
         <div className="site-shell">
-          <SiteHeader subpage />
+          <SiteHeader />
           <main className="content-page academy-player-page">
             <section className="academy-player-empty">
               <p className="section-kicker">수강 기한 만료</p>
@@ -619,7 +823,7 @@ export function AcademyPlayerPage() {
   if (!canPlay || !activeChapter) {
     return (
       <div className="site-shell">
-        <SiteHeader subpage />
+        <SiteHeader />
         <main className="content-page academy-player-page">
           <section className="academy-player-empty">
             <p className="section-kicker">수강 권한</p>
@@ -655,14 +859,24 @@ export function AcademyPlayerPage() {
       )
     : null;
 
-  const playbackSource =
+  const fallbackPlaybackSource =
     resolveAcademyMediaUrl(activeChapter.videoUrl) ||
     resolveAcademyMediaUrl(activeVideo.videoUrl) ||
     getAcademyPlaybackSourceByVideoId(activeVideo.id);
+  const securePlaybackSource = String(playbackSession?.playbackUrl || "").trim();
+  const playbackSource =
+    securePlaybackSource ||
+    (!playbackSessionLoading && !playbackSessionError ? fallbackPlaybackSource : "");
+
+  const watermarkTextBase = String(playbackSession?.watermarkText || "").trim();
+  const watermarkText = watermarkTextBase
+    ? `${watermarkTextBase} · ${new Date().toLocaleTimeString("ko-KR")}`
+    : "";
+  const watermarkPositionClass = WATERMARK_POSITION_CLASSES[watermarkPositionIndex];
 
   return (
     <div className="site-shell">
-      <SiteHeader subpage />
+      <SiteHeader />
       <main className="content-page academy-player-page">
         <section className="content-hero academy-player-hero">
           <p className="section-kicker">교육 영상 플레이어</p>
@@ -710,13 +924,41 @@ export function AcademyPlayerPage() {
 
         <section className="academy-player-layout">
           <article className="academy-player-main">
-            <div className="academy-player-video-wrap">
+            <div className="academy-player-video-wrap" ref={playerWrapRef} onPointerUp={handleVideoSurfaceToggle}>
+              {playbackSessionLoading ? (
+                <div className="academy-playback-status">보안 재생 링크를 준비 중입니다.</div>
+              ) : null}
+              {playbackSessionError ? (
+                <div className="academy-playback-status is-error">
+                  <p>{playbackSessionError}</p>
+                  <button
+                    type="button"
+                    className="ghost-button small-ghost"
+                    onClick={() => setPlaybackSessionReloadKey((current) => current + 1)}
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ) : null}
+              {watermarkText ? (
+                <div className={`academy-player-watermark ${watermarkPositionClass}`} aria-hidden="true">
+                  {watermarkText}
+                </div>
+              ) : null}
+              <button
+                type="button"
+                className="academy-fullscreen-btn"
+                onClick={handleFullscreenToggle}
+                aria-label={isFullscreen ? "전체화면 종료" : "전체화면"}
+              >
+                {isFullscreen ? "⊡" : "⛶"}
+              </button>
               <video
                 ref={videoRef}
-                key={`${activeVideo.id}-${activeChapter.id}`}
+                key={`${activeVideo.id}-${activeChapter.id}-${playbackSession?.sessionId || "init"}`}
                 className="academy-player-video"
                 controls
-                controlsList="nodownload"
+                controlsList="nodownload nofullscreen"
                 preload="metadata"
                 poster={resolveAcademyMediaUrl(activeVideo.image)}
                 onLoadedMetadata={() => {
@@ -742,6 +984,9 @@ export function AcademyPlayerPage() {
                 onTimeUpdate={() => {
                   void syncProgress();
                 }}
+                onPlay={() => {
+                  void syncPlaybackHeartbeat();
+                }}
                 onPause={() => {
                   clearAutoNext();
                   void syncProgress({ force: true });
@@ -754,8 +999,13 @@ export function AcademyPlayerPage() {
                     startAutoNext(nextChapter);
                   }
                 }}
+                onError={() => {
+                  if (!playbackSessionLoading) {
+                    setPlaybackSessionError("영상 재생 중 오류가 발생했습니다. 다시 시도해 주세요.");
+                  }
+                }}
               >
-                <source src={playbackSource} type="video/mp4" />
+                {playbackSource ? <source src={playbackSource} /> : null}
               </video>
             </div>
 

@@ -22,6 +22,11 @@ const PERIOD_UNIT_LABEL = {
   month: "개월",
   year: "년",
 };
+const REFUND_INSIGHT_SORT_OPTIONS = [
+  { value: "refundRate", label: "환불/취소율 높은순" },
+  { value: "refundRevenue", label: "환불/취소 금액 높은순" },
+  { value: "refundOrderCount", label: "환불 주문건수 높은순" },
+];
 
 function toDateInputValue(date) {
   const year = date.getFullYear();
@@ -64,6 +69,10 @@ function normalizeAgeGroupLabel(value) {
   return "미분류";
 }
 
+function resolveRefundInsightKey(item) {
+  return String(item?.productId || item?.videoId || "").trim();
+}
+
 export function AdminSalesDashboardPage() {
   const store = useAppStore();
   const today = useMemo(() => new Date(), []);
@@ -87,6 +96,12 @@ export function AdminSalesDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [dashboard, setDashboard] = useState(null);
+  const [refundInsightsOpen, setRefundInsightsOpen] = useState(false);
+  const [refundInsightsLoading, setRefundInsightsLoading] = useState(false);
+  const [refundInsightsError, setRefundInsightsError] = useState("");
+  const [refundInsightVideos, setRefundInsightVideos] = useState([]);
+  const [selectedRefundInsightKey, setSelectedRefundInsightKey] = useState("");
+  const [refundInsightSortBy, setRefundInsightSortBy] = useState("refundRate");
 
   useEffect(() => {
     let mounted = true;
@@ -121,6 +136,51 @@ export function AdminSalesDashboardPage() {
       mounted = false;
     };
   }, [period, appliedDateRange.startDate, appliedDateRange.endDate]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!refundInsightsOpen) return () => {
+      mounted = false;
+    };
+
+    async function loadRefundInsights() {
+      try {
+        setRefundInsightsLoading(true);
+        setRefundInsightsError("");
+
+        const query = new URLSearchParams();
+        query.set("period", period);
+
+        if (appliedDateRange.startDate && appliedDateRange.endDate) {
+          query.set("startDate", appliedDateRange.startDate);
+          query.set("endDate", appliedDateRange.endDate);
+        }
+
+        const result = await apiRequest(
+          `/admin/dashboard/sales/refund-insights?${query.toString()}`
+        );
+        if (!mounted) return;
+
+        const videos = Array.isArray(result?.videos) ? result.videos : [];
+        setRefundInsightVideos(videos);
+        setSelectedRefundInsightKey((current) => {
+          if (videos.some((item) => resolveRefundInsightKey(item) === current)) return current;
+          return resolveRefundInsightKey(videos[0]);
+        });
+      } catch (error) {
+        if (!mounted) return;
+        setRefundInsightsError(error.message || "환불/취소 인사이트를 불러오지 못했습니다.");
+      } finally {
+        if (mounted) setRefundInsightsLoading(false);
+      }
+    }
+
+    loadRefundInsights();
+
+    return () => {
+      mounted = false;
+    };
+  }, [refundInsightsOpen, period, appliedDateRange.startDate, appliedDateRange.endDate]);
 
   const summary = dashboard?.summary || {
     lifetimeRevenue: 0,
@@ -253,6 +313,60 @@ export function AdminSalesDashboardPage() {
 
   const refundRate = periodGross > 0 ? (periodRefund / periodGross) * 100 : 0;
   const topVideo = topRevenueVideos[0] || null;
+  const sortedRefundInsightVideos = useMemo(() => {
+    return [...refundInsightVideos].sort((a, b) => {
+      const refundRateDiff = toAmount(b?.refundRate) - toAmount(a?.refundRate);
+      const refundRevenueDiff = toAmount(b?.refundRevenue) - toAmount(a?.refundRevenue);
+      const refundOrderDiff = toAmount(b?.refundOrderCount) - toAmount(a?.refundOrderCount);
+
+      if (refundInsightSortBy === "refundRevenue") {
+        if (refundRevenueDiff !== 0) return refundRevenueDiff;
+        if (refundRateDiff !== 0) return refundRateDiff;
+        return refundOrderDiff;
+      }
+
+      if (refundInsightSortBy === "refundOrderCount") {
+        if (refundOrderDiff !== 0) return refundOrderDiff;
+        if (refundRateDiff !== 0) return refundRateDiff;
+        return refundRevenueDiff;
+      }
+
+      if (refundRateDiff !== 0) return refundRateDiff;
+      if (refundRevenueDiff !== 0) return refundRevenueDiff;
+      return refundOrderDiff;
+    });
+  }, [refundInsightSortBy, refundInsightVideos]);
+  const selectedRefundInsightVideo = useMemo(() => {
+    if (!sortedRefundInsightVideos.length) return null;
+    return (
+      sortedRefundInsightVideos.find(
+        (item) => resolveRefundInsightKey(item) === selectedRefundInsightKey
+      ) || sortedRefundInsightVideos[0]
+    );
+  }, [selectedRefundInsightKey, sortedRefundInsightVideos]);
+  const selectedRefundReasons = Array.isArray(selectedRefundInsightVideo?.reasons)
+    ? selectedRefundInsightVideo.reasons
+    : [];
+  const selectedRefundReasonTotalCount = useMemo(
+    () =>
+      selectedRefundReasons.reduce(
+        (sum, item) => sum + Math.max(0, toAmount(item?.count)),
+        0
+      ),
+    [selectedRefundReasons]
+  );
+  const topRefundReasons = useMemo(
+    () =>
+      selectedRefundReasons.slice(0, 5).map((item) => {
+        const count = Math.max(0, toAmount(item?.count));
+        const ratio =
+          selectedRefundReasonTotalCount > 0
+            ? (count / selectedRefundReasonTotalCount) * 100
+            : 0;
+        return { ...item, count, ratio };
+      }),
+    [selectedRefundReasonTotalCount, selectedRefundReasons]
+  );
 
   const totalVideoNet = topMixVideos.reduce(
     (sum, item) => sum + toAmount(item.netRevenue || item.revenue),
@@ -281,10 +395,12 @@ export function AdminSalesDashboardPage() {
       tone: netGrowthRate >= 0 ? "up" : "down",
     },
     {
+      key: "refund-insight",
       label: "환불/취소 금액",
       value: store.formatCurrency(periodRefund),
-      hint: `환불률 ${toPercent(refundRate)}%`,
+      hint: `환불률 ${toPercent(refundRate)}% · 클릭 시 상세`,
       tone: "neutral",
+      clickable: true,
     },
     {
       label: "평균 객단가",
@@ -310,7 +426,7 @@ export function AdminSalesDashboardPage() {
 
   return (
     <div className="site-shell">
-      <SiteHeader subpage />
+      <SiteHeader />
 
       <main className="dashboard-page admin-dashboard-page admin-sales-page">
         <section className="admin-dashboard-switch">
@@ -419,14 +535,137 @@ export function AdminSalesDashboardPage() {
         {!loading && !errorMessage ? (
           <>
             <section className="admin-sales-kpi-grid">
-              {kpiCards.map((card) => (
-                <article key={card.label} className={`dashboard-card admin-sales-kpi-card ${card.tone}`}>
-                  <p>{card.label}</p>
-                  <strong>{card.value}</strong>
-                  <span>{card.hint}</span>
-                </article>
-              ))}
+              {kpiCards.map((card) =>
+                card.clickable ? (
+                  <button
+                    key={card.label}
+                    type="button"
+                    className={`dashboard-card admin-sales-kpi-card ${card.tone} clickable${
+                      refundInsightsOpen ? " active" : ""
+                    }`}
+                    onClick={() => setRefundInsightsOpen((current) => !current)}
+                    aria-expanded={refundInsightsOpen}
+                  >
+                    <p>{card.label}</p>
+                    <strong>{card.value}</strong>
+                    <span>{card.hint}</span>
+                  </button>
+                ) : (
+                  <article key={card.label} className={`dashboard-card admin-sales-kpi-card ${card.tone}`}>
+                    <p>{card.label}</p>
+                    <strong>{card.value}</strong>
+                    <span>{card.hint}</span>
+                  </article>
+                )
+              )}
             </section>
+
+            {refundInsightsOpen ? (
+              <section className="dashboard-card admin-sales-refund-panel">
+                <div className="admin-members-toolbar">
+                  <h2>환불/취소율 높은 영상</h2>
+                  <div className="admin-sales-refund-toolbar-right">
+                    <select
+                      className="admin-range-select"
+                      value={refundInsightSortBy}
+                      onChange={(event) => setRefundInsightSortBy(event.target.value)}
+                      aria-label="환불 인사이트 정렬"
+                    >
+                      {REFUND_INSIGHT_SORT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="admin-range-caption">제목 클릭 시 환불/취소 사유 확인</span>
+                  </div>
+                </div>
+
+                {refundInsightsLoading ? (
+                  <p className="admin-empty-copy">환불/취소 인사이트를 불러오는 중입니다...</p>
+                ) : refundInsightsError ? (
+                  <p className="admin-empty-copy error">{refundInsightsError}</p>
+                ) : sortedRefundInsightVideos.length ? (
+                  <div className="admin-sales-refund-layout">
+                    <div className="admin-sales-refund-list-wrap">
+                      <table className="admin-sales-refund-table">
+                        <thead>
+                          <tr>
+                            <th>강의명</th>
+                            <th>환불/취소율</th>
+                            <th>환불/취소 금액</th>
+                            <th>환불 주문건수</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedRefundInsightVideos.map((item) => {
+                            const insightKey = resolveRefundInsightKey(item);
+                            const isSelected =
+                              insightKey === resolveRefundInsightKey(selectedRefundInsightVideo);
+                            return (
+                              <tr
+                                key={insightKey || item.title}
+                                className={isSelected ? "is-selected" : ""}
+                              >
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="admin-sales-refund-title-button"
+                                    onClick={() => setSelectedRefundInsightKey(insightKey)}
+                                  >
+                                    {item.title || item.productId}
+                                  </button>
+                                </td>
+                                <td>{toPercent(toAmount(item.refundRate))}%</td>
+                                <td>{store.formatCurrency(toAmount(item.refundRevenue))}</td>
+                                <td>{toAmount(item.refundOrderCount)}건</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <section className="admin-sales-refund-reason-panel">
+                      <h3>{selectedRefundInsightVideo?.title || "선택된 영상 없음"}</h3>
+                      {selectedRefundInsightVideo ? (
+                        <p className="admin-sales-refund-summary">
+                          환불/취소율 {toPercent(toAmount(selectedRefundInsightVideo.refundRate))}% ·
+                          환불/취소 금액{" "}
+                          {store.formatCurrency(toAmount(selectedRefundInsightVideo.refundRevenue))}
+                        </p>
+                      ) : null}
+                      <p className="admin-sales-refund-summary">환불/취소 사유 Top5 (건수 비율)</p>
+
+                      {topRefundReasons.length ? (
+                        <div className="admin-sales-refund-reason-list">
+                          {topRefundReasons.map((reasonItem, index) => (
+                            <article
+                              key={`${reasonItem.reason}-${index}`}
+                              className="admin-sales-refund-reason-item"
+                            >
+                              <div className="admin-sales-refund-reason-head">
+                                <strong>
+                                  {index + 1}. {reasonItem.reason || "사유 미입력"}
+                                </strong>
+                                <span>{store.formatCurrency(toAmount(reasonItem.refundAmount))}</span>
+                              </div>
+                              <small>
+                                발생 건수 {toAmount(reasonItem.count)}건 · 비율 {toPercent(reasonItem.ratio)}%
+                              </small>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="admin-empty-copy">해당 영상의 환불/취소 사유 데이터가 없습니다.</p>
+                      )}
+                    </section>
+                  </div>
+                ) : (
+                  <p className="admin-empty-copy">선택한 기간에 환불/취소 데이터가 없습니다.</p>
+                )}
+              </section>
+            ) : null}
 
             <section className="admin-sales-primary-grid">
               <section className="dashboard-card admin-sales-chart-panel">
@@ -491,131 +730,129 @@ export function AdminSalesDashboardPage() {
                 </div>
               </section>
 
-              <section className="dashboard-card admin-sales-rank-panel">
-                <div className="admin-sales-rank-stack">
-                  <section className="admin-sales-rank-section">
-                    <div className="admin-members-toolbar">
-                      <h2>Top 3 강의 매출</h2>
-                      <span className="admin-range-caption">순매출 기준</span>
+              <div className="admin-sales-rank-stack">
+                <section className="dashboard-card admin-sales-rank-section">
+                  <div className="admin-members-toolbar">
+                    <h2>강의매출 TOP3</h2>
+                    <span className="admin-range-caption">순매출 기준</span>
+                  </div>
+
+                  {topRevenueVideos.length ? (
+                    <div className="admin-sales-rank-list">
+                      {topRevenueVideos.map((item, index) => {
+                        const netRevenue = toAmount(item.netRevenue || item.revenue);
+                        const percentage =
+                          topRevenueVideos.length &&
+                          toAmount(topRevenueVideos[0]?.netRevenue || topRevenueVideos[0]?.revenue) > 0
+                            ? (netRevenue /
+                                toAmount(topRevenueVideos[0]?.netRevenue || topRevenueVideos[0]?.revenue)) *
+                              100
+                            : 0;
+
+                        return (
+                          <article key={`revenue-${item.productId || item.videoId}`} className="admin-sales-rank-item">
+                            <div className="admin-sales-rank-head">
+                              <strong>
+                                {index + 1}. {item.title || item.productId}
+                              </strong>
+                              <span>{store.formatCurrency(netRevenue)}</span>
+                            </div>
+                            <div className="admin-sales-rank-bar-track">
+                              <div
+                                className="admin-sales-rank-bar"
+                                style={{ width: `${Math.max(6, Math.round(percentage))}%` }}
+                              />
+                            </div>
+                            <small>
+                              주문 {toAmount(item.orderCount)}건 · 판매수량 {toAmount(item.saleCount)}건
+                            </small>
+                          </article>
+                        );
+                      })}
                     </div>
+                  ) : (
+                    <p className="admin-empty-copy">영상 매출 데이터가 없습니다.</p>
+                  )}
+                </section>
 
-                    {topRevenueVideos.length ? (
-                      <div className="admin-sales-rank-list">
-                        {topRevenueVideos.map((item, index) => {
-                          const netRevenue = toAmount(item.netRevenue || item.revenue);
-                          const percentage =
-                            topRevenueVideos.length &&
-                            toAmount(topRevenueVideos[0]?.netRevenue || topRevenueVideos[0]?.revenue) > 0
-                              ? (netRevenue /
-                                  toAmount(topRevenueVideos[0]?.netRevenue || topRevenueVideos[0]?.revenue)) *
-                                100
-                              : 0;
+                <section className="dashboard-card admin-sales-rank-section">
+                  <div className="admin-members-toolbar">
+                    <h2>판매건수 TOP3</h2>
+                    <span className="admin-range-caption">판매수량 기준</span>
+                  </div>
+                  {topSaleCountVideos.length ? (
+                    <div className="admin-sales-rank-list">
+                      {topSaleCountVideos.map((item, index) => {
+                        const saleCount = toAmount(item.saleCount);
+                        const percentage =
+                          topSaleCountVideos.length && toAmount(topSaleCountVideos[0]?.saleCount) > 0
+                            ? (saleCount / toAmount(topSaleCountVideos[0]?.saleCount)) * 100
+                            : 0;
 
-                          return (
-                            <article key={`revenue-${item.productId || item.videoId}`} className="admin-sales-rank-item">
-                              <div className="admin-sales-rank-head">
-                                <strong>
-                                  {index + 1}. {item.title || item.productId}
-                                </strong>
-                                <span>{store.formatCurrency(netRevenue)}</span>
-                              </div>
-                              <div className="admin-sales-rank-bar-track">
-                                <div
-                                  className="admin-sales-rank-bar"
-                                  style={{ width: `${Math.max(6, Math.round(percentage))}%` }}
-                                />
-                              </div>
-                              <small>
-                                주문 {toAmount(item.orderCount)}건 · 판매수량 {toAmount(item.saleCount)}건
-                              </small>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="admin-empty-copy">영상 매출 데이터가 없습니다.</p>
-                    )}
-                  </section>
-
-                  <section className="admin-sales-rank-section">
-                    <div className="admin-members-toolbar">
-                      <h2>판매건수 Top 3</h2>
-                      <span className="admin-range-caption">판매수량 기준</span>
+                        return (
+                          <article key={`count-${item.productId || item.videoId}`} className="admin-sales-rank-item">
+                            <div className="admin-sales-rank-head">
+                              <strong>
+                                {index + 1}. {item.title || item.productId}
+                              </strong>
+                              <span>{saleCount}건</span>
+                            </div>
+                            <div className="admin-sales-rank-bar-track">
+                              <div
+                                className="admin-sales-rank-bar sale"
+                                style={{ width: `${Math.max(6, Math.round(percentage))}%` }}
+                              />
+                            </div>
+                            <small>순매출 {store.formatCurrency(toAmount(item.netRevenue || item.revenue))}</small>
+                          </article>
+                        );
+                      })}
                     </div>
-                    {topSaleCountVideos.length ? (
-                      <div className="admin-sales-rank-list">
-                        {topSaleCountVideos.map((item, index) => {
-                          const saleCount = toAmount(item.saleCount);
-                          const percentage =
-                            topSaleCountVideos.length && toAmount(topSaleCountVideos[0]?.saleCount) > 0
-                              ? (saleCount / toAmount(topSaleCountVideos[0]?.saleCount)) * 100
-                              : 0;
+                  ) : (
+                    <p className="admin-empty-copy">판매건수 데이터가 없습니다.</p>
+                  )}
+                </section>
 
-                          return (
-                            <article key={`count-${item.productId || item.videoId}`} className="admin-sales-rank-item">
-                              <div className="admin-sales-rank-head">
-                                <strong>
-                                  {index + 1}. {item.title || item.productId}
-                                </strong>
-                                <span>{saleCount}건</span>
-                              </div>
-                              <div className="admin-sales-rank-bar-track">
-                                <div
-                                  className="admin-sales-rank-bar sale"
-                                  style={{ width: `${Math.max(6, Math.round(percentage))}%` }}
-                                />
-                              </div>
-                              <small>순매출 {store.formatCurrency(toAmount(item.netRevenue || item.revenue))}</small>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="admin-empty-copy">판매건수 데이터가 없습니다.</p>
-                    )}
-                  </section>
+                <section className="dashboard-card admin-sales-rank-section">
+                  <div className="admin-members-toolbar">
+                    <h2>연령대별 매출 TOP3</h2>
+                    <span className="admin-range-caption">순매출 기준</span>
+                  </div>
+                  {topAgeGroups.length ? (
+                    <div className="admin-sales-rank-list">
+                      {topAgeGroups.map((item, index) => {
+                        const netRevenue = toAmount(item.netRevenue || item.revenue);
+                        const ageGroupLabel = normalizeAgeGroupLabel(item?.ageGroup);
+                        const percentage =
+                          topAgeGroups.length &&
+                          toAmount(topAgeGroups[0]?.netRevenue || topAgeGroups[0]?.revenue) > 0
+                            ? (netRevenue / toAmount(topAgeGroups[0]?.netRevenue || topAgeGroups[0]?.revenue)) * 100
+                            : 0;
 
-                  <section className="admin-sales-rank-section">
-                    <div className="admin-members-toolbar">
-                      <h2>연령대별 매출 Top 3</h2>
-                      <span className="admin-range-caption">순매출 기준</span>
+                        return (
+                          <article key={`age-${ageGroupLabel || index}`} className="admin-sales-rank-item">
+                            <div className="admin-sales-rank-head">
+                              <strong>
+                                {index + 1}. {ageGroupLabel}
+                              </strong>
+                              <span>{store.formatCurrency(netRevenue)}</span>
+                            </div>
+                            <div className="admin-sales-rank-bar-track">
+                              <div
+                                className="admin-sales-rank-bar age"
+                                style={{ width: `${Math.max(6, Math.round(percentage))}%` }}
+                              />
+                            </div>
+                            <small>주문 {toAmount(item.orderCount)}건</small>
+                          </article>
+                        );
+                      })}
                     </div>
-                    {topAgeGroups.length ? (
-                      <div className="admin-sales-rank-list">
-                        {topAgeGroups.map((item, index) => {
-                          const netRevenue = toAmount(item.netRevenue || item.revenue);
-                          const ageGroupLabel = normalizeAgeGroupLabel(item?.ageGroup);
-                          const percentage =
-                            topAgeGroups.length &&
-                            toAmount(topAgeGroups[0]?.netRevenue || topAgeGroups[0]?.revenue) > 0
-                              ? (netRevenue / toAmount(topAgeGroups[0]?.netRevenue || topAgeGroups[0]?.revenue)) * 100
-                              : 0;
-
-                          return (
-                            <article key={`age-${ageGroupLabel || index}`} className="admin-sales-rank-item">
-                              <div className="admin-sales-rank-head">
-                                <strong>
-                                  {index + 1}. {ageGroupLabel}
-                                </strong>
-                                <span>{store.formatCurrency(netRevenue)}</span>
-                              </div>
-                              <div className="admin-sales-rank-bar-track">
-                                <div
-                                  className="admin-sales-rank-bar age"
-                                  style={{ width: `${Math.max(6, Math.round(percentage))}%` }}
-                                />
-                              </div>
-                              <small>주문 {toAmount(item.orderCount)}건</small>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="admin-empty-copy">연령대 데이터가 없습니다.</p>
-                    )}
-                  </section>
-                </div>
-              </section>
+                  ) : (
+                    <p className="admin-empty-copy">연령대 데이터가 없습니다.</p>
+                  )}
+                </section>
+              </div>
             </section>
 
             <section className="admin-sales-secondary-grid">

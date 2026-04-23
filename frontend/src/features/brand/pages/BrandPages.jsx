@@ -1,6 +1,8 @@
 ﻿import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { canEditPage } from "../../../shared/auth/userRoles.js";
 
 function BrandPageLayout({ kicker, title, description, points }) {
   return (
@@ -65,7 +67,7 @@ export function BrandIntroPage() {
       <main className="content-page intro-content-page">
         <section className="intro-cover-section">
           <div className="intro-image-slot intro-cover-media" role="img" aria-label="소개 메인 비주얼 이미지 영역">
-            <span>메인 비주얼 이미지 영역</span>
+            <span>비어있는 이미지 1</span>
             <div className="intro-cover-overlay">
               <p className="section-kicker">이끌림 · 소개</p>
               <h1>브랜드 케어의 시작</h1>
@@ -82,7 +84,7 @@ export function BrandIntroPage() {
         <section className="intro-identity-section" id="intro-identity">
           <div className="intro-identity-grid">
             <div className="intro-image-slot intro-identity-media" role="img" aria-label="브랜드 소개 이미지 영역">
-              <span>이미지 영역 01</span>
+              <span>비어있는 이미지 2</span>
             </div>
             <article className="intro-text-block intro-identity-copy">
               <p className="intro-eyebrow">고객 맞춤 케어 시스템</p>
@@ -102,7 +104,7 @@ export function BrandIntroPage() {
               role="img"
               aria-label="브랜드 강점 대표 이미지 영역"
             >
-              <span>이미지 영역 02</span>
+              <span>비어있는 이미지 3</span>
               <div className="intro-speciality-main-copy">
                 <p>고객만족을 위한 단계별 운영</p>
                 <h2>ICL 스페셜리티</h2>
@@ -118,7 +120,7 @@ export function BrandIntroPage() {
                     role="img"
                     aria-label={`스페셜 ${card.id} 이미지 영역`}
                   >
-                    <span>이미지 영역 {Number(card.id) + 2}</span>
+                    <span>비어있는 이미지 {Number(card.id) + 3}</span>
                   </div>
                   <p>{card.description}</p>
                 </article>
@@ -129,7 +131,7 @@ export function BrandIntroPage() {
 
         <section className="intro-promise-band">
           <div className="intro-image-slot intro-promise-bg" role="img" aria-label="브랜드 약속 배경 이미지 영역">
-            <span>배경 이미지 영역</span>
+            <span>비어있는 이미지 8</span>
           </div>
           <div className="intro-promise-inner">
             <div className="section-intro center">
@@ -151,7 +153,7 @@ export function BrandIntroPage() {
 
         <section className="intro-booking-section">
           <div className="intro-image-slot intro-booking-media" role="img" aria-label="상담 예약 배경 이미지 영역">
-            <span>배경 이미지 영역</span>
+            <span>비어있는 이미지 9</span>
             <div className="intro-booking-overlay">
               <p>온라인으로 예약하시면 원하는 일정에 맞춰 상담이 가능합니다.</p>
               <p className="intro-cta-copy">상담 후 목표에 맞는 수업/교육 플랜을 안내해드립니다.</p>
@@ -204,7 +206,11 @@ const DEFAULT_INSTRUCTORS = [
 ];
 
 export function BrandInstructorsPage() {
+  const store = useAppStore();
+  const isAdmin = canEditPage(store?.currentUser);
+  const isPageEditMode = Boolean(store?.adminPageEditMode);
   const [instructors, setInstructors] = useState(DEFAULT_INSTRUCTORS);
+  const [deletingInstructorKey, setDeletingInstructorKey] = useState("");
 
   useEffect(() => {
     fetch("/api/brand/instructors", { credentials: "include" })
@@ -215,6 +221,58 @@ export function BrandInstructorsPage() {
       })
       .catch(() => {});
   }, []);
+
+  async function handleAddInstructor() {
+    const newCard = {
+      name: "강사 이름",
+      role: "직책 · 직함",
+      intro: "강사 소개 내용을 입력하세요.",
+      careers: ["경력 1", "경력 2"],
+    };
+    try {
+      const res = await fetch("/api/brand/instructors", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCard),
+      });
+      const data = res.ok ? await res.json() : null;
+      setInstructors((prev) => [...prev, { ...newCard, id: data?.id || String(Date.now()) }]);
+    } catch {
+      setInstructors((prev) => [...prev, { ...newCard, id: String(Date.now()) }]);
+    }
+  }
+
+  async function handleRemoveInstructor(item, index) {
+    if (!isAdmin || !isPageEditMode) return;
+
+    const confirmed = window.confirm("해당 강사 카드를 삭제하시겠습니까?");
+    if (!confirmed) return;
+
+    const cardKey = String(item?.id || `${item?.name || "instructor"}-${index}`);
+    const id = String(item?.id || "").trim();
+    if (!id) {
+      setInstructors((prev) => prev.filter((_, idx) => idx !== index));
+      return;
+    }
+
+    setDeletingInstructorKey(cardKey);
+    try {
+      const res = await fetch(`/api/brand/instructors/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || "강사 카드 삭제에 실패했습니다.");
+      }
+      setInstructors((prev) => prev.filter((_, idx) => idx !== index));
+    } catch (error) {
+      window.alert(error?.message || "강사 카드 삭제에 실패했습니다.");
+    } finally {
+      setDeletingInstructorKey("");
+    }
+  }
 
   return (
     <div className="site-shell">
@@ -229,12 +287,27 @@ export function BrandInstructorsPage() {
         </section>
 
         <section className="staff-split-list">
-          {instructors.map((item, index) => (
+          {instructors.map((item, index) => {
+            const cardKey = String(item.id || `${item.name || "instructor"}-${index}`);
+            return (
             <article
               className={`staff-split${index % 2 === 1 ? " reverse" : ""}`}
-              key={item.name}
+              key={cardKey}
             >
-              <div className="staff-image-slot" />
+              {isAdmin && isPageEditMode && (
+                <button
+                  type="button"
+                  className="staff-card-delete-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleRemoveInstructor(item, index);
+                  }}
+                  disabled={deletingInstructorKey === cardKey}
+                >
+                  {deletingInstructorKey === cardKey ? "삭제 중..." : "삭제"}
+                </button>
+              )}
+              <div className="staff-image-slot"><span>비어있는 이미지 {index + 1}</span></div>
               <div className="staff-text-panel">
                 <p className="mini-kicker">{item.role}</p>
                 <h3>{item.name}</h3>
@@ -246,8 +319,15 @@ export function BrandInstructorsPage() {
                 </ul>
               </div>
             </article>
-          ))}
+            );
+          })}
         </section>
+
+        {isAdmin && (
+          <button type="button" className="instructor-add-button" onClick={handleAddInstructor}>
+            강사 카드 추가
+          </button>
+        )}
       </main>
     </div>
   );
@@ -321,7 +401,7 @@ export function BrandEquipmentPage() {
       <SiteHeader />
       <main className="content-page equipment-reference-page">
         <section className="equipment-reference-hero">
-          <div className="equipment-reference-hero-media" role="img" aria-label="장비소개 배경 이미지" />
+          <div className="equipment-reference-hero-media" role="img" aria-label="장비소개 배경 이미지"><span>비어있는 이미지 1</span></div>
           <div className="equipment-reference-hero-overlay" />
           <div className="equipment-reference-hero-copy">
             <p>ICL PILATES STUDIO</p>
@@ -342,7 +422,7 @@ export function BrandEquipmentPage() {
               key={item.id}
             >
               <div className="equipment-reference-image equipment-reference-image-placeholder" role="img" aria-label="비어있는 이미지 영역">
-                <span>비어있는 이미지</span>
+                <span>비어있는 이미지 {index + 2}</span>
               </div>
               <div className="equipment-reference-copy equipment-reference-copy-placeholder">
                 <h5>비어있는 텍스트</h5>
@@ -453,5 +533,3 @@ export function BrandDirectionsPage() {
     </div>
   );
 }
-
-

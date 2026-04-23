@@ -73,6 +73,23 @@ export async function saveAcademyChapterProgress(videoId, chapterId, payload) {
   );
 }
 
+export async function createAcademyPlaybackSession(videoId, chapterId) {
+  return apiRequest("/academy/playback/session", {
+    method: "POST",
+    body: {
+      videoId: String(videoId || "").trim(),
+      chapterId: String(chapterId || "").trim(),
+    },
+  });
+}
+
+export async function heartbeatAcademyPlaybackSession(token) {
+  return apiRequest("/academy/playback/heartbeat", {
+    method: "POST",
+    body: { token: String(token || "").trim() },
+  });
+}
+
 export async function createAcademyVideo(payload) {
   return apiRequest("/academy/videos", {
     method: "POST",
@@ -90,6 +107,13 @@ export async function updateAcademyVideo(videoId, payload) {
 export async function deleteAcademyVideo(videoId) {
   return apiRequest(`/academy/videos/${encodeURIComponent(String(videoId || "").trim())}`, {
     method: "DELETE",
+  });
+}
+
+export async function setAcademyVideoVisibility(videoId, isHidden) {
+  return apiRequest(`/academy/videos/${encodeURIComponent(String(videoId || "").trim())}/visibility`, {
+    method: "PATCH",
+    body: { isHidden: Boolean(isHidden) },
   });
 }
 

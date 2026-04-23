@@ -116,11 +116,34 @@ function normalizeVideoRow(row, chapters = []) {
     image: String(row.image || ""),
     videoUrl: String(row.videoUrl || firstChapter?.videoUrl || ""),
     publishAt: String(row.publishAt || ""),
+    isHidden: Boolean(row.isHidden === 1 || row.isHidden === true || row.isHidden === "1"),
     description: String(row.description || ""),
     period: String(row.period || ""),
     chapterCount: normalizedChapters.length,
     chapters: normalizedChapters,
   };
+}
+
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
+const MAX_AUTOCORRECT_FUTURE_MS = 12 * 60 * 60 * 1000;
+
+function normalizeDateTimeForClient(value) {
+  if (!value) return "";
+
+  const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return toSafeText(value);
+  }
+
+  let timeMs = parsed.getTime();
+  const futureGapMs = timeMs - Date.now();
+  // DB DATETIME를 UTC로 해석하는 환경에서 KST(+9) 만큼 미래로 보이는 값을 보정 처리
+  if (futureGapMs > FUTURE_TOLERANCE_MS && futureGapMs <= MAX_AUTOCORRECT_FUTURE_MS) {
+    timeMs -= KST_OFFSET_MS;
+  }
+
+  return new Date(timeMs).toISOString();
 }
 
 function normalizeProgressRow(row) {
@@ -141,8 +164,8 @@ function normalizeProgressRow(row) {
     duration,
     progressPercent: completed ? 100 : progressPercent,
     completed,
-    lastWatchedAt: row.lastWatchedAt ? String(row.lastWatchedAt) : "",
-    createdAt: row.createdAt ? String(row.createdAt) : "",
+    lastWatchedAt: normalizeDateTimeForClient(row.lastWatchedAt),
+    createdAt: normalizeDateTimeForClient(row.createdAt),
   };
 }
 
@@ -167,8 +190,8 @@ function normalizeChapterProgressRow(row) {
     duration,
     progressPercent: completed ? 100 : progressPercent,
     completed,
-    lastWatchedAt: row.lastWatchedAt ? String(row.lastWatchedAt) : "",
-    createdAt: row.createdAt ? String(row.createdAt) : "",
+    lastWatchedAt: normalizeDateTimeForClient(row.lastWatchedAt),
+    createdAt: normalizeDateTimeForClient(row.createdAt),
   };
 }
 
@@ -628,7 +651,7 @@ async function upsertLectureProgressFromChapterRows(userId, videoId) {
       completed,
       last_watched_at,
       created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, NOW()), NOW())
+    ) VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, UTC_TIMESTAMP()), UTC_TIMESTAMP())
     ON DUPLICATE KEY UPDATE
       \`current_time\` = VALUES(\`current_time\`),
       duration = VALUES(duration),
@@ -664,7 +687,16 @@ async function upsertLectureProgressFromChapterRows(userId, videoId) {
   return normalizeProgressRow(lectureRow || {});
 }
 
-export async function listAcademyVideos() {
+export async function listAcademyVideos({ includeHidden = false, includeUnpublished = false } = {}) {
+  const whereClauses = [];
+  if (!includeUnpublished) {
+    whereClauses.push("(av.publish_at IS NULL OR av.publish_at <= NOW())");
+  }
+  if (!includeHidden) {
+    whereClauses.push("COALESCE(av.is_hidden, 0) = 0");
+  }
+  const whereSql = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
   const videoRows = await query(
     `SELECT
       av.id,
@@ -680,11 +712,12 @@ export async function listAcademyVideos() {
       av.image_path AS image,
       av.video_path AS videoUrl,
       av.publish_at AS publishAt,
+      av.is_hidden AS isHidden,
       p.description,
       p.period
      FROM academy_videos av
      INNER JOIN products p ON p.id = av.product_id
-     WHERE av.publish_at IS NULL OR av.publish_at <= NOW()
+     ${whereSql}
      ORDER BY av.created_at DESC, av.id DESC`
   );
 
@@ -701,6 +734,23 @@ export async function listAcademyVideos() {
   }
 
   return videoRows.map((row) => normalizeVideoRow(row, chapterMap.get(String(row.id || "")) || []));
+}
+
+export async function isAcademyVideoVisibleForPublic(videoId) {
+  const normalizedVideoId = toSafeText(videoId);
+  if (!normalizedVideoId) return false;
+
+  const row = await queryOne(
+    `SELECT id
+     FROM academy_videos
+     WHERE id = ?
+       AND (publish_at IS NULL OR publish_at <= NOW())
+       AND COALESCE(is_hidden, 0) = 0
+     LIMIT 1`,
+    [normalizedVideoId]
+  );
+
+  return Boolean(row?.id);
 }
 
 export async function listAcademyChaptersByVideoId(videoId) {
@@ -727,6 +777,76 @@ export async function listAcademyChaptersByVideoId(videoId) {
   );
 
   return rows.map(normalizeChapterRow);
+}
+
+export async function getAcademyPlaybackChapter(videoId, chapterId = "") {
+  const normalizedVideoId = toSafeText(videoId);
+  const normalizedChapterId = toSafeText(chapterId);
+  if (!normalizedVideoId) return null;
+
+  await ensureDefaultChapterForVideo(normalizedVideoId);
+
+  const row = normalizedChapterId
+    ? await queryOne(
+        `SELECT
+          chapter.id AS chapterId,
+          chapter.video_id AS videoId,
+          chapter.chapter_order AS chapterOrder,
+          chapter.title AS chapterTitle,
+          chapter.description AS chapterDescription,
+         chapter.video_path AS chapterVideoUrl,
+         chapter.duration_sec AS durationSec,
+         chapter.is_preview AS isPreview,
+         chapter.created_at AS chapterCreatedAt,
+          av.video_path AS lectureVideoUrl,
+          p.name AS lectureTitle
+         FROM academy_video_chapters chapter
+         INNER JOIN academy_videos av ON av.id = chapter.video_id
+         INNER JOIN products p ON p.id = av.product_id
+         WHERE chapter.video_id = ?
+           AND chapter.id = ?
+         LIMIT 1`,
+        [normalizedVideoId, normalizedChapterId]
+      )
+    : await queryOne(
+        `SELECT
+          chapter.id AS chapterId,
+          chapter.video_id AS videoId,
+          chapter.chapter_order AS chapterOrder,
+          chapter.title AS chapterTitle,
+          chapter.description AS chapterDescription,
+          chapter.video_path AS chapterVideoUrl,
+          chapter.duration_sec AS durationSec,
+          chapter.is_preview AS isPreview,
+          chapter.created_at AS chapterCreatedAt,
+          av.video_path AS lectureVideoUrl,
+          p.name AS lectureTitle
+         FROM academy_video_chapters chapter
+         INNER JOIN academy_videos av ON av.id = chapter.video_id
+         INNER JOIN products p ON p.id = av.product_id
+         WHERE chapter.video_id = ?
+         ORDER BY chapter.chapter_order ASC
+         LIMIT 1`,
+        [normalizedVideoId]
+      );
+
+  if (!row?.chapterId) return null;
+
+  const chapterVideoUrl = normalizeAssetPath(row.chapterVideoUrl);
+  const lectureVideoUrl = normalizeAssetPath(row.lectureVideoUrl);
+
+  return {
+    id: String(row.chapterId || ""),
+    videoId: String(row.videoId || normalizedVideoId),
+    chapterOrder: Math.max(1, Math.round(toNumber(row.chapterOrder, 1))),
+    title: String(row.chapterTitle || ""),
+    lectureTitle: String(row.lectureTitle || ""),
+    description: String(row.chapterDescription || ""),
+    videoUrl: chapterVideoUrl || lectureVideoUrl,
+    durationSec: Math.max(0, Math.round(toNumber(row.durationSec))),
+    isPreview: Boolean(row.isPreview === 1 || row.isPreview === true || row.isPreview === "1"),
+    createdAt: row.chapterCreatedAt ? String(row.chapterCreatedAt) : "",
+  };
 }
 
 export async function listAcademyInstructors(searchText = "") {
@@ -781,7 +901,8 @@ export async function hasAcademyVideoAccess(user, videoId) {
       p.period
      FROM academy_videos av
      INNER JOIN products p ON p.id = av.product_id
-     WHERE av.id = ?
+      WHERE av.id = ?
+       AND COALESCE(av.is_hidden, 0) = 0
        AND (av.publish_at IS NULL OR av.publish_at <= NOW())
      LIMIT 1`,
     [normalizedVideoId]
@@ -835,21 +956,23 @@ export async function hasAcademyPreviewChapterAccess(videoId, chapterId = "") {
         `SELECT chapter.id
          FROM academy_video_chapters chapter
          INNER JOIN academy_videos av ON av.id = chapter.video_id
-         WHERE chapter.video_id = ?
-           AND chapter.id = ?
-           AND chapter.is_preview = 1
-           AND (av.publish_at IS NULL OR av.publish_at <= NOW())
-         LIMIT 1`,
+          WHERE chapter.video_id = ?
+            AND chapter.id = ?
+            AND chapter.is_preview = 1
+            AND COALESCE(av.is_hidden, 0) = 0
+            AND (av.publish_at IS NULL OR av.publish_at <= NOW())
+          LIMIT 1`,
         [normalizedVideoId, normalizedChapterId]
       )
     : await queryOne(
         `SELECT chapter.id
          FROM academy_video_chapters chapter
          INNER JOIN academy_videos av ON av.id = chapter.video_id
-         WHERE chapter.video_id = ?
-           AND chapter.is_preview = 1
-           AND (av.publish_at IS NULL OR av.publish_at <= NOW())
-         LIMIT 1`,
+          WHERE chapter.video_id = ?
+            AND chapter.is_preview = 1
+            AND COALESCE(av.is_hidden, 0) = 0
+            AND (av.publish_at IS NULL OR av.publish_at <= NOW())
+          LIMIT 1`,
         [normalizedVideoId]
       );
 
@@ -932,8 +1055,9 @@ export async function createAcademyVideo(payload) {
         image_path,
         video_path,
         publish_at,
+        is_hidden,
         created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()), NOW())`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()), 0, NOW())`,
       [
         productId,
         productId,
@@ -997,6 +1121,7 @@ export async function createAcademyVideo(payload) {
       av.image_path AS image,
       av.video_path AS videoUrl,
       av.publish_at AS publishAt,
+      av.is_hidden AS isHidden,
       p.description,
       p.period
      FROM academy_videos av
@@ -1162,6 +1287,7 @@ export async function updateAcademyVideo(videoId, payload) {
       av.image_path AS image,
       av.video_path AS videoUrl,
       av.publish_at AS publishAt,
+      av.is_hidden AS isHidden,
       p.description,
       p.period
      FROM academy_videos av
@@ -1213,6 +1339,34 @@ export async function deleteAcademyVideo(videoId) {
   await query(`DELETE FROM products WHERE id = ?`, [existing.productId]);
 
   return { id: normalizedVideoId };
+}
+
+export async function setAcademyVideoHidden(videoId, isHidden) {
+  const normalizedVideoId = toSafeText(videoId);
+  if (!normalizedVideoId) {
+    const error = new Error("강의 ID가 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  const existing = await queryOne(
+    `SELECT id FROM academy_videos WHERE id = ? LIMIT 1`,
+    [normalizedVideoId]
+  );
+  if (!existing) {
+    const error = new Error("존재하지 않는 강의입니다.");
+    error.status = 404;
+    throw error;
+  }
+
+  await query(
+    `UPDATE academy_videos
+     SET is_hidden = ?
+     WHERE id = ?`,
+    [isHidden ? 1 : 0, normalizedVideoId]
+  );
+
+  return { id: normalizedVideoId, isHidden: Boolean(isHidden) };
 }
 
 function sanitizeFileName(name) {
@@ -1418,14 +1572,14 @@ export async function saveAcademyChapterProgress({
       completed,
       last_watched_at,
       created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())
     ON DUPLICATE KEY UPDATE
       video_id = VALUES(video_id),
       \`current_time\` = VALUES(\`current_time\`),
-      duration = VALUES(duration),
-      progress_percent = VALUES(progress_percent),
-      completed = VALUES(completed),
-      last_watched_at = NOW()`,
+      duration = GREATEST(COALESCE(duration, 0), COALESCE(VALUES(duration), 0)),
+      progress_percent = GREATEST(COALESCE(progress_percent, 0), COALESCE(VALUES(progress_percent), 0)),
+      completed = GREATEST(COALESCE(completed, 0), COALESCE(VALUES(completed), 0)),
+      last_watched_at = UTC_TIMESTAMP()`,
     [
       normalizedUserId,
       normalizedVideoId,

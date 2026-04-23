@@ -225,9 +225,10 @@ async function seedAcademyVideosIfEmpty() {
       image_path,
       video_path,
       publish_at,
+      is_hidden,
       created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 0, NOW())
       ON DUPLICATE KEY UPDATE
         id = id`,
       [
@@ -363,13 +364,14 @@ async function seedCommunityIfEmpty() {
   if (reviewCount === 0) {
     for (const post of DEFAULT_REVIEW_POSTS) {
       await pool.execute(
-        `INSERT INTO review_posts (id, title, content, author, date, views, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+        `INSERT INTO review_posts (id, title, content, author, author_id, date, views, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           post.id,
           post.title,
           post.content || `${post.title}\n후기 게시판 기본 데이터입니다.`,
           post.author,
+          post.authorId || null,
           post.date,
           post.views,
         ]
@@ -411,6 +413,34 @@ async function seedCommunityIfEmpty() {
   }
 }
 
+async function purgeExpiredWithdrawnUsers() {
+  // 탈퇴 보관 기간 만료 사용자 조회 및 연관 데이터 정리 처리
+  const [rows] = await pool.query(
+    `SELECT id
+     FROM users
+     WHERE account_status = 'withdrawn'
+       AND withdrawal_purge_at IS NOT NULL
+       AND withdrawal_purge_at <= NOW()
+     LIMIT 500`
+  );
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const userId = String(row?.id || "").trim();
+    if (!userId) continue;
+
+    await pool.query(`DELETE FROM sessions WHERE user_id = ?`, [userId]);
+    await pool.query(`DELETE FROM cart_items WHERE user_id = ?`, [userId]);
+    await pool.query(`DELETE FROM point_history WHERE user_id = ?`, [userId]);
+    await pool.query(`DELETE FROM academy_reviews WHERE user_id = ?`, [userId]);
+    await pool.query(`DELETE FROM academy_qna_replies WHERE user_id = ?`, [userId]);
+    await pool.query(`DELETE FROM academy_qna_posts WHERE user_id = ?`, [userId]);
+    await pool.query(`DELETE FROM inquiry_replies WHERE author_id = ?`, [userId]);
+    await pool.query(`UPDATE review_posts SET author_id = NULL WHERE author_id = ?`, [userId]);
+    await pool.query(`UPDATE inquiry_posts SET author_id = NULL WHERE author_id = ?`, [userId]);
+    await pool.query(`DELETE FROM users WHERE id = ?`, [userId]);
+  }
+}
+
 async function initDatabase() {
   // users 테이블은 서비스 확장 과정에서 컬럼이 늘어났기 때문에,
   // 존재 여부를 확인하면서 점진적으로 스키마를 보정한다.
@@ -426,6 +456,11 @@ async function initDatabase() {
       is_admin TINYINT(1) NOT NULL DEFAULT 0,
       user_grade VARCHAR(20) NOT NULL DEFAULT 'member',
       birth_year SMALLINT NULL,
+      points INT NOT NULL DEFAULT 0,
+      account_status VARCHAR(20) NOT NULL DEFAULT 'active',
+      withdrawn_at DATETIME NULL,
+      withdrawal_purge_at DATETIME NULL,
+      restored_at DATETIME NULL,
       created_at DATETIME NOT NULL
     )
   `);
@@ -560,6 +595,63 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE users ADD COLUMN points INT NOT NULL DEFAULT 0 AFTER birth_year`);
   }
 
+  const [accountStatusColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'account_status'`
+  );
+  const hasAccountStatusColumn = Number(accountStatusColumnRows?.[0]?.count ?? 0) > 0;
+
+  if (!hasAccountStatusColumn) {
+    await pool.query(`ALTER TABLE users ADD COLUMN account_status VARCHAR(20) NULL AFTER points`);
+  }
+
+  await pool.query(
+    `UPDATE users
+     SET account_status = 'active'
+     WHERE account_status IS NULL
+        OR account_status = ''
+        OR account_status NOT IN ('active', 'withdrawn')`
+  );
+
+  await pool.query(`ALTER TABLE users MODIFY account_status VARCHAR(20) NOT NULL DEFAULT 'active'`);
+
+  // 탈퇴 시각/폐기 시각/복구 시각 컬럼 보정 처리
+  const [withdrawnAtColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'withdrawn_at'`
+  );
+  if (Number(withdrawnAtColumnRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE users ADD COLUMN withdrawn_at DATETIME NULL AFTER account_status`);
+  }
+
+  const [withdrawalPurgeAtColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'withdrawal_purge_at'`
+  );
+  if (Number(withdrawalPurgeAtColumnRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE users ADD COLUMN withdrawal_purge_at DATETIME NULL AFTER withdrawn_at`);
+  }
+
+  const [restoredAtColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'restored_at'`
+  );
+  if (Number(restoredAtColumnRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE users ADD COLUMN restored_at DATETIME NULL AFTER withdrawal_purge_at`);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sessions (
       token VARCHAR(120) PRIMARY KEY,
@@ -596,6 +688,7 @@ async function initDatabase() {
       image_path TEXT NULL,
       video_path TEXT NULL,
       publish_at DATETIME NULL,
+      is_hidden TINYINT(1) NOT NULL DEFAULT 0,
       created_at DATETIME NOT NULL,
       INDEX idx_academy_videos_created_at (created_at),
       CONSTRAINT fk_academy_videos_products
@@ -622,6 +715,18 @@ async function initDatabase() {
        SET publish_at = created_at
        WHERE publish_at IS NULL`
     );
+  }
+
+  const [academyHiddenColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'academy_videos'
+       AND COLUMN_NAME = 'is_hidden'`
+  );
+  const hasAcademyHiddenColumn = Number(academyHiddenColumnRows?.[0]?.count ?? 0) > 0;
+  if (!hasAcademyHiddenColumn) {
+    await pool.query(`ALTER TABLE academy_videos ADD COLUMN is_hidden TINYINT(1) NOT NULL DEFAULT 0 AFTER publish_at`);
   }
 
   await pool.query(`
@@ -691,6 +796,27 @@ async function initDatabase() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS academy_playback_sessions (
+      id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NULL,
+      video_id VARCHAR(80) NOT NULL,
+      chapter_id VARCHAR(120) NOT NULL,
+      session_key VARCHAR(120) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'active',
+      ip_address VARCHAR(80) NULL,
+      user_agent VARCHAR(255) NULL,
+      created_at DATETIME NOT NULL,
+      last_seen_at DATETIME NOT NULL,
+      expires_at DATETIME NOT NULL,
+      revoked_at DATETIME NULL,
+      revoke_reason VARCHAR(120) NULL,
+      INDEX idx_academy_playback_user_status (user_id, status, last_seen_at),
+      INDEX idx_academy_playback_expires (expires_at),
+      INDEX idx_academy_playback_session_key (session_key)
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS cart_items (
       user_id VARCHAR(64) NOT NULL,
       product_id VARCHAR(64) NOT NULL,
@@ -738,6 +864,7 @@ async function initDatabase() {
       title VARCHAR(255) NOT NULL,
       content TEXT NULL,
       author VARCHAR(120) NOT NULL,
+      author_id VARCHAR(80) NULL,
       date VARCHAR(20) NOT NULL,
       views INT NOT NULL DEFAULT 0,
       created_at DATETIME NOT NULL
@@ -754,6 +881,18 @@ async function initDatabase() {
   const hasReviewContentColumn = Number(reviewContentColumnRows?.[0]?.count ?? 0) > 0;
   if (!hasReviewContentColumn) {
     await pool.query(`ALTER TABLE review_posts ADD COLUMN content TEXT NULL AFTER title`);
+  }
+
+  const [reviewAuthorIdColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'review_posts'
+       AND COLUMN_NAME = 'author_id'`
+  );
+  const hasReviewAuthorIdColumn = Number(reviewAuthorIdColumnRows?.[0]?.count ?? 0) > 0;
+  if (!hasReviewAuthorIdColumn) {
+    await pool.query(`ALTER TABLE review_posts ADD COLUMN author_id VARCHAR(80) NULL AFTER author`);
   }
 
   await pool.query(`
@@ -942,6 +1081,8 @@ async function initDatabase() {
         ON DELETE CASCADE
     )
   `);
+
+  await purgeExpiredWithdrawnUsers();
 }
 
 async function ensureInitialized() {

@@ -5,18 +5,34 @@ function toBoolean(value) {
   return Number(value) === 1;
 }
 
+function normalizeIdList(ids) {
+  if (!Array.isArray(ids)) return [];
+  const deduped = [];
+  const seen = new Set();
+
+  for (const id of ids) {
+    const normalized = String(id || "").trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    deduped.push(normalized);
+  }
+
+  return deduped;
+}
+
 export async function listReviews() {
   return query(
     `SELECT
       rp.id,
       rp.title,
       rp.author,
+      rp.author_id AS authorId,
       rp.date,
       rp.views,
       COUNT(rc.id) AS comments
      FROM review_posts rp
      LEFT JOIN review_comments rc ON rc.review_id = rp.id
-     GROUP BY rp.id, rp.title, rp.author, rp.date, rp.views
+     GROUP BY rp.id, rp.title, rp.author, rp.author_id, rp.date, rp.views
      ORDER BY rp.date DESC, rp.id DESC`
   );
 }
@@ -26,9 +42,9 @@ export async function createReview(payload) {
   const date = new Date().toISOString().slice(0, 10);
 
   await query(
-    `INSERT INTO review_posts (id, title, content, author, date, views, created_at)
-     VALUES (?, ?, ?, ?, ?, 0, NOW())`,
-    [reviewId, payload.title, payload.content, payload.author, date]
+    `INSERT INTO review_posts (id, title, content, author, author_id, date, views, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 0, NOW())`,
+    [reviewId, payload.title, payload.content, payload.author, payload.authorId || null, date]
   );
 
   return getReview(reviewId);
@@ -36,11 +52,39 @@ export async function createReview(payload) {
 
 export async function getReview(reviewId) {
   return queryOne(
-    `SELECT id, title, content, author, date, views
+    `SELECT id, title, content, author, author_id AS authorId, date, views
      FROM review_posts
      WHERE id = ?`,
     [reviewId]
   );
+}
+
+export async function updateReview(reviewId, payload) {
+  await query(
+    `UPDATE review_posts
+     SET title = ?, content = ?
+     WHERE id = ?`,
+    [payload.title, payload.content, reviewId]
+  );
+  return getReview(reviewId);
+}
+
+export async function deleteReview(reviewId) {
+  await query(`DELETE FROM review_posts WHERE id = ?`, [reviewId]);
+}
+
+export async function deleteReviewsBulk(ids = []) {
+  const normalizedIds = normalizeIdList(ids);
+  if (!normalizedIds.length) return 0;
+
+  const placeholders = normalizedIds.map(() => "?").join(", ");
+  const result = await query(`DELETE FROM review_posts WHERE id IN (${placeholders})`, normalizedIds);
+  return Number(result?.affectedRows || 0);
+}
+
+export async function deleteAllReviews() {
+  const result = await query(`DELETE FROM review_posts`);
+  return Number(result?.affectedRows || 0);
 }
 
 export async function increaseReviewViews(reviewId) {
@@ -118,6 +162,10 @@ export async function getEvent(eventId) {
   );
 }
 
+export async function deleteEvent(eventId) {
+  await query(`DELETE FROM events WHERE id = ?`, [String(eventId || "")]);
+}
+
 export async function listInquiries() {
   const rows = await query(
     `SELECT id, title, author, author_id AS authorId, date, views, is_secret AS isSecret
@@ -161,6 +209,37 @@ export async function createInquiry(payload) {
   );
 
   return getInquiry(inquiryId);
+}
+
+export async function updateInquiry(inquiryId, payload) {
+  await query(
+    `UPDATE inquiry_posts
+     SET title = ?, content = ?, is_secret = ?
+     WHERE id = ?`,
+    [payload.title, payload.content, payload.isSecret ? 1 : 0, inquiryId]
+  );
+  return getInquiry(inquiryId);
+}
+
+export async function deleteInquiry(inquiryId) {
+  await query(`DELETE FROM inquiry_replies WHERE inquiry_id = ?`, [inquiryId]);
+  await query(`DELETE FROM inquiry_posts WHERE id = ?`, [inquiryId]);
+}
+
+export async function deleteInquiriesBulk(ids = []) {
+  const normalizedIds = normalizeIdList(ids);
+  if (!normalizedIds.length) return 0;
+
+  const placeholders = normalizedIds.map(() => "?").join(", ");
+  await query(`DELETE FROM inquiry_replies WHERE inquiry_id IN (${placeholders})`, normalizedIds);
+  const result = await query(`DELETE FROM inquiry_posts WHERE id IN (${placeholders})`, normalizedIds);
+  return Number(result?.affectedRows || 0);
+}
+
+export async function deleteAllInquiries() {
+  await query(`DELETE FROM inquiry_replies`);
+  const result = await query(`DELETE FROM inquiry_posts`);
+  return Number(result?.affectedRows || 0);
 }
 
 // ─── 문의 답변 ────────────────────────────────────────────────────────────────

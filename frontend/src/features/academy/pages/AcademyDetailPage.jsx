@@ -9,6 +9,7 @@ import {
   createAcademyReview,
   deleteAcademyReview,
 } from "../api/academyApi.js";
+import { collectPurchasedVideoProductIds } from "../lib/purchases.js";
 
 function calcDetailTotalDuration(chapters) {
   if (!Array.isArray(chapters) || chapters.length === 0) return null;
@@ -257,7 +258,27 @@ export function AcademyDetailPage() {
               >
                 장바구니 담기
               </button>
-              <button type="button" className="ghost-button" onClick={() => navigate(`/academy/player/${video.id}`)}>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={async () => {
+                  if (!store.currentUser) {
+                    navigate("/login");
+                    return;
+                  }
+                  const purchased = collectPurchasedVideoProductIds(store.orders, store.currentUser.email);
+                  if (purchased.has(String(video.productId || video.id))) {
+                    navigate(`/academy/player/${video.id}`);
+                  } else {
+                    try {
+                      await store.addToCart(video.productId, 1);
+                    } catch (_) {
+                      // 이미 장바구니에 있으면 무시하고 이동
+                    }
+                    navigate("/cart");
+                  }
+                }}
+              >
                 바로 수강하기
               </button>
             </div>

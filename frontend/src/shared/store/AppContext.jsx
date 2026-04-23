@@ -383,6 +383,22 @@ export function AppProvider({ children }) {
     });
   }
 
+  async function requestWithdrawPhoneVerification(phone) {
+    // 회원 탈퇴 전 휴대폰 인증번호 발송 요청 처리
+    return apiRequest("/users/me/withdraw/phone-verification/request", {
+      method: "POST",
+      body: { phone },
+    });
+  }
+
+  async function confirmWithdrawPhoneVerification(phone, code) {
+    // 회원 탈퇴 전 휴대폰 인증번호 확인 요청 처리
+    return apiRequest("/users/me/withdraw/phone-verification/confirm", {
+      method: "POST",
+      body: { phone, code },
+    });
+  }
+
   async function updateMyProfile(payload) {
     const result = await apiRequest("/users/me", {
       method: "PATCH",
@@ -412,6 +428,23 @@ export function AppProvider({ children }) {
       setAdminPageEditMode(false);
       setUserPoints(0);
     }
+  }
+
+  async function withdrawMe(phone) {
+    // 회원 탈퇴 완료 후 전역 사용자 상태 초기화 처리
+    const result = await apiRequest("/users/me/withdraw", {
+      method: "POST",
+      body: { phone },
+    });
+
+    setCurrentUser(null);
+    setCart([]);
+    setOrders([]);
+    setAcademyProgress([]);
+    setAcademyChapterProgress([]);
+    setAdminPageEditMode(false);
+    setUserPoints(0);
+    return result;
   }
 
   async function addToCart(productId, quantity = 1) {
@@ -530,8 +563,11 @@ export function AppProvider({ children }) {
         resetUserPassword,
         requestEmailVerification,
         confirmEmailVerification,
+        requestWithdrawPhoneVerification,
+        confirmWithdrawPhoneVerification,
         updateMyProfile,
         logoutUser,
+        withdrawMe,
         refreshCart,
         refreshOrders,
         refreshProducts,

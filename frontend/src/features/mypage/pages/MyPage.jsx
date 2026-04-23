@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
@@ -236,6 +236,19 @@ export function MyPage() {
   const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState({ type: "", text: "" });
+  const [withdrawPhone, setWithdrawPhone] = useState(currentUser.phone || "");
+  const [withdrawVerificationCode, setWithdrawVerificationCode] = useState("");
+  const [withdrawVerificationState, setWithdrawVerificationState] = useState({
+    status: "",
+    text: "",
+    verifiedPhone: "",
+    debugCode: "",
+  });
+  const [isWithdrawConfirmOpened, setIsWithdrawConfirmOpened] = useState(false);
+  const [isSendingWithdrawCode, setIsSendingWithdrawCode] = useState(false);
+  const [isVerifyingWithdrawCode, setIsVerifyingWithdrawCode] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [withdrawMessage, setWithdrawMessage] = useState({ type: "", text: "" });
 
   const normalizedCurrentEmail = String(currentUser.email || "").trim().toLowerCase();
   const normalizedFormEmail = String(form.email || "").trim().toLowerCase();
@@ -244,6 +257,10 @@ export function MyPage() {
     !isEmailChanged ||
     (emailVerificationState.status === "success" &&
       emailVerificationState.verifiedEmail === normalizedFormEmail);
+  const normalizedWithdrawPhone = String(withdrawPhone || "").replace(/\D/g, "");
+  const isWithdrawPhoneVerified =
+    withdrawVerificationState.status === "success" &&
+    withdrawVerificationState.verifiedPhone === normalizedWithdrawPhone;
 
   useEffect(() => {
     setForm({
@@ -257,6 +274,11 @@ export function MyPage() {
     });
     setEmailVerificationCode("");
     setEmailVerificationState({ status: "", text: "", verifiedEmail: "", debugCode: "" });
+    setWithdrawPhone(currentUser.phone || "");
+    setWithdrawVerificationCode("");
+    setWithdrawVerificationState({ status: "", text: "", verifiedPhone: "", debugCode: "" });
+    setIsWithdrawConfirmOpened(false);
+    setWithdrawMessage({ type: "", text: "" });
   }, [currentUser.loginId, currentUser.name, currentUser.email, currentUser.phone, currentUser.birthYear]);
 
   useEffect(() => {
@@ -265,6 +287,12 @@ export function MyPage() {
       setEmailVerificationState({ status: "", text: "", verifiedEmail: "", debugCode: "" });
     }
   }, [isEmailChanged]);
+
+  useEffect(() => {
+    setWithdrawVerificationCode("");
+    setWithdrawVerificationState({ status: "", text: "", verifiedPhone: "", debugCode: "" });
+    setWithdrawMessage({ type: "", text: "" });
+  }, [normalizedWithdrawPhone]);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -349,6 +377,126 @@ export function MyPage() {
       });
     } finally {
       setIsVerifyingEmailCode(false);
+    }
+  }
+
+  function handleOpenWithdrawFlow() {
+    setWithdrawMessage({ type: "", text: "" });
+    const confirmed = window.confirm("회원 탈퇴 하시겠습니까?");
+    if (!confirmed) return;
+    setIsWithdrawConfirmOpened(true);
+  }
+
+  async function handleRequestWithdrawVerification() {
+    setWithdrawMessage({ type: "", text: "" });
+    setWithdrawVerificationState({ status: "", text: "", verifiedPhone: "", debugCode: "" });
+
+    if (!normalizedWithdrawPhone) {
+      setWithdrawVerificationState({
+        status: "error",
+        text: "전화번호를 입력해주세요.",
+        verifiedPhone: "",
+        debugCode: "",
+      });
+      return;
+    }
+
+    try {
+      setIsSendingWithdrawCode(true);
+      const result = await store.requestWithdrawPhoneVerification(normalizedWithdrawPhone);
+      setWithdrawVerificationState({
+        status: "pending",
+        text: result?.message || "전화번호 인증번호를 발송했습니다.",
+        verifiedPhone: "",
+        debugCode: result?.debugCode || "",
+      });
+    } catch (error) {
+      setWithdrawVerificationState({
+        status: "error",
+        text: error?.message || "전화번호 인증번호 발송에 실패했습니다.",
+        verifiedPhone: "",
+        debugCode: "",
+      });
+    } finally {
+      setIsSendingWithdrawCode(false);
+    }
+  }
+
+  async function handleConfirmWithdrawVerification() {
+    setWithdrawMessage({ type: "", text: "" });
+
+    if (!normalizedWithdrawPhone) {
+      setWithdrawVerificationState({
+        status: "error",
+        text: "전화번호를 입력해주세요.",
+        verifiedPhone: "",
+        debugCode: "",
+      });
+      return;
+    }
+
+    if (!String(withdrawVerificationCode || "").trim()) {
+      setWithdrawVerificationState({
+        status: "error",
+        text: "인증번호를 입력해주세요.",
+        verifiedPhone: "",
+        debugCode: "",
+      });
+      return;
+    }
+
+    try {
+      setIsVerifyingWithdrawCode(true);
+      const result = await store.confirmWithdrawPhoneVerification(
+        normalizedWithdrawPhone,
+        withdrawVerificationCode
+      );
+      setWithdrawVerificationState({
+        status: "success",
+        text: result?.message || "전화번호 인증이 완료됐습니다.",
+        verifiedPhone: normalizedWithdrawPhone,
+        debugCode: "",
+      });
+    } catch (error) {
+      setWithdrawVerificationState({
+        status: "error",
+        text: error?.message || "전화번호 인증 확인에 실패했습니다.",
+        verifiedPhone: "",
+        debugCode: "",
+      });
+    } finally {
+      setIsVerifyingWithdrawCode(false);
+    }
+  }
+
+  async function handleWithdrawAccount() {
+    setWithdrawMessage({ type: "", text: "" });
+
+    if (!isWithdrawPhoneVerified) {
+      setWithdrawMessage({ type: "error", text: "탈퇴 전 전화번호 인증을 완료해주세요." });
+      return;
+    }
+
+    try {
+      setIsWithdrawing(true);
+      const result = await store.withdrawMe(normalizedWithdrawPhone);
+      setWithdrawMessage({
+        type: "success",
+        text:
+          result?.message ||
+          "탈퇴가 완료됐습니다. 탈퇴 데이터는 90일간 보존되며, 기간 내 재가입으로 복구하실 수 있습니다.",
+      });
+      window.alert(
+        "탈퇴가 완료됐습니다.\n탈퇴 데이터는 90일간 보존되며, 기간 내 재가입으로 복구하실 수 있습니다."
+      );
+      navigate("/");
+    } catch (error) {
+      setWithdrawMessage({
+        type: "error",
+        text: error?.message || "회원 탈퇴 처리에 실패했습니다.",
+      });
+    } finally {
+      setIsWithdrawing(false);
     }
   }
 
@@ -655,6 +803,88 @@ export function MyPage() {
                 {isSaving ? "저장 중..." : "변경사항 저장"}
               </button>
             </form>
+
+            <div className="dashboard-section-header">
+              <h2>회원 탈퇴</h2>
+            </div>
+            <div className="dashboard-card mypage-withdraw-card">
+              <p className="mypage-withdraw-note">
+                탈퇴 후 계정 데이터는 90일간 보존되며, 기간 내 재가입으로 복구하실 수 있습니다.
+              </p>
+              <button type="button" className="ghost-button small-ghost" onClick={handleOpenWithdrawFlow}>
+                회원 탈퇴 진행
+              </button>
+
+              {isWithdrawConfirmOpened ? (
+                <div className="mypage-withdraw-panel">
+                  <label className="mypage-field">
+                    본인인증 전화번호
+                    <div className="mypage-inline-field">
+                      <input
+                        type="tel"
+                        value={withdrawPhone}
+                        onChange={(event) =>
+                          setWithdrawPhone(event.target.value.replace(/\D/g, ""))
+                        }
+                        placeholder="숫자만 입력"
+                      />
+                      <button
+                        type="button"
+                        className="checkout-text-button mypage-inline-button"
+                        onClick={handleRequestWithdrawVerification}
+                        disabled={isSendingWithdrawCode}
+                      >
+                        {isSendingWithdrawCode ? "발송 중..." : "인증번호 발송"}
+                      </button>
+                    </div>
+                  </label>
+
+                  <label className="mypage-field">
+                    인증번호
+                    <div className="mypage-inline-field">
+                      <input
+                        type="text"
+                        value={withdrawVerificationCode}
+                        onChange={(event) =>
+                          setWithdrawVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                        }
+                        placeholder="6자리 인증번호 입력"
+                      />
+                      <button
+                        type="button"
+                        className="checkout-text-button mypage-inline-button"
+                        onClick={handleConfirmWithdrawVerification}
+                        disabled={isVerifyingWithdrawCode}
+                      >
+                        {isVerifyingWithdrawCode ? "확인 중..." : "인증확인"}
+                      </button>
+                    </div>
+                  </label>
+
+                  {withdrawVerificationState.text ? (
+                    <p className={`mypage-inline-message ${withdrawVerificationState.status}`}>
+                      {withdrawVerificationState.text}
+                      {withdrawVerificationState.debugCode
+                        ? ` (개발용 인증번호: ${withdrawVerificationState.debugCode})`
+                        : ""}
+                    </p>
+                  ) : null}
+
+                  {withdrawMessage.text ? (
+                    <p className={`mypage-save-message ${withdrawMessage.type}`}>{withdrawMessage.text}</p>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    className="pill-button full mypage-withdraw-submit"
+                    onClick={handleWithdrawAccount}
+                    disabled={!isWithdrawPhoneVerified || isWithdrawing}
+                  >
+                    {isWithdrawing ? "탈퇴 처리 중..." : "전화번호 인증 후 탈퇴 완료"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
 
             <div className="dashboard-section-header">
                 <h2>최근 주문 내역</h2>

@@ -33,6 +33,29 @@ function toAmount(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function resolveRefundPresentation(purchase) {
+  const grossAmount = Math.max(0, toAmount(purchase?.grossAmount ?? purchase?.amount));
+  const refundAmount = Math.max(0, toAmount(purchase?.refundAmount));
+  const netAmount = Math.max(0, grossAmount - refundAmount);
+  const refundableAmount = Math.max(0, grossAmount - refundAmount);
+
+  const explicitStatus = String(purchase?.refundStatus || "")
+    .trim()
+    .toLowerCase();
+  const refundStatus =
+    explicitStatus ||
+    (refundAmount <= 0 ? "paid" : refundAmount >= grossAmount ? "refunded" : "partial_refunded");
+
+  const statusLabel =
+    refundStatus === "refunded"
+      ? "환불 완료"
+      : refundStatus === "partial_refunded"
+        ? "부분 환불"
+        : "결제 완료";
+
+  return { grossAmount, refundAmount, netAmount, refundableAmount, refundStatus, statusLabel };
+}
+
 export function AdminDashboardPage() {
   const store = useAppStore();
   const currentUser = store.currentUser;
@@ -44,6 +67,8 @@ export function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [savingGradeUserId, setSavingGradeUserId] = useState("");
   const [gradeMessage, setGradeMessage] = useState({ type: "", text: "" });
+  const [refundingOrderId, setRefundingOrderId] = useState("");
+  const [refundMessage, setRefundMessage] = useState({ type: "", text: "" });
 
   const [learningRange, setLearningRange] = useState("all");
   const [openLearningUserId, setOpenLearningUserId] = useState("");
@@ -191,9 +216,110 @@ export function AdminDashboardPage() {
     setOpenPurchaseUserId((current) => (current === userId ? "" : userId));
   }
 
+  async function handleRefundPurchase(userId, purchase) {
+    const orderId = String(purchase?.orderId || "").trim();
+    if (!orderId) {
+      setRefundMessage({ type: "error", text: "환불 가능한 주문 정보가 없습니다." });
+      return;
+    }
+
+    const { grossAmount, refundAmount, refundableAmount } = resolveRefundPresentation(purchase);
+    if (refundableAmount <= 0) {
+      setRefundMessage({ type: "error", text: "이미 전액 환불된 주문입니다." });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `주문 ${purchase?.orderName || orderId} 건을 환불 처리하시겠습니까?\n환불 가능 금액: ${store.formatCurrency(
+        refundableAmount
+      )}`
+    );
+    if (!confirmed) return;
+
+    const amountInput = window.prompt(
+      `환불 금액을 입력해 주세요. (최대 ${store.formatCurrency(refundableAmount)})`,
+      String(refundableAmount)
+    );
+    if (amountInput === null) return;
+
+    const requestedAmount = Math.round(toAmount(String(amountInput).replace(/[^0-9.]/g, "")));
+    if (!requestedAmount || requestedAmount <= 0) {
+      setRefundMessage({ type: "error", text: "환불 금액이 올바르지 않습니다." });
+      return;
+    }
+    if (requestedAmount > refundableAmount) {
+      setRefundMessage({
+        type: "error",
+        text: `환불 금액이 환불 가능 금액(${store.formatCurrency(refundableAmount)})을 초과했습니다.`,
+      });
+      return;
+    }
+
+    const reasonInput = window.prompt("환불 사유를 입력해 주세요. (선택)", "관리자 환불 처리");
+    const reason = reasonInput === null ? "" : String(reasonInput || "").trim();
+
+    try {
+      setRefundingOrderId(orderId);
+      setRefundMessage({ type: "", text: "" });
+
+      const result = await apiRequest(`/admin/orders/${encodeURIComponent(orderId)}/refund`, {
+        method: "POST",
+        body: {
+          amount: requestedAmount,
+          reason,
+        },
+      });
+
+      const refundedOrder = result?.order || {};
+      const nextRefundAmount = Math.max(refundAmount, toAmount(refundedOrder.refundAmount));
+      const nextGrossAmount = Math.max(grossAmount, toAmount(refundedOrder.grossAmount));
+      const nextNetAmount = Math.max(0, nextGrossAmount - nextRefundAmount);
+      const nextStatus = String(refundedOrder.refundStatus || "").trim().toLowerCase();
+      const nextRefundReason = String(refundedOrder.refundReason || reason || "").trim();
+
+      setUsers((current) =>
+        current.map((user) => {
+          if (user.id !== userId) return user;
+
+          const currentPurchases = Array.isArray(user.purchases) ? user.purchases : [];
+          const nextPurchases = currentPurchases.map((item) => {
+            if (String(item?.orderId || "") !== orderId) return item;
+            return {
+              ...item,
+              amount: nextNetAmount,
+              netAmount: nextNetAmount,
+              grossAmount: nextGrossAmount,
+              refundAmount: nextRefundAmount,
+              refundableAmount: Math.max(0, nextGrossAmount - nextRefundAmount),
+              refundStatus: nextStatus || (nextRefundAmount >= nextGrossAmount ? "refunded" : "partial_refunded"),
+              refundReason: nextRefundReason,
+            };
+          });
+
+          const nextTotalSpent = nextPurchases.reduce(
+            (sum, item) => sum + toAmount(item?.netAmount ?? item?.amount),
+            0
+          );
+
+          return {
+            ...user,
+            purchases: nextPurchases,
+            totalSpent: nextTotalSpent,
+          };
+        })
+      );
+
+      setRefundMessage({ type: "success", text: result?.message || "환불 처리되었습니다." });
+    } catch (error) {
+      setRefundMessage({ type: "error", text: error.message || "환불 처리에 실패했습니다." });
+    } finally {
+      setRefundingOrderId("");
+    }
+  }
+
   return (
     <div className="site-shell">
-      <SiteHeader subpage />
+      <SiteHeader />
       <main className="dashboard-page admin-dashboard-page">
         <section className="admin-dashboard-switch">
           <Link className="admin-dashboard-switch-link" to="/admin">
@@ -246,6 +372,9 @@ export function AdminDashboardPage() {
 
             {gradeMessage.text ? (
               <p className={`admin-form-message ${gradeMessage.type}`}>{gradeMessage.text}</p>
+            ) : null}
+            {refundMessage.text ? (
+              <p className={`admin-form-message ${refundMessage.type}`}>{refundMessage.text}</p>
             ) : null}
 
             {loading ? <p className="admin-empty-copy">회원 정보를 불러오는 중입니다...</p> : null}
@@ -384,11 +513,44 @@ export function AdminDashboardPage() {
                               <div className="admin-purchase-table">
                                 {purchases.map((purchase) => (
                                   <article key={`${user.id}-${purchase.orderId}`} className="admin-purchase-row">
-                                    <div className="admin-purchase-meta">
-                                      <strong>{purchase.orderName || purchase.orderId}</strong>
-                                      <span>{formatDateTime(purchase.purchasedAt)}</span>
-                                      <span>{store.formatCurrency(toAmount(purchase.amount))}</span>
-                                    </div>
+                                    {(() => {
+                                      const { grossAmount, refundAmount, netAmount, refundableAmount, statusLabel } =
+                                        resolveRefundPresentation(purchase);
+                                      const isRefunding = refundingOrderId === String(purchase.orderId || "");
+
+                                      return (
+                                        <>
+                                          <div className="admin-purchase-meta">
+                                            <strong>{purchase.orderName || purchase.orderId}</strong>
+                                            <span>{formatDateTime(purchase.purchasedAt)}</span>
+                                            <span>결제 {store.formatCurrency(grossAmount)}</span>
+                                            <span>실매출 {store.formatCurrency(netAmount)}</span>
+                                            <span>환불 {store.formatCurrency(refundAmount)}</span>
+                                            <span
+                                              className={`admin-purchase-refund-status ${
+                                                refundAmount > 0 ? "refunded" : "paid"
+                                              }`}
+                                            >
+                                              {statusLabel}
+                                            </span>
+                                          </div>
+                                          <div className="admin-purchase-actions">
+                                            <button
+                                              type="button"
+                                              className="ghost-button small-ghost"
+                                              disabled={isRefunding || refundableAmount <= 0}
+                                              onClick={() => handleRefundPurchase(user.id, purchase)}
+                                            >
+                                              {isRefunding
+                                                ? "환불 처리 중..."
+                                                : refundableAmount <= 0
+                                                  ? "환불 완료"
+                                                  : "환불 처리"}
+                                            </button>
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
                                     <p>
                                       {(purchase.lectures || [])
                                         .map((lecture) => lecture.productName || lecture.productId)

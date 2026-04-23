@@ -1,9 +1,27 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 
+function normalizeFailReason(rawValue) {
+  const text = String(rawValue || "").trim();
+  if (!text) return "";
+
+  if (text.includes("%")) {
+    try {
+      return decodeURIComponent(text);
+    } catch {
+      return text;
+    }
+  }
+
+  return text;
+}
+
 export function FailPage() {
   const [params] = useSearchParams();
-  const reason = params.get("message") || "사용자가 결제를 취소했거나 결제 승인에 실패했습니다.";
+  const reason =
+    normalizeFailReason(params.get("message")) ||
+    "사용자가 결제를 취소했거나 결제 승인 확인에 실패했습니다.";
+  const code = String(params.get("code") || "").trim();
 
   return (
     <div className="site-shell">
@@ -13,15 +31,19 @@ export function FailPage() {
           <div className="payment-result-copy">
             <p className="section-kicker">결제 실패</p>
             <h2 className="payment-result-title-sm">결제가 완료되지 않았습니다.</h2>
-            <p className="section-text">
-              다시 시도하거나 다른 결제 수단으로 진행해 주세요.
-            </p>
+            <p className="section-text">잠시 후 다시 시도하시거나 다른 결제 수단으로 진행해 주세요.</p>
           </div>
           <div className="payment-result-meta">
             <div className="payment-result-row">
-              <strong>사유</strong>
+              <strong>실패 사유</strong>
               <p>{reason}</p>
             </div>
+            {code ? (
+              <div className="payment-result-row">
+                <strong>오류 코드</strong>
+                <p>{code}</p>
+              </div>
+            ) : null}
             <div className="payment-result-meta-action">
               <Link className="pill-button full" to="/cart">
                 장바구니로 돌아가기

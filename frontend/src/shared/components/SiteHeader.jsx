@@ -42,6 +42,17 @@ export function SiteHeader({ subpage = false }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function handleResetCardPositions() {
+    const confirmed = window.confirm("현재 페이지 카드 위치를 기본 상태로 되돌릴까요?");
+    if (!confirmed) return;
+
+    window.dispatchEvent(
+      new CustomEvent("admin-editor-reset-positions", {
+        detail: { pathname: location.pathname },
+      })
+    );
+  }
+
   async function handleLogout() {
     try {
       await logoutUser();
@@ -97,15 +108,26 @@ export function SiteHeader({ subpage = false }) {
                 </Link>
               ) : null}
               {canEditPage(currentUser) ? (
-                <button
-                  className={`text-link-button header-pill-button admin-page-edit-button${
-                    adminPageEditMode ? " active" : ""
-                  }`}
-                  type="button"
-                  onClick={() => setAdminPageEditMode((current) => !current)}
-                >
-                  {adminPageEditMode ? "페이지 수정 ON" : "페이지 수정"}
-                </button>
+                <div className="admin-page-edit-stack">
+                  <button
+                    className={`text-link-button header-pill-button admin-page-edit-button${
+                      adminPageEditMode ? " active" : ""
+                    }`}
+                    type="button"
+                    onClick={() => setAdminPageEditMode((current) => !current)}
+                  >
+                    {adminPageEditMode ? "페이지 수정 ON" : "페이지 수정"}
+                  </button>
+                  {adminPageEditMode ? (
+                    <button
+                      className="text-link-button header-pill-button admin-page-reset-button"
+                      type="button"
+                      onClick={handleResetCardPositions}
+                    >
+                      위치초기화
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
               <button className="text-link-button header-pill-button" type="button" onClick={handleLogout}>
                 로그아웃

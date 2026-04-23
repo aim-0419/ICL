@@ -27,6 +27,7 @@ export function createApp() {
     cors({
       origin: env.corsOrigin,
       credentials: true,
+      exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length"],
     })
   );
   app.use(express.json());
@@ -57,6 +58,9 @@ export function createApp() {
   app.use("/api/admin", adminRoutes);
   app.use("/api/academy", academyRoutes);
   app.use("/api/brand", brandRoutes);
+  app.use("/uploads/academy/videos", (req, res) => {
+    res.status(403).json({ message: "직접 영상 접근이 차단되었습니다. 보안 재생 링크를 사용해 주세요." });
+  });
   app.use("/uploads", express.static(uploadRoot));
 
   // 등록되지 않은 경로와 예외는 마지막에 공통 핸들러로 정리한다.

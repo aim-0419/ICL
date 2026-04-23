@@ -5,6 +5,10 @@ import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 
 export function SuccessPage() {
   const [params] = useSearchParams();
+  const amountValue = Number(params.get("amount"));
+  const amountLabel = Number.isFinite(amountValue)
+    ? `${amountValue.toLocaleString("ko-KR")}원`
+    : "확인 예정";
 
   return (
     <div className="site-shell">
@@ -30,11 +34,7 @@ export function SuccessPage() {
             </div>
             <div className="payment-result-row">
               <strong>결제금액</strong>
-              <p>
-                {params.get("amount")
-                  ? `${Number(params.get("amount")).toLocaleString("ko-KR")}원`
-                  : "확인 예정"}
-              </p>
+              <p>{amountLabel}</p>
             </div>
           </div>
         </section>

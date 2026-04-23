@@ -5,6 +5,9 @@ export const academyRoutes = Router();
 
 academyRoutes.get("/videos", academyController.getAcademyVideos);
 academyRoutes.get("/videos/:videoId/chapters", academyController.getAcademyVideoChapters);
+academyRoutes.post("/playback/session", express.json(), academyController.createAcademyPlaybackSession);
+academyRoutes.post("/playback/heartbeat", express.json(), academyController.heartbeatAcademyPlaybackSession);
+academyRoutes.get("/playback/stream/:chapterId", academyController.streamAcademyPlayback);
 academyRoutes.get("/instructors", academyController.getAcademyInstructors);
 academyRoutes.get("/progress", academyController.getAcademyProgress);
 academyRoutes.put("/progress/:videoId", express.json(), academyController.saveAcademyProgress);
@@ -16,6 +19,7 @@ academyRoutes.put(
 academyRoutes.post("/videos", academyController.createAcademyVideo);
 academyRoutes.put("/videos/:videoId", express.json(), academyController.updateAcademyVideoHandler);
 academyRoutes.delete("/videos/:videoId", academyController.deleteAcademyVideoHandler);
+academyRoutes.patch("/videos/:videoId/visibility", express.json(), academyController.setAcademyVideoVisibilityHandler);
 academyRoutes.post(
   "/uploads",
   express.raw({ type: "application/octet-stream", limit: "1024mb" }),

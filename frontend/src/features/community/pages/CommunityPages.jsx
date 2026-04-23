@@ -31,6 +31,16 @@ function formatPeriod(startDate, endDate) {
   return `${start} ~ ${end}`;
 }
 
+function normalizeId(value) {
+  return String(value || "").trim();
+}
+
+function isPostOwner(currentUser, authorId) {
+  const currentUserId = normalizeId(currentUser?.id);
+  const normalizedAuthorId = normalizeId(authorId);
+  return Boolean(currentUserId && normalizedAuthorId && currentUserId === normalizedAuthorId);
+}
+
 function usePaging(items, page) {
   const totalPages = Math.max(1, Math.ceil(items.length / POSTS_PER_PAGE));
   const safePage = Math.min(page, totalPages);
@@ -61,13 +71,17 @@ function Pagination({ page, totalPages, setPage, ariaLabel }) {
 export function CommunityReviewsPage() {
   const store = useAppStore();
   const navigate = useNavigate();
+  const isAdmin = isAdminStaff(store.currentUser);
   const [posts, setPosts] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("latest");
   const [page, setPage] = useState(1);
   const [isWriteOpen, setIsWriteOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
+  const [selectedPostIds, setSelectedPostIds] = useState([]);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -75,7 +89,12 @@ export function CommunityReviewsPage() {
       .then((rows) => {
         setPosts(
           Array.isArray(rows)
-            ? rows.map((p) => ({ ...p, views: toNumber(p.views), comments: toNumber(p.comments) }))
+            ? rows.map((p) => ({
+                ...p,
+                authorId: normalizeId(p.authorId),
+                views: toNumber(p.views),
+                comments: toNumber(p.comments),
+              }))
             : []
         );
       })
@@ -96,6 +115,25 @@ export function CommunityReviewsPage() {
   }, [filtered, sortBy]);
 
   const { totalPages, safePage, start, currentItems } = usePaging(sorted, page);
+  const currentPagePostIds = useMemo(
+    () => currentItems.map((post) => normalizeId(post.id)).filter(Boolean),
+    [currentItems]
+  );
+  const sortedPostIds = useMemo(() => sorted.map((post) => normalizeId(post.id)).filter(Boolean), [sorted]);
+  const selectedPostIdSet = useMemo(() => new Set(selectedPostIds), [selectedPostIds]);
+  const isCurrentPageAllSelected =
+    currentPagePostIds.length > 0 && currentPagePostIds.every((id) => selectedPostIdSet.has(id));
+
+  useEffect(() => {
+    setSelectedPostIds((current) => current.filter((id) => posts.some((post) => normalizeId(post.id) === id)));
+  }, [posts]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setIsDeleteOpen(false);
+      setSelectedPostIds([]);
+    }
+  }, [isAdmin]);
 
   // 등록 성공 시 목록 앞에 즉시 반영하고 상세 페이지로 이동한다.
   async function handleCreateReview(event) {
@@ -134,6 +172,95 @@ export function CommunityReviewsPage() {
       navigate(`/community/reviews/${created.id}`);
     } catch (error) {
       alert(error.message);
+    }
+  }
+
+  function handleToggleSelectPost(postId, checked) {
+    const normalizedId = normalizeId(postId);
+    if (!normalizedId) return;
+
+    setSelectedPostIds((current) => {
+      const currentSet = new Set(current);
+      if (checked) currentSet.add(normalizedId);
+      else currentSet.delete(normalizedId);
+      return Array.from(currentSet);
+    });
+  }
+
+  function handleToggleCurrentPageSelection(checked) {
+    setSelectedPostIds((current) => {
+      const currentSet = new Set(current);
+      for (const id of currentPagePostIds) {
+        if (checked) currentSet.add(id);
+        else currentSet.delete(id);
+      }
+      return Array.from(currentSet);
+    });
+  }
+
+  function handleToggleAllSelection() {
+    if (!sortedPostIds.length) {
+      setSelectedPostIds([]);
+      return;
+    }
+
+    setSelectedPostIds((current) => (current.length === sortedPostIds.length ? [] : sortedPostIds));
+  }
+
+  async function handleDeleteSelectedPosts() {
+    if (!isAdmin) return;
+    if (!selectedPostIds.length) {
+      alert("삭제할 게시글을 선택해주세요.");
+      return;
+    }
+
+    const confirmed = window.confirm(`선택한 후기 게시글 ${selectedPostIds.length}건을 삭제하시겠습니까?`);
+    if (!confirmed) return;
+
+    setDeleteSubmitting(true);
+    try {
+      await apiRequest("/community/reviews/bulk-delete", {
+        method: "POST",
+        body: { ids: selectedPostIds },
+      });
+
+      const selectedSet = new Set(selectedPostIds);
+      setPosts((current) => current.filter((post) => !selectedSet.has(normalizeId(post.id))));
+      setSelectedPostIds([]);
+      setPage(1);
+      alert("선택한 후기 게시글을 삭제했습니다.");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }
+
+  async function handleDeleteAllPosts() {
+    if (!isAdmin) return;
+    if (!posts.length) {
+      alert("삭제할 게시글이 없습니다.");
+      return;
+    }
+
+    const confirmed = window.confirm("후기 게시글 전체를 삭제하시겠습니까?");
+    if (!confirmed) return;
+
+    setDeleteSubmitting(true);
+    try {
+      await apiRequest("/community/reviews/bulk-delete", {
+        method: "POST",
+        body: { deleteAll: true },
+      });
+      setPosts([]);
+      setSelectedPostIds([]);
+      setPage(1);
+      setIsDeleteOpen(false);
+      alert("후기 게시글 전체를 삭제했습니다.");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setDeleteSubmitting(false);
     }
   }
 
@@ -177,13 +304,46 @@ export function CommunityReviewsPage() {
               />
             </label>
 
-            <button
-              type="button"
-              className="ghost-button small-ghost community-write-button"
-              onClick={() => setIsWriteOpen((v) => !v)}
-            >
-              {isWriteOpen ? "작성 닫기" : "글쓰기"}
-            </button>
+            {isAdmin ? (
+              <>
+                <button
+                  type="button"
+                  className={`ghost-button small-ghost community-write-button community-delete-button${
+                    isDeleteOpen ? " active" : ""
+                  }`}
+                  onClick={() => {
+                    setIsDeleteOpen((current) => {
+                      const next = !current;
+                      if (next) setIsWriteOpen(false);
+                      return next;
+                    });
+                  }}
+                >
+                  {isDeleteOpen ? "삭제 닫기" : "게시글 삭제"}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button small-ghost community-write-button"
+                  onClick={() => {
+                    setIsWriteOpen((current) => {
+                      const next = !current;
+                      if (next) setIsDeleteOpen(false);
+                      return next;
+                    });
+                  }}
+                >
+                  {isWriteOpen ? "작성 닫기" : "글쓰기"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="ghost-button small-ghost community-write-button"
+                onClick={() => setIsWriteOpen((v) => !v)}
+              >
+                {isWriteOpen ? "작성 닫기" : "글쓰기"}
+              </button>
+            )}
           </div>
         </section>
 
@@ -217,9 +377,55 @@ export function CommunityReviewsPage() {
           </section>
         ) : null}
 
-        <section className="community-board">
+        {isDeleteOpen && isAdmin ? (
+          <section className="inquiry-write-panel event-delete-panel">
+            <h2>후기 게시글 삭제</h2>
+            <p className="event-delete-help">선택 게시글 {selectedPostIds.length}건</p>
+            <div className="community-bulk-delete-actions">
+              <button
+                type="button"
+                className="ghost-button small-ghost"
+                onClick={handleToggleAllSelection}
+                disabled={deleteSubmitting || sortedPostIds.length === 0}
+              >
+                {selectedPostIds.length === sortedPostIds.length && sortedPostIds.length > 0
+                  ? "전체 선택 해제"
+                  : "전체 선택"}
+              </button>
+              <button
+                type="button"
+                className="pill-button small"
+                onClick={handleDeleteSelectedPosts}
+                disabled={deleteSubmitting || selectedPostIds.length === 0}
+              >
+                {deleteSubmitting ? "삭제 중..." : "선택 삭제"}
+              </button>
+              <button
+                type="button"
+                className="pill-button small community-delete-confirm-button"
+                onClick={handleDeleteAllPosts}
+                disabled={deleteSubmitting || posts.length === 0}
+              >
+                {deleteSubmitting ? "삭제 중..." : "전체 삭제"}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        <section className={`community-board${isAdmin ? " is-admin" : ""}`}>
           <div className="community-board-scroll">
             <div className="community-board-head">
+              {isAdmin ? (
+                <span className="community-board-select-cell">
+                  <input
+                    type="checkbox"
+                    checked={isCurrentPageAllSelected}
+                    onChange={(e) => handleToggleCurrentPageSelection(e.target.checked)}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="현재 페이지 게시글 전체 선택"
+                  />
+                </span>
+              ) : null}
               <span>번호</span>
               <span>제목</span>
               <span>작성자</span>
@@ -243,7 +449,9 @@ export function CommunityReviewsPage() {
               currentItems.map((post, index) => (
                 <article
                   key={post.id}
-                  className="community-board-row interactive"
+                  className={`community-board-row interactive${
+                    selectedPostIdSet.has(normalizeId(post.id)) ? " is-selected" : ""
+                  }`}
                   role="button"
                   tabIndex={0}
                   onClick={() => navigate(`/community/reviews/${post.id}`)}
@@ -254,6 +462,17 @@ export function CommunityReviewsPage() {
                     }
                   }}
                 >
+                  {isAdmin ? (
+                    <span className="community-board-select-cell">
+                      <input
+                        type="checkbox"
+                        checked={selectedPostIdSet.has(normalizeId(post.id))}
+                        onChange={(e) => handleToggleSelectPost(post.id, e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`${post.title} 선택`}
+                      />
+                    </span>
+                  ) : null}
                   <span>{sorted.length - start - index}</span>
                   <span className="community-board-title">{post.title}</span>
                   <span>{post.author}</span>
@@ -273,11 +492,16 @@ export function CommunityReviewsPage() {
 // 후기 상세는 본문과 댓글을 함께 다루며, 진입 시 조회수를 증가시킨다.
 export function CommunityReviewDetailPage() {
   const store = useAppStore();
+  const navigate = useNavigate();
   const { reviewId } = useParams();
   const [review, setReview] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentAuthor, setCommentAuthor] = useState("");
   const [commentText, setCommentText] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -294,13 +518,18 @@ export function CommunityReviewDetailPage() {
           apiRequest(`/community/reviews/${reviewId}`),
           apiRequest(`/community/reviews/${reviewId}/comments`),
         ]);
-        setReview(post);
+        setReview({ ...post, authorId: normalizeId(post?.authorId) });
         setComments(Array.isArray(cmts) ? cmts : []);
       } catch (error) {
         setErrorMessage(error.message);
       }
     })();
   }, [reviewId]);
+
+  useEffect(() => {
+    setEditTitle(String(review?.title || ""));
+    setEditContent(String(review?.content || ""));
+  }, [review?.id, review?.title, review?.content]);
 
   if (errorMessage || !review) {
     return (
@@ -320,6 +549,55 @@ export function CommunityReviewDetailPage() {
 
   const image = REVIEW_IMAGES[(Number(String(review.id).replace(/\D/g, "")) || 0) % REVIEW_IMAGES.length];
   const contentParagraphs = String(review.content || "").split("\n");
+  const canManageReview = Boolean(isAdminStaff(store.currentUser) || isPostOwner(store.currentUser, review.authorId));
+
+  async function handleUpdateReview(event) {
+    event.preventDefault();
+    const title = editTitle.trim();
+    const content = editContent.trim();
+
+    if (!title) {
+      alert("후기 제목을 입력해주세요.");
+      return;
+    }
+
+    if (!content) {
+      alert("후기 내용을 입력해주세요.");
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      const updated = await apiRequest(`/community/reviews/${reviewId}`, {
+        method: "PATCH",
+        body: { title, content },
+      });
+
+      setReview((current) => ({ ...current, ...updated, authorId: normalizeId(updated?.authorId) }));
+      setIsEditing(false);
+      alert("후기글을 수정했습니다.");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  async function handleDeleteReview() {
+    const confirmed = window.confirm("후기글을 삭제하시겠습니까?");
+    if (!confirmed) return;
+
+    setEditSubmitting(true);
+    try {
+      await apiRequest(`/community/reviews/${reviewId}`, { method: "DELETE" });
+      alert("후기글이 삭제되었습니다.");
+      navigate("/community/reviews");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
 
   return (
     <div className="site-shell">
@@ -336,21 +614,82 @@ export function CommunityReviewDetailPage() {
               <time>{review.date}</time>
               <span>조회 {review.views}</span>
             </div>
+            <div className="review-post-action-row">
+              <Link className="ghost-button small-ghost review-post-list-button" to="/community/reviews">
+                목록으로
+              </Link>
+              {canManageReview ? (
+                <div className="review-post-owner-actions">
+                  <button
+                    type="button"
+                    className="ghost-button small-ghost"
+                    disabled={editSubmitting}
+                    onClick={() => {
+                      if (isEditing) {
+                        setEditTitle(String(review.title || ""));
+                        setEditContent(String(review.content || ""));
+                      }
+                      setIsEditing((current) => !current);
+                    }}
+                  >
+                    {isEditing ? "수정 취소" : "수정"}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button small-ghost community-delete-button"
+                    disabled={editSubmitting}
+                    onClick={handleDeleteReview}
+                  >
+                    삭제
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </header>
 
           <div className="review-detail-media">
             <img src={image} alt={review.title} />
           </div>
 
-          <article className="review-detail-body">
-            {contentParagraphs.some((line) => line.trim()) ? (
-              contentParagraphs.map((paragraph, index) => (
-                <p key={`${review.id}-${index}`}>{paragraph || "\u00A0"}</p>
-              ))
-            ) : (
-              <p>등록된 후기 본문이 없습니다.</p>
-            )}
-          </article>
+          {isEditing ? (
+            <form className="review-detail-body post-edit-form" onSubmit={handleUpdateReview}>
+              <label>
+                제목
+                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+              </label>
+              <label>
+                내용
+                <textarea rows={8} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
+              </label>
+              <div className="inquiry-write-actions">
+                <button
+                  type="button"
+                  className="ghost-button small-ghost"
+                  disabled={editSubmitting}
+                  onClick={() => {
+                    setEditTitle(String(review.title || ""));
+                    setEditContent(String(review.content || ""));
+                    setIsEditing(false);
+                  }}
+                >
+                  취소
+                </button>
+                <button type="submit" className="pill-button small" disabled={editSubmitting}>
+                  {editSubmitting ? "수정 중..." : "수정 저장"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <article className="review-detail-body board-content-card">
+              {contentParagraphs.some((line) => line.trim()) ? (
+                contentParagraphs.map((paragraph, index) => (
+                  <p key={`${review.id}-${index}`}>{paragraph || "\u00A0"}</p>
+                ))
+              ) : (
+                <p>등록된 후기 본문이 없습니다.</p>
+              )}
+            </article>
+          )}
 
           <section className="review-comment-section">
             <h2>댓글 {comments.length}</h2>
@@ -425,11 +764,6 @@ export function CommunityReviewDetailPage() {
             </div>
           </section>
 
-          <footer className="review-detail-actions">
-            <Link className="ghost-button" to="/community/reviews">
-              목록으로
-            </Link>
-          </footer>
         </section>
       </main>
     </div>
@@ -440,14 +774,18 @@ export function CommunityReviewDetailPage() {
 export function CommunityInquiryPage() {
   const store = useAppStore();
   const navigate = useNavigate();
+  const isAdmin = isAdminStaff(store.currentUser);
   const [posts, setPosts] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("latest");
   const [page, setPage] = useState(1);
   const [isWriteOpen, setIsWriteOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
   const [writeSecret, setWriteSecret] = useState(false);
+  const [selectedPostIds, setSelectedPostIds] = useState([]);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -455,7 +793,12 @@ export function CommunityInquiryPage() {
       .then((rows) =>
         setPosts(
           Array.isArray(rows)
-            ? rows.map((p) => ({ ...p, views: toNumber(p.views), isSecret: Boolean(p.isSecret) }))
+            ? rows.map((p) => ({
+                ...p,
+                authorId: normalizeId(p.authorId),
+                views: toNumber(p.views),
+                isSecret: Boolean(p.isSecret),
+              }))
             : []
         )
       )
@@ -475,6 +818,114 @@ export function CommunityInquiryPage() {
   }, [filtered, sortBy]);
 
   const { totalPages, safePage, start, currentItems } = usePaging(sorted, page);
+  const currentPagePostIds = useMemo(
+    () => currentItems.map((post) => normalizeId(post.id)).filter(Boolean),
+    [currentItems]
+  );
+  const sortedPostIds = useMemo(() => sorted.map((post) => normalizeId(post.id)).filter(Boolean), [sorted]);
+  const selectedPostIdSet = useMemo(() => new Set(selectedPostIds), [selectedPostIds]);
+  const isCurrentPageAllSelected =
+    currentPagePostIds.length > 0 && currentPagePostIds.every((id) => selectedPostIdSet.has(id));
+
+  useEffect(() => {
+    setSelectedPostIds((current) => current.filter((id) => posts.some((post) => normalizeId(post.id) === id)));
+  }, [posts]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setIsDeleteOpen(false);
+      setSelectedPostIds([]);
+    }
+  }, [isAdmin]);
+
+  function handleToggleSelectPost(postId, checked) {
+    const normalizedId = normalizeId(postId);
+    if (!normalizedId) return;
+
+    setSelectedPostIds((current) => {
+      const currentSet = new Set(current);
+      if (checked) currentSet.add(normalizedId);
+      else currentSet.delete(normalizedId);
+      return Array.from(currentSet);
+    });
+  }
+
+  function handleToggleCurrentPageSelection(checked) {
+    setSelectedPostIds((current) => {
+      const currentSet = new Set(current);
+      for (const id of currentPagePostIds) {
+        if (checked) currentSet.add(id);
+        else currentSet.delete(id);
+      }
+      return Array.from(currentSet);
+    });
+  }
+
+  function handleToggleAllSelection() {
+    if (!sortedPostIds.length) {
+      setSelectedPostIds([]);
+      return;
+    }
+
+    setSelectedPostIds((current) => (current.length === sortedPostIds.length ? [] : sortedPostIds));
+  }
+
+  async function handleDeleteSelectedPosts() {
+    if (!isAdmin) return;
+    if (!selectedPostIds.length) {
+      alert("삭제할 게시글을 선택해주세요.");
+      return;
+    }
+
+    const confirmed = window.confirm(`선택한 문의 게시글 ${selectedPostIds.length}건을 삭제하시겠습니까?`);
+    if (!confirmed) return;
+
+    setDeleteSubmitting(true);
+    try {
+      await apiRequest("/community/inquiries/bulk-delete", {
+        method: "POST",
+        body: { ids: selectedPostIds },
+      });
+
+      const selectedSet = new Set(selectedPostIds);
+      setPosts((current) => current.filter((post) => !selectedSet.has(normalizeId(post.id))));
+      setSelectedPostIds([]);
+      setPage(1);
+      alert("선택한 문의 게시글을 삭제했습니다.");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }
+
+  async function handleDeleteAllPosts() {
+    if (!isAdmin) return;
+    if (!posts.length) {
+      alert("삭제할 게시글이 없습니다.");
+      return;
+    }
+
+    const confirmed = window.confirm("문의 게시글 전체를 삭제하시겠습니까?");
+    if (!confirmed) return;
+
+    setDeleteSubmitting(true);
+    try {
+      await apiRequest("/community/inquiries/bulk-delete", {
+        method: "POST",
+        body: { deleteAll: true },
+      });
+      setPosts([]);
+      setSelectedPostIds([]);
+      setPage(1);
+      setIsDeleteOpen(false);
+      alert("문의 게시글 전체를 삭제했습니다.");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }
 
   return (
     <div className="site-shell">
@@ -515,13 +966,46 @@ export function CommunityInquiryPage() {
               />
             </label>
 
-            <button
-              type="button"
-              className="ghost-button small-ghost community-write-button"
-              onClick={() => setIsWriteOpen((v) => !v)}
-            >
-              {isWriteOpen ? "작성 닫기" : "글쓰기"}
-            </button>
+            {isAdmin ? (
+              <>
+                <button
+                  type="button"
+                  className={`ghost-button small-ghost community-write-button community-delete-button${
+                    isDeleteOpen ? " active" : ""
+                  }`}
+                  onClick={() => {
+                    setIsDeleteOpen((current) => {
+                      const next = !current;
+                      if (next) setIsWriteOpen(false);
+                      return next;
+                    });
+                  }}
+                >
+                  {isDeleteOpen ? "삭제 닫기" : "게시글 삭제"}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button small-ghost community-write-button"
+                  onClick={() => {
+                    setIsWriteOpen((current) => {
+                      const next = !current;
+                      if (next) setIsDeleteOpen(false);
+                      return next;
+                    });
+                  }}
+                >
+                  {isWriteOpen ? "작성 닫기" : "글쓰기"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="ghost-button small-ghost community-write-button"
+                onClick={() => setIsWriteOpen((v) => !v)}
+              >
+                {isWriteOpen ? "작성 닫기" : "글쓰기"}
+              </button>
+            )}
           </div>
         </section>
 
@@ -553,8 +1037,6 @@ export function CommunityInquiryPage() {
                     body: {
                       title,
                       content,
-                      author: store.currentUser?.name || store.currentUser?.email || "익명",
-                      authorId: store.currentUser?.id || "",
                       isSecret: writeSecret,
                     },
                   });
@@ -605,9 +1087,55 @@ export function CommunityInquiryPage() {
           </section>
         ) : null}
 
-        <section className="community-board">
+        {isDeleteOpen && isAdmin ? (
+          <section className="inquiry-write-panel event-delete-panel">
+            <h2>문의 게시글 삭제</h2>
+            <p className="event-delete-help">선택 게시글 {selectedPostIds.length}건</p>
+            <div className="community-bulk-delete-actions">
+              <button
+                type="button"
+                className="ghost-button small-ghost"
+                onClick={handleToggleAllSelection}
+                disabled={deleteSubmitting || sortedPostIds.length === 0}
+              >
+                {selectedPostIds.length === sortedPostIds.length && sortedPostIds.length > 0
+                  ? "전체 선택 해제"
+                  : "전체 선택"}
+              </button>
+              <button
+                type="button"
+                className="pill-button small"
+                onClick={handleDeleteSelectedPosts}
+                disabled={deleteSubmitting || selectedPostIds.length === 0}
+              >
+                {deleteSubmitting ? "삭제 중..." : "선택 삭제"}
+              </button>
+              <button
+                type="button"
+                className="pill-button small community-delete-confirm-button"
+                onClick={handleDeleteAllPosts}
+                disabled={deleteSubmitting || posts.length === 0}
+              >
+                {deleteSubmitting ? "삭제 중..." : "전체 삭제"}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        <section className={`community-board${isAdmin ? " is-admin" : ""}`}>
           <div className="community-board-scroll">
             <div className="community-board-head">
+              {isAdmin ? (
+                <span className="community-board-select-cell">
+                  <input
+                    type="checkbox"
+                    checked={isCurrentPageAllSelected}
+                    onChange={(e) => handleToggleCurrentPageSelection(e.target.checked)}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="현재 페이지 게시글 전체 선택"
+                  />
+                </span>
+              ) : null}
               <span>번호</span>
               <span>제목</span>
               <span>작성자</span>
@@ -625,7 +1153,9 @@ export function CommunityInquiryPage() {
               currentItems.map((post, index) => (
                 <article
                   key={post.id}
-                  className="community-board-row interactive"
+                  className={`community-board-row interactive${
+                    selectedPostIdSet.has(normalizeId(post.id)) ? " is-selected" : ""
+                  }`}
                   role="button"
                   tabIndex={0}
                   onClick={() => navigate(`/community/inquiry/${post.id}`)}
@@ -636,6 +1166,17 @@ export function CommunityInquiryPage() {
                     }
                   }}
                 >
+                  {isAdmin ? (
+                    <span className="community-board-select-cell">
+                      <input
+                        type="checkbox"
+                        checked={selectedPostIdSet.has(normalizeId(post.id))}
+                        onChange={(e) => handleToggleSelectPost(post.id, e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`${post.title} 선택`}
+                      />
+                    </span>
+                  ) : null}
                   <span>{sorted.length - start - index}</span>
                   <span className={`community-board-title${post.isSecret ? " has-secret" : ""}`}>
                     {post.isSecret ? <span className="secret-lock-icon">🔒</span> : null}
@@ -658,6 +1199,7 @@ export function CommunityInquiryPage() {
 // 비밀 문의는 작성자 또는 관리자만 본문을 열람할 수 있다.
 export function CommunityInquiryDetailPage() {
   const store = useAppStore();
+  const navigate = useNavigate();
   const { inquiryId } = useParams();
   const viewedRef = useRef("");
   const [post, setPost] = useState(null);
@@ -666,20 +1208,27 @@ export function CommunityInquiryDetailPage() {
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
   const [replyError, setReplyError] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editSecret, setEditSecret] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         const inquiry = await apiRequest(`/community/inquiries/${inquiryId}`);
-        const isAuthor = Boolean(store.currentUser && store.currentUser.id === inquiry.authorId);
+        const normalizedInquiry = { ...inquiry, authorId: normalizeId(inquiry?.authorId) };
+        const isAuthor = isPostOwner(store.currentUser, normalizedInquiry.authorId);
         const canRead = Boolean(!inquiry.isSecret || isAuthor || isAdminStaff(store.currentUser));
 
         if (canRead && viewedRef.current !== inquiryId) {
           viewedRef.current = inquiryId;
           await apiRequest(`/community/inquiries/${inquiryId}/views`, { method: "POST" });
-          setPost(await apiRequest(`/community/inquiries/${inquiryId}`));
+          const viewedInquiry = await apiRequest(`/community/inquiries/${inquiryId}`);
+          setPost({ ...viewedInquiry, authorId: normalizeId(viewedInquiry?.authorId) });
         } else {
-          setPost(inquiry);
+          setPost(normalizedInquiry);
         }
 
         if (canRead) {
@@ -691,6 +1240,12 @@ export function CommunityInquiryDetailPage() {
       }
     })();
   }, [inquiryId, store.currentUser?.id, store.currentUser?.role, store.currentUser?.isAdmin]);
+
+  useEffect(() => {
+    setEditTitle(String(post?.title || ""));
+    setEditContent(String(post?.content || ""));
+    setEditSecret(Boolean(post?.isSecret));
+  }, [post?.id, post?.title, post?.content, post?.isSecret]);
 
   async function handleReplySubmit(e) {
     e.preventDefault();
@@ -722,6 +1277,58 @@ export function CommunityInquiryDetailPage() {
     }
   }
 
+  async function handleUpdateInquiry(event) {
+    event.preventDefault();
+    const title = editTitle.trim();
+    const content = editContent.trim();
+
+    if (!title) {
+      alert("문의 제목을 입력해주세요.");
+      return;
+    }
+    if (!content) {
+      alert("문의 내용을 입력해주세요.");
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      const updated = await apiRequest(`/community/inquiries/${inquiryId}`, {
+        method: "PATCH",
+        body: { title, content, isSecret: editSecret },
+      });
+
+      setPost((current) => ({
+        ...current,
+        ...updated,
+        authorId: normalizeId(updated?.authorId),
+        isSecret: Boolean(updated?.isSecret),
+      }));
+      setIsEditing(false);
+      alert("문의글을 수정했습니다.");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  async function handleDeleteInquiry() {
+    const confirmed = window.confirm("문의글을 삭제하시겠습니까?");
+    if (!confirmed) return;
+
+    setEditSubmitting(true);
+    try {
+      await apiRequest(`/community/inquiries/${inquiryId}`, { method: "DELETE" });
+      alert("문의글이 삭제되었습니다.");
+      navigate("/community/inquiry");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
   if (errorMessage || !post) {
     return (
       <div className="site-shell">
@@ -738,8 +1345,9 @@ export function CommunityInquiryDetailPage() {
     );
   }
 
-  const isAuthor = Boolean(store.currentUser && store.currentUser.id === post.authorId);
+  const isAuthor = isPostOwner(store.currentUser, post.authorId);
   const canRead = Boolean(!post.isSecret || isAuthor || isAdminStaff(store.currentUser));
+  const canManageInquiry = Boolean(isAdminStaff(store.currentUser) || isAuthor);
 
   if (!canRead) {
     return (
@@ -785,6 +1393,38 @@ export function CommunityInquiryDetailPage() {
               <time>{post.date}</time>
               <span>조회 {post.views}</span>
             </div>
+            <div className="review-post-action-row">
+              <Link className="ghost-button small-ghost review-post-list-button" to="/community/inquiry">
+                목록으로
+              </Link>
+              {canManageInquiry ? (
+                <div className="review-post-owner-actions">
+                  <button
+                    type="button"
+                    className="ghost-button small-ghost"
+                    disabled={editSubmitting}
+                    onClick={() => {
+                      if (isEditing) {
+                        setEditTitle(String(post.title || ""));
+                        setEditContent(String(post.content || ""));
+                        setEditSecret(Boolean(post.isSecret));
+                      }
+                      setIsEditing((current) => !current);
+                    }}
+                  >
+                    {isEditing ? "수정 취소" : "수정"}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button small-ghost community-delete-button"
+                    disabled={editSubmitting}
+                    onClick={handleDeleteInquiry}
+                  >
+                    삭제
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </header>
 
           <section className="review-detail-summary-box">
@@ -792,13 +1432,52 @@ export function CommunityInquiryDetailPage() {
             <p>문의글은 접수 순서대로 확인하며 영업일 기준으로 회신 드립니다.</p>
           </section>
 
-          <article className="review-detail-body inquiry-detail-body">
-            {String(post.content || "")
-              .split("\n")
-              .map((p, i) => (
-                <p key={`${post.id}-${i}`}>{p || "\u00A0"}</p>
-              ))}
-          </article>
+          {isEditing ? (
+            <form className="review-detail-body post-edit-form" onSubmit={handleUpdateInquiry}>
+              <label>
+                제목
+                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+              </label>
+              <label>
+                내용
+                <textarea rows={8} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
+              </label>
+              <label className="inquiry-secret-field">
+                <input
+                  type="checkbox"
+                  checked={editSecret}
+                  onChange={(e) => setEditSecret(e.target.checked)}
+                />
+                <span>비밀글 설정 (작성자와 관리자만 열람)</span>
+              </label>
+              <div className="inquiry-write-actions">
+                <button
+                  type="button"
+                  className="ghost-button small-ghost"
+                  disabled={editSubmitting}
+                  onClick={() => {
+                    setEditTitle(String(post.title || ""));
+                    setEditContent(String(post.content || ""));
+                    setEditSecret(Boolean(post.isSecret));
+                    setIsEditing(false);
+                  }}
+                >
+                  취소
+                </button>
+                <button type="submit" className="pill-button small" disabled={editSubmitting}>
+                  {editSubmitting ? "수정 중..." : "수정 저장"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <article className="review-detail-body inquiry-detail-body board-content-card">
+              {String(post.content || "")
+                .split("\n")
+                .map((p, i) => (
+                  <p key={`${post.id}-${i}`}>{p || "\u00A0"}</p>
+                ))}
+            </article>
+          )}
 
           <section className="inquiry-reply-section">
             <h2 className="inquiry-reply-title">
@@ -806,11 +1485,13 @@ export function CommunityInquiryDetailPage() {
             </h2>
 
             {replies.length === 0 ? (
-              <p className="inquiry-reply-empty">아직 답변이 등록되지 않았습니다.</p>
+              <div className="inquiry-reply-empty-card answer-card">
+                <p className="inquiry-reply-empty">아직 답변이 등록되지 않았습니다.</p>
+              </div>
             ) : (
               <div className="inquiry-reply-list">
                 {replies.map((reply) => (
-                  <article className="inquiry-reply-item" key={reply.id}>
+                  <article className="inquiry-reply-item answer-card" key={reply.id}>
                     <div className="inquiry-reply-meta">
                       <span className="inquiry-reply-author-badge">관리자</span>
                       <strong>{reply.authorName}</strong>
@@ -860,11 +1541,6 @@ export function CommunityInquiryDetailPage() {
             )}
           </section>
 
-          <footer className="review-detail-actions">
-            <Link className="ghost-button" to="/community/inquiry">
-              목록으로
-            </Link>
-          </footer>
         </section>
       </main>
     </div>
@@ -880,12 +1556,15 @@ export function CommunityEventsPage() {
   const [selectedCategory, setSelectedCategory] = useState("전체");
   const [searchQuery, setSearchQuery] = useState("");
   const [isWriteOpen, setIsWriteOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [writeTitle, setWriteTitle] = useState("");
   const [writeSummary, setWriteSummary] = useState("");
   const [writeStatus, setWriteStatus] = useState("진행중");
   const [writeStartDate, setWriteStartDate] = useState("");
   const [writeEndDate, setWriteEndDate] = useState("");
   const [writeImage, setWriteImage] = useState("");
+  const [deleteTargetId, setDeleteTargetId] = useState("");
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -893,6 +1572,19 @@ export function CommunityEventsPage() {
       .then((rows) => setEvents(Array.isArray(rows) ? rows : []))
       .catch((e) => setErrorMessage(e.message));
   }, []);
+
+  useEffect(() => {
+    if (!canWriteEvent) return;
+    if (!Array.isArray(events) || events.length === 0) {
+      setDeleteTargetId("");
+      setIsDeleteOpen(false);
+      return;
+    }
+    setDeleteTargetId((current) => {
+      if (current && events.some((eventItem) => eventItem.id === current)) return current;
+      return String(events[0]?.id || "");
+    });
+  }, [events, canWriteEvent]);
 
   const filtered = useMemo(() => {
     return events.filter((eventItem) => {
@@ -958,6 +1650,49 @@ export function CommunityEventsPage() {
     }
   }
 
+  async function handleDeleteEvent() {
+    if (!store.currentUser) {
+      alert("이벤트 삭제는 로그인 후 이용 가능합니다.");
+      navigate("/login");
+      return;
+    }
+
+    if (!canWriteEvent) {
+      alert("이벤트 삭제는 관리자만 가능합니다.");
+      return;
+    }
+
+    const targetId = String(deleteTargetId || "").trim();
+    if (!targetId) {
+      alert("삭제할 이벤트를 선택해주세요.");
+      return;
+    }
+
+    const targetEvent = events.find((eventItem) => eventItem.id === targetId);
+    const targetLabel = targetEvent?.title || targetId;
+    const confirmed = window.confirm(`"${targetLabel}" 이벤트를 삭제하시겠습니까?`);
+    if (!confirmed) return;
+
+    setDeleteSubmitting(true);
+    try {
+      await apiRequest(`/community/events/${encodeURIComponent(targetId)}`, {
+        method: "DELETE",
+      });
+
+      const nextEvents = events.filter((eventItem) => eventItem.id !== targetId);
+      setEvents(nextEvents);
+      setDeleteTargetId(String(nextEvents[0]?.id || ""));
+      if (nextEvents.length === 0) {
+        setIsDeleteOpen(false);
+      }
+      alert("이벤트가 삭제되었습니다.");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }
+
   return (
     <div className="site-shell">
       <SiteHeader />
@@ -995,16 +1730,84 @@ export function CommunityEventsPage() {
             </label>
 
             {canWriteEvent ? (
-              <button
-                type="button"
-                className="ghost-button small-ghost community-write-button"
-                onClick={() => setIsWriteOpen((v) => !v)}
-              >
-                {isWriteOpen ? "작성 닫기" : "이벤트 작성"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className={`ghost-button small-ghost community-write-button community-delete-button${
+                    isDeleteOpen ? " active" : ""
+                  }`}
+                  onClick={() => {
+                    setIsDeleteOpen((current) => {
+                      const next = !current;
+                      if (next) {
+                        setIsWriteOpen(false);
+                        setDeleteTargetId((selected) => selected || String(events[0]?.id || ""));
+                      }
+                      return next;
+                    });
+                  }}
+                >
+                  {isDeleteOpen ? "삭제 닫기" : "이벤트 삭제"}
+                </button>
+
+                <button
+                  type="button"
+                  className="ghost-button small-ghost community-write-button"
+                  onClick={() => {
+                    setIsWriteOpen((current) => {
+                      const next = !current;
+                      if (next) setIsDeleteOpen(false);
+                      return next;
+                    });
+                  }}
+                >
+                  {isWriteOpen ? "작성 닫기" : "이벤트 작성"}
+                </button>
+              </>
             ) : null}
           </div>
         </section>
+
+        {isDeleteOpen && canWriteEvent ? (
+          <section className="inquiry-write-panel event-delete-panel">
+            <h2>이벤트 삭제</h2>
+            {events.length > 0 ? (
+              <>
+                <label>
+                  삭제 대상
+                  <select value={deleteTargetId} onChange={(e) => setDeleteTargetId(e.target.value)}>
+                    {events.map((eventItem) => (
+                      <option key={eventItem.id} value={eventItem.id}>
+                        {eventItem.title} · {eventItem.status} · {formatPeriod(eventItem.startDate, eventItem.endDate)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="event-delete-help">삭제한 이벤트는 복구되지 않습니다.</p>
+                <div className="inquiry-write-actions">
+                  <button
+                    type="button"
+                    className="ghost-button small-ghost"
+                    onClick={() => setIsDeleteOpen(false)}
+                    disabled={deleteSubmitting}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className="pill-button small community-delete-confirm-button"
+                    onClick={handleDeleteEvent}
+                    disabled={deleteSubmitting || !deleteTargetId}
+                  >
+                    {deleteSubmitting ? "삭제 중..." : "삭제하기"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="event-delete-empty">삭제 가능한 이벤트가 없습니다.</p>
+            )}
+          </section>
+        ) : null}
 
         {isWriteOpen && canWriteEvent ? (
           <section className="inquiry-write-panel event-write-panel">

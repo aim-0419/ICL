@@ -331,13 +331,13 @@ function normalizeAgeGroup(value) {
     .replace(/\s+/g, "");
   if (!text) return "";
 
-  if (text.includes("10")) return "10�� ����";
-  if (text.includes("20")) return "20��";
-  if (text.includes("30")) return "30��";
-  if (text.includes("40")) return "40��";
-  if (text.includes("50")) return "50��";
+  if (text.includes("10")) return "10대 이하";
+  if (text.includes("20")) return "20대";
+  if (text.includes("30")) return "30대";
+  if (text.includes("40")) return "40대";
+  if (text.includes("50")) return "50대";
   if (text.includes("60") || text.includes("70") || text.includes("80") || text.includes("90")) {
-    return "60�� �̻�";
+    return "60대 이상";
   }
 
   return "";
@@ -348,12 +348,12 @@ function resolveAgeGroupByBirthYear(birthYear) {
   if (!year) return "";
 
   const age = Math.max(0, new Date().getFullYear() - year);
-  if (age <= 19) return "10�� ����";
-  if (age <= 29) return "20��";
-  if (age <= 39) return "30��";
-  if (age <= 49) return "40��";
-  if (age <= 59) return "50��";
-  return "60�� �̻�";
+  if (age <= 19) return "10대 이하";
+  if (age <= 29) return "20대";
+  if (age <= 39) return "30대";
+  if (age <= 49) return "40대";
+  if (age <= 59) return "50대";
+  return "60대 이상";
 }
 
 function resolveOrderAgeGroup(orderRow, payload, userBirthYearByEmail = new Map()) {
@@ -377,7 +377,7 @@ function resolveOrderAgeGroup(orderRow, payload, userBirthYearByEmail = new Map(
   const fromUserBirthYear = resolveAgeGroupByBirthYear(userBirthYear);
   if (fromUserBirthYear) return fromUserBirthYear;
 
-  return "�̺з�";
+  return "미분류";
 }
 function normalizeProductId(value) {
   return String(value || "").trim();
@@ -610,7 +610,7 @@ export async function getUserLearningProgress(userId, rangeValue = "all") {
   const normalizedUserId = String(userId || "").trim();
   const rangeDays = resolveRangeDays(rangeValue);
   if (!normalizedUserId) {
-    const error = new Error("조회???�원 ?�보가 ?�바르�? ?�습?�다.");
+    const error = new Error("議고쉶???뚯썝 ?뺣낫媛 ?щ컮瑜댁? ?딆뒿?덈떎.");
     error.status = 400;
     throw error;
   }
@@ -632,7 +632,7 @@ export async function getUserLearningProgress(userId, rangeValue = "all") {
   );
 
   if (!user?.id) {
-    const error = new Error("?�???�원??찾을 ???�습?�다.");
+    const error = new Error("????뚯썝??李얠쓣 ???놁뒿?덈떎.");
     error.status = 404;
     throw error;
   }
@@ -1032,7 +1032,7 @@ export async function getSalesDashboard(options = {}) {
       continue;
     }
 
-    const ageGroupKey = resolveOrderAgeGroup(order, payload, userBirthYearByEmail) || "�̺з�";
+    const ageGroupKey = resolveOrderAgeGroup(order, payload, userBirthYearByEmail) || "미분류";
     const ageGroupCurrent = ageGroupSalesMap.get(ageGroupKey) || {
       ageGroup: ageGroupKey,
       orderCount: 0,
@@ -1156,7 +1156,7 @@ export async function getSalesDashboard(options = {}) {
       const refundRevenue = Math.max(0, grossRevenue - netRevenue);
 
       return {
-        ageGroup: item.ageGroup || "�̺з�",
+        ageGroup: item.ageGroup || "미분류",
         orderCount: Math.round(toAmount(item.orderCount)),
         revenue: netRevenue,
         grossRevenue,
@@ -1199,7 +1199,7 @@ export async function getSalesDashboard(options = {}) {
 export async function updateUserGrade(userId, nextGrade) {
   const normalizedGrade = normalizeUserGrade(nextGrade);
   if (!USER_GRADE_SET.has(normalizedGrade)) {
-    const error = new Error("변경할 ?�원 ?�급 값이 ?�바르�? ?�습?�다.");
+    const error = new Error("蹂寃쏀븷 ?뚯썝 ?깃툒 媛믪씠 ?щ컮瑜댁? ?딆뒿?덈떎.");
     error.status = 400;
     throw error;
   }
@@ -1213,7 +1213,7 @@ export async function updateUserGrade(userId, nextGrade) {
   );
 
   if (!target) {
-    const error = new Error("?�???�원??찾을 ???�습?�다.");
+    const error = new Error("????뚯썝??李얠쓣 ???놁뒿?덈떎.");
     error.status = 404;
     throw error;
   }
@@ -1250,18 +1250,18 @@ export async function createLecture(payload) {
   const productId = explicitId || `lecture-${Date.now()}`;
   const name = String(payload?.name || payload?.title || "").trim();
   const description = String(payload?.description || "").trim();
-  const period = String(payload?.period || "").trim() || "무제???�강";
+  const period = String(payload?.period || "").trim() || "臾댁젣???섍컯";
   const price = Math.max(0, Math.round(toAmount(payload?.price)));
 
   if (!name) {
-    const error = new Error("강의명을 ?�력??주세??");
+    const error = new Error("媛뺤쓽紐낆쓣 ?낅젰??二쇱꽭??");
     error.status = 400;
     throw error;
   }
 
   const duplicated = await queryOne(`SELECT id FROM products WHERE id = ? LIMIT 1`, [productId]);
   if (duplicated) {
-    const error = new Error("?��? 같�? 강의 ID가 존재?�니??");
+    const error = new Error("?대? 媛숈? 媛뺤쓽 ID媛 議댁옱?⑸땲??");
     error.status = 409;
     throw error;
   }

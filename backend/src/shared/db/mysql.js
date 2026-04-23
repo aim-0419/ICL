@@ -1,4 +1,4 @@
-import mysql from "mysql2/promise";
+﻿import mysql from "mysql2/promise";
 import { env } from "../../config/env.js";
 
 // 이 파일은 MySQL 연결, 테이블 보정, 기본 시드 데이터 주입까지 함께 담당한다.
@@ -185,6 +185,344 @@ const pool = mysql.createPool({
 });
 
 let initPromise = null;
+
+// 테이블/컬럼별 상세 용도 설명 코멘트 정의
+const SCHEMA_COLUMN_COMMENTS = {
+  users: {
+    id: "회원 레코드 고유 식별자 값",
+    login_id: "로그인 인증에 사용하는 계정 아이디 값",
+    name: "회원 화면 표시에 사용하는 이름 값",
+    email: "이메일 인증 및 알림 발송용 이메일 주소 값",
+    password: "해시 처리된 비밀번호 저장 값",
+    phone: "본인확인 및 연락용 휴대폰 번호 값",
+    role: "권한 분기 판단용 역할 코드 값",
+    is_admin: "관리자 화면 접근 판단용 플래그 값",
+    user_grade: "회원 등급 혜택 계산용 등급 코드 값",
+    birth_year: "연령대 통계 산출용 출생연도 값",
+    points: "포인트 적립/차감 계산 기준 잔액 값",
+    account_status: "계정 활성/탈퇴 상태 판별 값",
+    withdrawn_at: "회원 탈퇴 처리 완료 시각 값",
+    withdrawal_purge_at: "탈퇴 회원 데이터 파기 예정 시각 값",
+    restored_at: "탈퇴 계정 복구 처리 시각 값",
+    created_at: "회원 가입 생성 시각 값",
+  },
+  sessions: {
+    token: "로그인 유지 인증용 세션 토큰 값",
+    user_id: "세션 소유 회원 식별자 값",
+    created_at: "세션 발급 시각 값",
+  },
+  products: {
+    id: "상품 고유 식별자 값",
+    name: "상품 목록/결제창 표시용 이름 값",
+    price: "결제 금액 계산 기준 판매가 값",
+    description: "상품 상세 설명 본문 값",
+    period: "수강 기간 정책 문자열 값",
+  },
+  academy_videos: {
+    id: "강의 고유 식별자 값",
+    product_id: "연결 결제 상품 식별자 값",
+    instructor: "강의 카드 표기 강사명 값",
+    category: "강의 필터링용 카테고리 값",
+    badge: "강의 강조 표기용 배지 텍스트 값",
+    original_price: "정가 표시/할인율 계산 기준 값",
+    sale_price: "실 결제 판매가 기준 값",
+    rating: "강의 평균 평점 표시 값",
+    reviews: "강의 리뷰 개수 표시 값",
+    image_path: "강의 대표 썸네일 파일 경로 값",
+    video_path: "강의 기본 영상 파일 경로 값",
+    publish_at: "강의 공개 시작 시각 제어 값",
+    is_hidden: "강의 목록 노출/숨김 제어 플래그 값",
+    created_at: "강의 데이터 생성 시각 값",
+  },
+  academy_progress: {
+    user_id: "강의 진도 소유 회원 식별자 값",
+    video_id: "진도 대상 강의 식별자 값",
+    current_time: "이어보기 시작용 마지막 시청 위치 초 값",
+    duration: "강의 전체 재생 길이 초 값",
+    progress_percent: "강의 진도율 표시 퍼센트 값",
+    completed: "강의 완강 여부 표시 플래그 값",
+    last_watched_at: "강의 최근 시청 시각 값",
+    created_at: "강의 진도 최초 생성 시각 값",
+  },
+  academy_video_chapters: {
+    id: "강의 차시 고유 식별자 값",
+    video_id: "소속 강의 식별자 값",
+    chapter_order: "강의 내 차시 정렬 순서 값",
+    title: "차시 목록 표기 제목 값",
+    description: "차시 설명 문구 값",
+    video_path: "차시 영상 파일 경로 값",
+    duration_sec: "차시 재생 길이 초 값",
+    is_preview: "비구매 사용자 미리보기 허용 플래그 값",
+    created_at: "차시 데이터 생성 시각 값",
+  },
+  academy_chapter_progress: {
+    user_id: "차시 진도 소유 회원 식별자 값",
+    video_id: "차시가 속한 강의 식별자 값",
+    chapter_id: "진도 대상 차시 식별자 값",
+    current_time: "차시 이어보기 시작용 마지막 시청 초 값",
+    duration: "차시 전체 재생 길이 초 값",
+    progress_percent: "차시 진도율 표시 퍼센트 값",
+    completed: "차시 완강 여부 표시 플래그 값",
+    last_watched_at: "차시 최근 시청 시각 값",
+    created_at: "차시 진도 최초 생성 시각 값",
+  },
+  academy_playback_sessions: {
+    id: "보안 재생 세션 고유 식별자 값",
+    user_id: "재생 세션 소유 회원 식별자 값",
+    video_id: "재생 대상 강의 식별자 값",
+    chapter_id: "재생 대상 차시 식별자 값",
+    session_key: "재생 토큰 검증용 세션 키 값",
+    status: "세션 활성/만료/해제 상태 값",
+    ip_address: "동시 접속 판별용 접속 IP 값",
+    user_agent: "접속 기기 판별용 에이전트 문자열 값",
+    created_at: "재생 세션 생성 시각 값",
+    last_seen_at: "heartbeat 기준 최근 활동 시각 값",
+    expires_at: "재생 세션 만료 시각 값",
+    revoked_at: "재생 세션 강제 해제 시각 값",
+    revoke_reason: "세션 해제 사유 코드/문구 값",
+  },
+  cart_items: {
+    user_id: "장바구니 소유 회원 식별자 값",
+    product_id: "장바구니 상품 식별자 값",
+    quantity: "장바구니 담기 수량 값",
+    updated_at: "장바구니 마지막 수정 시각 값",
+  },
+  orders: {
+    id: "주문 고유 식별자 값",
+    order_name: "결제창/관리자 표시용 주문명 값",
+    amount: "승인된 결제 금액 값",
+    customer_email: "구매자 식별/조회용 이메일 값",
+    payload: "주문 상세 데이터 JSON 저장 값",
+    created_at: "주문 생성 시각 값",
+  },
+  social_feed_cache: {
+    source: "외부 피드 소스 구분 키 값",
+    label: "피드 소스 표시 라벨 값",
+    title: "피드 항목 제목 값",
+    url: "피드 원문 이동 URL 값",
+    published_at: "피드 원문 게시 시각 값",
+    excerpt: "피드 요약 미리보기 문구 값",
+    thumbnail: "피드 썸네일 이미지 URL 값",
+    is_live: "라이브 콘텐츠 여부 플래그 값",
+    updated_at: "피드 캐시 갱신 시각 값",
+  },
+  review_posts: {
+    id: "후기 게시글 고유 식별자 값",
+    title: "후기 게시글 제목 값",
+    content: "후기 게시글 본문 값",
+    author: "작성자 표시 이름 값",
+    author_id: "작성자 회원 식별자 값",
+    date: "게시판 표시용 날짜 문자열 값",
+    views: "후기 게시글 조회수 누적 값",
+    created_at: "후기 게시글 생성 시각 값",
+  },
+  review_comments: {
+    id: "후기 댓글 고유 식별자 값",
+    review_id: "댓글 대상 후기 게시글 식별자 값",
+    author: "댓글 작성자 표시 이름 값",
+    content: "댓글 본문 내용 값",
+    created_at: "댓글 생성 시각 문자열 값",
+  },
+  events: {
+    id: "이벤트 고유 식별자 값",
+    title: "이벤트 제목 표시 값",
+    status: "이벤트 진행 상태 표시 값",
+    start_date: "이벤트 시작일 문자열 값",
+    end_date: "이벤트 종료일 문자열 값",
+    likes: "이벤트 좋아요 누적 값",
+    image: "이벤트 대표 이미지 경로 값",
+    summary: "이벤트 요약 설명 문구 값",
+  },
+  inquiry_posts: {
+    id: "문의 게시글 고유 식별자 값",
+    title: "문의 게시글 제목 값",
+    content: "문의 게시글 본문 값",
+    author: "문의 작성자 표시 이름 값",
+    author_id: "문의 작성자 회원 식별자 값",
+    date: "문의 게시판 표시용 날짜 문자열 값",
+    views: "문의 게시글 조회수 누적 값",
+    is_secret: "비밀글 노출 제어 플래그 값",
+    created_at: "문의 게시글 생성 시각 값",
+  },
+  inquiry_replies: {
+    id: "문의 답변 고유 식별자 값",
+    inquiry_id: "답변 대상 문의 게시글 식별자 값",
+    author_id: "답변 작성자 회원 식별자 값",
+    author_name: "답변 작성자 표시 이름 값",
+    content: "답변 본문 내용 값",
+    created_at: "답변 생성 시각 값",
+  },
+  point_history: {
+    id: "포인트 이력 고유 식별자 값",
+    user_id: "포인트 이력 소유 회원 식별자 값",
+    amount: "포인트 증감 수치 값",
+    reason: "포인트 증감 사유 문구 값",
+    order_id: "연결 주문 식별자 값",
+    created_at: "포인트 이력 생성 시각 값",
+  },
+  admin_page_overrides: {
+    id: "관리자 커스터마이징 이력 식별자 값",
+    override_type: "오버라이드 데이터 유형 구분 값",
+    override_key: "적용 대상 요소 식별 키 값",
+    override_value: "적용 설정 JSON 데이터 값",
+    updated_at: "오버라이드 최종 수정 시각 값",
+  },
+  instructors: {
+    id: "강사 고유 식별자 값",
+    name: "강사명 표시 값",
+    role: "강사 직책/타이틀 값",
+    intro: "강사 소개 본문 값",
+    careers: "강사 경력 목록 JSON 값",
+    image_path: "강사 프로필 이미지 경로 값",
+    sort_order: "강사 목록 정렬 순서 값",
+    created_at: "강사 데이터 생성 시각 값",
+  },
+  branches: {
+    id: "지점 고유 식별자 값",
+    name: "지점명 표시 값",
+    address: "지점 주소 값",
+    phone: "지점 연락처 값",
+    parking: "지점 주차 안내 문구 값",
+    lat: "지점 지도 위도 좌표 값",
+    lng: "지점 지도 경도 좌표 값",
+    map_link: "지점 외부 지도 링크 URL 값",
+    sort_order: "지점 목록 정렬 순서 값",
+    created_at: "지점 데이터 생성 시각 값",
+  },
+  academy_reviews: {
+    id: "강의 리뷰 고유 식별자 값",
+    video_id: "리뷰 대상 강의 식별자 값",
+    user_id: "리뷰 작성 회원 식별자 값",
+    user_name: "리뷰 작성자 표시 이름 값",
+    rating: "리뷰 평점 값",
+    content: "리뷰 본문 내용 값",
+    created_at: "리뷰 생성 시각 값",
+  },
+  academy_qna_posts: {
+    id: "강의 Q&A 질문 고유 식별자 값",
+    video_id: "질문 대상 강의 식별자 값",
+    user_id: "질문 작성 회원 식별자 값",
+    user_name: "질문 작성자 표시 이름 값",
+    title: "질문 제목 값",
+    content: "질문 본문 내용 값",
+    is_secret: "질문 비밀글 여부 플래그 값",
+    created_at: "질문 생성 시각 값",
+  },
+  academy_qna_replies: {
+    id: "강의 Q&A 답변 고유 식별자 값",
+    post_id: "답변 대상 질문 식별자 값",
+    user_id: "답변 작성 회원 식별자 값",
+    user_name: "답변 작성자 표시 이름 값",
+    content: "답변 본문 내용 값",
+    is_admin: "관리자 작성 답변 여부 플래그 값",
+    created_at: "답변 생성 시각 값",
+  },
+};
+
+const NUMERIC_DATA_TYPES = new Set([
+  "tinyint",
+  "smallint",
+  "mediumint",
+  "int",
+  "bigint",
+  "decimal",
+  "float",
+  "double",
+  "real",
+  "year",
+]);
+
+function escapeSqlString(value) {
+  return String(value || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function escapeSqlId(value) {
+  return `\`${String(value || "").replace(/`/g, "``")}\``;
+}
+
+function resolveDefaultClause(columnMeta) {
+  const rawDefault = columnMeta.columnDefault;
+  const nullable = String(columnMeta.isNullable || "").toUpperCase() === "YES";
+  const dataType = String(columnMeta.dataType || "").toLowerCase();
+
+  if (rawDefault === null || typeof rawDefault === "undefined") {
+    return nullable ? " DEFAULT NULL" : "";
+  }
+
+  const raw = String(rawDefault);
+  const upper = raw.toUpperCase();
+  if (upper === "NULL") return " DEFAULT NULL";
+
+  if (upper.includes("CURRENT_TIMESTAMP") || raw.startsWith("(") || /^b'.*'$/i.test(raw)) {
+    return ` DEFAULT ${raw}`;
+  }
+  if (dataType === "json") {
+    return ` DEFAULT ('${escapeSqlString(raw)}')`;
+  }
+  if (NUMERIC_DATA_TYPES.has(dataType) && /^-?\d+(\.\d+)?$/.test(raw)) {
+    return ` DEFAULT ${raw}`;
+  }
+
+  return ` DEFAULT '${escapeSqlString(raw)}'`;
+}
+
+function buildCommentModifyDefinition(columnMeta, commentText) {
+  const definitionParts = [String(columnMeta.columnType || "VARCHAR(255)")];
+  const nullable = String(columnMeta.isNullable || "").toUpperCase() === "YES";
+  definitionParts.push(nullable ? "NULL" : "NOT NULL");
+  definitionParts.push(resolveDefaultClause(columnMeta));
+
+  let extra = String(columnMeta.extra || "").trim();
+  if (extra) {
+    extra = extra.replace(/\bDEFAULT_GENERATED\b/gi, "").trim();
+    if (extra) definitionParts.push(extra);
+  }
+
+  definitionParts.push(`COMMENT '${escapeSqlString(commentText)}'`);
+  return definitionParts.join(" ").replace(/\s+/g, " ").trim();
+}
+
+async function applySchemaColumnComments() {
+  const [columnRows] = await pool.query(
+    `SELECT
+      TABLE_NAME AS tableName,
+      COLUMN_NAME AS columnName,
+      COLUMN_TYPE AS columnType,
+      IS_NULLABLE AS isNullable,
+      COLUMN_DEFAULT AS columnDefault,
+      EXTRA AS extra,
+      DATA_TYPE AS dataType,
+      COLUMN_COMMENT AS columnComment
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()`
+  );
+
+  const rows = Array.isArray(columnRows) ? columnRows : [];
+  const columnMap = new Map(rows.map((row) => [`${row.tableName}.${row.columnName}`, row]));
+
+  for (const [tableName, columns] of Object.entries(SCHEMA_COLUMN_COMMENTS)) {
+    for (const [columnName, commentText] of Object.entries(columns || {})) {
+      const key = `${tableName}.${columnName}`;
+      const columnMeta = columnMap.get(key);
+      if (!columnMeta) continue;
+      if (String(columnMeta.columnComment || "") === String(commentText || "")) continue;
+
+      try {
+        const definition = buildCommentModifyDefinition(columnMeta, commentText);
+        await pool.query(
+          `ALTER TABLE ${escapeSqlId(tableName)} MODIFY COLUMN ${escapeSqlId(columnName)} ${definition}`
+        );
+      } catch (error) {
+        console.warn(`[db] column comment update skipped: ${key}`, error?.message || error);
+      }
+    }
+  }
+}
+
+async function dropUnusedSchemaObjects() {
+  // 현재 코드베이스 기준으로 삭제 안전성이 확인된 미사용 테이블/컬럼 없음
+  // 운영 데이터 손실 방지를 위해 자동 삭제는 수행하지 않음
+}
 
 async function seedProductsIfEmpty() {
   // 개발 편의를 위해 기본 상품은 비어 있어도 항상 같은 기준 데이터로 맞춘다.
@@ -1082,6 +1420,8 @@ async function initDatabase() {
     )
   `);
 
+  await dropUnusedSchemaObjects();
+  await applySchemaColumnComments();
   await purgeExpiredWithdrawnUsers();
 }
 

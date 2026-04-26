@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState } from "react";
+// 파일 역할: 관리자가 매출, 주문, 환불 분석을 기간별로 확인하는 대시보드 페이지 컴포넌트입니다.
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
@@ -22,12 +23,19 @@ const PERIOD_UNIT_LABEL = {
   month: "개월",
   year: "년",
 };
+const PERIOD_LABEL_BY_VALUE = {
+  day: "일별",
+  week: "주간",
+  month: "월간",
+  year: "연간",
+};
 const REFUND_INSIGHT_SORT_OPTIONS = [
   { value: "refundRate", label: "환불/취소율 높은순" },
   { value: "refundRevenue", label: "환불/취소 금액 높은순" },
   { value: "refundOrderCount", label: "환불 주문건수 높은순" },
 ];
 
+// 함수 역할: 날짜 input 값 값으로 안전하게 변환합니다.
 function toDateInputValue(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -35,17 +43,20 @@ function toDateInputValue(date) {
   return `${year}-${month}-${day}`;
 }
 
+// 함수 역할: 금액 값으로 안전하게 변환합니다.
 function toAmount(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// 함수 역할: 비율 값으로 안전하게 변환합니다.
 function toPercent(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return "0.0";
   return parsed.toFixed(1);
 }
 
+// 함수 역할: 연령 그룹 label 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeAgeGroupLabel(value) {
   const text = String(value || "").trim();
   if (!text) return "미분류";
@@ -69,10 +80,12 @@ function normalizeAgeGroupLabel(value) {
   return "미분류";
 }
 
+// 함수 역할: 환불 분석 키 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveRefundInsightKey(item) {
   return String(item?.productId || item?.videoId || "").trim();
 }
 
+// 컴포넌트 역할: 관리자가 매출, 주문, 환불 분석을 기간별로 확인하는 대시보드 페이지 컴포넌트입니다.
 export function AdminSalesDashboardPage() {
   const store = useAppStore();
   const today = useMemo(() => new Date(), []);
@@ -200,22 +213,30 @@ export function AdminSalesDashboardPage() {
   const series = Array.isArray(dashboard?.series) ? dashboard.series : [];
   const videoSales = Array.isArray(dashboard?.videoSales) ? dashboard.videoSales : [];
   const ageGroupSales = Array.isArray(dashboard?.ageGroupSales) ? dashboard.ageGroupSales : [];
+  const selectedPeriod = String(dashboard?.period || period || "")
+    .trim()
+    .toLowerCase();
+  const selectedVisibleCount = resolvedRange.isCustomRange
+    ? series.length
+    : PERIOD_VISIBLE_COUNT[selectedPeriod] || series.length;
   const chartSeries = useMemo(
-    () => {
-      const visibleCount = PERIOD_VISIBLE_COUNT[period] || series.length;
-      return series.slice(-visibleCount);
-    },
-    [period, series]
+    () => series.slice(-selectedVisibleCount),
+    [selectedVisibleCount, series]
   );
-
   const periodLabel =
-    SALES_PERIOD_OPTIONS.find((option) => option.value === period)?.label || "월간";
+    PERIOD_LABEL_BY_VALUE[selectedPeriod] ||
+    SALES_PERIOD_OPTIONS.find((option) => option.value === selectedPeriod)?.label ||
+    "기간별";
+  const periodUnit = PERIOD_UNIT_LABEL[selectedPeriod] || "";
+  const chartTitle = resolvedRange.isCustomRange && resolvedRange.startDate && resolvedRange.endDate
+    ? `${periodLabel} 매출 추이 (${resolvedRange.startDate} ~ ${resolvedRange.endDate})`
+    : `${periodLabel} 매출 추이 (최근 ${selectedVisibleCount}${periodUnit})`;
   const defaultRangeDescription = useMemo(() => {
-    if (period === "day") return "최근 7일";
-    if (period === "week") return "최근 5주";
-    if (period === "month") return "해당 연도 1월~12월";
+    if (selectedPeriod === "day") return "최근 7일";
+    if (selectedPeriod === "week") return "최근 5주";
+    if (selectedPeriod === "month") return "해당 연도 1월~12월";
     return "최근 10년";
-  }, [period]);
+  }, [selectedPeriod]);
 
   const maxRevenue = useMemo(
     () =>
@@ -436,6 +457,9 @@ export function AdminSalesDashboardPage() {
           <Link className="admin-dashboard-switch-link" to="/admin/members">
             회원 관리
           </Link>
+          <Link className="admin-dashboard-switch-link" to="/admin/refunds">
+            환불 관리
+          </Link>
         </section>
 
         <section className="dashboard-card admin-sales-hero-card">
@@ -464,7 +488,15 @@ export function AdminSalesDashboardPage() {
                     key={option.value}
                     type="button"
                     className={`admin-sales-period-tab${period === option.value ? " active" : ""}`}
+                    aria-pressed={period === option.value}
+                    onPointerDown={() => setPeriod(option.value)}
                     onClick={() => setPeriod(option.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setPeriod(option.value);
+                      }
+                    }}
                   >
                     {option.label}
                   </button>
@@ -668,14 +700,9 @@ export function AdminSalesDashboardPage() {
             ) : null}
 
             <section className="admin-sales-primary-grid">
-              <section className="dashboard-card admin-sales-chart-panel">
+              <section key={selectedPeriod} className="dashboard-card admin-sales-chart-panel">
                 <div className="admin-members-toolbar">
-                  <h2>
-                    {periodLabel} 매출 추이
-                    {chartSeries.length
-                      ? ` (최근 ${chartSeries.length}${PERIOD_UNIT_LABEL[period] || "개"})`
-                      : ""}
-                  </h2>
+                  <h2 data-admin-text-editable="false">{chartTitle}</h2>
                   <div className="admin-sales-chart-legend">
                     <span className="gross">총매출 막대</span>
                     <span className="line">순매출 꺾은선</span>

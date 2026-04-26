@@ -1,3 +1,4 @@
+// 파일 역할: React 앱을 브라우저 DOM에 연결하고 라우터와 전역 스토어를 감쌉니다.
 // 애플리케이션 진입점:
 // 라우터(BrowserRouter)와 전역 상태(AppProvider)를 루트에 연결합니다.
 import React from "react";

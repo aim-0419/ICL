@@ -1,4 +1,5 @@
-﻿import mysql from "mysql2/promise";
+// 파일 역할: MySQL 연결 풀, 스키마 자동 보정, 기본 데이터 시드, 공통 query 헬퍼를 담당합니다.
+import mysql from "mysql2/promise";
 import { env } from "../../config/env.js";
 
 // 이 파일은 MySQL 연결, 테이블 보정, 기본 시드 데이터 주입까지 함께 담당한다.
@@ -178,6 +179,7 @@ const pool = mysql.createPool({
   user: env.dbUser,
   password: env.dbPassword,
   database: env.dbName,
+  charset: "utf8mb4",
   connectionLimit: 10,
   waitForConnections: true,
   namedPlaceholders: true,
@@ -432,14 +434,17 @@ const NUMERIC_DATA_TYPES = new Set([
   "year",
 ]);
 
+// 함수 역할: SQL string 값을 SQL에 안전하게 넣을 수 있도록 이스케이프합니다.
 function escapeSqlString(value) {
   return String(value || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+// 함수 역할: SQL ID 값을 SQL에 안전하게 넣을 수 있도록 이스케이프합니다.
 function escapeSqlId(value) {
   return `\`${String(value || "").replace(/`/g, "``")}\``;
 }
 
+// 함수 역할: 기본값 clause 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveDefaultClause(columnMeta) {
   const rawDefault = columnMeta.columnDefault;
   const nullable = String(columnMeta.isNullable || "").toUpperCase() === "YES";
@@ -466,6 +471,7 @@ function resolveDefaultClause(columnMeta) {
   return ` DEFAULT '${escapeSqlString(raw)}'`;
 }
 
+// 함수 역할: 댓글 modify definition 구조나 문구를 조립해 반환합니다.
 function buildCommentModifyDefinition(columnMeta, commentText) {
   const definitionParts = [String(columnMeta.columnType || "VARCHAR(255)")];
   const nullable = String(columnMeta.isNullable || "").toUpperCase() === "YES";
@@ -482,6 +488,7 @@ function buildCommentModifyDefinition(columnMeta, commentText) {
   return definitionParts.join(" ").replace(/\s+/g, " ").trim();
 }
 
+// 함수 역할: 스키마 컬럼 댓글 변경값을 실제 대상에 적용합니다.
 async function applySchemaColumnComments() {
   const [columnRows] = await pool.query(
     `SELECT
@@ -519,11 +526,13 @@ async function applySchemaColumnComments() {
   }
 }
 
+// 함수 역할: unused 스키마 objects에서 더 이상 쓰지 않는 항목을 제거합니다.
 async function dropUnusedSchemaObjects() {
   // 현재 코드베이스 기준으로 삭제 안전성이 확인된 미사용 테이블/컬럼 없음
   // 운영 데이터 손실 방지를 위해 자동 삭제는 수행하지 않음
 }
 
+// 함수 역할: 상품 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
 async function seedProductsIfEmpty() {
   // 개발 편의를 위해 기본 상품은 비어 있어도 항상 같은 기준 데이터로 맞춘다.
   const products = [...DEFAULT_PRODUCTS, ...ACADEMY_VIDEO_PRODUCTS];
@@ -541,6 +550,7 @@ async function seedProductsIfEmpty() {
   }
 }
 
+// 함수 역할: 아카데미 강의 영상 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
 async function seedAcademyVideosIfEmpty() {
   // 강의 메타 정보는 상품 시드와 1:1로 대응되도록 함께 넣는다.
   for (const video of DEFAULT_ACADEMY_VIDEO_META) {
@@ -586,6 +596,7 @@ async function seedAcademyVideosIfEmpty() {
   }
 }
 
+// 함수 역할: 아카데미 차시 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
 async function seedAcademyChaptersIfEmpty() {
   await pool.query(
     `INSERT INTO academy_video_chapters (
@@ -617,6 +628,7 @@ async function seedAcademyChaptersIfEmpty() {
   );
 }
 
+// 함수 역할: 강사 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
 async function seedInstructorsIfEmpty() {
   const [rows] = await pool.query("SELECT COUNT(*) AS count FROM instructors");
   if (Number(rows?.[0]?.count ?? 0) > 0) return;
@@ -657,6 +669,7 @@ async function seedInstructorsIfEmpty() {
   }
 }
 
+// 함수 역할: 지점 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
 async function seedBranchesIfEmpty() {
   const [rows] = await pool.query("SELECT COUNT(*) AS count FROM branches");
   if (Number(rows?.[0]?.count ?? 0) > 0) return;
@@ -695,6 +708,7 @@ async function seedBranchesIfEmpty() {
   }
 }
 
+// 함수 역할: 커뮤니티 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
 async function seedCommunityIfEmpty() {
   // 후기/이벤트/문의 기본 데이터는 로컬 개발 화면을 바로 확인하기 위한 시드다.
   const [reviewCountRows] = await pool.query("SELECT COUNT(*) AS count FROM review_posts");
@@ -751,6 +765,7 @@ async function seedCommunityIfEmpty() {
   }
 }
 
+// 함수 역할: 만료된 탈퇴 회원 데이터를 조건에 맞게 영구 정리합니다.
 async function purgeExpiredWithdrawnUsers() {
   // 탈퇴 보관 기간 만료 사용자 조회 및 연관 데이터 정리 처리
   const [rows] = await pool.query(
@@ -779,6 +794,67 @@ async function purgeExpiredWithdrawnUsers() {
   }
 }
 
+// 함수 역할: legacy 깨진 문자 data 문제를 자동으로 보정합니다.
+async function repairLegacyMojibakeData() {
+  // 과거 인코딩 깨짐으로 저장된 카테고리/기간 값을 정상 데이터로 정리
+  await pool.query(
+    `UPDATE academy_videos
+     SET category = CASE category
+       WHEN '?낅Ц' THEN '입문'
+       WHEN '珥덇툒' THEN '초급'
+       WHEN '以묎툒' THEN '중급'
+       WHEN '怨좉툒' THEN '고급'
+       ELSE category
+     END
+     WHERE category IN ('?낅Ц', '珥덇툒', '以묎툒', '怨좉툒')`
+  );
+
+  await pool.query(
+    `UPDATE products
+     SET period = '무제한 수강'
+     WHERE period IN ('臾댁젣???섍컯', '?얜똻?????띿뺏')`
+  );
+}
+
+// 함수 역할: utf8mb4 테이블 문자셋 상태가 없을 때 생성해 항상 존재하도록 보장합니다.
+async function ensureUtf8mb4TableCollation() {
+  const targetTables = [
+    "users",
+    "products",
+    "academy_videos",
+    "academy_video_chapters",
+    "orders",
+    "review_posts",
+    "inquiry_posts",
+    "events",
+  ];
+
+  const rows = await query(
+    `SELECT TABLE_NAME AS tableName, TABLE_COLLATION AS tableCollation
+     FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()`
+  );
+
+  const byTable = new Map((Array.isArray(rows) ? rows : []).map((row) => [String(row.tableName || ""), row]));
+
+  for (const tableName of targetTables) {
+    const row = byTable.get(tableName);
+    if (!row?.tableName) continue;
+
+    const collation = String(row.tableCollation || "").toLowerCase();
+    if (collation.startsWith("utf8mb4")) continue;
+
+    try {
+      await pool.query(
+        `ALTER TABLE ${escapeSqlId(tableName)} CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+      );
+    } catch (error) {
+      console.warn(`[db] failed to convert collation for ${tableName}`, error?.message || error);
+    }
+  }
+}
+
+// 함수 역할: 앱 실행에 필요한 테이블과 기본 데이터를 준비합니다.
 async function initDatabase() {
   // users 테이블은 서비스 확장 과정에서 컬럼이 늘어났기 때문에,
   // 존재 여부를 확인하면서 점진적으로 스키마를 보정한다.
@@ -1201,6 +1277,8 @@ async function initDatabase() {
       id VARCHAR(80) PRIMARY KEY,
       title VARCHAR(255) NOT NULL,
       content TEXT NULL,
+      image_url TEXT NULL,
+      video_url TEXT NULL,
       author VARCHAR(120) NOT NULL,
       author_id VARCHAR(80) NULL,
       date VARCHAR(20) NOT NULL,
@@ -1231,6 +1309,30 @@ async function initDatabase() {
   const hasReviewAuthorIdColumn = Number(reviewAuthorIdColumnRows?.[0]?.count ?? 0) > 0;
   if (!hasReviewAuthorIdColumn) {
     await pool.query(`ALTER TABLE review_posts ADD COLUMN author_id VARCHAR(80) NULL AFTER author`);
+  }
+
+  const [reviewImageUrlColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'review_posts'
+       AND COLUMN_NAME = 'image_url'`
+  );
+  const hasReviewImageUrlColumn = Number(reviewImageUrlColumnRows?.[0]?.count ?? 0) > 0;
+  if (!hasReviewImageUrlColumn) {
+    await pool.query(`ALTER TABLE review_posts ADD COLUMN image_url TEXT NULL AFTER content`);
+  }
+
+  const [reviewVideoUrlColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'review_posts'
+       AND COLUMN_NAME = 'video_url'`
+  );
+  const hasReviewVideoUrlColumn = Number(reviewVideoUrlColumnRows?.[0]?.count ?? 0) > 0;
+  if (!hasReviewVideoUrlColumn) {
+    await pool.query(`ALTER TABLE review_posts ADD COLUMN video_url TEXT NULL AFTER image_url`);
   }
 
   await pool.query(`
@@ -1265,6 +1367,8 @@ async function initDatabase() {
       id VARCHAR(80) PRIMARY KEY,
       title VARCHAR(255) NOT NULL,
       content TEXT NOT NULL,
+      image_url TEXT NULL,
+      video_url TEXT NULL,
       author VARCHAR(120) NOT NULL,
       author_id VARCHAR(80) NULL,
       date VARCHAR(20) NOT NULL,
@@ -1285,6 +1389,60 @@ async function initDatabase() {
       INDEX idx_inquiry_replies_inquiry (inquiry_id)
     )
   `);
+
+  const [inquiryImageUrlColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'inquiry_posts'
+       AND COLUMN_NAME = 'image_url'`
+  );
+  const hasInquiryImageUrlColumn = Number(inquiryImageUrlColumnRows?.[0]?.count ?? 0) > 0;
+  if (!hasInquiryImageUrlColumn) {
+    await pool.query(`ALTER TABLE inquiry_posts ADD COLUMN image_url TEXT NULL AFTER content`);
+  }
+
+  const [inquiryVideoUrlColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'inquiry_posts'
+       AND COLUMN_NAME = 'video_url'`
+  );
+  const hasInquiryVideoUrlColumn = Number(inquiryVideoUrlColumnRows?.[0]?.count ?? 0) > 0;
+  if (!hasInquiryVideoUrlColumn) {
+    await pool.query(`ALTER TABLE inquiry_posts ADD COLUMN video_url TEXT NULL AFTER image_url`);
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS refund_requests (
+      id VARCHAR(80) PRIMARY KEY,
+      order_id VARCHAR(80) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      customer_email VARCHAR(190) NOT NULL,
+      selected_product_ids JSON NOT NULL,
+      requested_amount INT NOT NULL DEFAULT 0,
+      reason TEXT NULL,
+      status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+      admin_note TEXT NULL,
+      created_at DATETIME NOT NULL,
+      resolved_at DATETIME NULL,
+      INDEX idx_refund_requests_order (order_id),
+      INDEX idx_refund_requests_user (user_id),
+      INDEX idx_refund_requests_status (status)
+    )
+  `);
+
+  const [cancelledColRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'orders'
+       AND COLUMN_NAME = 'cancelled_product_ids'`
+  );
+  if (Number(cancelledColRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE orders ADD COLUMN cancelled_product_ids JSON NULL`);
+  }
 
   await seedProductsIfEmpty();
   await seedAcademyVideosIfEmpty();
@@ -1420,11 +1578,29 @@ async function initDatabase() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS video_grants (
+      id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      video_id VARCHAR(80) NOT NULL,
+      granted_by VARCHAR(64) NOT NULL,
+      duration_type ENUM('1d','7d','30d','unlimited') NOT NULL DEFAULT 'unlimited',
+      expires_at DATETIME NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_video_grants_user (user_id),
+      INDEX idx_video_grants_video (video_id),
+      UNIQUE KEY uq_video_grant_user_video (user_id, video_id)
+    )
+  `);
+
   await dropUnusedSchemaObjects();
+  await ensureUtf8mb4TableCollation();
+  await repairLegacyMojibakeData();
   await applySchemaColumnComments();
   await purgeExpiredWithdrawnUsers();
 }
 
+// 함수 역할: DB 초기화가 한 번만 실행되도록 보장합니다.
 async function ensureInitialized() {
   // 여러 요청이 동시에 들어와도 초기화는 한 번만 실행되도록 Promise를 공유한다.
   if (!initPromise) {
@@ -1438,16 +1614,19 @@ async function ensureInitialized() {
 
 export { ensureInitialized };
 
+// 함수 역할: DB 초기화가 끝난 뒤 SQL을 실행하고 결과 행 배열을 반환합니다.
 export async function query(sql, params = []) {
   const [rows] = await pool.execute(sql, params);
   return rows;
 }
 
+// 함수 역할: SQL 조회 결과 중 첫 번째 행만 반환합니다.
 export async function queryOne(sql, params = []) {
   const rows = await query(sql, params);
   return rows[0] ?? null;
 }
 
+// 함수 역할: 서버 상태 확인을 위해 MySQL 연결이 살아 있는지 검사합니다.
 export async function pingDatabase() {
   await pool.query("SELECT 1");
 }

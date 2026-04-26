@@ -1,8 +1,10 @@
-﻿// 결제 성공 페이지:
+// 파일 역할: 결제 성공 후 주문 정보를 확인하고 완료 안내를 보여주는 페이지 컴포넌트입니다.
+// 결제 성공 페이지:
 // 쿼리스트링(orderId/orderName/amount)으로 전달된 결제 결과를 표시합니다.
 import { Link, useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 
+// 컴포넌트 역할: 결제 성공 후 주문 정보를 확인하고 완료 안내를 보여주는 페이지 컴포넌트입니다.
 export function SuccessPage() {
   const [params] = useSearchParams();
   const amountValue = Number(params.get("amount"));

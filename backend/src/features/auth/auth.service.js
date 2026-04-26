@@ -1,15 +1,18 @@
-﻿import { randomUUID } from "node:crypto";
+// 파일 역할: 인증 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
+import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../shared/db/mysql.js";
 
 const ACCOUNT_STATUS_ACTIVE = "active";
 const ACCOUNT_STATUS_WITHDRAWN = "withdrawn";
 
-// 濡쒓렇???깃났 ???몄뀡 ?좏겙 諛쒓툒 諛????泥섎━
+// 로그인 성공 시 기존 세션 정리 후 신규 세션 토큰 발급
+// 함수 역할: 세션 by 회원 ID 데이터를 삭제합니다.
 async function deleteSessionsByUserId(userId) {
   if (!userId) return;
   await query(`DELETE FROM sessions WHERE user_id = ?`, [String(userId)]);
 }
 
+// 함수 역할: 세션 데이터를 새로 생성합니다.
 async function createSession(userId) {
   await deleteSessionsByUserId(userId);
 
@@ -22,12 +25,14 @@ async function createSession(userId) {
   return token;
 }
 
+// 함수 역할: 전화번호 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizePhone(value) {
   return String(value || "")
     .replace(/\D/g, "")
     .trim();
 }
 
+// 함수 역할: 출생 연도 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeBirthYear(value) {
   const text = String(value ?? "").trim();
   if (!text) return null;
@@ -41,13 +46,15 @@ function normalizeBirthYear(value) {
   return year;
 }
 
+// 함수 역할: 탈퇴 조건에 해당하는지 참/거짓으로 판별합니다.
 function isWithdrawn(status) {
   return String(status || "")
     .trim()
     .toLowerCase() === ACCOUNT_STATUS_WITHDRAWN;
 }
 
-// DB ?ъ슜???됱쓣 ?묐떟???ъ슜??紐⑤뜽濡?蹂??泥섎━
+// DB row를 API 응답용 사용자 모델로 변환
+// 함수 역할: 공개 회원 값으로 안전하게 변환합니다.
 function toPublicUser(userRow) {
   if (!userRow) return null;
   return {
@@ -68,11 +75,13 @@ function toPublicUser(userRow) {
   };
 }
 
+// 함수 역할: 세션 데이터를 삭제합니다.
 export async function deleteSession(token) {
   await query(`DELETE FROM sessions WHERE token = ?`, [token]);
 }
 
-// ?몄뀡 ?좏겙 湲곕컲 ?몄쬆 ?ъ슜??議고쉶 泥섎━
+// 세션 토큰 기반 인증 사용자 조회
+// 함수 역할: 회원 by 세션 토큰 대상을 탐색해 반환합니다.
 export async function findUserBySessionToken(token) {
   if (!token) return null;
 
@@ -101,7 +110,8 @@ export async function findUserBySessionToken(token) {
   );
 }
 
-// ?뚯썝媛??泥섎━
+// 회원가입 처리
+// 함수 역할: signup에 서명해 변조 여부를 확인할 수 있게 합니다.
 export async function signup(payload) {
   const loginId = String(payload.loginId || "").trim();
   const name = String(payload.name || "").trim();
@@ -111,21 +121,21 @@ export async function signup(payload) {
   const birthYear = normalizeBirthYear(payload.birthYear);
 
   if (!loginId || !name || !email || !password) {
-    const error = new Error("?꾩닔 ?뺣낫瑜?紐⑤몢 ?낅젰??二쇱꽭??");
+    const error = new Error("필수 정보를 모두 입력해 주세요.");
     error.status = 400;
     throw error;
   }
 
   const emailExists = await queryOne(`SELECT id FROM users WHERE email = ? LIMIT 1`, [email]);
   if (emailExists) {
-    const error = new Error("?대? 媛?낅맂 ?대찓?쇱엯?덈떎.");
+    const error = new Error("이미 가입된 이메일입니다.");
     error.status = 409;
     throw error;
   }
 
   const loginIdExists = await queryOne(`SELECT id FROM users WHERE login_id = ? LIMIT 1`, [loginId]);
   if (loginIdExists) {
-    const error = new Error("?대? ?ъ슜 以묒씤 ?꾩씠?붿엯?덈떎.");
+    const error = new Error("이미 사용 중인 아이디입니다.");
     error.status = 409;
     throw error;
   }
@@ -190,13 +200,14 @@ export async function signup(payload) {
   return { user: toPublicUser(created), token };
 }
 
-// 濡쒓렇??泥섎━ 諛??덊눜 怨꾩젙 ?묎렐 李⑤떒
+// 로그인 처리 및 탈퇴 계정 접근 차단
+// 함수 역할: login 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function login(payload) {
   const loginId = String(payload.loginId || "").trim();
   const password = String(payload.password || "").trim();
 
   if (!loginId || !password) {
-    const error = new Error("?꾩씠?붿? 鍮꾨?踰덊샇瑜??낅젰??二쇱꽭??");
+    const error = new Error("아이디와 비밀번호를 입력해 주세요.");
     error.status = 400;
     throw error;
   }
@@ -225,7 +236,7 @@ export async function login(payload) {
   );
 
   if (!user || user.password !== password) {
-    const error = new Error("?꾩씠???먮뒗 鍮꾨?踰덊샇瑜??뺤씤??二쇱꽭??");
+    const error = new Error("아이디 또는 비밀번호를 확인해 주세요.");
     error.status = 401;
     throw error;
   }
@@ -235,8 +246,8 @@ export async function login(payload) {
     const purgeLabel = purgeAt && !Number.isNaN(purgeAt.getTime()) ? purgeAt.toLocaleDateString("ko-KR") : "";
     const error = new Error(
       purgeLabel
-        ? `?덊눜 泥섎━??怨꾩젙?낅땲?? ${purgeLabel} ?꾧퉴吏 怨좉컼?쇳꽣瑜??듯빐 蹂듦뎄?????덉뒿?덈떎.`
-        : "?덊눜 泥섎━??怨꾩젙?낅땲?? 怨좉컼?쇳꽣瑜??듯빐 蹂듦뎄 ?붿껌??媛?ν빀?덈떎."
+        ? `탈퇴 처리된 계정입니다. ${purgeLabel}까지 고객센터를 통해 복구 요청할 수 있습니다.`
+        : "탈퇴 처리된 계정입니다. 고객센터를 통해 복구 요청이 가능합니다."
     );
     error.status = 403;
     throw error;
@@ -246,12 +257,13 @@ export async function login(payload) {
   return { user: toPublicUser(user), token };
 }
 
+// 함수 역할: 로그인 ID 대상을 탐색해 반환합니다.
 export async function findLoginId(payload) {
   const name = String(payload.name || "").trim();
   const phone = normalizePhone(payload.phone);
 
   if (!name || !phone) {
-    const error = new Error("?대쫫怨??대???踰덊샇瑜??낅젰??二쇱꽭??");
+    const error = new Error("이름과 휴대폰 번호를 입력해 주세요.");
     error.status = 400;
     throw error;
   }
@@ -265,7 +277,7 @@ export async function findLoginId(payload) {
   );
 
   if (!user?.loginId) {
-    const error = new Error("?쇱튂?섎뒗 ?뚯썝 ?뺣낫瑜?李얠? 紐삵뻽?듬땲??");
+    const error = new Error("일치하는 회원 정보를 찾지 못했습니다.");
     error.status = 404;
     throw error;
   }
@@ -273,6 +285,7 @@ export async function findLoginId(payload) {
   return user.loginId;
 }
 
+// 함수 역할: resetPassword 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function resetPassword(payload) {
   const loginId = String(payload.loginId || "").trim();
   const name = String(payload.name || "").trim();
@@ -280,7 +293,7 @@ export async function resetPassword(payload) {
   const newPassword = String(payload.newPassword || "").trim();
 
   if (!loginId || !name || !phone || !newPassword) {
-    const error = new Error("?꾩씠?? ?대쫫, ?대???踰덊샇, ??鍮꾨?踰덊샇瑜?紐⑤몢 ?낅젰??二쇱꽭??");
+    const error = new Error("아이디, 이름, 휴대폰 번호, 새 비밀번호를 모두 입력해 주세요.");
     error.status = 400;
     throw error;
   }
@@ -294,7 +307,7 @@ export async function resetPassword(payload) {
   );
 
   if (!target?.id) {
-    const error = new Error("?낅젰???뺣낫? ?쇱튂?섎뒗 ?뚯썝??李얠쓣 ???놁뒿?덈떎.");
+    const error = new Error("입력한 정보와 일치하는 회원을 찾을 수 없습니다.");
     error.status = 404;
     throw error;
   }

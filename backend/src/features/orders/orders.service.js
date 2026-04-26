@@ -1,5 +1,7 @@
+// 파일 역할: 주문 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { query, queryOne } from "../../shared/db/mysql.js";
 
+// 함수 역할: 요청 데이터 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parsePayload(payload) {
   if (!payload) return {};
   if (typeof payload === "object") return payload;
@@ -10,12 +12,14 @@ function parsePayload(payload) {
   }
 }
 
+// 함수 역할: 이메일 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeEmail(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
 }
 
+// 함수 역할: 출생 연도 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeBirthYear(value) {
   const text = String(value ?? "").trim();
   if (!text) return null;
@@ -29,6 +33,7 @@ function normalizeBirthYear(value) {
   return year;
 }
 
+// 함수 역할: 연령 그룹 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeAgeGroup(value) {
   const text = String(value || "")
     .trim()
@@ -47,6 +52,7 @@ function normalizeAgeGroup(value) {
   return "";
 }
 
+// 함수 역할: 연령 그룹 by 출생 연도 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveAgeGroupByBirthYear(birthYear) {
   const year = normalizeBirthYear(birthYear);
   if (!year) return "";
@@ -60,6 +66,7 @@ function resolveAgeGroupByBirthYear(birthYear) {
   return "60대 이상";
 }
 
+// 함수 역할: 주문 목록을 조회해 반환합니다.
 export async function listOrders() {
   const rows = await query(
     `SELECT id, order_name AS orderName, amount, customer_email AS customerEmail, payload, created_at AS createdAt
@@ -73,6 +80,7 @@ export async function listOrders() {
   }));
 }
 
+// 함수 역할: 주문 by customer 이메일 목록을 조회해 반환합니다.
 export async function listOrdersByCustomerEmail(customerEmail) {
   const rows = await query(
     `SELECT id, order_name AS orderName, amount, customer_email AS customerEmail, payload, created_at AS createdAt
@@ -88,6 +96,7 @@ export async function listOrdersByCustomerEmail(customerEmail) {
   }));
 }
 
+// 함수 역할: 주문 데이터를 새로 생성합니다.
 export async function createOrder(payload, authUser = null) {
   const normalizedOrderId = String(payload?.orderId || "").trim();
   const customerEmail = normalizeEmail(payload?.customerEmail || authUser?.email || "");

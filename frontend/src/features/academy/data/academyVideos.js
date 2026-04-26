@@ -1,3 +1,5 @@
+// 파일 역할: 아카데미 화면에서 기본으로 사용하는 강의 데이터와 조회 유틸을 제공합니다.
+// 상수 역할: 백엔드 데이터가 없을 때 사용할 기본 아카데미 강의 목록입니다.
 export const ACADEMY_VIDEOS = [
   {
     id: "video-1",
@@ -131,15 +133,18 @@ export const ACADEMY_VIDEOS = [
   },
 ];
 
+// 함수 역할: discount rate 데이터를 조회해 호출자에게 반환합니다.
 export function getDiscountRate(originalPrice, salePrice) {
   if (!originalPrice || originalPrice <= salePrice) return 0;
   return Math.round(((originalPrice - salePrice) / originalPrice) * 100);
 }
 
+// 함수 역할: 아카데미 강의 영상 by ID 데이터를 조회해 호출자에게 반환합니다.
 export function getAcademyVideoById(videoId) {
   return ACADEMY_VIDEOS.find((video) => video.id === videoId);
 }
 
+// 함수 역할: 아카데미 영상 재생 소스 by 강의 영상 ID 데이터를 조회해 호출자에게 반환합니다.
 export function getAcademyPlaybackSourceByVideoId() {
   return "";
 }

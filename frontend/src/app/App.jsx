@@ -1,3 +1,4 @@
+// 파일 역할: 프론트엔드 전체 라우팅 구조와 권한 보호 페이지 연결을 정의합니다.
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "../shared/components/RequireAuth.jsx";
@@ -15,6 +16,8 @@ const CartPage = lazy(() => import("../features/cart/pages/CartPage.jsx").then((
 const MyPage = lazy(() => import("../features/mypage/pages/MyPage.jsx").then((m) => ({ default: m.MyPage })));
 const AdminDashboardPage = lazy(() => import("../features/admin/pages/AdminDashboardPage.jsx").then((m) => ({ default: m.AdminDashboardPage })));
 const AdminSalesDashboardPage = lazy(() => import("../features/admin/pages/AdminSalesDashboardPage.jsx").then((m) => ({ default: m.AdminSalesDashboardPage })));
+const AdminRefundPage = lazy(() => import("../features/admin/pages/AdminRefundPage.jsx").then((m) => ({ default: m.AdminRefundPage })));
+const AdminVideoGiftPage = lazy(() => import("../features/admin/pages/AdminVideoGiftPage.jsx").then((m) => ({ default: m.AdminVideoGiftPage })));
 const AcademyPage = lazy(() => import("../features/academy/pages/AcademyPage.jsx").then((m) => ({ default: m.AcademyPage })));
 const AcademyDetailPage = lazy(() => import("../features/academy/pages/AcademyDetailPage.jsx").then((m) => ({ default: m.AcademyDetailPage })));
 const AcademyPlayerPage = lazy(() => import("../features/academy/pages/AcademyPlayerPage.jsx").then((m) => ({ default: m.AcademyPlayerPage })));
@@ -35,6 +38,7 @@ const CommunityReviewDetailPage = lazy(() => import("../features/community/pages
 const CommunityInquiryPage = lazy(() => import("../features/community/pages/CommunityPages.jsx").then((m) => ({ default: m.CommunityInquiryPage })));
 const CommunityInquiryDetailPage = lazy(() => import("../features/community/pages/CommunityPages.jsx").then((m) => ({ default: m.CommunityInquiryDetailPage })));
 
+// 컴포넌트 역할: 지연 로딩 중에 사용자에게 보여줄 공통 로딩 화면을 렌더링합니다.
 function AppRouteFallback() {
   return (
     <div className="site-shell">
@@ -48,6 +52,7 @@ function AppRouteFallback() {
   );
 }
 
+// 컴포넌트 역할: 프론트엔드 전체 페이지 라우팅과 관리자 편집 도구 표시 조건을 구성합니다.
 export default function App() {
   return (
     <>
@@ -116,6 +121,22 @@ export default function App() {
             element={
               <RequireAdminStaff>
                 <AdminDashboardPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/refunds"
+            element={
+              <RequireAdminStaff>
+                <AdminRefundPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/members/:userId/gift-videos"
+            element={
+              <RequireAdminStaff>
+                <AdminVideoGiftPage />
               </RequireAdminStaff>
             }
           />

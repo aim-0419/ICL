@@ -1,7 +1,9 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+// 파일 역할: CommunityPages 화면의 UI, 상태, API 연동 흐름을 담당합니다.
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
+import { resolveCommunityMediaUrl, uploadCommunityAsset } from "../api/communityApi.js";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
@@ -17,11 +19,13 @@ const EVENT_CATEGORIES = ["전체", "진행중", "종료"];
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80";
 
+// 함수 역할: number 값으로 안전하게 변환합니다.
 function toNumber(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
 
+// 함수 역할: 기간 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatPeriod(startDate, endDate) {
   const start = String(startDate || "").trim();
   const end = String(endDate || "").trim();
@@ -31,16 +35,19 @@ function formatPeriod(startDate, endDate) {
   return `${start} ~ ${end}`;
 }
 
+// 함수 역할: ID 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeId(value) {
   return String(value || "").trim();
 }
 
+// 함수 역할: 게시글 작성자 조건에 해당하는지 참/거짓으로 판별합니다.
 function isPostOwner(currentUser, authorId) {
   const currentUserId = normalizeId(currentUser?.id);
   const normalizedAuthorId = normalizeId(authorId);
   return Boolean(currentUserId && normalizedAuthorId && currentUserId === normalizedAuthorId);
 }
 
+// 함수 역할: 페이징 상태나 계산값을 재사용하기 위한 React 훅입니다.
 function usePaging(items, page) {
   const totalPages = Math.max(1, Math.ceil(items.length / POSTS_PER_PAGE));
   const safePage = Math.min(page, totalPages);
@@ -48,7 +55,60 @@ function usePaging(items, page) {
   return { totalPages, safePage, start, currentItems: items.slice(start, start + POSTS_PER_PAGE) };
 }
 
+async function uploadOptionalAsset(file, kind) {
+  if (!(file instanceof File)) return "";
+  return uploadCommunityAsset(file, kind);
+}
+
+function FileSelectionCard({ id, label, accept, file, onSelect, onClear, disabled = false }) {
+  function handleFileChange(event) {
+    const nextFile = event.target.files?.[0] || null;
+    onSelect(nextFile);
+    event.target.value = "";
+  }
+
+  return (
+    <div className="community-file-picker">
+      <p className="community-file-picker-label">{label}</p>
+      <div className="community-file-picker-row">
+        <label
+          className={`ghost-button small-ghost community-file-picker-trigger${disabled ? " disabled" : ""}`}
+          htmlFor={id}
+        >
+          파일 선택
+        </label>
+        <input
+          id={id}
+          type="file"
+          className="community-file-input-hidden"
+          accept={accept}
+          onChange={handleFileChange}
+          disabled={disabled}
+        />
+
+        {file ? (
+          <article className="community-file-card" title={file.name}>
+            <span className="community-file-card-name">{file.name}</span>
+            <button
+              type="button"
+              className="community-file-card-remove"
+              onClick={onClear}
+              disabled={disabled}
+              aria-label={`${label} 선택 파일 삭제`}
+            >
+              x
+            </button>
+          </article>
+        ) : (
+          <p className="community-file-card-empty">선택된 파일 없음</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // 게시판 유형이 달라도 같은 페이지네이션 UI를 재사용한다.
+// 컴포넌트 역할: 목록 페이지 이동 버튼을 렌더링합니다.
 function Pagination({ page, totalPages, setPage, ariaLabel }) {
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
   return (
@@ -68,6 +128,7 @@ function Pagination({ page, totalPages, setPage, ariaLabel }) {
 }
 
 // 후기 게시판은 회원이 직접 글을 작성할 수 있는 공개 게시판이다.
+// 컴포넌트 역할: 커뮤니티 후기 목록을 조회하고 작성/검색/페이징을 제공하는 페이지 컴포넌트입니다.
 export function CommunityReviewsPage() {
   const store = useAppStore();
   const navigate = useNavigate();
@@ -80,6 +141,9 @@ export function CommunityReviewsPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
+  const [writeImageFile, setWriteImageFile] = useState(null);
+  const [writeVideoFile, setWriteVideoFile] = useState(null);
+  const [writeSubmitting, setWriteSubmitting] = useState(false);
   const [selectedPostIds, setSelectedPostIds] = useState([]);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -158,20 +222,27 @@ export function CommunityReviewsPage() {
       return;
     }
 
+    setWriteSubmitting(true);
     try {
+      const imageUrl = await uploadOptionalAsset(writeImageFile, "image");
+      const videoUrl = await uploadOptionalAsset(writeVideoFile, "video");
       const created = await apiRequest("/community/reviews", {
         method: "POST",
-        body: { title, content },
+        body: { title, content, imageUrl, videoUrl },
       });
 
       setPosts((cur) => [{ ...created, views: toNumber(created.views), comments: 0 }, ...cur]);
       setWriteTitle("");
       setWriteContent("");
+      setWriteImageFile(null);
+      setWriteVideoFile(null);
       setIsWriteOpen(false);
       setPage(1);
       navigate(`/community/reviews/${created.id}`);
     } catch (error) {
       alert(error.message);
+    } finally {
+      setWriteSubmitting(false);
     }
   }
 
@@ -361,6 +432,26 @@ export function CommunityReviewsPage() {
                 <textarea rows={8} value={writeContent} onChange={(e) => setWriteContent(e.target.value)} />
               </label>
 
+              <FileSelectionCard
+                id="review-write-image-file"
+                label="이미지 파일 (선택)"
+                accept="image/*"
+                file={writeImageFile}
+                onSelect={setWriteImageFile}
+                onClear={() => setWriteImageFile(null)}
+                disabled={writeSubmitting}
+              />
+
+              <FileSelectionCard
+                id="review-write-video-file"
+                label="영상 파일 (선택)"
+                accept="video/*"
+                file={writeVideoFile}
+                onSelect={setWriteVideoFile}
+                onClear={() => setWriteVideoFile(null)}
+                disabled={writeSubmitting}
+              />
+
               <div className="inquiry-write-actions">
                 <button
                   type="button"
@@ -369,8 +460,8 @@ export function CommunityReviewsPage() {
                 >
                   취소
                 </button>
-                <button type="submit" className="pill-button small">
-                  등록하기
+                <button type="submit" className="pill-button small" disabled={writeSubmitting}>
+                  {writeSubmitting ? "등록 중.." : "등록하기"}
                 </button>
               </div>
             </form>
@@ -474,7 +565,10 @@ export function CommunityReviewsPage() {
                     </span>
                   ) : null}
                   <span>{sorted.length - start - index}</span>
-                  <span className="community-board-title">{post.title}</span>
+                  <span className="community-board-title">
+                    {post.title}
+                    {toNumber(post.comments) > 0 ? <span className="reply-count-badge">({toNumber(post.comments)})</span> : null}
+                  </span>
                   <span>{post.author}</span>
                   <time>{post.date}</time>
                   <span>{post.views}</span>
@@ -490,6 +584,7 @@ export function CommunityReviewsPage() {
 }
 
 // 후기 상세는 본문과 댓글을 함께 다루며, 진입 시 조회수를 증가시킨다.
+// 컴포넌트 역할: 커뮤니티 후기 상세 내용과 댓글 흐름을 제공하는 페이지 컴포넌트입니다.
 export function CommunityReviewDetailPage() {
   const store = useAppStore();
   const navigate = useNavigate();
@@ -501,6 +596,10 @@ export function CommunityReviewDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [editVideoUrl, setEditVideoUrl] = useState("");
+  const [editImageFile, setEditImageFile] = useState(null);
+  const [editVideoFile, setEditVideoFile] = useState(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -529,7 +628,11 @@ export function CommunityReviewDetailPage() {
   useEffect(() => {
     setEditTitle(String(review?.title || ""));
     setEditContent(String(review?.content || ""));
-  }, [review?.id, review?.title, review?.content]);
+    setEditImageUrl(String(review?.imageUrl || ""));
+    setEditVideoUrl(String(review?.videoUrl || ""));
+    setEditImageFile(null);
+    setEditVideoFile(null);
+  }, [review?.id, review?.title, review?.content, review?.imageUrl, review?.videoUrl]);
 
   if (errorMessage || !review) {
     return (
@@ -547,7 +650,9 @@ export function CommunityReviewDetailPage() {
     );
   }
 
-  const image = REVIEW_IMAGES[(Number(String(review.id).replace(/\D/g, "")) || 0) % REVIEW_IMAGES.length];
+  const fallbackImage = REVIEW_IMAGES[(Number(String(review.id).replace(/\D/g, "")) || 0) % REVIEW_IMAGES.length];
+  const image = resolveCommunityMediaUrl(String(review.imageUrl || "").trim()) || fallbackImage;
+  const videoUrl = resolveCommunityMediaUrl(String(review.videoUrl || "").trim());
   const contentParagraphs = String(review.content || "").split("\n");
   const canManageReview = Boolean(isAdminStaff(store.currentUser) || isPostOwner(store.currentUser, review.authorId));
 
@@ -555,6 +660,8 @@ export function CommunityReviewDetailPage() {
     event.preventDefault();
     const title = editTitle.trim();
     const content = editContent.trim();
+    const currentImageUrl = editImageUrl.trim();
+    const currentVideoUrl = editVideoUrl.trim();
 
     if (!title) {
       alert("후기 제목을 입력해주세요.");
@@ -568,12 +675,19 @@ export function CommunityReviewDetailPage() {
 
     setEditSubmitting(true);
     try {
+      const uploadedImage = await uploadOptionalAsset(editImageFile, "image");
+      const uploadedVideo = await uploadOptionalAsset(editVideoFile, "video");
+      const imageUrl = uploadedImage || currentImageUrl;
+      const nextVideoUrl = uploadedVideo || currentVideoUrl;
+
       const updated = await apiRequest(`/community/reviews/${reviewId}`, {
         method: "PATCH",
-        body: { title, content },
+        body: { title, content, imageUrl, videoUrl: nextVideoUrl },
       });
 
       setReview((current) => ({ ...current, ...updated, authorId: normalizeId(updated?.authorId) }));
+      setEditImageFile(null);
+      setEditVideoFile(null);
       setIsEditing(false);
       alert("후기글을 수정했습니다.");
     } catch (error) {
@@ -628,6 +742,10 @@ export function CommunityReviewDetailPage() {
                       if (isEditing) {
                         setEditTitle(String(review.title || ""));
                         setEditContent(String(review.content || ""));
+                        setEditImageUrl(String(review.imageUrl || ""));
+                        setEditVideoUrl(String(review.videoUrl || ""));
+                        setEditImageFile(null);
+                        setEditVideoFile(null);
                       }
                       setIsEditing((current) => !current);
                     }}
@@ -651,6 +769,12 @@ export function CommunityReviewDetailPage() {
             <img src={image} alt={review.title} />
           </div>
 
+          {videoUrl ? (
+            <div className="review-detail-video">
+              <video src={videoUrl} controls preload="metadata" />
+            </div>
+          ) : null}
+
           {isEditing ? (
             <form className="review-detail-body post-edit-form" onSubmit={handleUpdateReview}>
               <label>
@@ -661,6 +785,42 @@ export function CommunityReviewDetailPage() {
                 내용
                 <textarea rows={8} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
               </label>
+              <FileSelectionCard
+                id="review-edit-image-file"
+                label="이미지 파일 (선택)"
+                accept="image/*"
+                file={editImageFile}
+                onSelect={setEditImageFile}
+                onClear={() => setEditImageFile(null)}
+                disabled={editSubmitting}
+              />
+              <FileSelectionCard
+                id="review-edit-video-file"
+                label="영상 파일 (선택)"
+                accept="video/*"
+                file={editVideoFile}
+                onSelect={setEditVideoFile}
+                onClear={() => setEditVideoFile(null)}
+                disabled={editSubmitting}
+              />
+              <div className="inquiry-write-actions">
+                <button
+                  type="button"
+                  className="ghost-button small-ghost community-media-clear-button"
+                  disabled={editSubmitting}
+                  onClick={() => setEditImageUrl("")}
+                >
+                  이미지 삭제
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button small-ghost community-media-clear-button"
+                  disabled={editSubmitting}
+                  onClick={() => setEditVideoUrl("")}
+                >
+                  영상 삭제
+                </button>
+              </div>
               <div className="inquiry-write-actions">
                 <button
                   type="button"
@@ -669,6 +829,10 @@ export function CommunityReviewDetailPage() {
                   onClick={() => {
                     setEditTitle(String(review.title || ""));
                     setEditContent(String(review.content || ""));
+                    setEditImageUrl(String(review.imageUrl || ""));
+                    setEditVideoUrl(String(review.videoUrl || ""));
+                    setEditImageFile(null);
+                    setEditVideoFile(null);
                     setIsEditing(false);
                   }}
                 >
@@ -715,6 +879,8 @@ export function CommunityReviewDetailPage() {
                   setCommentText("");
                 } catch (error) {
                   alert(error.message);
+                } finally {
+                  setWriteSubmitting(false);
                 }
               }}
             >
@@ -771,6 +937,7 @@ export function CommunityReviewDetailPage() {
 }
 
 // 문의 게시판은 로그인 사용자가 비밀글 여부를 선택해 글을 남길 수 있다.
+// 컴포넌트 역할: 커뮤니티 문의 목록과 문의 작성 흐름을 제공하는 페이지 컴포넌트입니다.
 export function CommunityInquiryPage() {
   const store = useAppStore();
   const navigate = useNavigate();
@@ -783,7 +950,10 @@ export function CommunityInquiryPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
+  const [writeImageFile, setWriteImageFile] = useState(null);
+  const [writeVideoFile, setWriteVideoFile] = useState(null);
   const [writeSecret, setWriteSecret] = useState(false);
+  const [writeSubmitting, setWriteSubmitting] = useState(false);
   const [selectedPostIds, setSelectedPostIds] = useState([]);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -1031,18 +1201,25 @@ export function CommunityInquiryPage() {
                   alert("문의 내용을 입력해주세요.");
                   return;
                 }
+                setWriteSubmitting(true);
                 try {
+                  const imageUrl = await uploadOptionalAsset(writeImageFile, "image");
+                  const videoUrl = await uploadOptionalAsset(writeVideoFile, "video");
                   const created = await apiRequest("/community/inquiries", {
                     method: "POST",
                     body: {
                       title,
                       content,
+                      imageUrl,
+                      videoUrl,
                       isSecret: writeSecret,
                     },
                   });
                   setPosts((cur) => [created, ...cur]);
                   setWriteTitle("");
                   setWriteContent("");
+                  setWriteImageFile(null);
+                  setWriteVideoFile(null);
                   setWriteSecret(false);
                   setIsWriteOpen(false);
                   setPage(1);
@@ -1062,6 +1239,26 @@ export function CommunityInquiryPage() {
                 <textarea rows={6} value={writeContent} onChange={(e) => setWriteContent(e.target.value)} />
               </label>
 
+              <FileSelectionCard
+                id="inquiry-write-image-file"
+                label="이미지 파일 (선택)"
+                accept="image/*"
+                file={writeImageFile}
+                onSelect={setWriteImageFile}
+                onClear={() => setWriteImageFile(null)}
+                disabled={writeSubmitting}
+              />
+
+              <FileSelectionCard
+                id="inquiry-write-video-file"
+                label="영상 파일 (선택)"
+                accept="video/*"
+                file={writeVideoFile}
+                onSelect={setWriteVideoFile}
+                onClear={() => setWriteVideoFile(null)}
+                disabled={writeSubmitting}
+              />
+
               <label className="inquiry-secret-field">
                 <input
                   type="checkbox"
@@ -1079,8 +1276,8 @@ export function CommunityInquiryPage() {
                 >
                   취소
                 </button>
-                <button type="submit" className="pill-button small">
-                  등록하기
+                <button type="submit" className="pill-button small" disabled={writeSubmitting}>
+                  {writeSubmitting ? "등록 중.." : "등록하기"}
                 </button>
               </div>
             </form>
@@ -1181,6 +1378,7 @@ export function CommunityInquiryPage() {
                   <span className={`community-board-title${post.isSecret ? " has-secret" : ""}`}>
                     {post.isSecret ? <span className="secret-lock-icon">🔒</span> : null}
                     {post.title}
+                    {toNumber(post.replyCount) > 0 ? <span className="reply-count-badge">({toNumber(post.replyCount)})</span> : null}
                   </span>
                   <span>{post.author}</span>
                   <time>{post.date}</time>
@@ -1197,6 +1395,7 @@ export function CommunityInquiryPage() {
 }
 
 // 비밀 문의는 작성자 또는 관리자만 본문을 열람할 수 있다.
+// 컴포넌트 역할: 커뮤니티 문의 상세, 답변, 수정/삭제 흐름을 제공하는 페이지 컴포넌트입니다.
 export function CommunityInquiryDetailPage() {
   const store = useAppStore();
   const navigate = useNavigate();
@@ -1208,9 +1407,17 @@ export function CommunityInquiryDetailPage() {
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
   const [replyError, setReplyError] = useState("");
+  const [editingReplyId, setEditingReplyId] = useState("");
+  const [editReplyText, setEditReplyText] = useState("");
+  const [editReplySubmitting, setEditReplySubmitting] = useState(false);
+  const [editReplyError, setEditReplyError] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [editVideoUrl, setEditVideoUrl] = useState("");
+  const [editImageFile, setEditImageFile] = useState(null);
+  const [editVideoFile, setEditVideoFile] = useState(null);
   const [editSecret, setEditSecret] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
@@ -1244,8 +1451,12 @@ export function CommunityInquiryDetailPage() {
   useEffect(() => {
     setEditTitle(String(post?.title || ""));
     setEditContent(String(post?.content || ""));
+    setEditImageUrl(String(post?.imageUrl || ""));
+    setEditVideoUrl(String(post?.videoUrl || ""));
+    setEditImageFile(null);
+    setEditVideoFile(null);
     setEditSecret(Boolean(post?.isSecret));
-  }, [post?.id, post?.title, post?.content, post?.isSecret]);
+  }, [post?.id, post?.title, post?.content, post?.imageUrl, post?.videoUrl, post?.isSecret]);
 
   async function handleReplySubmit(e) {
     e.preventDefault();
@@ -1277,10 +1488,47 @@ export function CommunityInquiryDetailPage() {
     }
   }
 
+  function handleReplyEditStart(reply) {
+    setEditingReplyId(reply.id);
+    setEditReplyText(String(reply.content || ""));
+    setEditReplyError("");
+  }
+
+  function handleReplyEditCancel() {
+    setEditingReplyId("");
+    setEditReplyText("");
+    setEditReplyError("");
+  }
+
+  async function handleReplyUpdate(replyId) {
+    const content = editReplyText.trim();
+    if (!content) {
+      setEditReplyError("답변 내용을 입력해주세요.");
+      return;
+    }
+    setEditReplySubmitting(true);
+    setEditReplyError("");
+    try {
+      const data = await apiRequest(`/community/inquiries/replies/${replyId}`, {
+        method: "PATCH",
+        body: { content },
+      });
+      setReplies((prev) => prev.map((r) => (r.id === replyId ? { ...r, ...data.reply } : r)));
+      setEditingReplyId("");
+      setEditReplyText("");
+    } catch (err) {
+      setEditReplyError(err.message || "답변 수정에 실패했습니다.");
+    } finally {
+      setEditReplySubmitting(false);
+    }
+  }
+
   async function handleUpdateInquiry(event) {
     event.preventDefault();
     const title = editTitle.trim();
     const content = editContent.trim();
+    const currentImageUrl = editImageUrl.trim();
+    const currentVideoUrl = editVideoUrl.trim();
 
     if (!title) {
       alert("문의 제목을 입력해주세요.");
@@ -1293,9 +1541,14 @@ export function CommunityInquiryDetailPage() {
 
     setEditSubmitting(true);
     try {
+      const uploadedImage = await uploadOptionalAsset(editImageFile, "image");
+      const uploadedVideo = await uploadOptionalAsset(editVideoFile, "video");
+      const imageUrl = uploadedImage || currentImageUrl;
+      const videoUrl = uploadedVideo || currentVideoUrl;
+
       const updated = await apiRequest(`/community/inquiries/${inquiryId}`, {
         method: "PATCH",
-        body: { title, content, isSecret: editSecret },
+        body: { title, content, imageUrl, videoUrl, isSecret: editSecret },
       });
 
       setPost((current) => ({
@@ -1304,6 +1557,8 @@ export function CommunityInquiryDetailPage() {
         authorId: normalizeId(updated?.authorId),
         isSecret: Boolean(updated?.isSecret),
       }));
+      setEditImageFile(null);
+      setEditVideoFile(null);
       setIsEditing(false);
       alert("문의글을 수정했습니다.");
     } catch (error) {
@@ -1407,6 +1662,10 @@ export function CommunityInquiryDetailPage() {
                       if (isEditing) {
                         setEditTitle(String(post.title || ""));
                         setEditContent(String(post.content || ""));
+                        setEditImageUrl(String(post.imageUrl || ""));
+                        setEditVideoUrl(String(post.videoUrl || ""));
+                        setEditImageFile(null);
+                        setEditVideoFile(null);
                         setEditSecret(Boolean(post.isSecret));
                       }
                       setIsEditing((current) => !current);
@@ -1432,6 +1691,21 @@ export function CommunityInquiryDetailPage() {
             <p>문의글은 접수 순서대로 확인하며 영업일 기준으로 회신 드립니다.</p>
           </section>
 
+          {post.imageUrl || post.videoUrl ? (
+            <div className="review-detail-media-stack">
+              {post.imageUrl ? (
+                <div className="review-detail-media">
+                  <img src={resolveCommunityMediaUrl(post.imageUrl)} alt={`${post.title} 첨부 이미지`} />
+                </div>
+              ) : null}
+              {post.videoUrl ? (
+                <div className="review-detail-video">
+                  <video src={resolveCommunityMediaUrl(post.videoUrl)} controls preload="metadata" />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {isEditing ? (
             <form className="review-detail-body post-edit-form" onSubmit={handleUpdateInquiry}>
               <label>
@@ -1442,6 +1716,42 @@ export function CommunityInquiryDetailPage() {
                 내용
                 <textarea rows={8} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
               </label>
+              <FileSelectionCard
+                id="inquiry-edit-image-file"
+                label="이미지 파일 (선택)"
+                accept="image/*"
+                file={editImageFile}
+                onSelect={setEditImageFile}
+                onClear={() => setEditImageFile(null)}
+                disabled={editSubmitting}
+              />
+              <FileSelectionCard
+                id="inquiry-edit-video-file"
+                label="영상 파일 (선택)"
+                accept="video/*"
+                file={editVideoFile}
+                onSelect={setEditVideoFile}
+                onClear={() => setEditVideoFile(null)}
+                disabled={editSubmitting}
+              />
+              <div className="inquiry-write-actions">
+                <button
+                  type="button"
+                  className="ghost-button small-ghost community-media-clear-button"
+                  disabled={editSubmitting}
+                  onClick={() => setEditImageUrl("")}
+                >
+                  이미지 삭제
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button small-ghost community-media-clear-button"
+                  disabled={editSubmitting}
+                  onClick={() => setEditVideoUrl("")}
+                >
+                  영상 삭제
+                </button>
+              </div>
               <label className="inquiry-secret-field">
                 <input
                   type="checkbox"
@@ -1458,6 +1768,10 @@ export function CommunityInquiryDetailPage() {
                   onClick={() => {
                     setEditTitle(String(post.title || ""));
                     setEditContent(String(post.content || ""));
+                    setEditImageUrl(String(post.imageUrl || ""));
+                    setEditVideoUrl(String(post.videoUrl || ""));
+                    setEditImageFile(null);
+                    setEditVideoFile(null);
                     setEditSecret(Boolean(post.isSecret));
                     setIsEditing(false);
                   }}
@@ -1490,29 +1804,83 @@ export function CommunityInquiryDetailPage() {
               </div>
             ) : (
               <div className="inquiry-reply-list">
-                {replies.map((reply) => (
-                  <article className="inquiry-reply-item answer-card" key={reply.id}>
-                    <div className="inquiry-reply-meta">
-                      <span className="inquiry-reply-author-badge">관리자</span>
-                      <strong>{reply.authorName}</strong>
-                      <time>{String(reply.createdAt || "").slice(0, 10)}</time>
-                      {isAdminStaff(store.currentUser) && (
-                        <button
-                          type="button"
-                          className="inquiry-reply-delete"
-                          onClick={() => handleReplyDelete(reply.id)}
-                        >
-                          삭제
-                        </button>
+                {replies.map((reply) => {
+                  const replyDate = (() => {
+                    const raw = String(reply.createdAt || "").trim();
+                    if (!raw) return "";
+                    const d = new Date(raw.includes("T") ? raw : raw.replace(" ", "T"));
+                    if (Number.isNaN(d.getTime())) return raw.slice(0, 16).replace("T", " ");
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, "0");
+                    const dd = String(d.getDate()).padStart(2, "0");
+                    const hh = String(d.getHours()).padStart(2, "0");
+                    const min = String(d.getMinutes()).padStart(2, "0");
+                    return `${yyyy}.${mm}.${dd} ${hh}:${min}`;
+                  })();
+                  const isEditingThis = editingReplyId === reply.id;
+                  return (
+                    <article className="inquiry-reply-item answer-card" key={reply.id}>
+                      <div className="inquiry-reply-meta">
+                        <span className="inquiry-reply-author-badge">관리자</span>
+                        <strong>{reply.authorName}</strong>
+                        <time>{replyDate}</time>
+                        {isAdminStaff(store.currentUser) && (
+                          <>
+                            <button
+                              type="button"
+                              className="inquiry-reply-delete"
+                              onClick={() => isEditingThis ? handleReplyEditCancel() : handleReplyEditStart(reply)}
+                            >
+                              {isEditingThis ? "수정 취소" : "수정"}
+                            </button>
+                            <button
+                              type="button"
+                              className="inquiry-reply-delete"
+                              onClick={() => handleReplyDelete(reply.id)}
+                            >
+                              삭제
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      {isEditingThis ? (
+                        <div className="inquiry-reply-edit-form">
+                          <textarea
+                            className="inquiry-reply-textarea"
+                            value={editReplyText}
+                            onChange={(e) => setEditReplyText(e.target.value)}
+                            rows={4}
+                          />
+                          {editReplyError && <p className="inquiry-reply-error">{editReplyError}</p>}
+                          <div className="inquiry-reply-actions">
+                            <button
+                              type="button"
+                              className="ghost-button small-ghost"
+                              onClick={handleReplyEditCancel}
+                              disabled={editReplySubmitting}
+                            >
+                              취소
+                            </button>
+                            <button
+                              type="button"
+                              className="pill-button"
+                              onClick={() => handleReplyUpdate(reply.id)}
+                              disabled={editReplySubmitting || !editReplyText.trim()}
+                            >
+                              {editReplySubmitting ? "수정 중..." : "수정 저장"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="inquiry-reply-body">
+                          {String(reply.content || "").split("\n").map((line, i) => (
+                            <p key={i}>{line || " "}</p>
+                          ))}
+                        </div>
                       )}
-                    </div>
-                    <div className="inquiry-reply-body">
-                      {String(reply.content || "").split("\n").map((line, i) => (
-                        <p key={i}>{line || "\u00A0"}</p>
-                      ))}
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             )}
 
@@ -1548,6 +1916,7 @@ export function CommunityInquiryDetailPage() {
 }
 
 // 이벤트 게시판은 관리자만 작성할 수 있고, 일반 사용자는 조회만 가능하다.
+// 컴포넌트 역할: 이벤트 목록, 작성, 검색, 페이징을 제공하는 페이지 컴포넌트입니다.
 export function CommunityEventsPage() {
   const store = useAppStore();
   const navigate = useNavigate();
@@ -1562,7 +1931,7 @@ export function CommunityEventsPage() {
   const [writeStatus, setWriteStatus] = useState("진행중");
   const [writeStartDate, setWriteStartDate] = useState("");
   const [writeEndDate, setWriteEndDate] = useState("");
-  const [writeImage, setWriteImage] = useState("");
+  const [writeImageFile, setWriteImageFile] = useState(null);
   const [deleteTargetId, setDeleteTargetId] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -1622,6 +1991,7 @@ export function CommunityEventsPage() {
     }
 
     try {
+      const image = await uploadOptionalAsset(writeImageFile, "image");
       const created = await apiRequest("/community/events", {
         method: "POST",
         body: {
@@ -1630,7 +2000,7 @@ export function CommunityEventsPage() {
           status: writeStatus,
           startDate: writeStartDate,
           endDate: writeEndDate,
-          image: writeImage.trim(),
+          image,
         },
       });
 
@@ -1643,7 +2013,7 @@ export function CommunityEventsPage() {
       setWriteStatus("진행중");
       setWriteStartDate("");
       setWriteEndDate("");
-      setWriteImage("");
+      setWriteImageFile(null);
       navigate(`/community/events/${created.id}`);
     } catch (error) {
       alert(error.message);
@@ -1842,10 +2212,14 @@ export function CommunityEventsPage() {
                 </label>
               </div>
 
-              <label>
-                이미지 URL (선택)
-                <input type="text" value={writeImage} onChange={(e) => setWriteImage(e.target.value)} />
-              </label>
+              <FileSelectionCard
+                id="event-write-image"
+                label="이미지 (선택)"
+                accept="image/*"
+                file={writeImageFile}
+                onSelect={setWriteImageFile}
+                onClear={() => setWriteImageFile(null)}
+              />
 
               <label>
                 설명
@@ -1917,14 +2291,77 @@ export function CommunityEventsPage() {
 }
 
 // 이벤트 상세 화면은 단일 이벤트의 기간/상태/소개 이미지를 보여준다.
+// 컴포넌트 역할: 이벤트 상세 내용과 관리자 삭제 흐름을 제공하는 페이지 컴포넌트입니다.
 export function CommunityEventDetailPage() {
   const { eventId } = useParams();
+  const store = useAppStore();
+  const canEdit = isAdminStaff(store.currentUser);
+
   const [eventItem, setEventItem] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editSummary, setEditSummary] = useState("");
+  const [editStatus, setEditStatus] = useState("진행중");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+  const [editImageFile, setEditImageFile] = useState(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     apiRequest(`/community/events/${eventId}`).then(setEventItem).catch((e) => setErrorMessage(e.message));
   }, [eventId]);
+
+  function handleEditStart() {
+    setEditTitle(eventItem.title || "");
+    setEditSummary(eventItem.summary || "");
+    setEditStatus(eventItem.status || "진행중");
+    setEditStartDate(eventItem.startDate || "");
+    setEditEndDate(eventItem.endDate || "");
+    setEditImageFile(null);
+    setEditError("");
+    setIsEditing(true);
+  }
+
+  function handleEditCancel() {
+    setIsEditing(false);
+    setEditError("");
+    setEditImageFile(null);
+  }
+
+  async function handleEditSubmit(e) {
+    e.preventDefault();
+    const title = editTitle.trim();
+    const summary = editSummary.trim();
+    if (!title) { setEditError("제목을 입력해주세요."); return; }
+    if (!summary) { setEditError("설명을 입력해주세요."); return; }
+
+    setEditSubmitting(true);
+    setEditError("");
+    try {
+      const uploadedImageUrl = await uploadOptionalAsset(editImageFile, "image");
+      const updated = await apiRequest(`/community/events/${eventId}`, {
+        method: "PATCH",
+        body: {
+          title,
+          summary,
+          status: editStatus,
+          startDate: editStartDate,
+          endDate: editEndDate,
+          image: uploadedImageUrl || eventItem.image || "",
+        },
+      });
+      setEventItem(updated);
+      setIsEditing(false);
+      setEditImageFile(null);
+    } catch (err) {
+      setEditError(err.message || "수정에 실패했습니다.");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
 
   if (errorMessage || !eventItem) {
     return (
@@ -1951,39 +2388,102 @@ export function CommunityEventDetailPage() {
           <h1>{eventItem.title}</h1>
         </section>
 
-        <section className="event-detail-layout">
-          <div className="event-detail-media">
-            <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} />
-            <strong className={`event-status ${eventItem.status === "진행중" ? "active" : "ended"}`}>
-              {eventItem.status}
-            </strong>
-          </div>
+        {isEditing ? (
+          <section className="inquiry-write-panel event-edit-panel">
+            <h2>이벤트 수정</h2>
+            <form className="inquiry-write-form" onSubmit={handleEditSubmit}>
+              <label>
+                제목
+                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+              </label>
 
-          <article className="event-detail-info">
-            <dl>
-              <div>
-                <dt>이벤트 기간</dt>
-                <dd>{formatPeriod(eventItem.startDate, eventItem.endDate)}</dd>
+              <div className="event-write-grid">
+                <label>
+                  상태
+                  <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+                    <option value="진행중">진행중</option>
+                    <option value="종료">종료</option>
+                  </select>
+                </label>
+                <label>
+                  시작일
+                  <input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} />
+                </label>
+                <label>
+                  종료일
+                  <input type="date" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} />
+                </label>
               </div>
-              <div>
-                <dt>진행 상태</dt>
-                <dd>{eventItem.status}</dd>
-              </div>
-            </dl>
-            <Link className="pill-button" to="/community/events">
-              이벤트 목록으로
-            </Link>
-          </article>
 
-          <article className="event-detail-description">
-            <h2>이벤트 설명</h2>
-            {String(eventItem.summary || "")
-              .split("\n")
-              .map((paragraph, index) => (
-                <p key={`${eventItem.id}-${index}`}>{paragraph || "\u00A0"}</p>
-              ))}
-          </article>
-        </section>
+              <FileSelectionCard
+                id="event-edit-image"
+                label={`이미지 (현재: ${eventItem.image ? "있음" : "없음"} · 새 파일 선택 시 교체)`}
+                accept="image/*"
+                file={editImageFile}
+                onSelect={setEditImageFile}
+                onClear={() => setEditImageFile(null)}
+                disabled={editSubmitting}
+              />
+
+              <label>
+                설명
+                <textarea rows={8} value={editSummary} onChange={(e) => setEditSummary(e.target.value)} />
+              </label>
+
+              {editError ? <p className="review-error">{editError}</p> : null}
+
+              <div className="inquiry-write-actions">
+                <button type="button" className="ghost-button small-ghost" onClick={handleEditCancel} disabled={editSubmitting}>
+                  취소
+                </button>
+                <button type="submit" className="pill-button small" disabled={editSubmitting}>
+                  {editSubmitting ? "저장 중..." : "저장하기"}
+                </button>
+              </div>
+            </form>
+          </section>
+        ) : (
+          <section className="event-detail-layout">
+            <div className="event-detail-media">
+              <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} />
+              <strong className={`event-status ${eventItem.status === "진행중" ? "active" : "ended"}`}>
+                {eventItem.status}
+              </strong>
+            </div>
+
+            <article className="event-detail-info">
+              <dl>
+                <div>
+                  <dt>이벤트 기간</dt>
+                  <dd>{formatPeriod(eventItem.startDate, eventItem.endDate)}</dd>
+                </div>
+                <div>
+                  <dt>진행 상태</dt>
+                  <dd>{eventItem.status}</dd>
+                </div>
+              </dl>
+              <div className="event-detail-actions">
+                <Link className="pill-button" to="/community/events">
+                  이벤트 목록으로
+                </Link>
+                {canEdit ? (
+                  <button type="button" className="ghost-button" onClick={handleEditStart}>
+                    수정하기
+                  </button>
+                ) : null}
+              </div>
+            </article>
+
+            <article className="event-detail-description">
+              <h2>이벤트 설명</h2>
+              {String(eventItem.summary || "")
+                .split("\n")
+                .map((paragraph, index) => (
+                  <p key={`${eventItem.id}-${index}`}>{paragraph || " "}</p>
+                ))}
+            </article>
+          </section>
+        )}
       </main>
     </div>
   );

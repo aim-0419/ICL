@@ -1,8 +1,10 @@
+// 파일 역할: 회원 비밀번호 재설정 흐름을 처리하는 페이지 컴포넌트입니다.
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
+// 컴포넌트 역할: 회원 비밀번호 재설정 흐름을 처리하는 페이지 컴포넌트입니다.
 export function ResetPasswordPage() {
   const navigate = useNavigate();
   const store = useAppStore();

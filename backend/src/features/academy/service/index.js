@@ -1,5 +1,7 @@
+// 파일 역할: 홈페이지 애플리케이션의 한 기능을 구성하는 소스 코드입니다.
 export {
   listAcademyVideos,
+  publishDueAcademyVideosBySchedule,
   isAcademyVideoVisibleForPublic,
   listAcademyChaptersByVideoId,
   getAcademyPlaybackChapter,
@@ -27,9 +29,9 @@ export {
 
 export {
   listAcademyQna,
+  listMyAcademyQna,
   createAcademyQnaPost,
   createAcademyQnaReply,
   deleteAcademyQnaPost,
   deleteAcademyQnaReply,
 } from "./qna.service.js";
-

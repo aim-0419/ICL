@@ -1,4 +1,5 @@
-﻿import { useMemo, useRef, useState } from "react";
+// 파일 역할: 강의 목록과 관리자 강의 등록/수정 기능을 함께 제공하는 아카데미 페이지 컴포넌트입니다.
+import { useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { canRegisterLecture } from "../../../shared/auth/userRoles.js";
@@ -18,6 +19,7 @@ const DEFAULT_CATEGORY_TABS = ["전체", "입문", "초급", "중급", "고급"]
 const LECTURE_CATEGORIES = ["입문", "초급", "중급", "고급"];
 const LECTURE_BADGES = ["", "New", "Hot"];
 
+// 함수 역할: 강의 등록 폼의 기본 입력값을 생성합니다.
 function createEmptyLectureForm() {
   return {
     id: "",
@@ -34,11 +36,13 @@ function createEmptyLectureForm() {
   };
 }
 
+// 함수 역할: 안전한 number 값으로 안전하게 변환합니다.
 function toSafeNumber(value, fallback = 0) {
   const parsed = Number(String(value || "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+// 함수 역할: 재생 시간 input to 초 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseDurationInputToSeconds(value) {
   const text = String(value || "").trim();
   if (!text) return { seconds: 0, error: "" };
@@ -67,6 +71,7 @@ function parseDurationInputToSeconds(value) {
   return { seconds: 0, error: "invalid" };
 }
 
+// 함수 역할: 강의 차시 입력 폼의 기본값을 생성합니다.
 function createEmptyChapter(index) {
   return {
     key: `chapter-${Date.now()}-${index}`,
@@ -80,6 +85,7 @@ function createEmptyChapter(index) {
   };
 }
 
+// 함수 역할: 재생 시간 초 to input 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatDurationSecondsToInput(secondsValue) {
   const totalSec = Math.max(0, Math.round(Number(secondsValue) || 0));
   const minutes = Math.floor(totalSec / 60);
@@ -87,11 +93,13 @@ function formatDurationSecondsToInput(secondsValue) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+// 함수 역할: 파일 name 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeFileName(file) {
   if (!(file instanceof File)) return "";
   return String(file.name || "").trim();
 }
 
+// 함수 역할: extractMediaFileName 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function extractMediaFileName(pathValue) {
   const source = String(pathValue || "").trim();
   if (!source) return "";
@@ -107,22 +115,79 @@ function extractMediaFileName(pathValue) {
   }
 }
 
+// 함수 역할: 기본값 차시 title 조건에 해당하는지 참/거짓으로 판별합니다.
 function isDefaultChapterTitle(value) {
   return /^\d+\s*차시$/.test(String(value || "").trim());
 }
 
+// 함수 역할: publish at to 폼 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parsePublishAtToForm(publishAt) {
   const source = String(publishAt || "").trim();
   if (!source) return { publishDate: "", publishTime: "" };
 
-  const normalized = source.replace("T", " ").replace(/\.\d+$/, "").replace(/Z$/, "").trim();
+  const parsed = parsePublishAtDate(source);
+  if (parsed) {
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getDate()).padStart(2, "0");
+    const hour = String(parsed.getHours()).padStart(2, "0");
+    const minute = String(parsed.getMinutes()).padStart(2, "0");
+    return {
+      publishDate: `${year}-${month}-${day}`,
+      publishTime: `${hour}:${minute}`,
+    };
+  }
+
+  const normalized = source
+    .replace("T", " ")
+    .replace(/\.\d+$/, "")
+    .replace(/Z$/, "")
+    .trim();
   const [datePart = "", timePart = ""] = normalized.split(" ");
-  return {
-    publishDate: datePart,
-    publishTime: timePart ? timePart.slice(0, 5) : "",
-  };
+  return { publishDate: datePart, publishTime: timePart ? timePart.slice(0, 5) : "" };
 }
 
+// 함수 역할: publish at 날짜 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
+function parsePublishAtDate(publishAt) {
+  const source = String(publishAt || "").trim();
+  if (!source) return null;
+
+  const directParsed = new Date(source);
+  if (!Number.isNaN(directParsed.getTime())) {
+    return directParsed;
+  }
+
+  const normalized = source.replace(" ", "T").replace(/\.\d+$/, "");
+  const candidates = [
+    normalized,
+    normalized.length === 16 ? `${normalized}:00` : normalized,
+    normalized.endsWith("Z") ? normalized : `${normalized}Z`,
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = new Date(candidate);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+// 함수 역할: publish schedule label 값을 화면에 보여주기 좋은 문구로 변환합니다.
+function formatPublishScheduleLabel(publishAt) {
+  const parsed = parsePublishAtDate(publishAt);
+  if (!parsed) return "일시 미확인";
+  return parsed.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// 컴포넌트 역할: 강의 목록과 관리자 강의 등록/수정 기능을 함께 제공하는 아카데미 페이지 컴포넌트입니다.
 export function AcademyPage() {
   const navigate = useNavigate();
   const store = useAppStore();
@@ -137,6 +202,7 @@ export function AcademyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState({ type: "", text: "" });
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
+  const [isReservedPanelOpen, setIsReservedPanelOpen] = useState(false);
   const [editingVideoId, setEditingVideoId] = useState("");
   const [deletingVideoId, setDeletingVideoId] = useState("");
   const [visibilityVideoId, setVisibilityVideoId] = useState("");
@@ -220,6 +286,32 @@ export function AcademyPage() {
     if (!normalizedQuery) return true;
     return `${video.title} ${video.instructor} ${video.category}`.toLowerCase().includes(normalizedQuery);
   });
+  const reservedVideos = useMemo(() => {
+    const nowMs = Date.now();
+    const dedupMap = new Map();
+
+    for (const video of videos) {
+      const publishDate = parsePublishAtDate(video.publishAt);
+      if (!publishDate || publishDate.getTime() <= nowMs) continue;
+
+      const key = [
+        String(video.title || "").trim(),
+        String(video.instructor || "").trim(),
+        publishDate.toISOString(),
+      ].join("|");
+
+      if (!dedupMap.has(key)) {
+        dedupMap.set(key, { ...video, publishDate });
+      }
+    }
+
+    return [...dedupMap.values()]
+      .map((video) => {
+        const publishDate = parsePublishAtDate(video.publishAt);
+        return { ...video, publishDate };
+      })
+      .sort((a, b) => a.publishDate.getTime() - b.publishDate.getTime());
+  }, [videos]);
   const isEditMode = Boolean(editingVideoId);
 
   function updateChapter(index, patch) {
@@ -299,6 +391,11 @@ export function AcademyPage() {
       setFormMessage({ type: "", text: "" });
 
       const uploadedImagePath = imageFile ? await uploadAcademyAsset(imageFile, "image") : "";
+
+      const pendingVideoId = isEditMode
+        ? String(editingVideoId || lectureForm.id || "").trim()
+        : crypto.randomUUID();
+
       const uploadedChapters = [];
       for (const [index, chapter] of chapterInputs.entries()) {
         const normalizedTitle = String(chapter.title || "").trim();
@@ -312,7 +409,7 @@ export function AcademyPage() {
 
         let resolvedVideoPath = String(chapter.existingVideoPath || "").trim();
         if (chapter.file instanceof File) {
-          resolvedVideoPath = await uploadAcademyAsset(chapter.file, "video");
+          resolvedVideoPath = await uploadAcademyAsset(chapter.file, "video", pendingVideoId, index + 1);
         }
         if (!resolvedVideoPath) {
           if (chapter.id) {
@@ -369,7 +466,7 @@ export function AcademyPage() {
       }
 
       const created = await createAcademyVideo({
-        id: String(lectureForm.id || "").trim(),
+        id: pendingVideoId,
         title,
         instructor: String(lectureForm.instructor || "").trim(),
         category: lectureForm.category,
@@ -544,23 +641,82 @@ export function AcademyPage() {
               />
             </label>
             {canCreateLecture ? (
-              <button
-                type="button"
-                className={`ghost-button small-ghost academy-create-toggle${isCreatePanelOpen ? " active" : ""}`}
-                onClick={() => {
-                  setFormMessage({ type: "", text: "" });
-                  setIsCreatePanelOpen((prev) => {
-                    const next = !prev;
-                    if (!next) resetLectureEditorState();
-                    return next;
-                  });
-                }}
-              >
-                {isCreatePanelOpen ? "커리큘럼 편집 닫기" : "커리큘럼 등록"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className={`ghost-button small-ghost academy-reserved-toggle${isReservedPanelOpen ? " active" : ""}`}
+                  onClick={() => setIsReservedPanelOpen((prev) => !prev)}
+                >
+                  {isReservedPanelOpen
+                    ? "예약 목록 닫기"
+                    : `예약 등록 확인 (${reservedVideos.length})`}
+                </button>
+                <button
+                  type="button"
+                  className={`ghost-button small-ghost academy-create-toggle${isCreatePanelOpen ? " active" : ""}`}
+                  onClick={() => {
+                    setFormMessage({ type: "", text: "" });
+                    setIsCreatePanelOpen((prev) => {
+                      const next = !prev;
+                      if (!next) resetLectureEditorState();
+                      return next;
+                    });
+                  }}
+                >
+                  {isCreatePanelOpen ? "커리큘럼 편집 닫기" : "커리큘럼 등록"}
+                </button>
+              </>
             ) : null}
           </div>
         </section>
+
+        {canCreateLecture && isReservedPanelOpen ? (
+          <section className="dashboard-card academy-reserved-panel">
+            <div className="academy-reserved-head">
+              <h2>예약 등록 커리큘럼</h2>
+              <span className="academy-reserved-count">{reservedVideos.length}건</span>
+            </div>
+
+            {reservedVideos.length ? (
+              <div className="academy-reserved-list">
+                {reservedVideos.map((video) => (
+                  <article key={video.id} className="academy-reserved-item">
+                    <div className="academy-reserved-copy">
+                      <strong>{video.title}</strong>
+                      <p>
+                        {video.instructor} · {video.category}
+                        {video.isHidden ? " · 숨김 상태" : ""}
+                      </p>
+                    </div>
+                    <div className="academy-reserved-meta">
+                      <time dateTime={String(video.publishAt || "")}>
+                        {formatPublishScheduleLabel(video.publishAt)}
+                      </time>
+                      <button
+                        type="button"
+                        className="ghost-button small-ghost"
+                        onClick={() => handleStartEditLecture(video)}
+                        disabled={deletingVideoId === video.id}
+                      >
+                        수정
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button small-ghost academy-reserved-delete-btn"
+                        onClick={() => handleDeleteLecture(video)}
+                        disabled={deletingVideoId === video.id}
+                      >
+                        {deletingVideoId === video.id ? "삭제 중..." : "삭제"}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="academy-admin-help-text">현재 예약 등록된 커리큘럼이 없습니다.</p>
+            )}
+          </section>
+        ) : null}
 
         {canCreateLecture && isCreatePanelOpen ? (
           <section className="dashboard-card academy-admin-create">

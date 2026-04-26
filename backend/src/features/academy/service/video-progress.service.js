@@ -1,19 +1,24 @@
-﻿import { randomUUID } from "node:crypto";
+// 파일 역할: 아카데미 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
+import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../../shared/db/mysql.js";
+import { syncChapterVideoNames } from "./asset.service.js";
 
 
-const CATEGORY_SET = new Set(["?낅Ц", "珥덇툒", "以묎툒", "怨좉툒"]);
+const CATEGORY_SET = new Set(["입문", "초급", "중급", "고급"]);
 const BADGE_SET = new Set(["", "New", "Hot"]);
 
+// 함수 역할: number 값으로 안전하게 변환합니다.
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+// 함수 역할: 안전한 텍스트 값으로 안전하게 변환합니다.
 function toSafeText(value) {
   return String(value || "").trim();
 }
 
+// 함수 역할: SQL 날짜 시간 string 값으로 안전하게 변환합니다.
 function toSqlDateTimeString(value) {
   const source = toSafeText(value);
   if (!source) return "";
@@ -32,18 +37,21 @@ function toSqlDateTimeString(value) {
   return normalized;
 }
 
+// 함수 역할: category 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeCategory(value) {
   const category = toSafeText(value);
   if (CATEGORY_SET.has(category)) return category;
-  return "?낅Ц";
+  return "입문";
 }
 
+// 함수 역할: badge 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeBadge(value) {
   const badge = toSafeText(value);
   if (BADGE_SET.has(badge)) return badge;
   return "";
 }
 
+// 함수 역할: 업로드 파일 경로 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeAssetPath(value) {
   const source = toSafeText(value);
   if (!source) return "";
@@ -59,6 +67,7 @@ function normalizeAssetPath(value) {
   return "";
 }
 
+// 함수 역할: 차시 row 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeChapterRow(row) {
   return {
     id: String(row.id || ""),
@@ -73,6 +82,7 @@ function normalizeChapterRow(row) {
   };
 }
 
+// 함수 역할: 강의 영상 row 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeVideoRow(row, chapters = []) {
   const normalizedChapters = chapters
     .map(normalizeChapterRow)
@@ -84,7 +94,7 @@ function normalizeVideoRow(row, chapters = []) {
     productId: String(row.productId || ""),
     title: String(row.title || ""),
     instructor: String(row.instructor || "ICL Academy"),
-    category: String(row.category || "?낅Ц"),
+    category: normalizeCategory(row.category),
     originalPrice: toNumber(row.originalPrice),
     salePrice: toNumber(row.salePrice),
     rating: toNumber(row.rating),
@@ -105,6 +115,7 @@ const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
 const MAX_AUTOCORRECT_FUTURE_MS = 12 * 60 * 60 * 1000;
 
+// 함수 역할: 날짜 시간 for client 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeDateTimeForClient(value) {
   if (!value) return "";
 
@@ -115,7 +126,7 @@ function normalizeDateTimeForClient(value) {
 
   let timeMs = parsed.getTime();
   const futureGapMs = timeMs - Date.now();
-  // DB DATETIME瑜?UTC濡??댁꽍?섎뒗 ?섍꼍?먯꽌 KST(+9) 留뚰겮 誘몃옒濡?蹂댁씠??媛믪쓣 蹂댁젙 泥섎━
+  // 일부 환경에서 DATETIME이 UTC로 해석되어 KST 기준으로 미래 시각처럼 보이는 값을 보정
   if (futureGapMs > FUTURE_TOLERANCE_MS && futureGapMs <= MAX_AUTOCORRECT_FUTURE_MS) {
     timeMs -= KST_OFFSET_MS;
   }
@@ -123,6 +134,7 @@ function normalizeDateTimeForClient(value) {
   return new Date(timeMs).toISOString();
 }
 
+// 함수 역할: 학습 진도 row 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeProgressRow(row) {
   const currentTime = Math.max(0, Math.round(toNumber(row.currentTime)));
   const duration = Math.max(0, Math.round(toNumber(row.duration)));
@@ -146,6 +158,7 @@ function normalizeProgressRow(row) {
   };
 }
 
+// 함수 역할: 차시 학습 진도 row 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeChapterProgressRow(row) {
   const currentTime = Math.max(0, Math.round(toNumber(row.currentTime)));
   const duration = Math.max(0, Math.round(toNumber(row.duration)));
@@ -172,6 +185,7 @@ function normalizeChapterProgressRow(row) {
   };
 }
 
+// 함수 역할: 주문 요청 데이터 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseOrderPayload(payload) {
   if (!payload) return {};
   if (typeof payload === "object") return payload;
@@ -183,6 +197,52 @@ function parseOrderPayload(payload) {
   }
 }
 
+// 함수 역할: cancelled 상품 ids 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
+function parseCancelledProductIds(value) {
+  if (!value) return new Set();
+  try {
+    const arr = typeof value === "string" ? JSON.parse(value) : value;
+    if (!Array.isArray(arr)) return new Set();
+    return new Set(arr.map(toSafeText).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+// 함수 역할: duplicated scheduled 강의 영상 대상을 탐색해 반환합니다.
+async function findDuplicatedScheduledVideo({
+  title,
+  instructor,
+  publishAt,
+  excludeVideoId = "",
+}) {
+  const normalizedTitle = toSafeText(title);
+  const normalizedInstructor = toSafeText(instructor);
+  const normalizedPublishAt = toSafeText(publishAt);
+  const normalizedExcludeVideoId = toSafeText(excludeVideoId);
+
+  if (!normalizedTitle || !normalizedInstructor || !normalizedPublishAt) {
+    return null;
+  }
+
+  return queryOne(
+    `SELECT
+      av.id,
+      p.name AS title,
+      av.instructor,
+      av.publish_at AS publishAt
+     FROM academy_videos av
+     INNER JOIN products p ON p.id = av.product_id
+     WHERE p.name = ?
+       AND av.instructor = ?
+       AND av.publish_at = ?
+       AND (? = '' OR av.id <> ?)
+     LIMIT 1`,
+    [normalizedTitle, normalizedInstructor, normalizedPublishAt, normalizedExcludeVideoId, normalizedExcludeVideoId]
+  );
+}
+
+// 함수 역할: 선택된 상품 ids 항목을 모아 반환합니다.
 function collectSelectedProductIds(payload) {
   const parsed = parseOrderPayload(payload);
   const ids = new Set();
@@ -209,6 +269,7 @@ function collectSelectedProductIds(payload) {
   return ids;
 }
 
+// 함수 역할: study 기간 days 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseStudyPeriodDays(periodText) {
   const text = toSafeText(periodText);
   if (!text) return null;
@@ -225,6 +286,7 @@ function parseStudyPeriodDays(periodText) {
   return days;
 }
 
+// 함수 역할: 만료된 by 기간 조건에 해당하는지 참/거짓으로 판별합니다.
 function isExpiredByPeriod(startedAt, periodDays) {
   if (!startedAt || !Number.isFinite(periodDays) || periodDays <= 0) return false;
   const startedAtTime = new Date(startedAt).getTime();
@@ -233,6 +295,7 @@ function isExpiredByPeriod(startedAt, periodDays) {
   return Date.now() >= expiresAtTime;
 }
 
+// 함수 역할: first 학습 started at 대상을 탐색해 반환합니다.
 async function findFirstLearningStartedAt(userId, videoId) {
   const normalizedUserId = toSafeText(userId);
   const normalizedVideoId = toSafeText(videoId);
@@ -264,6 +327,7 @@ async function findFirstLearningStartedAt(userId, videoId) {
   return candidates.length ? candidates[0].toISOString() : "";
 }
 
+// 함수 역할: create 차시 요청 데이터 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeCreateChapterPayload(chaptersInput, fallbackVideoPath) {
   const rows = Array.isArray(chaptersInput) ? chaptersInput : [];
   const normalized = [];
@@ -300,6 +364,7 @@ function normalizeCreateChapterPayload(chaptersInput, fallbackVideoPath) {
   }));
 }
 
+// 함수 역할: update 차시 요청 데이터 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeUpdateChapterPayload(chaptersInput, existingChapters, fallbackVideoPath) {
   const rows = Array.isArray(chaptersInput) ? chaptersInput : [];
   const existingRows = Array.isArray(existingChapters) ? existingChapters : [];
@@ -363,10 +428,12 @@ function normalizeUpdateChapterPayload(chaptersInput, existingChapters, fallback
   }));
 }
 
+// 함수 역할: 차시 ID 데이터를 새로 생성합니다.
 function createChapterId(videoId, chapterOrder) {
   return `${videoId}-ch-${chapterOrder}`;
 }
 
+// 함수 역할: unique 차시 ID 데이터를 새로 생성합니다.
 function createUniqueChapterId(videoId, chapterOrder, reservedIds) {
   const base = createChapterId(videoId, chapterOrder);
   if (!reservedIds.has(base)) return base;
@@ -379,6 +446,7 @@ function createUniqueChapterId(videoId, chapterOrder, reservedIds) {
   }
 }
 
+// 함수 역할: upsertAcademyVideoChapters 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 async function upsertAcademyVideoChapters(videoId, chapters, existingChapters = []) {
   const normalizedVideoId = toSafeText(videoId);
   const rows = Array.isArray(chapters) ? chapters : [];
@@ -393,7 +461,7 @@ async function upsertAcademyVideoChapters(videoId, chapters, existingChapters = 
   const reservedIds = new Set(existingById.keys());
   const keptIds = new Set();
 
-  // chapter_order unique 異⑸룎???쇳븯湲??꾪빐 湲곗〈 ?쒖꽌瑜??덉쟾 援ш컙?쇰줈 癒쇱? ?대룞?쒕떎.
+  // chapter_order unique 충돌을 피하기 위해 기존 순서를 안전 구간으로 먼저 이동
   await query(
     `UPDATE academy_video_chapters
      SET chapter_order = chapter_order + 1000
@@ -481,6 +549,7 @@ async function upsertAcademyVideoChapters(videoId, chapters, existingChapters = 
   }
 }
 
+// 함수 역할: 차시 rows by 강의 영상 ids 목록을 조회해 반환합니다.
 async function listChapterRowsByVideoIds(videoIds) {
   if (!Array.isArray(videoIds) || !videoIds.length) return [];
   const placeholders = videoIds.map(() => "?").join(", ");
@@ -503,6 +572,7 @@ async function listChapterRowsByVideoIds(videoIds) {
   );
 }
 
+// 함수 역할: 기본값 차시 for 강의 영상 상태가 없을 때 생성해 항상 존재하도록 보장합니다.
 async function ensureDefaultChapterForVideo(videoId) {
   const normalizedVideoId = toSafeText(videoId);
   if (!normalizedVideoId) return null;
@@ -575,6 +645,7 @@ async function ensureDefaultChapterForVideo(videoId) {
   return normalizeChapterRow(created || {});
 }
 
+// 함수 역할: 차시별 진도를 합산해 강의 전체 진도 행을 생성하거나 갱신합니다.
 async function upsertLectureProgressFromChapterRows(userId, videoId) {
   const normalizedUserId = toSafeText(userId);
   const normalizedVideoId = toSafeText(videoId);
@@ -658,6 +729,7 @@ async function upsertLectureProgressFromChapterRows(userId, videoId) {
   return normalizeProgressRow(lectureRow || {});
 }
 
+// 함수 역할: 노출 가능한 강의와 차시 목록을 조회해 화면 표시용 데이터로 반환합니다.
 export async function listAcademyVideos({ includeHidden = false, includeUnpublished = false } = {}) {
   const whereClauses = [];
   if (!includeUnpublished) {
@@ -707,6 +779,47 @@ export async function listAcademyVideos({ includeHidden = false, includeUnpublis
   return videoRows.map((row) => normalizeVideoRow(row, chapterMap.get(String(row.id || "")) || []));
 }
 
+// 함수 역할: publishDueAcademyVideosBySchedule 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
+export async function publishDueAcademyVideosBySchedule({ limit = 100 } = {}) {
+  const normalizedLimit = Math.min(500, Math.max(1, Math.round(toNumber(limit, 100))));
+
+  const dueRows = await query(
+    `SELECT
+      av.id,
+      p.name AS title,
+      av.publish_at AS publishAt
+     FROM academy_videos av
+     INNER JOIN products p ON p.id = av.product_id
+     WHERE av.publish_at IS NOT NULL
+       AND av.publish_at > av.created_at
+       AND av.publish_at <= NOW()
+     ORDER BY av.publish_at ASC, av.id ASC
+     LIMIT ${normalizedLimit}`
+  );
+
+  if (!dueRows.length) {
+    return { publishedCount: 0, videos: [] };
+  }
+
+  const ids = dueRows.map((row) => toSafeText(row.id)).filter(Boolean);
+  if (!ids.length) {
+    return { publishedCount: 0, videos: [] };
+  }
+
+  const placeholders = ids.map(() => "?").join(", ");
+  await query(`UPDATE academy_videos SET publish_at = NULL WHERE id IN (${placeholders})`, ids);
+
+  return {
+    publishedCount: ids.length,
+    videos: dueRows.map((row) => ({
+      id: toSafeText(row.id),
+      title: toSafeText(row.title),
+      publishAt: row.publishAt ? String(row.publishAt) : "",
+    })),
+  };
+}
+
+// 함수 역할: 아카데미 강의 영상 visible for 공개 조건에 해당하는지 참/거짓으로 판별합니다.
 export async function isAcademyVideoVisibleForPublic(videoId) {
   const normalizedVideoId = toSafeText(videoId);
   if (!normalizedVideoId) return false;
@@ -724,6 +837,7 @@ export async function isAcademyVideoVisibleForPublic(videoId) {
   return Boolean(row?.id);
 }
 
+// 함수 역할: 아카데미 차시 by 강의 영상 ID 목록을 조회해 반환합니다.
 export async function listAcademyChaptersByVideoId(videoId) {
   const normalizedVideoId = toSafeText(videoId);
   if (!normalizedVideoId) return [];
@@ -750,6 +864,7 @@ export async function listAcademyChaptersByVideoId(videoId) {
   return rows.map(normalizeChapterRow);
 }
 
+// 함수 역할: 아카데미 영상 재생 차시 데이터를 조회해 호출자에게 반환합니다.
 export async function getAcademyPlaybackChapter(videoId, chapterId = "") {
   const normalizedVideoId = toSafeText(videoId);
   const normalizedChapterId = toSafeText(chapterId);
@@ -820,6 +935,7 @@ export async function getAcademyPlaybackChapter(videoId, chapterId = "") {
   };
 }
 
+// 함수 역할: 아카데미 강사 목록을 조회해 반환합니다.
 export async function listAcademyInstructors(searchText = "") {
   const normalizedSearch = toSafeText(searchText);
   const likeKeyword = `%${normalizedSearch}%`;
@@ -854,6 +970,7 @@ export async function listAcademyInstructors(searchText = "") {
   return { items, exactMatch };
 }
 
+// 함수 역할: 아카데미 강의 영상 access 존재 여부를 참/거짓으로 판별합니다.
 export async function hasAcademyVideoAccess(user, videoId) {
   const normalizedVideoId = toSafeText(videoId);
   if (!user?.id || !normalizedVideoId) return false;
@@ -887,7 +1004,7 @@ export async function hasAcademyVideoAccess(user, videoId) {
   if (!email) return false;
 
   const orderRows = await query(
-    `SELECT payload
+    `SELECT payload, cancelled_product_ids AS cancelledProductIds
      FROM orders
      WHERE customer_email = ?`,
     [email]
@@ -895,13 +1012,26 @@ export async function hasAcademyVideoAccess(user, videoId) {
 
   const purchased = orderRows.some((row) => {
     const selectedProductIds = collectSelectedProductIds(row.payload);
+    const cancelledIds = parseCancelledProductIds(row.cancelledProductIds);
+    const targetProductId = String(videoRow.productId);
+    const targetVideoId = String(videoRow.id);
     return (
-      selectedProductIds.has(String(videoRow.productId)) ||
-      selectedProductIds.has(String(videoRow.id))
+      (selectedProductIds.has(targetProductId) && !cancelledIds.has(targetProductId)) ||
+      (selectedProductIds.has(targetVideoId) && !cancelledIds.has(targetVideoId))
     );
   });
 
-  if (!purchased) return false;
+  if (!purchased) {
+    const grantRows = await query(
+      `SELECT id FROM video_grants
+       WHERE user_id = ? AND video_id = ?
+         AND (expires_at IS NULL OR expires_at > NOW())
+       LIMIT 1`,
+      [String(user.id || ""), normalizedVideoId]
+    );
+    if (!Array.isArray(grantRows) || grantRows.length === 0) return false;
+    return true;
+  }
 
   const periodDays = parseStudyPeriodDays(videoRow.period);
   if (!periodDays) {
@@ -910,13 +1040,14 @@ export async function hasAcademyVideoAccess(user, videoId) {
 
   const firstStartedAt = await findFirstLearningStartedAt(user.id, normalizedVideoId);
   if (!firstStartedAt) {
-    // 援щℓ留??섍퀬 ?꾩쭅 泥??섍컯 ?꾩씠硫?湲곌컙 移댁슫???쒖옉 ?꾩쑝濡?蹂몃떎.
+    // 구매만 하고 아직 첫 수강 전이면 수강기간 카운트 시작 전으로 본다.
     return true;
   }
 
   return !isExpiredByPeriod(firstStartedAt, periodDays);
 }
 
+// 함수 역할: 아카데미 미리보기 차시 access 존재 여부를 참/거짓으로 판별합니다.
 export async function hasAcademyPreviewChapterAccess(videoId, chapterId = "") {
   const normalizedVideoId = toSafeText(videoId);
   const normalizedChapterId = toSafeText(chapterId);
@@ -950,13 +1081,14 @@ export async function hasAcademyPreviewChapterAccess(videoId, chapterId = "") {
   return Boolean(previewChapter?.id);
 }
 
+// 함수 역할: 관리자 입력값을 검증한 뒤 상품, 강의, 차시 데이터를 새로 등록합니다.
 export async function createAcademyVideo(payload) {
   const explicitId = toSafeText(payload?.id);
   const productId = explicitId || `video-${Date.now()}`;
 
   const title = toSafeText(payload?.title || payload?.name);
   const description = toSafeText(payload?.description);
-  const period = toSafeText(payload?.period) || "臾댁젣???섍컯";
+  const period = toSafeText(payload?.period) || "무제한 수강";
 
   const salePrice = Math.max(0, Math.round(toNumber(payload?.salePrice ?? payload?.price)));
   const originalPriceRaw = Math.round(toNumber(payload?.originalPrice, salePrice));
@@ -978,26 +1110,39 @@ export async function createAcademyVideo(payload) {
   const publishAt = toSqlDateTimeString(rawPublishAt);
 
   if (!title) {
-    const error = new Error("媛뺤쓽紐낆쓣 ?낅젰??二쇱꽭??");
+    const error = new Error("강의명을 입력해 주세요.");
     error.status = 400;
     throw error;
   }
 
   if (!chapters.length || !primaryVideoPath) {
-    const error = new Error("理쒖냼 1媛??댁긽??李⑥떆 ?곸긽???꾩슂?⑸땲??");
+    const error = new Error("최소 1개 이상의 차시 영상을 등록해 주세요.");
     error.status = 400;
     throw error;
   }
 
   if (rawPublishAt && !publishAt) {
-    const error = new Error("?덉빟 ?깅줉?쇱떆 ?뺤떇???щ컮瑜댁? ?딆뒿?덈떎.");
+    const error = new Error("예약 등록일시 형식이 올바르지 않습니다.");
     error.status = 400;
     throw error;
   }
 
+  if (publishAt) {
+    const duplicatedScheduled = await findDuplicatedScheduledVideo({
+      title,
+      instructor,
+      publishAt,
+    });
+    if (duplicatedScheduled?.id) {
+      const error = new Error("같은 강사/커리큘럼/예약시간으로 이미 등록된 항목이 있습니다.");
+      error.status = 409;
+      throw error;
+    }
+  }
+
   const duplicatedProduct = await queryOne(`SELECT id FROM products WHERE id = ? LIMIT 1`, [productId]);
   if (duplicatedProduct) {
-    const error = new Error("?대? ?ъ슜 以묒씤 媛뺤쓽 ID?낅땲??");
+    const error = new Error("이미 사용 중인 강의 ID입니다.");
     error.status = 409;
     throw error;
   }
@@ -1122,10 +1267,11 @@ export async function createAcademyVideo(payload) {
   return normalizeVideoRow(row || {}, chapterRows);
 }
 
+// 함수 역할: 기존 강의의 상품 정보, 노출 정보, 차시 목록을 수정합니다.
 export async function updateAcademyVideo(videoId, payload) {
   const normalizedVideoId = toSafeText(videoId);
   if (!normalizedVideoId) {
-    const error = new Error("媛뺤쓽 ID媛 ?щ컮瑜댁? ?딆뒿?덈떎.");
+    const error = new Error("강의 ID가 올바르지 않습니다.");
     error.status = 400;
     throw error;
   }
@@ -1135,7 +1281,7 @@ export async function updateAcademyVideo(videoId, payload) {
     [normalizedVideoId]
   );
   if (!existing) {
-    const error = new Error("議댁옱?섏? ?딅뒗 媛뺤쓽?낅땲??");
+    const error = new Error("존재하지 않는 강의입니다.");
     error.status = 404;
     throw error;
   }
@@ -1160,13 +1306,13 @@ export async function updateAcademyVideo(videoId, payload) {
 
   const title = toSafeText(payload?.title || payload?.name);
   if (!title) {
-    const error = new Error("媛뺤쓽紐낆쓣 ?낅젰??二쇱꽭??");
+    const error = new Error("강의명을 입력해 주세요.");
     error.status = 400;
     throw error;
   }
 
   const description = toSafeText(payload?.description);
-  const period = toSafeText(payload?.period) || "臾댁젣???섍컯";
+  const period = toSafeText(payload?.period) || "무제한 수강";
   const salePrice = Math.max(0, Math.round(toNumber(payload?.salePrice ?? payload?.price)));
   const originalPriceRaw = Math.round(toNumber(payload?.originalPrice, salePrice));
   const originalPrice = Math.max(salePrice, originalPriceRaw);
@@ -1180,7 +1326,7 @@ export async function updateAcademyVideo(videoId, payload) {
 
   const hasChapterField = Object.prototype.hasOwnProperty.call(payload || {}, "chapters");
   if (hasChapterField && !Array.isArray(payload?.chapters)) {
-    const error = new Error("李⑥떆 紐⑸줉 ?뺤떇???щ컮瑜댁? ?딆뒿?덈떎.");
+    const error = new Error("차시 목록 형식이 올바르지 않습니다.");
     error.status = 400;
     throw error;
   }
@@ -1194,7 +1340,7 @@ export async function updateAcademyVideo(videoId, payload) {
     : [];
 
   if (hasChapterField && !nextChapters.length) {
-    const error = new Error("理쒖냼 1媛??댁긽??李⑥떆 ?곸긽???꾩슂?⑸땲??");
+    const error = new Error("최소 1개 이상의 차시 영상을 등록해 주세요.");
     error.status = 400;
     throw error;
   }
@@ -1204,9 +1350,23 @@ export async function updateAcademyVideo(videoId, payload) {
     : explicitVideoPath;
 
   if (rawPublishAt && !publishAt) {
-    const error = new Error("?덉빟 ?깅줉?쇱떆 ?뺤떇???щ컮瑜댁? ?딆뒿?덈떎.");
+    const error = new Error("예약 등록일시 형식이 올바르지 않습니다.");
     error.status = 400;
     throw error;
+  }
+
+  if (publishAt) {
+    const duplicatedScheduled = await findDuplicatedScheduledVideo({
+      title,
+      instructor,
+      publishAt,
+      excludeVideoId: normalizedVideoId,
+    });
+    if (duplicatedScheduled?.id) {
+      const error = new Error("같은 강사/커리큘럼/예약시간으로 이미 등록된 항목이 있습니다.");
+      error.status = 409;
+      throw error;
+    }
   }
 
   await query(
@@ -1240,6 +1400,7 @@ export async function updateAcademyVideo(videoId, payload) {
   );
 
   if (hasChapterField) {
+    await syncChapterVideoNames(normalizedVideoId, nextChapters);
     await upsertAcademyVideoChapters(normalizedVideoId, nextChapters, existingChapters);
   }
 
@@ -1288,10 +1449,11 @@ export async function updateAcademyVideo(videoId, payload) {
   return normalizeVideoRow(row || {}, chapterRows);
 }
 
+// 함수 역할: 강의와 연결 상품을 삭제해 관련 차시도 함께 정리합니다.
 export async function deleteAcademyVideo(videoId) {
   const normalizedVideoId = toSafeText(videoId);
   if (!normalizedVideoId) {
-    const error = new Error("媛뺤쓽 ID媛 ?щ컮瑜댁? ?딆뒿?덈떎.");
+    const error = new Error("강의 ID가 올바르지 않습니다.");
     error.status = 400;
     throw error;
   }
@@ -1301,7 +1463,7 @@ export async function deleteAcademyVideo(videoId) {
     [normalizedVideoId]
   );
   if (!existing) {
-    const error = new Error("議댁옱?섏? ?딅뒗 媛뺤쓽?낅땲??");
+    const error = new Error("존재하지 않는 강의입니다.");
     error.status = 404;
     throw error;
   }
@@ -1312,10 +1474,11 @@ export async function deleteAcademyVideo(videoId) {
   return { id: normalizedVideoId };
 }
 
+// 함수 역할: 강의의 숨김/노출 상태를 변경합니다.
 export async function setAcademyVideoHidden(videoId, isHidden) {
   const normalizedVideoId = toSafeText(videoId);
   if (!normalizedVideoId) {
-    const error = new Error("媛뺤쓽 ID媛 ?щ컮瑜댁? ?딆뒿?덈떎.");
+    const error = new Error("강의 ID가 올바르지 않습니다.");
     error.status = 400;
     throw error;
   }
@@ -1325,7 +1488,7 @@ export async function setAcademyVideoHidden(videoId, isHidden) {
     [normalizedVideoId]
   );
   if (!existing) {
-    const error = new Error("議댁옱?섏? ?딅뒗 媛뺤쓽?낅땲??");
+    const error = new Error("존재하지 않는 강의입니다.");
     error.status = 404;
     throw error;
   }
@@ -1340,6 +1503,7 @@ export async function setAcademyVideoHidden(videoId, isHidden) {
   return { id: normalizedVideoId, isHidden: Boolean(isHidden) };
 }
 
+// 함수 역할: 회원별 강의 전체 진도 목록을 조회합니다.
 export async function listAcademyProgressByUserId(userId) {
   const normalizedUserId = toSafeText(userId);
   if (!normalizedUserId) return [];
@@ -1362,6 +1526,7 @@ export async function listAcademyProgressByUserId(userId) {
   return rows.map(normalizeProgressRow);
 }
 
+// 함수 역할: 회원별 차시 진도 목록을 조회합니다.
 export async function listAcademyChapterProgressByUserId(userId, videoId = "") {
   const normalizedUserId = toSafeText(userId);
   const normalizedVideoId = toSafeText(videoId);
@@ -1390,6 +1555,7 @@ export async function listAcademyChapterProgressByUserId(userId, videoId = "") {
   return rows.map(normalizeChapterProgressRow);
 }
 
+// 함수 역할: 회원의 특정 차시 시청 위치와 완료 여부를 저장합니다.
 export async function saveAcademyChapterProgress({
   userId,
   videoId,
@@ -1403,7 +1569,7 @@ export async function saveAcademyChapterProgress({
   const normalizedChapterId = toSafeText(chapterId);
 
   if (!normalizedUserId || !normalizedVideoId) {
-    const error = new Error("?숈뒿 吏꾨룄瑜???ν븷 ????뺣낫媛 ?щ컮瑜댁? ?딆뒿?덈떎.");
+    const error = new Error("학습 진도를 저장할 대상 정보가 올바르지 않습니다.");
     error.status = 400;
     throw error;
   }
@@ -1417,7 +1583,7 @@ export async function saveAcademyChapterProgress({
   );
 
   if (!targetVideo?.id) {
-    const error = new Error("???媛뺤쓽瑜?李얠쓣 ???놁뒿?덈떎.");
+    const error = new Error("대상 강의를 찾을 수 없습니다.");
     error.status = 404;
     throw error;
   }
@@ -1461,7 +1627,7 @@ export async function saveAcademyChapterProgress({
       );
 
   if (!chapter?.id) {
-    const error = new Error("??ν븷 李⑥떆 ?뺣낫瑜?李얠쓣 ???놁뒿?덈떎.");
+    const error = new Error("저장할 차시 정보를 찾을 수 없습니다.");
     error.status = 404;
     throw error;
   }
@@ -1540,6 +1706,7 @@ export async function saveAcademyChapterProgress({
   };
 }
 
+// 함수 역할: 이전 단일 강의 진도 API와 호환되도록 차시 진도 저장 후 강의 전체 진도를 반환합니다.
 export async function saveAcademyProgress({
   userId,
   videoId,
@@ -1567,4 +1734,3 @@ export async function saveAcademyProgress({
     createdAt: "",
   };
 }
-

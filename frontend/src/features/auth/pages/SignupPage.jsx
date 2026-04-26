@@ -1,8 +1,10 @@
-﻿import { useState } from "react";
+// 파일 역할: 신규 회원 가입 입력과 제출을 처리하는 페이지 컴포넌트입니다.
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
+// 컴포넌트 역할: 신규 회원 가입 입력과 제출을 처리하는 페이지 컴포넌트입니다.
 export function SignupPage() {
   const navigate = useNavigate();
   const store = useAppStore();

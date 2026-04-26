@@ -1,9 +1,11 @@
-﻿import { useEffect, useState } from "react";
+// 파일 역할: BrandPages 화면의 UI, 상태, API 연동 흐름을 담당합니다.
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { canEditPage } from "../../../shared/auth/userRoles.js";
 
+// 컴포넌트 역할: BrandPageLayout 컴포넌트의 화면 구조와 상호작용 상태를 렌더링합니다.
 function BrandPageLayout({ kicker, title, description, points }) {
   return (
     <div className="site-shell">
@@ -27,6 +29,7 @@ function BrandPageLayout({ kicker, title, description, points }) {
   );
 }
 
+// 컴포넌트 역할: BrandIntroPage 화면을 렌더링하고 필요한 API 호출과 사용자 입력 상태를 관리합니다.
 export function BrandIntroPage() {
   const specialityCards = [
     {
@@ -205,6 +208,7 @@ const DEFAULT_INSTRUCTORS = [
   },
 ];
 
+// 컴포넌트 역할: BrandInstructorsPage 화면을 렌더링하고 필요한 API 호출과 사용자 입력 상태를 관리합니다.
 export function BrandInstructorsPage() {
   const store = useAppStore();
   const isAdmin = canEditPage(store?.currentUser);
@@ -333,6 +337,7 @@ export function BrandInstructorsPage() {
   );
 }
 
+// 컴포넌트 역할: BrandTourPage 화면을 렌더링하고 필요한 API 호출과 사용자 입력 상태를 관리합니다.
 export function BrandTourPage() {
   const galleryItems = [
     { id: "01", name: "로비 & 웰컴 라운지" },
@@ -391,6 +396,7 @@ export function BrandTourPage() {
   );
 }
 
+// 컴포넌트 역할: BrandEquipmentPage 화면을 렌더링하고 필요한 API 호출과 사용자 입력 상태를 관리합니다.
 export function BrandEquipmentPage() {
   const equipmentItems = Array.from({ length: 5 }, (_, index) => ({
     id: `equipment-slot-${index + 1}`,
@@ -457,6 +463,7 @@ const DEFAULT_BRANCHES = [
   },
 ];
 
+// 함수 역할: 지점 맵 urls 구조나 문구를 조립해 반환합니다.
 function buildBranchMapUrls(branch) {
   const lat = Number(branch.lat);
   const lng = Number(branch.lng);
@@ -468,6 +475,7 @@ function buildBranchMapUrls(branch) {
   };
 }
 
+// 컴포넌트 역할: BrandDirectionsPage 화면을 렌더링하고 필요한 API 호출과 사용자 입력 상태를 관리합니다.
 export function BrandDirectionsPage() {
   const [branches, setBranches] = useState(DEFAULT_BRANCHES);
 

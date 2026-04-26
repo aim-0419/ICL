@@ -1,5 +1,7 @@
-﻿import { Link } from "react-router-dom";
+// 파일 역할: 사이트 하단 브랜드 정보와 고객 안내 영역을 렌더링합니다.
+import { Link } from "react-router-dom";
 
+// 컴포넌트 역할: 공통 푸터 영역을 렌더링합니다.
 export function SiteFooter() {
   return (
     <footer className="site-footer">

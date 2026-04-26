@@ -1,3 +1,4 @@
+// 파일 역할: Express 앱을 만들고 공통 미들웨어, 정적 업로드, 기능별 API 라우터, 에러 핸들러를 연결합니다.
 import cors from "cors";
 import express from "express";
 import path from "node:path";
@@ -13,12 +14,14 @@ import { communityRoutes } from "./features/community/community.routes.js";
 import { adminRoutes } from "./features/admin/admin.routes.js";
 import { academyRoutes } from "./features/academy/academy.routes.js";
 import { brandRoutes } from "./features/brand/brand.routes.js";
+import { refundsRoutes } from "./features/refunds/refunds.routes.js";
 import { pingDatabase } from "./shared/db/mysql.js";
 import { errorHandler, notFoundHandler } from "./shared/middlewares/error-handler.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadRoot = path.resolve(__dirname, "..", "uploads");
 
+// 함수 역할: Express 인스턴스를 만들고 CORS, JSON 파서, 기능별 API 라우터, 업로드 정적 경로를 등록합니다.
 export function createApp() {
   const app = express();
 
@@ -58,6 +61,7 @@ export function createApp() {
   app.use("/api/admin", adminRoutes);
   app.use("/api/academy", academyRoutes);
   app.use("/api/brand", brandRoutes);
+  app.use("/api/refunds", refundsRoutes);
   app.use("/uploads/academy/videos", (req, res) => {
     res.status(403).json({ message: "직접 영상 접근이 차단되었습니다. 보안 재생 링크를 사용해 주세요." });
   });

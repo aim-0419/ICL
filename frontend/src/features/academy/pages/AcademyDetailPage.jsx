@@ -1,3 +1,4 @@
+// 파일 역할: 선택한 강의의 상세 정보, 차시 목록, 후기, Q&A, 구매/수강 진입을 제공하는 페이지 컴포넌트입니다.
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
@@ -10,7 +11,9 @@ import {
   deleteAcademyReview,
 } from "../api/academyApi.js";
 import { collectPurchasedVideoProductIds } from "../lib/purchases.js";
+import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 
+// 함수 역할: detail 전체 재생 시간 값을 계산합니다.
 function calcDetailTotalDuration(chapters) {
   if (!Array.isArray(chapters) || chapters.length === 0) return null;
   const totalSec = chapters.reduce((sum, ch) => sum + Math.max(0, Number(ch.durationSec || 0)), 0);
@@ -22,6 +25,7 @@ function calcDetailTotalDuration(chapters) {
   return `${minutes}분`;
 }
 
+// 컴포넌트 역할: 후기 평점 입력과 읽기 전용 별점을 렌더링합니다.
 function StarRating({ value, onChange, readOnly = false }) {
   return (
     <div className="star-rating">
@@ -96,6 +100,7 @@ const DETAIL_SUMMARY = {
   },
 };
 
+// 함수 역할: 대체값 차시 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveFallbackChapter(video) {
   return [
     {
@@ -107,6 +112,7 @@ function resolveFallbackChapter(video) {
   ];
 }
 
+// 컴포넌트 역할: 선택한 강의의 상세 정보, 차시 목록, 후기, Q&A, 구매/수강 진입을 제공하는 페이지 컴포넌트입니다.
 export function AcademyDetailPage() {
   const { videoId } = useParams();
   const navigate = useNavigate();
@@ -181,6 +187,12 @@ export function AcademyDetailPage() {
   const relatedVideos = videos
     .filter((item) => item.id !== video.id && item.category === video.category)
     .slice(0, 3);
+
+  const isAdminUser = isAdminStaff(store.currentUser);
+  const purchasedIds = store.currentUser
+    ? collectPurchasedVideoProductIds(store.orders, store.currentUser.email)
+    : new Set();
+  const hasPurchased = purchasedIds.has(String(video.productId || video.id));
 
   return (
     <div className="site-shell">
@@ -324,7 +336,9 @@ export function AcademyDetailPage() {
         <section className="academy-reviews-section">
           <h2>수강 후기 {reviews.length > 0 ? `(${reviews.length})` : ""}</h2>
 
-          {store.currentUser ? (
+          {!store.currentUser ? (
+            <p className="review-login-notice">후기를 남기려면 로그인해 주세요.</p>
+          ) : hasPurchased || isAdminUser ? (
             <form className="review-write-form" onSubmit={handleReviewSubmit}>
               <div className="review-form-row">
                 <StarRating value={reviewForm.rating} onChange={(r) => setReviewForm((prev) => ({ ...prev, rating: r }))} />
@@ -345,7 +359,7 @@ export function AcademyDetailPage() {
               </button>
             </form>
           ) : (
-            <p className="review-login-notice">후기를 남기려면 로그인해 주세요.</p>
+            <p className="review-login-notice">강의를 구매한 수강생만 후기를 작성할 수 있습니다.</p>
           )}
 
           <div className="review-list">
@@ -354,6 +368,7 @@ export function AcademyDetailPage() {
             ) : (
               reviews.map((review) => {
                 const isMyReview = store.currentUser && String(review.userId) === String(store.currentUser.id);
+                const canDelete = isMyReview || isAdminUser;
                 return (
                   <article key={review.id} className="review-item">
                     <div className="review-item-header">
@@ -364,7 +379,7 @@ export function AcademyDetailPage() {
                           {new Date(review.createdAt).toLocaleDateString("ko-KR")}
                         </span>
                       </div>
-                      {isMyReview ? (
+                      {canDelete ? (
                         <button type="button" className="review-delete-btn" onClick={() => handleDeleteReview(review.id)}>
                           삭제
                         </button>

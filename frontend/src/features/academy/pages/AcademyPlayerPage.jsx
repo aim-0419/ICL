@@ -1,3 +1,4 @@
+// 파일 역할: 강의 영상을 재생하고 차시별 학습 진도를 저장하는 수강 플레이어 페이지 컴포넌트입니다.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
@@ -30,12 +31,14 @@ const WATERMARK_POSITION_CLASSES = [
   "is-bottom-center",
 ];
 
+// 함수 역할: 날짜 시간 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString("ko-KR");
 }
 
+// 함수 역할: 대체값 차시 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveFallbackChapter(video) {
   return {
     id: `${video.id}-ch-1`,
@@ -48,6 +51,7 @@ function resolveFallbackChapter(video) {
   };
 }
 
+// 함수 역할: 초 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatSeconds(seconds) {
   const s = Math.max(0, Math.round(seconds));
   const m = Math.floor(s / 60);
@@ -57,6 +61,7 @@ function formatSeconds(seconds) {
   return `${s}초`;
 }
 
+// 함수 역할: 최신 watched 차시 데이터를 조회해 호출자에게 반환합니다.
 function getLatestWatchedChapter(chapters) {
   const watched = chapters
     .filter((chapter) => chapter.lastWatchedAt)
@@ -64,6 +69,7 @@ function getLatestWatchedChapter(chapters) {
   return watched[0] || chapters[0] || null;
 }
 
+// 함수 역할: offer resume 동작이 필요한 상황인지 판별합니다.
 function shouldOfferResume(currentTime, duration) {
   const watchedSec = Math.max(0, Math.round(Number(currentTime || 0)));
   if (watchedSec <= RESUME_MIN_SECONDS) return false;
@@ -77,6 +83,7 @@ function shouldOfferResume(currentTime, duration) {
   return true;
 }
 
+// 함수 역할: 전체 재생 시간 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatTotalDuration(seconds) {
   const s = Math.max(0, Math.round(Number(seconds) || 0));
   if (s < 60) return `${s}초`;
@@ -88,6 +95,7 @@ function formatTotalDuration(seconds) {
   return `${totalMinutes}분`;
 }
 
+// 함수 역할: course 전체 sec 값을 계산합니다.
 function calcCourseTotalSec(chapters) {
   return (Array.isArray(chapters) ? chapters : []).reduce(
     (sum, ch) => sum + Math.max(0, Number(ch.durationSec || ch.duration || 0)),
@@ -95,6 +103,7 @@ function calcCourseTotalSec(chapters) {
   );
 }
 
+// 함수 역할: course 남은 sec 값을 계산합니다.
 function calcCourseRemainingSec(chapters) {
   return (Array.isArray(chapters) ? chapters : []).reduce((sum, ch) => {
     if (ch.completed) return sum;
@@ -104,6 +113,7 @@ function calcCourseRemainingSec(chapters) {
   }, 0);
 }
 
+// 함수 역할: study 기간 days 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseStudyPeriodDays(periodText) {
   if (!periodText) return null;
   const text = String(periodText).trim();
@@ -112,6 +122,7 @@ function parseStudyPeriodDays(periodText) {
   return match ? Number(match[1]) : null;
 }
 
+// 함수 역할: enrollment expiry 값을 계산합니다.
 function calcEnrollmentExpiry(orders, videoProductId, periodText) {
   const periodDays = parseStudyPeriodDays(periodText);
   if (periodDays === null) return { type: "unlimited" };
@@ -152,6 +163,7 @@ function calcEnrollmentExpiry(orders, videoProductId, periodText) {
   return { type: "timed", expiryDate, expiryLabel, daysLeft };
 }
 
+// 컴포넌트 역할: 강의 영상을 재생하고 차시별 학습 진도를 저장하는 수강 플레이어 페이지 컴포넌트입니다.
 export function AcademyPlayerPage() {
   const { videoId } = useParams();
   const navigate = useNavigate();

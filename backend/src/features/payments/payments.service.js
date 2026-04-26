@@ -1,10 +1,13 @@
+// 파일 역할: 결제 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { env } from "../../config/env.js";
 
+// 함수 역할: 금액 number 값으로 안전하게 변환합니다.
 function toAmountNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// 함수 역할: paid 금액에서 필요한 항목만 골라냅니다.
 function pickPaidAmount(portonePayment) {
   // PortOne 응답 구조 변화에 대비해 amount 필드를 유연하게 파싱
   const candidates = [
@@ -16,6 +19,7 @@ function pickPaidAmount(portonePayment) {
   return candidates.map(toAmountNumber).find((amount) => amount > 0) || 0;
 }
 
+// 함수 역할: status에서 필요한 항목만 골라냅니다.
 function pickStatus(portonePayment) {
   return (
     portonePayment?.status ||
@@ -25,6 +29,7 @@ function pickStatus(portonePayment) {
   );
 }
 
+// 함수 역할: portone 결제 데이터를 조회해 호출자에게 반환합니다.
 async function getPortonePayment(paymentId) {
   if (!env.portoneApiSecret) {
     const error = new Error("PORTONE_API_SECRET 값이 설정되지 않았습니다.");
@@ -53,6 +58,7 @@ async function getPortonePayment(paymentId) {
   return body?.payment ?? body;
 }
 
+// 함수 역할: confirmPayment 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function confirmPayment(payload) {
   const paymentId = String(payload?.paymentId || "");
   const orderId = String(payload?.orderId || "");
@@ -90,4 +96,40 @@ export async function confirmPayment(payload) {
     amount: paidAmount,
     status,
   };
+}
+
+// 함수 역할: portone 결제 권한이 있는지 참/거짓으로 판별합니다.
+export async function cancelPortonePayment(paymentId, reason, cancelAmount = null) {
+  if (!env.portoneApiSecret) {
+    const error = new Error("PORTONE_API_SECRET 값이 설정되지 않았습니다.");
+    error.status = 500;
+    throw error;
+  }
+
+  const body = { reason: reason || "고객 요청 환불" };
+  if (cancelAmount != null && cancelAmount > 0) {
+    body.amount = Math.round(cancelAmount);
+  }
+
+  const response = await fetch(
+    `${env.portoneApiBaseUrl.replace(/\/$/, "")}/payments/${encodeURIComponent(paymentId)}/cancel`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `PortOne ${env.portoneApiSecret}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  );
+
+  const resBody = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = new Error(resBody?.message || "PortOne 결제 취소에 실패했습니다.");
+    error.status = response.status || 502;
+    throw error;
+  }
+
+  return resBody;
 }

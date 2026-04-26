@@ -1,3 +1,4 @@
+// 파일 역할: 로그인 사용자, 장바구니, 주문, 강의, 진도 등 앱 전역 상태를 관리합니다.
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api/client.js";
 import {
@@ -55,10 +56,12 @@ const DEFAULT_ACADEMY_VIDEOS = ACADEMY_VIDEOS.map((video) => ({
   videoUrl: video.videoUrl || getAcademyPlaybackSourceByVideoId(video.id),
 }));
 
+// 함수 역할: 상품 맵 값으로 안전하게 변환합니다.
 function toProductMap(products) {
   return Object.fromEntries(products.map((item) => [item.id, item]));
 }
 
+// 함수 역할: 통화 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatCurrency(amount) {
   return new Intl.NumberFormat("ko-KR", {
     style: "currency",
@@ -67,6 +70,7 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
+// 함수 역할: 학습 진도 항목 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeProgressItem(item) {
   const duration = Number(item?.duration || 0);
   const currentTime = Number(item?.currentTime || 0);
@@ -88,6 +92,7 @@ function normalizeProgressItem(item) {
   };
 }
 
+// 함수 역할: 차시 학습 진도 항목 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeChapterProgressItem(item) {
   const duration = Number(item?.duration || 0);
   const currentTime = Number(item?.currentTime || 0);
@@ -114,6 +119,7 @@ function normalizeChapterProgressItem(item) {
 
 // AppProvider는 로그인 사용자, 장바구니, 주문, 강의 목록처럼
 // 여러 페이지에서 함께 쓰는 데이터를 한곳에서 관리한다.
+// 컴포넌트 역할: 전역 상태와 액션을 준비해 하위 컴포넌트에서 공유할 수 있게 제공합니다.
 export function AppProvider({ children }) {
   const [products, setProducts] = useState(() => FALLBACK_PRODUCT_MAP);
   const [academyVideos, setAcademyVideos] = useState([]);
@@ -586,6 +592,7 @@ export function AppProvider({ children }) {
   );
 }
 
+// 함수 역할: 전역 앱 컨텍스트를 안전하게 꺼내 쓰기 위한 커스텀 훅입니다.
 export function useAppStore() {
   return useContext(AppContext);
 }

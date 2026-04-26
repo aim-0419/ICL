@@ -1,5 +1,6 @@
-﻿import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+// 파일 역할: 관리자가 회원 목록, 등급, 학습 현황, 환불 상태를 확인하고 관리하는 페이지 컴포넌트입니다.
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
 import {
@@ -16,6 +17,7 @@ const LEARNING_RANGE_OPTIONS = [
   { value: "30d", label: "최근 30일" },
 ];
 
+// 함수 역할: 날짜 시간 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatDateTime(value) {
   if (value === null || value === undefined) return "-";
   const source = String(value).trim();
@@ -28,11 +30,13 @@ function formatDateTime(value) {
   return date.toLocaleString("ko-KR");
 }
 
+// 함수 역할: 금액 값으로 안전하게 변환합니다.
 function toAmount(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// 함수 역할: 환불 presentation 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveRefundPresentation(purchase) {
   const grossAmount = Math.max(0, toAmount(purchase?.grossAmount ?? purchase?.amount));
   const refundAmount = Math.max(0, toAmount(purchase?.refundAmount));
@@ -56,8 +60,10 @@ function resolveRefundPresentation(purchase) {
   return { grossAmount, refundAmount, netAmount, refundableAmount, refundStatus, statusLabel };
 }
 
+// 컴포넌트 역할: 관리자가 회원 목록, 등급, 학습 현황, 환불 상태를 확인하고 관리하는 페이지 컴포넌트입니다.
 export function AdminDashboardPage() {
   const store = useAppStore();
+  const navigate = useNavigate();
   const currentUser = store.currentUser;
   const canManageGrades = canManageUserGrades(currentUser);
 
@@ -328,6 +334,9 @@ export function AdminDashboardPage() {
           <Link className="admin-dashboard-switch-link active" to="/admin/members">
             회원 관리
           </Link>
+          <Link className="admin-dashboard-switch-link" to="/admin/refunds">
+            환불 관리
+          </Link>
         </section>
 
         <section className="dashboard-hero mypage-hero-card">
@@ -444,6 +453,17 @@ export function AdminDashboardPage() {
                             onClick={() => handleTogglePurchase(user.id)}
                           >
                             {isPurchaseOpen ? "구매 이력 닫기" : "구매 이력 보기"}
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button small-ghost"
+                            onClick={() =>
+                              navigate(`/admin/members/${encodeURIComponent(user.id)}/gift-videos`, {
+                                state: { userName: user.name, userEmail: user.email },
+                              })
+                            }
+                          >
+                            영상 선물하기
                           </button>
                         </div>
 

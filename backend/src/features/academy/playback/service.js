@@ -1,3 +1,4 @@
+// 파일 역할: 아카데미 영상 보안 재생을 위한 세션, 토큰, 파일 경로 처리 로직을 담당합니다.
 import { stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { query } from "../../../shared/db/mysql.js";
@@ -22,6 +23,7 @@ import {
 } from "./session.repository.js";
 
 // 재생 세션 유효성 검증 로직
+// 함수 역할: 재생 세션 상태, 만료 시간, 토큰 소유자가 모두 유효한지 검사합니다.
 function assertValidSessionState(sessionRow, tokenPayload, requestUserId = "") {
   if (!sessionRow?.id) {
     throw createHttpError(401, "재생 세션이 유효하지 않습니다.", "PLAYBACK_SESSION_NOT_FOUND");
@@ -56,6 +58,7 @@ function assertValidSessionState(sessionRow, tokenPayload, requestUserId = "") {
 }
 
 // 재생 세션 발급 로직
+// 함수 역할: 수강 권한을 확인한 뒤 단일 재생 세션과 재생 토큰을 발급합니다.
 export async function issueAcademyPlaybackSession({
   user,
   videoId,
@@ -146,6 +149,7 @@ export async function issueAcademyPlaybackSession({
 }
 
 // 재생 세션 heartbeat 갱신 로직
+// 함수 역할: 재생 중인 세션의 활동 시간을 갱신하고 토큰 유효성을 확인합니다.
 export async function heartbeatAcademyPlaybackSession({ token, user }) {
   await markExpiredPlaybackSessions();
 
@@ -167,6 +171,7 @@ export async function heartbeatAcademyPlaybackSession({ token, user }) {
 }
 
 // 스트리밍 파일 해석 및 세션 갱신 로직
+// 함수 역할: 재생 토큰과 차시 정보를 검증한 뒤 실제 영상 파일 스트림 정보를 반환합니다.
 export async function resolveAcademyPlaybackStream({ chapterId, token, user }) {
   await markExpiredPlaybackSessions();
 

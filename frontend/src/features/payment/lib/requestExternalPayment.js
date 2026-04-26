@@ -1,3 +1,4 @@
+// 파일 역할: 외부 결제 SDK 호출과 백엔드 결제 승인 연결을 담당합니다.
 import { requestPayment } from "@portone/browser-sdk/v2";
 
 const DEFAULT_PAYMENT_CONFIG = {
@@ -9,6 +10,7 @@ const DEFAULT_PAYMENT_CONFIG = {
   approvalApiUrl: `${window.location.origin}/api/payments/confirm`,
 };
 
+// 함수 역할: 브라우저 전역 설정에서 결제 SDK에 필요한 채널키와 상점 정보를 읽습니다.
 function getPaymentConfig() {
   return {
     ...DEFAULT_PAYMENT_CONFIG,
@@ -16,6 +18,7 @@ function getPaymentConfig() {
   };
 }
 
+// 함수 역할: 결제 수단 값을 다른 표현 형식으로 매핑합니다.
 function mapPaymentMethod(method) {
   if (method === "transfer") {
     return { payMethod: "TRANSFER" };
@@ -42,6 +45,7 @@ function mapPaymentMethod(method) {
   return { payMethod: "CARD" };
 }
 
+// 함수 역할: 결제 성공 정보를 백엔드 승인 API로 보내 최종 주문 처리를 완료합니다.
 async function confirmByBackend({ approvalApiUrl, paymentId, orderId, amount }) {
   const response = await fetch(approvalApiUrl, {
     method: "POST",
@@ -75,6 +79,7 @@ async function confirmByBackend({ approvalApiUrl, paymentId, orderId, amount }) 
   };
 }
 
+// 함수 역할: 외부 결제창을 열고 성공 시 백엔드 승인 API까지 호출합니다.
 export async function requestExternalPayment({ orderPayload, paymentMethod }) {
   const config = getPaymentConfig();
 

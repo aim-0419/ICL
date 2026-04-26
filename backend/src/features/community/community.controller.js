@@ -1,10 +1,12 @@
-﻿import * as authService from "../auth/auth.service.js";
+// 파일 역할: 커뮤니티 API 요청을 검증하고 서비스 호출 결과를 HTTP 응답으로 변환합니다.
+import * as authService from "../auth/auth.service.js";
 import * as communityService from "./community.service.js";
 import * as communitySocialService from "./community.social.service.js";
 
 const SESSION_COOKIE_NAME = "icl_session";
 const EVENT_STATUSES = new Set(["진행중", "종료"]);
 
+// 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
 function getCookieValue(req, name) {
   const cookieHeader = String(req.headers.cookie || "");
   if (!cookieHeader) return "";
@@ -18,12 +20,14 @@ function getCookieValue(req, name) {
   return decodeURIComponent(cookieItem.slice(name.length + 1));
 }
 
+// 함수 역할: 인증 회원 데이터를 조회해 호출자에게 반환합니다.
 async function getAuthUser(req) {
   const token = getCookieValue(req, SESSION_COOKIE_NAME);
   if (!token) return null;
   return authService.findUserBySessionToken(token);
 }
 
+// 함수 역할: 관리자 회원 조건에 해당하는지 참/거짓으로 판별합니다.
 function isAdminUser(user) {
   if (!user) return false;
   const normalizedGrade = String(user.userGrade || "").toLowerCase();
@@ -38,10 +42,59 @@ function isAdminUser(user) {
   );
 }
 
+// 함수 역할: same 회원 조건에 해당하는지 참/거짓으로 판별합니다.
 function isSameUser(leftId, rightId) {
   return Boolean(leftId && rightId && String(leftId) === String(rightId));
 }
 
+// 함수 역할: 미디어 URL 입력값을 저장하기 전에 허용된 형식으로 정리합니다.
+function normalizeMediaUrl(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  if (normalized.startsWith("/uploads/")) return normalized;
+
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    return normalized;
+  } catch {
+    return "";
+  }
+}
+
+// 함수 역할: 커뮤니티 첨부 파일을 업로드하고 저장 경로를 반환합니다.
+export async function uploadCommunityAsset(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    const kind = String(req.query.kind || "")
+      .trim()
+      .toLowerCase();
+
+    const fileNameHeader = req.headers["x-file-name"];
+    const fileName = Array.isArray(fileNameHeader) ? fileNameHeader[0] : fileNameHeader;
+
+    const mimeTypeHeader = req.headers["content-type"];
+    const mimeType = Array.isArray(mimeTypeHeader) ? mimeTypeHeader[0] : mimeTypeHeader;
+
+    const assetPath = await communityService.saveCommunityAsset({
+      kind,
+      fileName,
+      mimeType,
+      buffer: req.body,
+    });
+
+    res.status(201).json({ assetPath });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// 함수 역할: 후기 데이터를 조회해 호출자에게 반환합니다.
 export async function getReviews(req, res, next) {
   try {
     res.json(await communityService.listReviews());
@@ -50,6 +103,7 @@ export async function getReviews(req, res, next) {
   }
 }
 
+// 함수 역할: 소셜 최신 데이터를 조회해 호출자에게 반환합니다.
 export async function getSocialLatest(req, res, next) {
   try {
     res.json(await communitySocialService.getBrandSocialLatest());
@@ -58,6 +112,7 @@ export async function getSocialLatest(req, res, next) {
   }
 }
 
+// 함수 역할: 후기 데이터를 새로 생성합니다.
 export async function createReview(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -68,6 +123,8 @@ export async function createReview(req, res, next) {
 
     const title = String(req.body?.title || "").trim();
     const content = String(req.body?.content || "").trim();
+    const imageUrl = normalizeMediaUrl(req.body?.imageUrl);
+    const videoUrl = normalizeMediaUrl(req.body?.videoUrl);
 
     if (!title) {
       res.status(400).json({ message: "후기 제목을 입력해주세요." });
@@ -82,6 +139,8 @@ export async function createReview(req, res, next) {
     const review = await communityService.createReview({
       title,
       content,
+      imageUrl,
+      videoUrl,
       author: authUser.name || authUser.loginId || authUser.email || "익명",
       authorId: authUser.id,
     });
@@ -92,6 +151,7 @@ export async function createReview(req, res, next) {
   }
 }
 
+// 함수 역할: 후기 데이터를 조회해 호출자에게 반환합니다.
 export async function getReview(req, res, next) {
   try {
     const review = await communityService.getReview(req.params.reviewId);
@@ -105,6 +165,7 @@ export async function getReview(req, res, next) {
   }
 }
 
+// 함수 역할: 후기 데이터를 수정합니다.
 export async function updateReview(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -132,6 +193,8 @@ export async function updateReview(req, res, next) {
 
     const title = String(req.body?.title || "").trim();
     const content = String(req.body?.content || "").trim();
+    const imageUrl = normalizeMediaUrl(req.body?.imageUrl);
+    const videoUrl = normalizeMediaUrl(req.body?.videoUrl);
 
     if (!title) {
       res.status(400).json({ message: "후기 제목을 입력해주세요." });
@@ -143,13 +206,19 @@ export async function updateReview(req, res, next) {
       return;
     }
 
-    const updated = await communityService.updateReview(reviewId, { title, content });
+    const updated = await communityService.updateReview(reviewId, {
+      title,
+      content,
+      imageUrl,
+      videoUrl,
+    });
     res.json(updated);
   } catch (error) {
     next(error);
   }
 }
 
+// 함수 역할: 후기 데이터를 삭제합니다.
 export async function deleteReview(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -182,6 +251,7 @@ export async function deleteReview(req, res, next) {
   }
 }
 
+// 함수 역할: bulkDeleteReviews 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function bulkDeleteReviews(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -212,6 +282,7 @@ export async function bulkDeleteReviews(req, res, next) {
   }
 }
 
+// 함수 역할: addReviewView 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function addReviewView(req, res, next) {
   try {
     await communityService.increaseReviewViews(req.params.reviewId);
@@ -221,6 +292,7 @@ export async function addReviewView(req, res, next) {
   }
 }
 
+// 함수 역할: 후기 댓글 데이터를 조회해 호출자에게 반환합니다.
 export async function getReviewComments(req, res, next) {
   try {
     res.json(await communityService.listReviewComments(req.params.reviewId));
@@ -229,6 +301,7 @@ export async function getReviewComments(req, res, next) {
   }
 }
 
+// 함수 역할: 후기 댓글 데이터를 새로 생성합니다.
 export async function createReviewComment(req, res, next) {
   try {
     const content = String(req.body?.content || "").trim();
@@ -246,6 +319,7 @@ export async function createReviewComment(req, res, next) {
   }
 }
 
+// 함수 역할: 후기 댓글 데이터를 삭제합니다.
 export async function deleteReviewComment(req, res, next) {
   try {
     await communityService.deleteReviewComment(req.params.reviewId, req.params.commentId);
@@ -255,6 +329,7 @@ export async function deleteReviewComment(req, res, next) {
   }
 }
 
+// 함수 역할: 이벤트 데이터를 조회해 호출자에게 반환합니다.
 export async function getEvents(req, res, next) {
   try {
     res.json(await communityService.listEvents());
@@ -263,6 +338,7 @@ export async function getEvents(req, res, next) {
   }
 }
 
+// 함수 역할: 이벤트 데이터를 새로 생성합니다.
 export async function createEvent(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -315,6 +391,7 @@ export async function createEvent(req, res, next) {
   }
 }
 
+// 함수 역할: 이벤트 데이터를 조회해 호출자에게 반환합니다.
 export async function getEvent(req, res, next) {
   try {
     const event = await communityService.getEvent(req.params.eventId);
@@ -328,6 +405,67 @@ export async function getEvent(req, res, next) {
   }
 }
 
+// 함수 역할: 이벤트 데이터를 수정합니다.
+export async function updateEvent(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    if (!isAdminUser(authUser)) {
+      res.status(403).json({ message: "이벤트 수정은 관리자만 가능합니다." });
+      return;
+    }
+
+    const eventId = String(req.params.eventId || "").trim();
+    if (!eventId) {
+      res.status(400).json({ message: "수정할 이벤트 ID가 필요합니다." });
+      return;
+    }
+
+    const existing = await communityService.getEvent(eventId);
+    if (!existing) {
+      res.status(404).json({ message: "이벤트 정보를 찾을 수 없습니다." });
+      return;
+    }
+
+    const title = String(req.body?.title || "").trim();
+    const summary = String(req.body?.summary || "").trim();
+    const statusInput = String(req.body?.status || "").trim();
+    const startDateInput = String(req.body?.startDate || "").trim();
+    const endDateInput = String(req.body?.endDate || "").trim();
+    const imageInput = String(req.body?.image ?? existing.image ?? "").trim();
+
+    if (!title) {
+      res.status(400).json({ message: "이벤트 제목을 입력해주세요." });
+      return;
+    }
+
+    if (!summary) {
+      res.status(400).json({ message: "이벤트 설명을 입력해주세요." });
+      return;
+    }
+
+    const status = EVENT_STATUSES.has(statusInput) ? statusInput : existing.status;
+
+    const updated = await communityService.updateEvent(eventId, {
+      title,
+      summary,
+      status,
+      startDate: startDateInput || existing.startDate,
+      endDate: endDateInput || existing.endDate,
+      image: imageInput || existing.image,
+    });
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// 함수 역할: 이벤트 데이터를 삭제합니다.
 export async function deleteEvent(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -360,6 +498,7 @@ export async function deleteEvent(req, res, next) {
   }
 }
 
+// 함수 역할: 문의 데이터를 조회해 호출자에게 반환합니다.
 export async function getInquiries(req, res, next) {
   try {
     res.json(await communityService.listInquiries());
@@ -368,6 +507,7 @@ export async function getInquiries(req, res, next) {
   }
 }
 
+// 함수 역할: 문의 데이터를 조회해 호출자에게 반환합니다.
 export async function getInquiry(req, res, next) {
   try {
     const inquiry = await communityService.getInquiry(req.params.inquiryId);
@@ -381,6 +521,7 @@ export async function getInquiry(req, res, next) {
   }
 }
 
+// 함수 역할: addInquiryView 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function addInquiryView(req, res, next) {
   try {
     await communityService.increaseInquiryViews(req.params.inquiryId);
@@ -390,6 +531,7 @@ export async function addInquiryView(req, res, next) {
   }
 }
 
+// 함수 역할: 문의 데이터를 새로 생성합니다.
 export async function createInquiry(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -400,6 +542,8 @@ export async function createInquiry(req, res, next) {
 
     const title = String(req.body?.title || "").trim();
     const content = String(req.body?.content || "").trim();
+    const imageUrl = normalizeMediaUrl(req.body?.imageUrl);
+    const videoUrl = normalizeMediaUrl(req.body?.videoUrl);
     const author = authUser.name || authUser.loginId || authUser.email || "익명";
 
     if (!title) {
@@ -414,6 +558,8 @@ export async function createInquiry(req, res, next) {
     const inquiry = await communityService.createInquiry({
       title,
       content,
+      imageUrl,
+      videoUrl,
       author,
       authorId: authUser.id,
       isSecret: Boolean(req.body?.isSecret),
@@ -425,6 +571,7 @@ export async function createInquiry(req, res, next) {
   }
 }
 
+// 함수 역할: 문의 데이터를 수정합니다.
 export async function updateInquiry(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -452,6 +599,8 @@ export async function updateInquiry(req, res, next) {
 
     const title = String(req.body?.title || "").trim();
     const content = String(req.body?.content || "").trim();
+    const imageUrl = normalizeMediaUrl(req.body?.imageUrl);
+    const videoUrl = normalizeMediaUrl(req.body?.videoUrl);
     const isSecret = Boolean(req.body?.isSecret);
 
     if (!title) {
@@ -463,13 +612,20 @@ export async function updateInquiry(req, res, next) {
       return;
     }
 
-    const updated = await communityService.updateInquiry(inquiryId, { title, content, isSecret });
+    const updated = await communityService.updateInquiry(inquiryId, {
+      title,
+      content,
+      imageUrl,
+      videoUrl,
+      isSecret,
+    });
     res.json(updated);
   } catch (error) {
     next(error);
   }
 }
 
+// 함수 역할: 문의 데이터를 삭제합니다.
 export async function deleteInquiry(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -502,6 +658,7 @@ export async function deleteInquiry(req, res, next) {
   }
 }
 
+// 함수 역할: bulkDeleteInquiries 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function bulkDeleteInquiries(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -532,6 +689,7 @@ export async function bulkDeleteInquiries(req, res, next) {
   }
 }
 
+// 함수 역할: 문의 답변 데이터를 조회해 호출자에게 반환합니다.
 export async function getInquiryReplies(req, res, next) {
   try {
     const replies = await communityService.listInquiryReplies(req.params.inquiryId);
@@ -541,6 +699,7 @@ export async function getInquiryReplies(req, res, next) {
   }
 }
 
+// 함수 역할: 문의 답변 데이터를 새로 생성합니다.
 export async function createInquiryReply(req, res, next) {
   try {
     const authUser = await getAuthUser(req);
@@ -569,6 +728,32 @@ export async function createInquiryReply(req, res, next) {
   }
 }
 
+// 함수 역할: 문의 답변 내용을 수정합니다.
+export async function updateInquiryReply(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    const content = String(req.body?.content || "").trim();
+    if (!content) {
+      res.status(400).json({ message: "답변 내용을 입력해주세요." });
+      return;
+    }
+    const updated = await communityService.updateInquiryReply(
+      req.params.replyId,
+      content,
+      authUser.id,
+      isAdminUser(authUser)
+    );
+    res.json({ reply: updated });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// 함수 역할: 문의 답변 데이터를 삭제합니다.
 export async function deleteInquiryReply(req, res, next) {
   try {
     const authUser = await getAuthUser(req);

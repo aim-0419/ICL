@@ -1,7 +1,15 @@
-import { Router } from "express";
+// 파일 역할: 커뮤니티 관련 API 경로와 컨트롤러를 Express Router에 연결합니다.
+import express, { Router } from "express";
 import * as communityController from "./community.controller.js";
 
+// 라우터 역할: 커뮤니티 라우터는 해당 기능의 API 경로와 컨트롤러 함수를 연결합니다.
 export const communityRoutes = Router();
+
+communityRoutes.post(
+  "/uploads",
+  express.raw({ type: "application/octet-stream", limit: "1024mb" }),
+  communityController.uploadCommunityAsset
+);
 
 communityRoutes.get("/social/latest", communityController.getSocialLatest);
 communityRoutes.get("/reviews", communityController.getReviews);
@@ -18,6 +26,7 @@ communityRoutes.delete("/reviews/:reviewId/comments/:commentId", communityContro
 communityRoutes.get("/events", communityController.getEvents);
 communityRoutes.post("/events", communityController.createEvent);
 communityRoutes.get("/events/:eventId", communityController.getEvent);
+communityRoutes.patch("/events/:eventId", communityController.updateEvent);
 communityRoutes.delete("/events/:eventId", communityController.deleteEvent);
 
 communityRoutes.get("/inquiries", communityController.getInquiries);
@@ -29,4 +38,5 @@ communityRoutes.post("/inquiries/:inquiryId/views", communityController.addInqui
 communityRoutes.post("/inquiries", communityController.createInquiry);
 communityRoutes.get("/inquiries/:inquiryId/replies", communityController.getInquiryReplies);
 communityRoutes.post("/inquiries/:inquiryId/replies", communityController.createInquiryReply);
+communityRoutes.patch("/inquiries/replies/:replyId", communityController.updateInquiryReply);
 communityRoutes.delete("/inquiries/replies/:replyId", communityController.deleteInquiryReply);

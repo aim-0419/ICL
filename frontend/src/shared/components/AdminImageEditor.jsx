@@ -1,4 +1,5 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+// 파일 역할: 관리자에게 페이지 이미지, 배경, 텍스트, 크기를 화면에서 직접 수정하는 편집 도구를 제공합니다.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAppStore } from "../store/AppContext.jsx";
 import { canEditPage } from "../auth/userRoles.js";
@@ -33,6 +34,7 @@ const CARD_DRAG_AUTO_SCROLL_EDGE_PX = 180;
 const CARD_DRAG_AUTO_SCROLL_MIN_VELOCITY = 10;
 const CARD_DRAG_AUTO_SCROLL_MAX_VELOCITY = 113;
 
+// 함수 역할: 영역 겹침 area 데이터를 조회해 호출자에게 반환합니다.
 function getRectOverlapArea(sourceRect, targetRect) {
   const left = Math.max(sourceRect.left, targetRect.left);
   const top = Math.max(sourceRect.top, targetRect.top);
@@ -43,12 +45,14 @@ function getRectOverlapArea(sourceRect, targetRect) {
   return (right - left) * (bottom - top);
 }
 
+// 함수 역할: 드래그 대상 card from element 대상을 탐색해 반환합니다.
 function findDraggableCardFromElement(element) {
   if (!(element instanceof Element)) return null;
   if (element.closest(".admin-image-editor-panel")) return null;
   return element.closest(DRAGGABLE_CARD_SELECTOR);
 }
 
+// 함수 역할: 드롭 대상 at point 대상을 탐색해 반환합니다.
 function findDropTargetAtPoint(clientX, clientY, draggingElement) {
   if (typeof document === "undefined" || typeof document.elementsFromPoint !== "function") return null;
   if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
@@ -65,11 +69,13 @@ function findDropTargetAtPoint(clientX, clientY, draggingElement) {
   return null;
 }
 
+// 함수 역할: 대시보드 card element 조건에 해당하는지 참/거짓으로 판별합니다.
 function isDashboardCardElement(element) {
   if (!(element instanceof Element)) return false;
   return Boolean(element.matches(".admin-dashboard-page .dashboard-card, .admin-dashboard-page .dashboard-hero"));
 }
 
+// 함수 역할: 세로 자동 스크롤 속도 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveVerticalAutoScrollVelocity(clientY) {
   if (typeof window === "undefined") return 0;
   const viewportHeight = window.innerHeight || 0;
@@ -97,11 +103,13 @@ function resolveVerticalAutoScrollVelocity(clientY) {
   return 0;
 }
 
+// 함수 역할: 강의 영상 URL 조건에 해당하는지 참/거짓으로 판별합니다.
 function isVideoUrl(url) {
   const lower = String(url).toLowerCase().split("?")[0];
   return [".mp4", ".webm", ".mov", ".m4v", ".ogg"].some((ext) => lower.endsWith(ext));
 }
 
+// 함수 역할: 강의 영상 overlay 변경값을 실제 대상에 적용합니다.
 function applyVideoOverlay(element, videoUrl) {
   removeVideoOverlay(element);
   const computed = window.getComputedStyle(element);
@@ -124,6 +132,7 @@ function applyVideoOverlay(element, videoUrl) {
   element.dataset.adminVideoCustomized = "true";
 }
 
+// 함수 역할: 강의 영상 overlay 값을 제거하고 관련 상태를 정리합니다.
 function removeVideoOverlay(element) {
   element.querySelectorAll(".admin-video-overlay").forEach((v) => v.remove());
   if (element.dataset.adminVideoAddedPosition === "true") {
@@ -139,6 +148,7 @@ function removeVideoOverlay(element) {
   element.dataset.adminVideoCustomized = "false";
 }
 
+// 함수 역할: 수정값 저장값을 읽어옵니다.
 function readOverrides(storageKey) {
   if (typeof window === "undefined") return {};
   try {
@@ -151,6 +161,7 @@ function readOverrides(storageKey) {
   }
 }
 
+// 함수 역할: 수정값 데이터를 저장하거나 기존 값을 갱신합니다.
 function saveOverrides(storageKey, nextOverrides) {
   if (typeof window === "undefined") return true;
   try {
@@ -162,6 +173,7 @@ function saveOverrides(storageKey, nextOverrides) {
   }
 }
 
+// 함수 역할: override to DB 값을 서로 일치하도록 동기화합니다.
 async function syncOverrideToDb(type, key, value) {
   try {
     await fetch("/api/admin/page-overrides", {
@@ -175,6 +187,7 @@ async function syncOverrideToDb(type, key, value) {
   }
 }
 
+// 함수 역할: override from DB 데이터를 삭제합니다.
 async function deleteOverrideFromDb(type, key) {
   try {
     await fetch("/api/admin/page-overrides", {
@@ -188,6 +201,7 @@ async function deleteOverrideFromDb(type, key) {
   }
 }
 
+// 함수 역할: 수정값 from DB 데이터를 외부/서버에서 가져옵니다.
 async function fetchOverridesFromDb() {
   try {
     const res = await fetch("/api/admin/page-overrides", { credentials: "include" });
@@ -199,6 +213,7 @@ async function fetchOverridesFromDb() {
 }
 
 // DOM 위치를 기준으로 요소를 식별해 페이지별 수정 내용을 다시 적용한다.
+// 함수 역할: DOM 경로 signature 데이터를 조회해 호출자에게 반환합니다.
 function getDomPathSignature(element) {
   const path = [];
   let current = element;
@@ -216,6 +231,7 @@ function getDomPathSignature(element) {
   return path.join(">");
 }
 
+// 함수 역할: 편집 대상 element 키 데이터를 조회해 호출자에게 반환합니다.
 function getEditableElementKey(element, pathname) {
   if (!element.dataset.adminEditKey) {
     element.dataset.adminEditKey = `${pathname}::${getDomPathSignature(element)}`;
@@ -224,6 +240,7 @@ function getEditableElementKey(element, pathname) {
 }
 
 // 원본 이미지를 기억해 두면 관리자 초기화 버튼으로 쉽게 복원할 수 있다.
+// 함수 역할: original 이미지 값 원본 값을 나중에 복원할 수 있도록 저장합니다.
 function rememberOriginalImageValue(element) {
   if (element.dataset.adminImageOriginalSaved === "true") return;
 
@@ -243,6 +260,7 @@ function rememberOriginalImageValue(element) {
   element.dataset.adminImageOriginalSaved = "true";
 }
 
+// 함수 역할: 이미지 값 변경값을 실제 대상에 적용합니다.
 function applyImageValue(element, value) {
   if (element.tagName === "IMG") {
     element.setAttribute("src", value);
@@ -260,6 +278,7 @@ function applyImageValue(element, value) {
   element.dataset.adminImageCustomized = "true";
 }
 
+// 함수 역할: original 이미지 값 값을 원래 상태로 되돌립니다.
 function restoreOriginalImageValue(element) {
   const originalValue = element.dataset.adminImageOriginalValue || "";
   const originalObjectFit = element.dataset.adminImageOriginalObjectFit || "";
@@ -314,6 +333,7 @@ function restoreOriginalImageValue(element) {
 }
 
 // 텍스트 편집도 같은 방식으로 원본 값과 줄바꿈 스타일을 보존한다.
+// 함수 역할: original 텍스트 값 원본 값을 나중에 복원할 수 있도록 저장합니다.
 function rememberOriginalTextValue(element) {
   if (element.dataset.adminTextOriginalSaved === "true") return;
   element.dataset.adminTextOriginalValue = element.textContent || "";
@@ -321,6 +341,7 @@ function rememberOriginalTextValue(element) {
   element.dataset.adminTextOriginalSaved = "true";
 }
 
+// 함수 역할: 텍스트 값 변경값을 실제 대상에 적용합니다.
 function applyTextValue(element, value) {
   element.textContent = value;
   const hasLineBreak = String(value).includes("\n");
@@ -337,6 +358,7 @@ function applyTextValue(element, value) {
   element.dataset.adminTextCustomized = "true";
 }
 
+// 함수 역할: original 텍스트 값 값을 원래 상태로 되돌립니다.
 function restoreOriginalTextValue(element) {
   const originalValue = element.dataset.adminTextOriginalValue || "";
   const originalWhiteSpace = element.dataset.adminTextOriginalWhiteSpace || "";
@@ -349,6 +371,7 @@ function restoreOriginalTextValue(element) {
   element.dataset.adminTextCustomized = "false";
 }
 
+// 함수 역할: original 크기 값 원본 값을 나중에 복원할 수 있도록 저장합니다.
 function rememberOriginalSizeValue(element) {
   if (element.dataset.adminSizeOriginalSaved === "true") return;
   element.dataset.adminSizeOriginalWidth = element.style.width || "";
@@ -358,6 +381,7 @@ function rememberOriginalSizeValue(element) {
   element.dataset.adminSizeOriginalSaved = "true";
 }
 
+// 함수 역할: 크기 값 변경값을 실제 대상에 적용합니다.
 function applySizeValue(element, sizeValue) {
   if (!sizeValue) return;
   rememberOriginalSizeValue(element);
@@ -372,6 +396,7 @@ function applySizeValue(element, sizeValue) {
   element.dataset.adminSizeCustomized = "true";
 }
 
+// 함수 역할: original 크기 값 값을 원래 상태로 되돌립니다.
 function restoreOriginalSizeValue(element) {
   const w = element.dataset.adminSizeOriginalWidth || "";
   const h = element.dataset.adminSizeOriginalHeight || "";
@@ -385,6 +410,7 @@ function restoreOriginalSizeValue(element) {
 }
 
 // 텍스트는 선택 후 클릭, 이미지는 더블클릭으로 편집 대상을 찾는다.
+// 함수 역할: 편집 대상 이미지 대상 대상을 탐색해 반환합니다.
 function findEditableImageTarget(eventTarget) {
   if (!(eventTarget instanceof Element)) return null;
   if (eventTarget.closest(".admin-image-editor-panel")) return null;
@@ -393,16 +419,24 @@ function findEditableImageTarget(eventTarget) {
   return editable instanceof HTMLElement ? editable : null;
 }
 
+// 함수 역할: 편집 대상 텍스트 대상 대상을 탐색해 반환합니다.
 function findEditableTextTarget(eventTarget) {
   if (!(eventTarget instanceof Element)) return null;
   if (eventTarget.closest(".admin-image-editor-panel")) return null;
 
   const editable = eventTarget.closest(EDITABLE_TEXT_SELECTOR);
   if (!(editable instanceof HTMLElement)) return null;
+  if (
+    editable.dataset.adminTextEditable === "false" ||
+    editable.closest("[data-admin-text-editable='false']")
+  ) {
+    return null;
+  }
   if (!editable.textContent || !editable.textContent.trim()) return null;
   return editable;
 }
 
+// 함수 역할: 선택된 텍스트 대상 데이터를 조회해 호출자에게 반환합니다.
 function getSelectedTextTarget() {
   const selection = window.getSelection();
   if (!selection) return null;
@@ -419,6 +453,7 @@ function getSelectedTextTarget() {
   return findEditableTextTarget(anchorElement);
 }
 
+// 함수 역할: placeCaretAtEnd 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function placeCaretAtEnd(element) {
   const selection = window.getSelection();
   if (!selection) return;
@@ -430,6 +465,7 @@ function placeCaretAtEnd(element) {
   selection.addRange(range);
 }
 
+// 함수 역할: insertLineBreakAtCaret 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function insertLineBreakAtCaret(container) {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) return;
@@ -448,6 +484,7 @@ function insertLineBreakAtCaret(container) {
 }
 
 // 이 컴포넌트는 모든 페이지에 떠 있지만, 관리자0 + 페이지 수정 활성화 상태에서만 동작한다.
+// 컴포넌트 역할: 관리자 편집 모드에서 이미지/텍스트/크기 변경 UI와 저장 흐름을 렌더링합니다.
 export function AdminImageEditor() {
   const { currentUser, adminPageEditMode, setAdminPageEditMode } = useAppStore();
   const location = useLocation();
@@ -521,15 +558,13 @@ export function AdminImageEditor() {
   // DB에서 override를 불러와 localStorage와 병합한다 (DB가 원본).
   useEffect(() => {
     if (!isAdmin) return;
-    fetchOverridesFromDb().then((rows) => {
-      if (!Array.isArray(rows)) return;
-      const grouped = { image: {}, text: {}, video: {}, position: {}, size: {} };
-      rows.forEach(({ type, key, value }) => {
-        if (grouped[type]) grouped[type][key] = value;
-      });
+    // 백엔드 응답 형식: { overrides: { image: {...}, text: {...}, ... } }
+    fetchOverridesFromDb().then((data) => {
+      const grouped = data?.overrides;
+      if (!grouped || typeof grouped !== "object") return;
       const mergeAndApply = (storageKey, type, setter, ref) => {
         const local = readOverrides(storageKey);
-        const merged = { ...local, ...grouped[type] };
+        const merged = { ...local, ...(grouped[type] || {}) };
         saveOverrides(storageKey, merged);
         ref.current = merged;
         setter(merged);
@@ -741,6 +776,13 @@ export function AdminImageEditor() {
 
       editableTexts.forEach((element) => {
         if (element.closest(".admin-image-editor-panel")) return;
+        if (
+          element.dataset.adminTextEditable === "false" ||
+          element.closest("[data-admin-text-editable='false']")
+        ) {
+          element.classList.remove("admin-editable-text");
+          return;
+        }
         if (!element.textContent || !element.textContent.trim()) return;
 
         rememberOriginalTextValue(element);
@@ -1363,7 +1405,7 @@ export function AdminImageEditor() {
   }, [finishInlineTextEditing, startInlineTextEditing]);
 
   const handleFileChange = useCallback(
-    (event) => {
+    async (event) => {
       const selectedFile = event.target.files?.[0];
       event.target.value = "";
 
@@ -1391,31 +1433,31 @@ export function AdminImageEditor() {
         return;
       }
 
-      const reader = new FileReader();
+      // Base64 대신 서버에 실제 파일 업로드 후 URL 저장 (localStorage/DB 용량 초과 방지)
+      try {
+        const response = await fetch(`/api/community/uploads?kind=image`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "x-file-name": selectedFile.name,
+          },
+          body: selectedFile,
+        });
+        if (!response.ok) throw new Error("서버 업로드 실패");
+        const { assetPath } = await response.json();
+        if (!assetPath) throw new Error("업로드 경로 없음");
 
-      reader.onload = () => {
-        const nextValue = String(reader.result || "");
-        if (!nextValue) return;
-
-        applyImageValue(target, nextValue);
-        const nextOverrides = { ...imageOverridesRef.current, [key]: nextValue };
+        applyImageValue(target, assetPath);
+        const nextOverrides = { ...imageOverridesRef.current, [key]: assetPath };
         imageOverridesRef.current = nextOverrides;
         setImageOverrides(nextOverrides);
-
-        const saved = saveOverrides(IMAGE_STORAGE_KEY, nextOverrides);
-        if (!saved) {
-          window.alert("이미지 용량이 커서 저장에 실패했습니다. 작은 파일로 시도해 주세요.");
-        }
-        syncOverrideToDb("image", key, nextValue);
-
+        saveOverrides(IMAGE_STORAGE_KEY, nextOverrides);
+        syncOverrideToDb("image", key, assetPath);
         updatePanelPosition();
-      };
-
-      reader.onerror = () => {
-        window.alert("이미지 파일을 읽는 중 오류가 발생했습니다.");
-      };
-
-      reader.readAsDataURL(selectedFile);
+      } catch {
+        window.alert("이미지 업로드에 실패했습니다. 다시 시도해 주세요.");
+      }
     },
     [location.pathname, updatePanelPosition]
   );

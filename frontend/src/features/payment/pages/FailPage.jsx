@@ -1,6 +1,8 @@
+// 파일 역할: 결제 실패 사유를 정리해 사용자에게 안내하는 페이지 컴포넌트입니다.
 import { Link, useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 
+// 함수 역할: 실패 사유 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeFailReason(rawValue) {
   const text = String(rawValue || "").trim();
   if (!text) return "";
@@ -16,6 +18,7 @@ function normalizeFailReason(rawValue) {
   return text;
 }
 
+// 컴포넌트 역할: 결제 실패 사유를 정리해 사용자에게 안내하는 페이지 컴포넌트입니다.
 export function FailPage() {
   const [params] = useSearchParams();
   const reason =

@@ -1,5 +1,7 @@
+// 파일 역할: 주문 내역에서 강의 구매 여부와 접근 가능 영상을 계산하는 유틸을 제공합니다.
 import { ACADEMY_VIDEOS } from "../data/academyVideos.js";
 
+// 함수 역할: 요청 데이터 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parsePayload(payload) {
   if (!payload) return {};
   if (typeof payload === "object") return payload;
@@ -10,6 +12,7 @@ function parsePayload(payload) {
   }
 }
 
+// 함수 역할: 주문 상품 ids에서 필요한 항목만 골라냅니다.
 function pickOrderProductIds(order) {
   const ids = new Set();
 
@@ -38,6 +41,7 @@ function pickOrderProductIds(order) {
   return ids;
 }
 
+// 함수 역할: 주문 항목에서 필요한 항목만 골라냅니다.
 function pickOrderItems(order) {
   const items = [];
 
@@ -93,6 +97,7 @@ function pickOrderItems(order) {
   return items;
 }
 
+// 함수 역할: 구매한 강의 영상 상품 ids 항목을 모아 반환합니다.
 export function collectPurchasedVideoProductIds(orders = [], customerEmail = "") {
   const normalizedEmail = String(customerEmail || "").trim().toLowerCase();
   const purchasedIds = new Set();
@@ -112,6 +117,7 @@ export function collectPurchasedVideoProductIds(orders = [], customerEmail = "")
   return purchasedIds;
 }
 
+// 함수 역할: 구매한 강의 영상 항목 개수를 계산합니다.
 export function countPurchasedVideoItems(orders = [], customerEmail = "", videos = ACADEMY_VIDEOS) {
   const normalizedEmail = String(customerEmail || "").trim().toLowerCase();
   const videoProductIdSet = new Set(
@@ -140,6 +146,7 @@ export function countPurchasedVideoItems(orders = [], customerEmail = "", videos
   return total;
 }
 
+// 함수 역할: 구매한 강의 영상 데이터를 조회해 호출자에게 반환합니다.
 export function getPurchasedVideos(orders = [], customerEmail = "", videos = ACADEMY_VIDEOS) {
   const purchasedProductIds = collectPurchasedVideoProductIds(orders, customerEmail);
   return (Array.isArray(videos) ? videos : ACADEMY_VIDEOS).filter((video) =>
@@ -147,11 +154,13 @@ export function getPurchasedVideos(orders = [], customerEmail = "", videos = ACA
   );
 }
 
+// 함수 역할: 미리보기 차시 존재 여부를 참/거짓으로 판별합니다.
 export function hasPreviewChapter(video) {
   if (!video || !Array.isArray(video.chapters)) return false;
   return video.chapters.some((chapter) => Boolean(chapter?.isPreview));
 }
 
+// 함수 역할: 미리보기 accessible 강의 영상 데이터를 조회해 호출자에게 반환합니다.
 export function getPreviewAccessibleVideos(videos = ACADEMY_VIDEOS) {
   return (Array.isArray(videos) ? videos : ACADEMY_VIDEOS).filter((video) => hasPreviewChapter(video));
 }

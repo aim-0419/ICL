@@ -1,3 +1,4 @@
+// 파일 역할: 장바구니 상품 조회, 수량 변경, 결제 진입을 담당하는 페이지 컴포넌트입니다.
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { resolveAcademyMediaUrl } from "../../academy/api/academyApi.js";
@@ -32,6 +33,7 @@ const PAYMENT_METHODS = [
   },
 ];
 
+// 함수 역할: 미리보기 by 상품 ID 데이터를 조회해 호출자에게 반환합니다.
 function getPreviewByProductId(productId, academyVideos) {
   const video = (Array.isArray(academyVideos) ? academyVideos : []).find(
     (item) => item.productId === productId || item.id === productId
@@ -53,11 +55,13 @@ function getPreviewByProductId(productId, academyVideos) {
   };
 }
 
+// 함수 역할: number 값으로 안전하게 변환합니다.
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// 컴포넌트 역할: 장바구니 상품 조회, 수량 변경, 결제 진입을 담당하는 페이지 컴포넌트입니다.
 export function CartPage() {
   const navigate = useNavigate();
   const store = useAppStore();

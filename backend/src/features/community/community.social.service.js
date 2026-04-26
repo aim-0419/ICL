@@ -1,4 +1,5 @@
-﻿import { env } from "../../config/env.js";
+// 파일 역할: 커뮤니티 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
+import { env } from "../../config/env.js";
 import { query } from "../../shared/db/mysql.js";
 
 const DEFAULT_YOUTUBE_VIDEOS_URL = "https://www.youtube.com/@ICL-PILATES/videos";
@@ -45,6 +46,7 @@ let socialCache = {
 };
 let refreshPromise = null;
 
+// 함수 역할: URL 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeUrl(value) {
   const text = decodeHtmlEntities(String(value || "").trim());
   if (!text) return "";
@@ -52,6 +54,7 @@ function normalizeUrl(value) {
   return `https://${text}`;
 }
 
+// 함수 역할: HTML entities 값을 원래 형태로 디코딩합니다.
 function decodeHtmlEntities(text) {
   if (!text) return "";
   return String(text)
@@ -65,16 +68,19 @@ function decodeHtmlEntities(text) {
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code) || 0));
 }
 
+// 함수 역할: 텍스트 값을 불필요한 문자 없이 정리합니다.
 function cleanupText(text) {
   if (!text) return "";
   const noTags = String(text).replace(/<[^>]+>/g, " ");
   return decodeHtmlEntities(noTags).replace(/\s+/g, " ").trim();
 }
 
+// 함수 역할: stripCdata 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function stripCdata(text) {
   return String(text || "").replace(/^<!\[CDATA\[(.*)\]\]>$/is, "$1");
 }
 
+// 함수 역할: 태그 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseTag(content, tagName) {
   const regex = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)</${tagName}>`, "i");
   const match = String(content || "").match(regex);
@@ -82,6 +88,7 @@ function parseTag(content, tagName) {
   return cleanupText(stripCdata(match[1]));
 }
 
+// 함수 역할: safeDate 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function safeDate(value) {
   if (value === null || value === undefined) return "";
   const text = String(value).trim();
@@ -91,11 +98,13 @@ function safeDate(value) {
   return parsed.toISOString();
 }
 
+// 함수 역할: MySQL 날짜 시간 값으로 안전하게 변환합니다.
 function toMysqlDateTime(value) {
   const iso = safeDate(value) || new Date().toISOString();
   return iso.slice(0, 19).replace("T", " ");
 }
 
+// 함수 역할: 유튜브 강의 영상 ID from URL 데이터를 조회해 호출자에게 반환합니다.
 function getYoutubeVideoIdFromUrl(url) {
   const text = String(url || "");
   if (!text) return "";
@@ -103,11 +112,13 @@ function getYoutubeVideoIdFromUrl(url) {
   return match?.[1] || "";
 }
 
+// 함수 역할: 유튜브 썸네일 by 강의 영상 ID 데이터를 조회해 호출자에게 반환합니다.
 function getYoutubeThumbnailByVideoId(videoId) {
   if (!videoId) return "";
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
 
+// 함수 역할: 대체값 항목 구조나 문구를 조립해 반환합니다.
 function buildFallbackItem(source) {
   const fallback = SOURCE_DEFAULTS[source];
   return {
@@ -122,6 +133,7 @@ function buildFallbackItem(source) {
   };
 }
 
+// 함수 역할: 대체값 요청 데이터 구조나 문구를 조립해 반환합니다.
 function buildFallbackPayload() {
   return {
     updatedAt: new Date().toISOString(),
@@ -129,6 +141,7 @@ function buildFallbackPayload() {
   };
 }
 
+// 함수 역할: persisted 항목 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizePersistedItem(row) {
   const source = String(row?.source || "").toLowerCase();
   if (!SOURCE_DEFAULTS[source]) return null;
@@ -144,12 +157,14 @@ function normalizePersistedItem(row) {
   };
 }
 
+// 함수 역할: 요청 데이터 stale 조건에 해당하는지 참/거짓으로 판별합니다.
 function isPayloadStale(payload, now = Date.now()) {
   const updatedAt = Date.parse(String(payload?.updatedAt || ""));
   if (Number.isNaN(updatedAt)) return true;
   return now - updatedAt > socialConfig.cacheSeconds * 1000;
 }
 
+// 함수 역할: 텍스트 데이터를 외부/서버에서 가져옵니다.
 async function fetchText(url) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), socialConfig.fetchTimeoutMs);
@@ -172,6 +187,7 @@ async function fetchText(url) {
   }
 }
 
+// 함수 역할: RSS first entry 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseRssFirstEntry(xmlText) {
   const xml = String(xmlText || "");
   if (!xml) return null;
@@ -207,6 +223,7 @@ function parseRssFirstEntry(xmlText) {
   return { title, url, publishedAt, excerpt, thumbnail, isLive: true };
 }
 
+// 함수 역할: 유튜브 channel ID 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseYoutubeChannelId(html) {
   const text = String(html || "");
   if (!text) return "";
@@ -223,6 +240,7 @@ function parseYoutubeChannelId(html) {
   return "";
 }
 
+// 함수 역할: 유튜브 대체값 from HTML 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseYoutubeFallbackFromHtml(html, channelUrl) {
   const text = String(html || "");
   const idMatch = text.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
@@ -243,6 +261,7 @@ function parseYoutubeFallbackFromHtml(html, channelUrl) {
   };
 }
 
+// 함수 역할: 인스타그램 최신 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseInstagramLatest(html, profileUrl) {
   const text = String(html || "");
   if (!text) return null;
@@ -284,6 +303,7 @@ function parseInstagramLatest(html, profileUrl) {
   };
 }
 
+// 함수 역할: 소스 항목 값으로 안전하게 변환합니다.
 function toSourceItem(source, label, baseUrl, entry, fallbackTitle) {
   return {
     source,
@@ -297,6 +317,7 @@ function toSourceItem(source, label, baseUrl, entry, fallbackTitle) {
   };
 }
 
+// 함수 역할: you tube 최신 데이터를 외부/서버에서 가져옵니다.
 async function fetchYouTubeLatest() {
   const tryFeedByChannelId = async (channelId) => {
     if (!channelId) return null;
@@ -328,6 +349,7 @@ async function fetchYouTubeLatest() {
   return parseYoutubeFallbackFromHtml(channelPageHtml, socialConfig.youtubeVideosUrl);
 }
 
+// 함수 역할: 블로그 최신 데이터를 외부/서버에서 가져옵니다.
 async function fetchBlogLatest() {
   const feedXml = await fetchText(socialConfig.blogRssUrl);
   const entry = parseRssFirstEntry(feedXml);
@@ -344,6 +366,7 @@ async function fetchBlogLatest() {
   return entry;
 }
 
+// 함수 역할: 인스타그램 최신 데이터를 외부/서버에서 가져옵니다.
 async function fetchInstagramLatest() {
   const html = await fetchText(socialConfig.instagramUrl);
   const parsed = parseInstagramLatest(html, socialConfig.instagramUrl);
@@ -358,6 +381,7 @@ async function fetchInstagramLatest() {
   };
 }
 
+// 함수 역할: 소스 safely 데이터를 외부/서버에서 가져옵니다.
 async function fetchSourceSafely(fetcher, fallback) {
   try {
     const result = await fetcher();
@@ -368,6 +392,7 @@ async function fetchSourceSafely(fetcher, fallback) {
   }
 }
 
+// 함수 역할: fresh 요청 데이터 항목을 모아 반환합니다.
 async function collectFreshPayload() {
   const [youtubeRaw, blogRaw, instagramRaw] = await Promise.all([
     fetchSourceSafely(fetchYouTubeLatest, {
@@ -418,6 +443,7 @@ async function collectFreshPayload() {
   };
 }
 
+// 함수 역할: loadPayloadFromDatabase 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 async function loadPayloadFromDatabase() {
   const rows = await query(
     `SELECT
@@ -457,6 +483,7 @@ async function loadPayloadFromDatabase() {
   };
 }
 
+// 함수 역할: 요청 데이터 to database 데이터를 저장하거나 기존 값을 갱신합니다.
 async function savePayloadToDatabase(payload) {
   const updatedAt = toMysqlDateTime(payload?.updatedAt);
   for (const source of SOURCE_ORDER) {
@@ -498,6 +525,7 @@ async function savePayloadToDatabase(payload) {
   }
 }
 
+// 함수 역할: refreshInBackground 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function refreshInBackground() {
   if (refreshPromise) return refreshPromise;
 
@@ -522,6 +550,7 @@ function refreshInBackground() {
   return refreshPromise;
 }
 
+// 함수 역할: 브랜드 소셜 최신 데이터를 조회해 호출자에게 반환합니다.
 export async function getBrandSocialLatest() {
   const now = Date.now();
   if (socialCache.payload) {

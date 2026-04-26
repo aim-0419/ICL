@@ -1,8 +1,10 @@
-﻿import { useEffect, useMemo, useState } from "react";
+// 파일 역할: 사이트 상단 내비게이션, 로그인 상태 메뉴, 장바구니 진입 버튼을 렌더링합니다.
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { canEditPage, isAdminStaff } from "../auth/userRoles.js";
 import { useAppStore } from "../store/AppContext.jsx";
 
+// 컴포넌트 역할: 공통 상단 헤더와 메뉴, 로그인/로그아웃, 장바구니 이동 버튼을 렌더링합니다.
 export function SiteHeader({ subpage = false }) {
   const { currentUser, logoutUser, cart, adminPageEditMode, setAdminPageEditMode } = useAppStore();
   const location = useLocation();

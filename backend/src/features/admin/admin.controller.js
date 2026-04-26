@@ -1,3 +1,4 @@
+// 파일 역할: 관리자 API 요청을 검증하고 서비스 호출 결과를 HTTP 응답으로 변환합니다.
 import * as authService from "../auth/auth.service.js";
 import * as adminService from "./admin.service.js";
 import * as usersService from "../users/users.service.js";
@@ -13,6 +14,7 @@ const DASHBOARD_RANGE_DAYS = {
 };
 const SALES_PERIODS = new Set(["day", "week", "month", "year"]);
 
+// 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
 function getCookieValue(req, name) {
   const cookieHeader = String(req.headers.cookie || "");
   if (!cookieHeader) return "";
@@ -26,6 +28,7 @@ function getCookieValue(req, name) {
   return decodeURIComponent(cookieItem.slice(name.length + 1));
 }
 
+// 함수 역할: 회원 등급 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveUserGrade(user) {
   const grade = String(user?.userGrade || "")
     .trim()
@@ -45,30 +48,36 @@ function resolveUserGrade(user) {
   return "member";
 }
 
+// 함수 역할: access 관리자 대시보드 권한이 있는지 참/거짓으로 판별합니다.
 function canAccessAdminDashboard(user) {
   const grade = resolveUserGrade(user);
   return grade === "admin0" || grade === "admin1";
 }
 
+// 함수 역할: manage 회원 등급 권한이 있는지 참/거짓으로 판별합니다.
 function canManageUserGrades(user) {
   return resolveUserGrade(user) === "admin0";
 }
 
+// 함수 역할: create 강의 권한이 있는지 참/거짓으로 판별합니다.
 function canCreateLecture(user) {
   const grade = resolveUserGrade(user);
   return grade === "admin0" || grade === "admin1";
 }
 
+// 함수 역할: manage 아카데미 권한이 있는지 참/거짓으로 판별합니다.
 function canManageAcademy(user) {
   return canCreateLecture(user);
 }
 
+// 함수 역할: 인증된 회원 데이터를 조회해 호출자에게 반환합니다.
 async function getAuthenticatedUser(req) {
   const token = getCookieValue(req, SESSION_COOKIE_NAME);
   if (!token) return null;
   return authService.findUserBySessionToken(token);
 }
 
+// 함수 역할: requireAdminDashboardAccess 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 async function requireAdminDashboardAccess(req, res) {
   const authUser = await getAuthenticatedUser(req);
 
@@ -85,6 +94,7 @@ async function requireAdminDashboardAccess(req, res) {
   return authUser;
 }
 
+// 함수 역할: 대시보드 범위 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveDashboardRange(value) {
   const normalized = String(value || "")
     .trim()
@@ -95,6 +105,7 @@ function resolveDashboardRange(value) {
   return "all";
 }
 
+// 함수 역할: 매출 기간 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveSalesPeriod(value) {
   const normalized = String(value || "")
     .trim()
@@ -102,6 +113,7 @@ function resolveSalesPeriod(value) {
   return SALES_PERIODS.has(normalized) ? normalized : "month";
 }
 
+// 함수 역할: iso 날짜 query 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveIsoDateQuery(value) {
   const normalized = String(value || "").trim();
   if (!normalized) return "";
@@ -109,6 +121,7 @@ function resolveIsoDateQuery(value) {
   return normalized;
 }
 
+// 함수 역할: 요청 데이터 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parsePayload(payload) {
   if (!payload) return {};
   if (typeof payload === "object") return payload;
@@ -119,11 +132,13 @@ function parsePayload(payload) {
   }
 }
 
+// 함수 역할: 금액 값으로 안전하게 변환합니다.
 function toAmount(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// 함수 역할: 환불 금액 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveRefundAmount(payload) {
   const source = payload && typeof payload === "object" ? payload : {};
   const candidates = [
@@ -144,6 +159,7 @@ function resolveRefundAmount(payload) {
   );
 }
 
+// 함수 역할: 날짜 from ymd 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseDateFromYmd(value) {
   const normalized = String(value || "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
@@ -166,12 +182,14 @@ function parseDateFromYmd(value) {
   return parsed;
 }
 
+// 함수 역할: addDays 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function addDays(date, days) {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
   return copy;
 }
 
+// 함수 역할: monday start 데이터를 조회해 호출자에게 반환합니다.
 function getMondayStart(date) {
   const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const day = copy.getDay();
@@ -181,6 +199,7 @@ function getMondayStart(date) {
   return copy;
 }
 
+// 함수 역할: 환불 분석 조회 구간 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveRefundInsightWindow(periodValue, startDateValue, endDateValue) {
   const period = resolveSalesPeriod(periodValue);
   const startDate = parseDateFromYmd(startDateValue);
@@ -247,10 +266,12 @@ function resolveRefundInsightWindow(periodValue, startDateValue, endDateValue) {
   };
 }
 
+// 함수 역할: 상품 ID 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeProductId(value) {
   return String(value || "").trim();
 }
 
+// 함수 역할: 주문 항목에서 필요한 항목만 골라냅니다.
 function pickOrderItems(payload) {
   const source = payload && typeof payload === "object" ? payload : {};
   const quantityByProductId = new Map();
@@ -276,11 +297,13 @@ function pickOrderItems(payload) {
   return [...quantityByProductId.entries()].map(([productId, quantity]) => ({ productId, quantity }));
 }
 
+// 함수 역할: 환불 사유 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeRefundReason(value) {
   const text = String(value || "").trim();
   return text || "사유 미입력";
 }
 
+// 함수 역할: 환불 사유 entries에서 필요한 항목만 골라냅니다.
 function pickRefundReasonEntries(payload, totalRefundAmount) {
   const source = payload && typeof payload === "object" ? payload : {};
   const historyEntries = Array.isArray(source.refundHistory) ? source.refundHistory : [];
@@ -303,6 +326,7 @@ function pickRefundReasonEntries(payload, totalRefundAmount) {
   return [];
 }
 
+// 함수 역할: 대시보드 회원 데이터를 조회해 호출자에게 반환합니다.
 export async function getDashboardUsers(req, res, next) {
   try {
     const authUser = await requireAdminDashboardAccess(req, res);
@@ -369,6 +393,7 @@ export async function getDashboardUsers(req, res, next) {
   }
 }
 
+// 함수 역할: 대시보드 회원 학습 데이터를 조회해 호출자에게 반환합니다.
 export async function getDashboardUserLearning(req, res, next) {
   try {
     const authUser = await requireAdminDashboardAccess(req, res);
@@ -388,6 +413,7 @@ export async function getDashboardUserLearning(req, res, next) {
   }
 }
 
+// 함수 역할: 대시보드 강의 학습 진도 데이터를 조회해 호출자에게 반환합니다.
 export async function getDashboardLectureProgress(req, res, next) {
   try {
     const authUser = await requireAdminDashboardAccess(req, res);
@@ -401,6 +427,7 @@ export async function getDashboardLectureProgress(req, res, next) {
   }
 }
 
+// 함수 역할: 대시보드 매출 데이터를 조회해 호출자에게 반환합니다.
 export async function getDashboardSales(req, res, next) {
   try {
     const authUser = await requireAdminDashboardAccess(req, res);
@@ -420,6 +447,7 @@ export async function getDashboardSales(req, res, next) {
   }
 }
 
+// 함수 역할: 매출 환불 분석 데이터를 조회해 호출자에게 반환합니다.
 export async function getSalesRefundInsights(req, res, next) {
   try {
     const authUser = await requireAdminDashboardAccess(req, res);
@@ -614,6 +642,7 @@ export async function getSalesRefundInsights(req, res, next) {
   }
 }
 
+// 함수 역할: 회원 등급 데이터를 수정합니다.
 export async function updateUserGrade(req, res, next) {
   try {
     const authUser = await getAuthenticatedUser(req);
@@ -654,6 +683,7 @@ export async function updateUserGrade(req, res, next) {
   }
 }
 
+// 함수 역할: 탈퇴 회원 값을 원래 상태로 되돌립니다.
 export async function restoreWithdrawnUser(req, res, next) {
   // 관리자 권한 기반 탈퇴 계정 복구 처리
   try {
@@ -681,6 +711,7 @@ export async function restoreWithdrawnUser(req, res, next) {
   }
 }
 
+// 함수 역할: refundOrder 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function refundOrder(req, res, next) {
   try {
     const authUser = await getAuthenticatedUser(req);
@@ -787,6 +818,7 @@ export async function refundOrder(req, res, next) {
   }
 }
 
+// 함수 역할: 강의 데이터를 새로 생성합니다.
 export async function createLecture(req, res, next) {
   try {
     const authUser = await getAuthenticatedUser(req);
@@ -809,6 +841,7 @@ export async function createLecture(req, res, next) {
 
 // ─── 페이지 오버라이드 (관리자 편집 DB 저장) ──────────────────────────────────
 
+// 함수 역할: 페이지 수정값 데이터를 조회해 호출자에게 반환합니다.
 export async function getPageOverrides(req, res, next) {
   try {
     const rows = await query(
@@ -825,6 +858,7 @@ export async function getPageOverrides(req, res, next) {
   } catch (error) { next(error); }
 }
 
+// 함수 역할: 페이지 override 데이터를 저장하거나 기존 값을 갱신합니다.
 export async function savePageOverride(req, res, next) {
   try {
     const authUser = await getAuthenticatedUser(req);
@@ -841,6 +875,7 @@ export async function savePageOverride(req, res, next) {
   } catch (error) { next(error); }
 }
 
+// 함수 역할: 페이지 override 데이터를 삭제합니다.
 export async function deletePageOverride(req, res, next) {
   try {
     const authUser = await getAuthenticatedUser(req);
@@ -854,6 +889,7 @@ export async function deletePageOverride(req, res, next) {
   } catch (error) { next(error); }
 }
 
+// 함수 역할: all 페이지 수정값 by type 데이터를 삭제합니다.
 export async function deleteAllPageOverridesByType(req, res, next) {
   try {
     const authUser = await getAuthenticatedUser(req);
@@ -862,4 +898,146 @@ export async function deleteAllPageOverridesByType(req, res, next) {
     await query(`DELETE FROM admin_page_overrides WHERE override_type = ?`, [String(type || "")]);
     res.json({ ok: true });
   } catch (error) { next(error); }
+}
+
+// ─── 영상 선물 ────────────────────────────────────────────────────────────────
+
+const GRANT_DURATION_DAYS = { "1d": 1, "7d": 7, "30d": 30, unlimited: null };
+
+// 함수 역할: 수강권 expires at 상황에 맞는 값을 계산하거나 선택합니다.
+function resolveGrantExpiresAt(durationType) {
+  const days = GRANT_DURATION_DAYS[durationType] ?? null;
+  if (days === null) return null;
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + days);
+  return expiresAt;
+}
+
+// 함수 역할: giftVideos 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
+export async function giftVideos(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    if (!canAccessAdminDashboard(authUser)) {
+      res.status(403).json({ message: "관리자 권한이 필요합니다." });
+      return;
+    }
+
+    const targetUserId = String(req.params.userId || "").trim();
+    if (!targetUserId) {
+      res.status(400).json({ message: "회원 ID가 필요합니다." });
+      return;
+    }
+
+    const videoIds = Array.isArray(req.body?.videoIds)
+      ? req.body.videoIds.map((id) => String(id || "").trim()).filter(Boolean)
+      : [];
+    if (!videoIds.length) {
+      res.status(400).json({ message: "선물할 영상을 하나 이상 선택해 주세요." });
+      return;
+    }
+
+    const durationType = String(req.body?.durationType || "unlimited").trim();
+    if (!Object.prototype.hasOwnProperty.call(GRANT_DURATION_DAYS, durationType)) {
+      res.status(400).json({ message: "이용 기간 값이 올바르지 않습니다." });
+      return;
+    }
+
+    const expiresAt = resolveGrantExpiresAt(durationType);
+    const now = new Date();
+    const grantedBy = String(authUser.id || "").trim();
+
+    for (const videoId of videoIds) {
+      const id = randomUUID();
+      await query(
+        `INSERT INTO video_grants (id, user_id, video_id, granted_by, duration_type, expires_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           granted_by = VALUES(granted_by),
+           duration_type = VALUES(duration_type),
+           expires_at = VALUES(expires_at)`,
+        [id, targetUserId, videoId, grantedBy, durationType, expiresAt, now]
+      );
+    }
+
+    res.json({ message: `${videoIds.length}개 영상이 선물되었습니다.`, count: videoIds.length });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// 함수 역할: 강의 영상 수강권 목록을 조회해 반환합니다.
+export async function listVideoGrants(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    if (!canAccessAdminDashboard(authUser)) {
+      res.status(403).json({ message: "관리자 권한이 필요합니다." });
+      return;
+    }
+
+    const targetUserId = String(req.params.userId || "").trim();
+    if (!targetUserId) {
+      res.status(400).json({ message: "회원 ID가 필요합니다." });
+      return;
+    }
+
+    const rows = await query(
+      `SELECT
+         vg.id,
+         vg.video_id AS videoId,
+         vg.duration_type AS durationType,
+         vg.expires_at AS expiresAt,
+         vg.created_at AS createdAt,
+         av.title,
+         av.instructor,
+         av.category
+       FROM video_grants vg
+       LEFT JOIN academy_videos av ON av.id = vg.video_id
+       WHERE vg.user_id = ?
+       ORDER BY vg.created_at DESC`,
+      [targetUserId]
+    );
+
+    res.json({ grants: Array.isArray(rows) ? rows : [] });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// 함수 역할: 강의 영상 수강권 권한이나 세션을 회수합니다.
+export async function revokeVideoGrant(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    if (!canAccessAdminDashboard(authUser)) {
+      res.status(403).json({ message: "관리자 권한이 필요합니다." });
+      return;
+    }
+
+    const targetUserId = String(req.params.userId || "").trim();
+    const videoId = String(req.params.videoId || "").trim();
+    if (!targetUserId || !videoId) {
+      res.status(400).json({ message: "회원 ID와 영상 ID가 필요합니다." });
+      return;
+    }
+
+    await query(
+      `DELETE FROM video_grants WHERE user_id = ? AND video_id = ?`,
+      [targetUserId, videoId]
+    );
+
+    res.json({ message: "선물이 취소되었습니다." });
+  } catch (error) {
+    next(error);
+  }
 }

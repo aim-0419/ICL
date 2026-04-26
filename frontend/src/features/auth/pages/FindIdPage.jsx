@@ -1,8 +1,10 @@
+// 파일 역할: 휴대폰 정보로 가입 아이디를 찾는 페이지 컴포넌트입니다.
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
+// 컴포넌트 역할: 휴대폰 정보로 가입 아이디를 찾는 페이지 컴포넌트입니다.
 export function FindIdPage() {
   const store = useAppStore();
   const [form, setForm] = useState({ name: "", phone: "" });

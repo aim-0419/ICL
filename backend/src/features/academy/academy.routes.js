@@ -1,6 +1,8 @@
-﻿import express, { Router } from "express";
+// 파일 역할: 아카데미 관련 API 경로와 컨트롤러를 Express Router에 연결합니다.
+import express, { Router } from "express";
 import * as academyController from "./academy.controller.js";
 
+// 라우터 역할: 아카데미 라우터는 해당 기능의 API 경로와 컨트롤러 함수를 연결합니다.
 export const academyRoutes = Router();
 
 academyRoutes.get("/videos", academyController.getAcademyVideos);
@@ -32,6 +34,7 @@ academyRoutes.post("/videos/:videoId/reviews", express.json(), academyController
 academyRoutes.delete("/reviews/:reviewId", academyController.deleteAcademyReview);
 
 academyRoutes.get("/videos/:videoId/qna", academyController.getAcademyQna);
+academyRoutes.get("/qna/my", academyController.getMyAcademyQna);
 academyRoutes.post("/videos/:videoId/qna", express.json(), academyController.createAcademyQnaPost);
 academyRoutes.post("/qna/:postId/replies", express.json(), academyController.createAcademyQnaReply);
 academyRoutes.delete("/qna/:postId", academyController.deleteAcademyQnaPost);

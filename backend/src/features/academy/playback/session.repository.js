@@ -1,8 +1,10 @@
+// 파일 역할: 아카데미 영상 보안 재생을 위한 세션, 토큰, 파일 경로 처리 로직을 담당합니다.
 import { query, queryOne } from "../../../shared/db/mysql.js";
 import { PLAYBACK_SESSION_STATUS } from "./constants.js";
 import { toSafeText } from "./helpers.js";
 
 // 만료 세션 상태 정리 쿼리
+// 함수 역할: 만료된 영상 재생 세션 상태를 표시하거나 갱신합니다.
 export async function markExpiredPlaybackSessions() {
   await query(
     `UPDATE academy_playback_sessions
@@ -14,6 +16,7 @@ export async function markExpiredPlaybackSessions() {
 }
 
 // 동시 접속 세션 종료 쿼리
+// 함수 역할: 동시 접속 세션 by 회원 권한이나 세션을 회수합니다.
 export async function revokeConcurrentSessionsByUser(userId) {
   const normalizedUserId = toSafeText(userId);
   if (!normalizedUserId) return;
@@ -29,6 +32,7 @@ export async function revokeConcurrentSessionsByUser(userId) {
 }
 
 // 세션 단건 조회 쿼리
+// 함수 역할: 영상 재생 세션 by ID 데이터를 조회해 호출자에게 반환합니다.
 export async function getPlaybackSessionById(sessionId) {
   return queryOne(
     `SELECT
@@ -53,6 +57,7 @@ export async function getPlaybackSessionById(sessionId) {
 }
 
 // 세션 heartbeat 갱신 쿼리
+// 함수 역할: 영상 재생 세션 값으로 안전하게 변환합니다.
 export async function touchPlaybackSession(sessionId) {
   await query(
     `UPDATE academy_playback_sessions

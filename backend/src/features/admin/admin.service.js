@@ -1,3 +1,4 @@
+// 파일 역할: 관리자 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { query, queryOne } from "../../shared/db/mysql.js";
 
 const USER_GRADES = ["admin0", "admin1", "member", "vip", "vvip"];
@@ -10,12 +11,14 @@ const DASHBOARD_RANGE_DAYS = {
 };
 const SALES_PERIODS = ["day", "week", "month", "year"];
 
+// 함수 역할: 회원 등급 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeUserGrade(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
 }
 
+// 함수 역할: 요청 데이터 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parsePayload(payload) {
   if (!payload) return {};
   if (typeof payload === "object") return payload;
@@ -26,24 +29,29 @@ function parsePayload(payload) {
   }
 }
 
+// 함수 역할: 금액 값으로 안전하게 변환합니다.
 function toAmount(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// 함수 역할: 안전한 날짜 값으로 안전하게 변환합니다.
 function toSafeDate(value) {
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+// 함수 역할: pad2 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function pad2(value) {
   return String(value).padStart(2, "0");
 }
 
+// 함수 역할: day 키 값으로 안전하게 변환합니다.
 function toDayKey(date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+// 함수 역할: monday start 데이터를 조회해 호출자에게 반환합니다.
 function getMondayStart(date) {
   const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const day = copy.getDay();
@@ -53,6 +61,7 @@ function getMondayStart(date) {
   return copy;
 }
 
+// 함수 역할: week 키 값으로 안전하게 변환합니다.
 function toWeekKey(date) {
   const monday = getMondayStart(date);
   const thursday = new Date(monday);
@@ -65,14 +74,17 @@ function toWeekKey(date) {
   return `${isoYear}-W${pad2(week)}`;
 }
 
+// 함수 역할: month 키 값으로 안전하게 변환합니다.
 function toMonthKey(date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
 }
 
+// 함수 역할: 연도 키 값으로 안전하게 변환합니다.
 function toYearKey(date) {
   return String(date.getFullYear());
 }
 
+// 함수 역할: 집계 구간 키 by 기간 데이터를 조회해 호출자에게 반환합니다.
 function getBucketKeyByPeriod(date, period) {
   if (period === "day") return toDayKey(date);
   if (period === "week") return toWeekKey(date);
@@ -80,20 +92,24 @@ function getBucketKeyByPeriod(date, period) {
   return toYearKey(date);
 }
 
+// 함수 역할: addDays 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function addDays(date, days) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
 }
 
+// 함수 역할: addMonths 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function addMonths(date, months) {
   return new Date(date.getFullYear(), date.getMonth() + months, 1);
 }
 
+// 함수 역할: addYears 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function addYears(date, years) {
   return new Date(date.getFullYear() + years, 0, 1);
 }
 
+// 함수 역할: 매출 기간 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveSalesPeriod(value) {
   const normalized = String(value || "")
     .trim()
@@ -101,6 +117,7 @@ function resolveSalesPeriod(value) {
   return SALES_PERIODS.includes(normalized) ? normalized : "month";
 }
 
+// 함수 역할: 날짜 from ymd 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseDateFromYmd(value) {
   const normalized = String(value || "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
@@ -124,6 +141,7 @@ function parseDateFromYmd(value) {
   return parsed;
 }
 
+// 함수 역할: floorDateToPeriod 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function floorDateToPeriod(date, period) {
   if (period === "day") {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -140,6 +158,7 @@ function floorDateToPeriod(date, period) {
   return new Date(date.getFullYear(), 0, 1);
 }
 
+// 함수 역할: addPeriod 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function addPeriod(date, period, step = 1) {
   if (period === "day") return addDays(date, step);
   if (period === "week") return addDays(date, step * 7);
@@ -147,6 +166,7 @@ function addPeriod(date, period, step = 1) {
   return addYears(date, step);
 }
 
+// 함수 역할: 매출 집계 구간 label 표시값이나 데이터 구조를 생성합니다.
 function makeSalesBucketLabel(start, period) {
   if (period === "day") {
     return `${start.getMonth() + 1}/${start.getDate()}`;
@@ -160,6 +180,7 @@ function makeSalesBucketLabel(start, period) {
   return `${start.getFullYear()}`;
 }
 
+// 함수 역할: 매출 집계 구간 구조나 문구를 조립해 반환합니다.
 function buildSalesBuckets(period, startDateValue = "", endDateValue = "") {
   const now = new Date();
   const startDate = parseDateFromYmd(startDateValue);
@@ -287,6 +308,7 @@ function buildSalesBuckets(period, startDateValue = "", endDateValue = "") {
   };
 }
 
+// 함수 역할: 환불 금액 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveRefundAmount(payload) {
   const source = payload && typeof payload === "object" ? payload : {};
   const candidates = [
@@ -306,12 +328,14 @@ function resolveRefundAmount(payload) {
     })
   );
 }
+// 함수 역할: 이메일 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeEmail(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
 }
 
+// 함수 역할: 출생 연도 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeBirthYear(value) {
   const text = String(value ?? "").trim();
   if (!text) return null;
@@ -325,6 +349,7 @@ function normalizeBirthYear(value) {
   return year;
 }
 
+// 함수 역할: 연령 그룹 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeAgeGroup(value) {
   const text = String(value || "")
     .trim()
@@ -343,6 +368,7 @@ function normalizeAgeGroup(value) {
   return "";
 }
 
+// 함수 역할: 연령 그룹 by 출생 연도 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveAgeGroupByBirthYear(birthYear) {
   const year = normalizeBirthYear(birthYear);
   if (!year) return "";
@@ -356,6 +382,7 @@ function resolveAgeGroupByBirthYear(birthYear) {
   return "60대 이상";
 }
 
+// 함수 역할: 주문 연령 그룹 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveOrderAgeGroup(orderRow, payload, userBirthYearByEmail = new Map()) {
   const source = payload && typeof payload === "object" ? payload : {};
 
@@ -379,10 +406,12 @@ function resolveOrderAgeGroup(orderRow, payload, userBirthYearByEmail = new Map(
 
   return "미분류";
 }
+// 함수 역할: 상품 ID 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeProductId(value) {
   return String(value || "").trim();
 }
 
+// 함수 역할: 상품 ids에서 필요한 항목만 골라냅니다.
 function pickProductIds(orderRow) {
   const payload = parsePayload(orderRow.payload);
   const ids = new Set();
@@ -409,6 +438,7 @@ function pickProductIds(orderRow) {
   return [...ids];
 }
 
+// 함수 역할: 주문 항목에서 필요한 항목만 골라냅니다.
 function pickOrderItems(orderRow) {
   const payload = parsePayload(orderRow.payload);
   const quantityByProductId = new Map();
@@ -438,6 +468,7 @@ function pickOrderItems(orderRow) {
   }));
 }
 
+// 함수 역할: 등급 to 권한 값을 다른 표현 형식으로 매핑합니다.
 function mapGradeToRole(grade) {
   if (grade === "admin0") {
     return { role: "admin", isAdmin: 1 };
@@ -450,10 +481,12 @@ function mapGradeToRole(grade) {
   return { role: "user", isAdmin: 0 };
 }
 
+// 함수 역할: boolean 값으로 안전하게 변환합니다.
 function toBoolean(value) {
   return value === true || value === 1 || value === "1";
 }
 
+// 함수 역할: 범위 days 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveRangeDays(value) {
   const normalized = String(value || "")
     .trim()
@@ -467,14 +500,17 @@ function resolveRangeDays(value) {
   return 0;
 }
 
+// 함수 역할: valid 회원 등급 조건에 해당하는지 참/거짓으로 판별합니다.
 export function isValidUserGrade(value) {
   return USER_GRADE_SET.has(normalizeUserGrade(value));
 }
 
+// 함수 역할: 회원 등급 목록을 조회해 반환합니다.
 export function listUserGrades() {
   return [...USER_GRADES];
 }
 
+// 함수 역할: 대시보드 회원 목록을 조회해 반환합니다.
 export async function listDashboardUsers() {
   const [users, orders, products, learningRows] = await Promise.all([
     query(
@@ -606,11 +642,12 @@ export async function listDashboardUsers() {
   });
 }
 
+// 함수 역할: 회원 학습 학습 진도 데이터를 조회해 호출자에게 반환합니다.
 export async function getUserLearningProgress(userId, rangeValue = "all") {
   const normalizedUserId = String(userId || "").trim();
   const rangeDays = resolveRangeDays(rangeValue);
   if (!normalizedUserId) {
-    const error = new Error("議고쉶???뚯썝 ?뺣낫媛 ?щ컮瑜댁? ?딆뒿?덈떎.");
+    const error = new Error("조회할 회원 정보가 올바르지 않습니다.");
     error.status = 400;
     throw error;
   }
@@ -632,7 +669,7 @@ export async function getUserLearningProgress(userId, rangeValue = "all") {
   );
 
   if (!user?.id) {
-    const error = new Error("????뚯썝??李얠쓣 ???놁뒿?덈떎.");
+    const error = new Error("대상 회원을 찾을 수 없습니다.");
     error.status = 404;
     throw error;
   }
@@ -797,6 +834,7 @@ export async function getUserLearningProgress(userId, rangeValue = "all") {
   };
 }
 
+// 함수 역할: 강의 학습 reports 목록을 조회해 반환합니다.
 export async function listLectureLearningReports(rangeValue = "all") {
   const rangeDays = resolveRangeDays(rangeValue);
   const chapterDateFilterSql =
@@ -919,6 +957,7 @@ export async function listLectureLearningReports(rangeValue = "all") {
   });
 }
 
+// 함수 역할: 매출 대시보드 데이터를 조회해 호출자에게 반환합니다.
 export async function getSalesDashboard(options = {}) {
   const periodInput = typeof options === "string" ? options : options?.period;
   const period = resolveSalesPeriod(periodInput);
@@ -1196,10 +1235,11 @@ export async function getSalesDashboard(options = {}) {
   };
 }
 
+// 함수 역할: 회원 등급 데이터를 수정합니다.
 export async function updateUserGrade(userId, nextGrade) {
   const normalizedGrade = normalizeUserGrade(nextGrade);
   if (!USER_GRADE_SET.has(normalizedGrade)) {
-    const error = new Error("蹂寃쏀븷 ?뚯썝 ?깃툒 媛믪씠 ?щ컮瑜댁? ?딆뒿?덈떎.");
+    const error = new Error("변경할 회원 등급 값이 올바르지 않습니다.");
     error.status = 400;
     throw error;
   }
@@ -1213,7 +1253,7 @@ export async function updateUserGrade(userId, nextGrade) {
   );
 
   if (!target) {
-    const error = new Error("????뚯썝??李얠쓣 ???놁뒿?덈떎.");
+    const error = new Error("대상 회원을 찾을 수 없습니다.");
     error.status = 404;
     throw error;
   }
@@ -1245,23 +1285,24 @@ export async function updateUserGrade(userId, nextGrade) {
   );
 }
 
+// 함수 역할: 강의 데이터를 새로 생성합니다.
 export async function createLecture(payload) {
   const explicitId = String(payload?.id || "").trim();
   const productId = explicitId || `lecture-${Date.now()}`;
   const name = String(payload?.name || payload?.title || "").trim();
   const description = String(payload?.description || "").trim();
-  const period = String(payload?.period || "").trim() || "臾댁젣???섍컯";
+  const period = String(payload?.period || "").trim() || "무제한 수강";
   const price = Math.max(0, Math.round(toAmount(payload?.price)));
 
   if (!name) {
-    const error = new Error("媛뺤쓽紐낆쓣 ?낅젰??二쇱꽭??");
+    const error = new Error("강의명을 입력해 주세요.");
     error.status = 400;
     throw error;
   }
 
   const duplicated = await queryOne(`SELECT id FROM products WHERE id = ? LIMIT 1`, [productId]);
   if (duplicated) {
-    const error = new Error("?대? 媛숈? 媛뺤쓽 ID媛 議댁옱?⑸땲??");
+    const error = new Error("이미 같은 강의 ID가 존재합니다.");
     error.status = 409;
     throw error;
   }

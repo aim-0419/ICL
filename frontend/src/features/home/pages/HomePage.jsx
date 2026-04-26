@@ -1,6 +1,7 @@
+// 파일 역할: 메인 홈 화면에서 브랜드 소개, 최신 소식, 추천 강의, 후기를 보여주는 페이지 컴포넌트입니다.
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ACADEMY_VIDEOS, getDiscountRate } from "../../academy/data/academyVideos.js";
+import { getDiscountRate } from "../../academy/data/academyVideos.js";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
@@ -39,12 +40,14 @@ const DEFAULT_SOCIAL_ITEMS = [
   },
 ];
 
+// 함수 역할: 소셜 썸네일 error 사용자 이벤트를 처리합니다.
 function handleSocialThumbnailError(event) {
   const image = event.currentTarget;
   const wrapper = image.closest(".social-thumb-link");
   if (wrapper) wrapper.style.display = "none";
 }
 
+// 함수 역할: 소셜 게시일 날짜 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatSocialPublishedDate(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -56,6 +59,7 @@ function formatSocialPublishedDate(value) {
   }).format(date);
 }
 
+// 컴포넌트 역할: 유튜브, 블로그, 인스타그램 소스별 아이콘을 렌더링합니다.
 function SocialSourceIcon({ source }) {
   if (source === "youtube") {
     return (
@@ -97,6 +101,7 @@ function SocialSourceIcon({ source }) {
   );
 }
 
+// 함수 역할: 소셜 항목 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeSocialItems(apiItems) {
   const sourceMap = new Map(
     (Array.isArray(apiItems) ? apiItems : [])
@@ -120,6 +125,7 @@ function normalizeSocialItems(apiItems) {
   });
 }
 
+// 컴포넌트 역할: 메인 홈 화면에서 브랜드 소개, 최신 소식, 추천 강의, 후기를 보여주는 페이지 컴포넌트입니다.
 export function HomePage() {
   const navigate = useNavigate();
   const store = useAppStore();
@@ -161,16 +167,11 @@ export function HomePage() {
   }, []);
 
   const featuredVideos = useMemo(() => {
-    const newVideos = ACADEMY_VIDEOS.filter((video) => (video.badge || "").toLowerCase() === "new").slice(
-      0,
-      2
-    );
-    const hotVideos = ACADEMY_VIDEOS.filter((video) => (video.badge || "").toLowerCase() === "hot").slice(
-      0,
-      2
-    );
+    const videos = Array.isArray(store.academyVideos) ? store.academyVideos : [];
+    const newVideos = videos.filter((video) => (video.badge || "").toLowerCase() === "new").slice(0, 2);
+    const hotVideos = videos.filter((video) => (video.badge || "").toLowerCase() === "hot").slice(0, 2);
     return [...newVideos, ...hotVideos];
-  }, []);
+  }, [store.academyVideos]);
 
   return (
     <div className="site-shell">

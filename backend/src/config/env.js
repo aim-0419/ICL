@@ -1,7 +1,9 @@
+// 파일 역할: .env 값을 읽어 서버 실행에 필요한 환경 설정을 한곳으로 모읍니다.
 import dotenv from "dotenv";
 
 dotenv.config();
 
+// 상수 역할: .env와 기본값을 합쳐 서버가 사용할 환경 설정 객체를 만듭니다.
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? 4000),
@@ -22,4 +24,14 @@ export const env = {
   socialFetchTimeoutMs: Number(process.env.SOCIAL_FETCH_TIMEOUT_MS ?? 8000),
   academyPlaybackTokenSecret: process.env.ACADEMY_PLAYBACK_TOKEN_SECRET ?? "",
   academyPlaybackTokenTtlSec: Number(process.env.ACADEMY_PLAYBACK_TOKEN_TTL_SEC ?? 21600),
+  academyPublishSchedulerEnabled: String(process.env.ACADEMY_PUBLISH_SCHEDULER_ENABLED ?? "true")
+    .trim()
+    .toLowerCase() !== "false",
+  academyPublishSchedulerIntervalSec: Number(process.env.ACADEMY_PUBLISH_SCHEDULER_INTERVAL_SEC ?? 60),
+  smtpHost: process.env.SMTP_HOST ?? "",
+  smtpPort: Number(process.env.SMTP_PORT ?? 587),
+  smtpUser: process.env.SMTP_USER ?? "",
+  smtpPass: process.env.SMTP_PASS ?? "",
+  smtpFrom: process.env.SMTP_FROM ?? "이끌림 필라테스 <noreply@icl-pilates.com>",
+  siteUrl: process.env.SITE_URL ?? "http://localhost:5173",
 };

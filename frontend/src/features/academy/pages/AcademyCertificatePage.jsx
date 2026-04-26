@@ -1,3 +1,4 @@
+// 파일 역할: 강의 수료 정보를 바탕으로 수료증 화면을 렌더링하는 페이지 컴포넌트입니다.
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
@@ -11,12 +12,14 @@ const DETAIL_SUMMARY = {
   고급: { duration: "5주 과정", lessons: "총 14강" },
 };
 
+// 함수 역할: 수료증 날짜 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatCertDate(dateStr) {
   const d = dateStr ? new Date(dateStr) : new Date();
   if (Number.isNaN(d.getTime())) return new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
   return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
 }
 
+// 컴포넌트 역할: 강의 수료 정보를 바탕으로 수료증 화면을 렌더링하는 페이지 컴포넌트입니다.
 export function AcademyCertificatePage() {
   const { videoId } = useParams();
   const store = useAppStore();

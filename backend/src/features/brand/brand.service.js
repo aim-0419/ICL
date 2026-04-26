@@ -1,8 +1,10 @@
+// 파일 역할: 브랜드 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../shared/db/mysql.js";
 
 // ─── 강사 ─────────────────────────────────────────────────────────────────────
 
+// 함수 역할: 강사 목록을 조회해 반환합니다.
 export async function listInstructors() {
   const rows = await query(
     `SELECT id, name, role, intro, careers, image_path AS imagePath, sort_order AS sortOrder, created_at AS createdAt
@@ -14,6 +16,7 @@ export async function listInstructors() {
   }));
 }
 
+// 함수 역할: upsertInstructor 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function upsertInstructor({ id, name, role, intro, careers, imagePath, sortOrder }) {
   const safeId = id || randomUUID();
   const safeCareers = JSON.stringify(Array.isArray(careers) ? careers : []);
@@ -28,12 +31,14 @@ export async function upsertInstructor({ id, name, role, intro, careers, imagePa
   return { id: safeId };
 }
 
+// 함수 역할: 강사 데이터를 삭제합니다.
 export async function deleteInstructor(id) {
   await query(`DELETE FROM instructors WHERE id = ?`, [String(id)]);
 }
 
 // ─── 지점 ─────────────────────────────────────────────────────────────────────
 
+// 함수 역할: 지점 목록을 조회해 반환합니다.
 export async function listBranches() {
   const rows = await query(
     `SELECT id, name, address, phone, parking, lat, lng,
@@ -43,6 +48,7 @@ export async function listBranches() {
   return Array.isArray(rows) ? rows : [];
 }
 
+// 함수 역할: upsertBranch 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function upsertBranch({ id, name, address, phone, parking, lat, lng, mapLink, sortOrder }) {
   const safeId = id || randomUUID();
   await query(
@@ -59,6 +65,7 @@ export async function upsertBranch({ id, name, address, phone, parking, lat, lng
   return { id: safeId };
 }
 
+// 함수 역할: 지점 데이터를 삭제합니다.
 export async function deleteBranch(id) {
   await query(`DELETE FROM branches WHERE id = ?`, [String(id)]);
 }

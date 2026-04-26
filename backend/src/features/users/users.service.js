@@ -1,5 +1,7 @@
+// 파일 역할: 회원 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { query, queryOne } from "../../shared/db/mysql.js";
 import { env } from "../../config/env.js";
+import { sendEmailVerificationCode } from "../../shared/email/email.service.js";
 
 // 인증 및 탈퇴 보관 정책 상수 정의
 const EMAIL_VERIFICATION_EXPIRES_MS = 1000 * 60 * 5;
@@ -12,12 +14,14 @@ const ACCOUNT_STATUS_WITHDRAWN = "withdrawn";
 const emailVerificationStore = new Map();
 const withdrawPhoneVerificationStore = new Map();
 
+// 함수 역할: 전화번호 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizePhone(value) {
   return String(value || "")
     .replace(/\D/g, "")
     .trim();
 }
 
+// 함수 역할: 출생 연도 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeBirthYear(value) {
   const text = String(value ?? "").trim();
   if (!text) return null;
@@ -31,16 +35,19 @@ function normalizeBirthYear(value) {
   return year;
 }
 
+// 함수 역할: 이메일 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeEmail(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
 }
 
+// 함수 역할: generateVerificationCode 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function generateVerificationCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+// 함수 역할: maskPhone 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function maskPhone(phone) {
   const normalized = normalizePhone(phone);
   if (!normalized) return "";
@@ -49,12 +56,14 @@ function maskPhone(phone) {
 }
 
 // 탈퇴 상태 판별 유틸리티
+// 함수 역할: 탈퇴 조건에 해당하는지 참/거짓으로 판별합니다.
 function isWithdrawn(user) {
   return String(user?.accountStatus || "")
     .trim()
     .toLowerCase() === ACCOUNT_STATUS_WITHDRAWN;
 }
 
+// 함수 역할: selectUserById 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 async function selectUserById(userId) {
   return queryOne(
     `SELECT
@@ -80,6 +89,7 @@ async function selectUserById(userId) {
 }
 
 // 탈퇴 만료 시 연관 데이터 영구 폐기 처리
+// 함수 역할: 회원 data 데이터를 조건에 맞게 영구 정리합니다.
 async function purgeUserData(userId) {
   const normalizedUserId = String(userId || "").trim();
   if (!normalizedUserId) return;
@@ -100,6 +110,7 @@ async function purgeUserData(userId) {
 }
 
 // 탈퇴 직전 휴대폰 인증 완료 여부 검증
+// 함수 역할: withdraw 전화번호 verified 조건에 해당하는지 참/거짓으로 판별합니다.
 function isWithdrawPhoneVerified(userId, phone) {
   const saved = withdrawPhoneVerificationStore.get(userId);
   if (!saved) return false;
@@ -108,6 +119,7 @@ function isWithdrawPhoneVerified(userId, phone) {
   return saved.phone === phone;
 }
 
+// 함수 역할: 회원 목록을 조회해 반환합니다.
 export async function listUsers() {
   return query(
     `SELECT
@@ -131,6 +143,7 @@ export async function listUsers() {
 }
 
 // 내 정보 수정 처리
+// 함수 역할: my 프로필 데이터를 수정합니다.
 export async function updateMyProfile(userId, payload) {
   const currentPassword = String(payload.currentPassword || "").trim();
   const loginId = String(payload.loginId || "").trim();
@@ -250,6 +263,7 @@ export async function updateMyProfile(userId, payload) {
 }
 
 // 이메일 인증번호 발송 처리
+// 함수 역할: requestEmailVerificationCode 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function requestEmailVerificationCode(userId, email) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) {
@@ -278,12 +292,10 @@ export async function requestEmailVerificationCode(userId, email) {
     verifiedAt: null,
   });
 
-  console.info("[email-verification] code generated", {
-    userId,
-    email: normalizedEmail,
-    code,
-    expiresAt,
-  });
+  const expiresMinutes = Math.floor(EMAIL_VERIFICATION_EXPIRES_MS / 60000);
+  void sendEmailVerificationCode(normalizedEmail, code, expiresMinutes);
+
+  console.info("[email-verification] code generated", { userId, email: normalizedEmail, expiresAt });
 
   return {
     email: normalizedEmail,
@@ -293,6 +305,7 @@ export async function requestEmailVerificationCode(userId, email) {
 }
 
 // 이메일 인증번호 확인 처리
+// 함수 역할: confirmEmailVerificationCode 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function confirmEmailVerificationCode(userId, email, code) {
   const normalizedEmail = normalizeEmail(email);
   const normalizedCode = String(code || "").trim();
@@ -335,6 +348,7 @@ export async function confirmEmailVerificationCode(userId, email, code) {
 }
 
 // 탈퇴용 휴대폰 인증번호 발송 처리
+// 함수 역할: requestWithdrawPhoneVerificationCode 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function requestWithdrawPhoneVerificationCode(userId, phone) {
   const user = await queryOne(
     `SELECT id, phone, account_status AS accountStatus
@@ -395,6 +409,7 @@ export async function requestWithdrawPhoneVerificationCode(userId, phone) {
 }
 
 // 탈퇴용 휴대폰 인증번호 검증 처리
+// 함수 역할: confirmWithdrawPhoneVerificationCode 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function confirmWithdrawPhoneVerificationCode(userId, phone, code) {
   const normalizedCode = String(code || "").trim();
   if (!normalizedCode) {
@@ -464,6 +479,7 @@ export async function confirmWithdrawPhoneVerificationCode(userId, phone, code) 
 }
 
 // 휴대폰 인증 완료 후 회원 탈퇴 처리
+// 함수 역할: withdrawMyAccount 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function withdrawMyAccount(userId, payload = {}) {
   const user = await selectUserById(userId);
   if (!user?.id) {
@@ -517,6 +533,7 @@ export async function withdrawMyAccount(userId, payload = {}) {
 }
 
 // 보관 기간 내 탈퇴 계정 복구 처리
+// 함수 역할: 탈퇴 회원 값을 원래 상태로 되돌립니다.
 export async function restoreWithdrawnUser(userId) {
   const user = await selectUserById(userId);
   if (!user?.id) {
@@ -553,6 +570,7 @@ export async function restoreWithdrawnUser(userId) {
 }
 
 // 보관 기간 만료 탈퇴 계정 일괄 폐기 처리
+// 함수 역할: 만료된 탈퇴 회원 데이터를 조건에 맞게 영구 정리합니다.
 export async function purgeExpiredWithdrawnUsers() {
   const rows = await query(
     `SELECT id
@@ -575,11 +593,13 @@ export async function purgeExpiredWithdrawnUsers() {
   return { purgedCount };
 }
 
+// 함수 역할: 회원 포인트 데이터를 조회해 호출자에게 반환합니다.
 export async function getUserPoints(userId) {
   const row = await queryOne(`SELECT points FROM users WHERE id = ?`, [String(userId)]);
   return Number(row?.points ?? 0);
 }
 
+// 함수 역할: adjustPoints 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function adjustPoints(userId, amount, reason, orderId = null) {
   const { randomUUID } = await import("node:crypto");
   const currentPoints = await getUserPoints(userId);
@@ -593,6 +613,7 @@ export async function adjustPoints(userId, amount, reason, orderId = null) {
   return { points: newPoints, delta: amount };
 }
 
+// 함수 역할: point 이력 데이터를 조회해 호출자에게 반환합니다.
 export async function getPointHistory(userId) {
   const rows = await query(
     `SELECT id, amount, reason, order_id AS orderId, created_at AS createdAt

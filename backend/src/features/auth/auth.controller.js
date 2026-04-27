@@ -98,6 +98,26 @@ export async function me(req, res, next) {
   }
 }
 
+// 함수 역할: 회원가입 이메일 인증번호를 발송합니다.
+export async function requestSignupEmailVerification(req, res, next) {
+  try {
+    const result = await authService.requestSignupEmailVerification(req.body?.email);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// 함수 역할: 회원가입 이메일 인증번호를 확인합니다.
+export async function confirmSignupEmailVerification(req, res, next) {
+  try {
+    const result = await authService.confirmSignupEmailVerification(req.body?.email, req.body?.code);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 // 함수 역할: 로그인 ID 대상을 탐색해 반환합니다.
 export async function findLoginId(req, res, next) {
   try {

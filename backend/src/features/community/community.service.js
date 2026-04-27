@@ -451,7 +451,8 @@ export async function createInquiryReply({ inquiryId, authorId, authorName, cont
   void (async () => {
     try {
       const row = await queryOne(
-        `SELECT ip.title, u.email
+        `SELECT ip.title, ip.content AS inquiryContent, ip.date AS inquiryDate,
+                u.email, u.name AS userName
          FROM inquiry_posts ip
          LEFT JOIN users u ON u.id = ip.author_id
          WHERE ip.id = ?`,
@@ -460,7 +461,10 @@ export async function createInquiryReply({ inquiryId, authorId, authorName, cont
       if (row?.email) {
         await sendInquiryReplyNotification({
           toEmail: row.email,
+          userName: row.userName || "",
           inquiryTitle: row.title || "문의",
+          inquiryContent: row.inquiryContent || "",
+          inquiryDate: row.inquiryDate || "",
           replyContent: content,
         });
       }

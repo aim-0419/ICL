@@ -1,9 +1,13 @@
 // 파일 역할: 인증 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../shared/db/mysql.js";
+import { sendEmailVerificationCode } from "../../shared/email/email.service.js";
 
 const ACCOUNT_STATUS_ACTIVE = "active";
 const ACCOUNT_STATUS_WITHDRAWN = "withdrawn";
+
+const SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS = 1000 * 60 * 5;
+const signupEmailStore = new Map();
 
 // 로그인 성공 시 기존 세션 정리 후 신규 세션 토큰 발급
 // 함수 역할: 세션 by 회원 ID 데이터를 삭제합니다.
@@ -110,6 +114,65 @@ export async function findUserBySessionToken(token) {
   );
 }
 
+// 회원가입 이메일 인증번호 발송
+export async function requestSignupEmailVerification(email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail) {
+    const error = new Error("이메일을 입력해 주세요.");
+    error.status = 400;
+    throw error;
+  }
+
+  const exists = await queryOne(`SELECT id FROM users WHERE email = ? LIMIT 1`, [normalizedEmail]);
+  if (exists) {
+    const error = new Error("이미 가입된 이메일입니다.");
+    error.status = 409;
+    throw error;
+  }
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = Date.now() + SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS;
+  signupEmailStore.set(normalizedEmail, { code, expiresAt, verifiedAt: null });
+
+  void sendEmailVerificationCode(normalizedEmail, code, Math.floor(SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS / 60000));
+  return { expiresInSeconds: Math.floor(SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS / 1000) };
+}
+
+// 회원가입 이메일 인증번호 확인
+export async function confirmSignupEmailVerification(email, code) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedCode = String(code || "").trim();
+
+  if (!normalizedEmail || !normalizedCode) {
+    const error = new Error("이메일과 인증번호를 입력해 주세요.");
+    error.status = 400;
+    throw error;
+  }
+
+  const saved = signupEmailStore.get(normalizedEmail);
+  if (!saved) {
+    const error = new Error("인증 요청 이력이 없습니다. 인증번호를 다시 발송해 주세요.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (Date.now() > Number(saved.expiresAt || 0)) {
+    signupEmailStore.delete(normalizedEmail);
+    const error = new Error("인증번호가 만료되었습니다. 다시 요청해 주세요.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (saved.code !== normalizedCode) {
+    const error = new Error("인증번호가 일치하지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  signupEmailStore.set(normalizedEmail, { ...saved, verifiedAt: Date.now() });
+  return { verified: true };
+}
+
 // 회원가입 처리
 // 함수 역할: signup에 서명해 변조 여부를 확인할 수 있게 합니다.
 export async function signup(payload) {
@@ -130,6 +193,13 @@ export async function signup(payload) {
   if (emailExists) {
     const error = new Error("이미 가입된 이메일입니다.");
     error.status = 409;
+    throw error;
+  }
+
+  const verification = signupEmailStore.get(email);
+  if (!verification?.verifiedAt || Date.now() > Number(verification.expiresAt || 0)) {
+    const error = new Error("이메일 인증을 먼저 완료해 주세요.");
+    error.status = 400;
     throw error;
   }
 
@@ -196,6 +266,7 @@ export async function signup(payload) {
     [user.id]
   );
 
+  signupEmailStore.delete(email);
   const token = await createSession(user.id);
   return { user: toPublicUser(created), token };
 }

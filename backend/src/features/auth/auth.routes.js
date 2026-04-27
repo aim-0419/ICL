@@ -6,6 +6,8 @@ import * as authController from "./auth.controller.js";
 export const authRoutes = Router();
 
 authRoutes.post("/signup", authController.signup);
+authRoutes.post("/signup/email-verification/request", authController.requestSignupEmailVerification);
+authRoutes.post("/signup/email-verification/confirm", authController.confirmSignupEmailVerification);
 authRoutes.post("/login", authController.login);
 authRoutes.post("/logout", authController.logout);
 authRoutes.get("/me", authController.me);

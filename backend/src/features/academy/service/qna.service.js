@@ -118,11 +118,22 @@ export async function createAcademyQnaReply(userId, userName, postId, content, i
   if (isAdmin && post.authorId && String(post.authorId) !== String(userId)) {
     void (async () => {
       try {
-        const author = await queryOne(`SELECT email FROM users WHERE id = ?`, [String(post.authorId)]);
+        const [author, videoRow] = await Promise.all([
+          queryOne(`SELECT email, name FROM users WHERE id = ?`, [String(post.authorId)]),
+          queryOne(
+            `SELECT p.name AS videoTitle
+             FROM academy_videos av
+             LEFT JOIN products p ON p.id = av.product_id
+             WHERE av.id = ?`,
+            [String(post.videoId)]
+          ),
+        ]);
         if (author?.email) {
           await sendQnaReplyNotification({
             toEmail: author.email,
+            userName: author.name || "",
             videoId: post.videoId,
+            videoTitle: videoRow?.videoTitle || "",
             postTitle: post.title || "질문",
             replyContent: safeContent,
           });

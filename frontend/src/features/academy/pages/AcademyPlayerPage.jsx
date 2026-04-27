@@ -170,6 +170,7 @@ export function AcademyPlayerPage() {
   const store = useAppStore();
   const videoRef = useRef(null);
   const playerWrapRef = useRef(null);
+  const watermarkRef = useRef(null);
   const lastSavedTimeRef = useRef(0);
   const isSavingRef = useRef(false);
   const resumeAppliedRef = useRef(false);
@@ -648,6 +649,27 @@ export function AcademyPlayerPage() {
     };
   }, [playbackSession?.sessionId, playbackSession?.watermarkText]);
 
+  // 워터마크 DOM 조작 감지 — 삭제/숨김 시 재생 중단
+  useEffect(() => {
+    if (!playbackSession?.watermarkText) return;
+    const container = playerWrapRef.current;
+    if (!container) return;
+
+    const observer = new MutationObserver(() => {
+      const wm = watermarkRef.current;
+      if (!wm || !container.contains(wm)) {
+        if (videoRef.current instanceof HTMLVideoElement) {
+          videoRef.current.pause();
+        }
+        setPlaybackSessionError("보안 정책 위반으로 재생이 중단되었습니다.");
+        observer.disconnect();
+      }
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [playbackSession?.sessionId, playbackSession?.watermarkText]);
+
   // Q&A 로드
   const loadQna = useCallback(async (videoId) => {
     setQnaLoading(true);
@@ -953,7 +975,7 @@ export function AcademyPlayerPage() {
                 </div>
               ) : null}
               {watermarkText ? (
-                <div className={`academy-player-watermark ${watermarkPositionClass}`} aria-hidden="true">
+                <div ref={watermarkRef} className={`academy-player-watermark ${watermarkPositionClass}`} aria-hidden="true">
                   {watermarkText}
                 </div>
               ) : null}

@@ -93,7 +93,7 @@ export async function issueAcademyPlaybackSession({
 
   const requestUserId = toSafeText(user?.id);
   if (requestUserId) {
-    await revokeConcurrentSessionsByUser(requestUserId);
+    await revokeConcurrentSessionsByUser(requestUserId, { chapterId: chapter.id });
   }
 
   const sessionId = randomUUID();

@@ -17,17 +17,24 @@ export async function markExpiredPlaybackSessions() {
 
 // 동시 접속 세션 종료 쿼리
 // 함수 역할: 동시 접속 세션 by 회원 권한이나 세션을 회수합니다.
-export async function revokeConcurrentSessionsByUser(userId) {
+// 같은 차시를 30초 이내 재접속하는 경우(페이지 새로고침, 기기 전환)는 revoke 제외합니다.
+export async function revokeConcurrentSessionsByUser(userId, { chapterId = "", gracePeriodSec = 30 } = {}) {
   const normalizedUserId = toSafeText(userId);
   if (!normalizedUserId) return;
+
+  const normalizedChapterId = toSafeText(chapterId);
 
   await query(
     `UPDATE academy_playback_sessions
      SET status = ?, revoked_at = UTC_TIMESTAMP(), revoke_reason = 'concurrent_session'
      WHERE user_id = ?
        AND status = ?
-       AND expires_at > UTC_TIMESTAMP()`,
-    [PLAYBACK_SESSION_STATUS.revoked, normalizedUserId, PLAYBACK_SESSION_STATUS.active]
+       AND expires_at > UTC_TIMESTAMP()
+       AND NOT (
+         chapter_id = ?
+         AND last_seen_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)
+       )`,
+    [PLAYBACK_SESSION_STATUS.revoked, normalizedUserId, PLAYBACK_SESSION_STATUS.active, normalizedChapterId, gracePeriodSec]
   );
 }
 

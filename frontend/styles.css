@@ -3519,7 +3519,7 @@ video::-webkit-media-controls-fullscreen-button {
 
 .academy-player-watermark {
   position: absolute;
-  z-index: 3;
+  z-index: 9999;
   padding: 6px 10px;
   border-radius: 8px;
   background: rgba(18, 14, 8, 0.46);
@@ -3533,6 +3533,7 @@ video::-webkit-media-controls-fullscreen-button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  mix-blend-mode: difference;
 }
 
 .academy-player-watermark.is-top-center {

@@ -649,24 +649,41 @@ export function AcademyPlayerPage() {
     };
   }, [playbackSession?.sessionId, playbackSession?.watermarkText]);
 
-  // 워터마크 DOM 조작 감지 — 삭제/숨김 시 재생 중단
+  // 워터마크 DOM 조작 감지 — 삭제/CSS 숨김(opacity·visibility·display) 모두 감지 후 재생 중단
   useEffect(() => {
     if (!playbackSession?.watermarkText) return;
     const container = playerWrapRef.current;
     if (!container) return;
 
-    const observer = new MutationObserver(() => {
+    function isWatermarkHidden() {
       const wm = watermarkRef.current;
-      if (!wm || !container.contains(wm)) {
-        if (videoRef.current instanceof HTMLVideoElement) {
-          videoRef.current.pause();
-        }
-        setPlaybackSessionError("보안 정책 위반으로 재생이 중단되었습니다.");
-        observer.disconnect();
+      if (!wm || !container.contains(wm)) return true;
+      const cs = window.getComputedStyle(wm);
+      if (cs.display === "none") return true;
+      if (cs.visibility === "hidden") return true;
+      if (parseFloat(cs.opacity) < 0.05) return true;
+      // 부모 요소에 display:none이 걸린 경우 bounding rect가 0이 됨
+      const rect = wm.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return true;
+      return false;
+    }
+
+    const observer = new MutationObserver(() => {
+      if (!isWatermarkHidden()) return;
+      if (videoRef.current instanceof HTMLVideoElement) {
+        videoRef.current.pause();
       }
+      setPlaybackSessionError("보안 정책 위반으로 재생이 중단되었습니다.");
+      observer.disconnect();
     });
 
-    observer.observe(container, { childList: true, subtree: true });
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style", "class"],
+    });
+
     return () => observer.disconnect();
   }, [playbackSession?.sessionId, playbackSession?.watermarkText]);
 

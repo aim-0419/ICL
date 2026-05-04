@@ -53,6 +53,11 @@ npm run dev
 - 헬스체크: `GET /api/health`
 - 기능별 라우트: `/api/auth`, `/api/users`, `/api/products`, `/api/cart`, `/api/orders`, `/api/payments`
 
+## 배포
+
+- EC2 (Ubuntu 24.04) + Nginx + PM2
+- `merge` 브랜치 푸시 시 GitHub Actions로 자동 배포
+
 ## 참고
 
 - 현재 backend는 기능별 구조를 먼저 잡은 상태이며, DB/인증/JWT/실결제 승인 로직은 이후 연결 단계입니다.

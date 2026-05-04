@@ -119,14 +119,22 @@ export function AdminProductPage() {
       <SiteHeader subpage />
       <main className="content-page">
         <section className="admin-section">
+          <section className="admin-dashboard-switch">
+            <Link className="admin-dashboard-switch-link" to="/admin">
+              매출 대시보드
+            </Link>
+            <Link className="admin-dashboard-switch-link" to="/admin/members">
+              회원 관리
+            </Link>
+            <Link className="admin-dashboard-switch-link active" to="/admin/products">
+              상품 관리
+            </Link>
+            <Link className="admin-dashboard-switch-link" to="/admin/refunds">
+              환불 관리
+            </Link>
+          </section>
           <div className="admin-section-header">
             <h1 className="admin-section-title">상품 관리</h1>
-            <nav className="admin-nav-tabs">
-              <Link to="/admin" className="admin-nav-tab">매출 현황</Link>
-              <Link to="/admin/members" className="admin-nav-tab">회원 관리</Link>
-              <Link to="/admin/products" className="admin-nav-tab active">상품 관리</Link>
-              <Link to="/admin/refunds" className="admin-nav-tab">환불 관리</Link>
-            </nav>
           </div>
 
           {message.text && (

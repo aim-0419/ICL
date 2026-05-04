@@ -457,6 +457,9 @@ export function AdminSalesDashboardPage() {
           <Link className="admin-dashboard-switch-link" to="/admin/members">
             회원 관리
           </Link>
+          <Link className="admin-dashboard-switch-link" to="/admin/products">
+            상품 관리
+          </Link>
           <Link className="admin-dashboard-switch-link" to="/admin/refunds">
             환불 관리
           </Link>

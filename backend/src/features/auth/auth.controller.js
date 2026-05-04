@@ -3,6 +3,41 @@ import * as authService from "./auth.service.js";
 
 const SESSION_COOKIE_NAME = "icl_session";
 
+const loginAttempts = new Map();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_BLOCK_MS = 15 * 60 * 1000;
+
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (forwarded) return String(forwarded).split(",")[0].trim();
+  return req.socket?.remoteAddress || "unknown";
+}
+
+function checkLoginRateLimit(ip) {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+  if (record && now < record.resetAt && record.count >= MAX_LOGIN_ATTEMPTS) {
+    const waitSec = Math.ceil((record.resetAt - now) / 1000);
+    const error = new Error(`로그인 시도 횟수를 초과했습니다. ${waitSec}초 후 다시 시도해 주세요.`);
+    error.status = 429;
+    throw error;
+  }
+}
+
+function recordLoginFailure(ip) {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+  if (!record || now >= record.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_BLOCK_MS });
+  } else {
+    record.count += 1;
+  }
+}
+
+function clearLoginAttempts(ip) {
+  loginAttempts.delete(ip);
+}
+
 // 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
 function getCookieValue(req, name) {
   const cookieHeader = String(req.headers.cookie || "");
@@ -53,11 +88,15 @@ export async function signup(req, res, next) {
 
 // 함수 역할: login 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function login(req, res, next) {
+  const ip = getClientIp(req);
   try {
+    checkLoginRateLimit(ip);
     const result = await authService.login(req.body);
+    clearLoginAttempts(ip);
     setSessionCookie(res, result.token);
     res.json({ user: result.user });
   } catch (error) {
+    if (error.status !== 429) recordLoginFailure(ip);
     next(error);
   }
 }

@@ -55,7 +55,16 @@ async function cleanupCommunityAssets(paths = []) {
 }
 
 // 함수 역할: 후기 목록을 조회해 반환합니다.
-export async function listReviews() {
+export async function listReviews({ search = "" } = {}) {
+  const params = [];
+  let whereClause = "";
+
+  if (search) {
+    whereClause = "WHERE (rp.title LIKE ? OR rp.content LIKE ? OR rp.author LIKE ?)";
+    const s = `%${search}%`;
+    params.push(s, s, s);
+  }
+
   return query(
     `SELECT
       rp.id,
@@ -69,8 +78,10 @@ export async function listReviews() {
       COUNT(rc.id) AS comments
      FROM review_posts rp
      LEFT JOIN review_comments rc ON rc.review_id = rp.id
+     ${whereClause}
      GROUP BY rp.id, rp.title, rp.author, rp.author_id, rp.date, rp.views, rp.image_url, rp.video_url
-     ORDER BY rp.date DESC, rp.id DESC`
+     ORDER BY rp.date DESC, rp.id DESC`,
+    params
   );
 }
 
@@ -276,7 +287,16 @@ export async function deleteEvent(eventId) {
 }
 
 // 함수 역할: 문의 목록을 조회해 반환합니다.
-export async function listInquiries() {
+export async function listInquiries({ search = "" } = {}) {
+  const params = [];
+  let whereClause = "";
+
+  if (search) {
+    whereClause = "WHERE (ip.title LIKE ? OR ip.author LIKE ?)";
+    const s = `%${search}%`;
+    params.push(s, s);
+  }
+
   const rows = await query(
     `SELECT
       ip.id,
@@ -291,8 +311,10 @@ export async function listInquiries() {
       COUNT(ir.id) AS replyCount
      FROM inquiry_posts ip
      LEFT JOIN inquiry_replies ir ON ir.inquiry_id = ip.id
+     ${whereClause}
      GROUP BY ip.id, ip.title, ip.author, ip.author_id, ip.date, ip.views, ip.image_url, ip.video_url, ip.is_secret
-     ORDER BY ip.date DESC, ip.id DESC`
+     ORDER BY ip.date DESC, ip.id DESC`,
+    params
   );
   return rows.map((row) => ({ ...row, isSecret: toBoolean(row.isSecret), replyCount: Number(row.replyCount || 0) }));
 }

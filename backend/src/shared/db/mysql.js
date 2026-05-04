@@ -1079,6 +1079,17 @@ async function initDatabase() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS email_verifications (
+      email VARCHAR(190) PRIMARY KEY,
+      code VARCHAR(10) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      verified_at DATETIME NULL
+    )
+  `);
+
+  await pool.query(`DELETE FROM email_verifications WHERE expires_at < NOW()`);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS products (
       id VARCHAR(64) PRIMARY KEY,
       name VARCHAR(190) NOT NULL,

@@ -47,6 +47,10 @@ function isSameUser(leftId, rightId) {
   return Boolean(leftId && rightId && String(leftId) === String(rightId));
 }
 
+function stripHtml(value) {
+  return String(value || "").replace(/<[^>]*>/g, "").trim();
+}
+
 // 함수 역할: 미디어 URL 입력값을 저장하기 전에 허용된 형식으로 정리합니다.
 function normalizeMediaUrl(value) {
   const normalized = String(value || "").trim();
@@ -97,7 +101,8 @@ export async function uploadCommunityAsset(req, res, next) {
 // 함수 역할: 후기 데이터를 조회해 호출자에게 반환합니다.
 export async function getReviews(req, res, next) {
   try {
-    res.json(await communityService.listReviews());
+    const search = String(req.query.search || "").trim();
+    res.json(await communityService.listReviews({ search }));
   } catch (error) {
     next(error);
   }
@@ -121,8 +126,8 @@ export async function createReview(req, res, next) {
       return;
     }
 
-    const title = String(req.body?.title || "").trim();
-    const content = String(req.body?.content || "").trim();
+    const title = stripHtml(req.body?.title);
+    const content = stripHtml(req.body?.content);
     const imageUrl = normalizeMediaUrl(req.body?.imageUrl);
     const videoUrl = normalizeMediaUrl(req.body?.videoUrl);
 
@@ -191,8 +196,8 @@ export async function updateReview(req, res, next) {
       return;
     }
 
-    const title = String(req.body?.title || "").trim();
-    const content = String(req.body?.content || "").trim();
+    const title = stripHtml(req.body?.title);
+    const content = stripHtml(req.body?.content);
     const imageUrl = normalizeMediaUrl(req.body?.imageUrl);
     const videoUrl = normalizeMediaUrl(req.body?.videoUrl);
 
@@ -501,7 +506,8 @@ export async function deleteEvent(req, res, next) {
 // 함수 역할: 문의 데이터를 조회해 호출자에게 반환합니다.
 export async function getInquiries(req, res, next) {
   try {
-    res.json(await communityService.listInquiries());
+    const search = String(req.query.search || "").trim();
+    res.json(await communityService.listInquiries({ search }));
   } catch (error) {
     next(error);
   }
@@ -540,8 +546,8 @@ export async function createInquiry(req, res, next) {
       return;
     }
 
-    const title = String(req.body?.title || "").trim();
-    const content = String(req.body?.content || "").trim();
+    const title = stripHtml(req.body?.title);
+    const content = stripHtml(req.body?.content);
     const imageUrl = normalizeMediaUrl(req.body?.imageUrl);
     const videoUrl = normalizeMediaUrl(req.body?.videoUrl);
     const author = authUser.name || authUser.loginId || authUser.email || "익명";

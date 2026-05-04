@@ -6,3 +6,6 @@ import * as productsController from "./products.controller.js";
 export const productsRoutes = Router();
 
 productsRoutes.get("/", productsController.getProducts);
+productsRoutes.post("/", productsController.createProduct);
+productsRoutes.patch("/:productId", productsController.updateProduct);
+productsRoutes.delete("/:productId", productsController.deleteProduct);

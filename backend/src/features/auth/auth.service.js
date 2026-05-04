@@ -7,7 +7,6 @@ const ACCOUNT_STATUS_ACTIVE = "active";
 const ACCOUNT_STATUS_WITHDRAWN = "withdrawn";
 
 const SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS = 1000 * 60 * 5;
-const signupEmailStore = new Map();
 
 // 로그인 성공 시 기존 세션 정리 후 신규 세션 토큰 발급
 // 함수 역할: 세션 by 회원 ID 데이터를 삭제합니다.
@@ -131,8 +130,14 @@ export async function requestSignupEmailVerification(email) {
   }
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  const expiresAt = Date.now() + SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS;
-  signupEmailStore.set(normalizedEmail, { code, expiresAt, verifiedAt: null });
+  const expiresAt = new Date(Date.now() + SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS);
+
+  await query(
+    `INSERT INTO email_verifications (email, code, expires_at, verified_at)
+     VALUES (?, ?, ?, NULL)
+     ON DUPLICATE KEY UPDATE code = VALUES(code), expires_at = VALUES(expires_at), verified_at = NULL`,
+    [normalizedEmail, code, expiresAt]
+  );
 
   void sendEmailVerificationCode(normalizedEmail, code, Math.floor(SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS / 60000));
   return { expiresInSeconds: Math.floor(SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS / 1000) };
@@ -149,15 +154,20 @@ export async function confirmSignupEmailVerification(email, code) {
     throw error;
   }
 
-  const saved = signupEmailStore.get(normalizedEmail);
+  const saved = await queryOne(
+    `SELECT code, expires_at AS expiresAt, verified_at AS verifiedAt
+     FROM email_verifications WHERE email = ? LIMIT 1`,
+    [normalizedEmail]
+  );
+
   if (!saved) {
     const error = new Error("인증 요청 이력이 없습니다. 인증번호를 다시 발송해 주세요.");
     error.status = 400;
     throw error;
   }
 
-  if (Date.now() > Number(saved.expiresAt || 0)) {
-    signupEmailStore.delete(normalizedEmail);
+  if (new Date() > new Date(saved.expiresAt)) {
+    await query(`DELETE FROM email_verifications WHERE email = ?`, [normalizedEmail]);
     const error = new Error("인증번호가 만료되었습니다. 다시 요청해 주세요.");
     error.status = 400;
     throw error;
@@ -169,7 +179,10 @@ export async function confirmSignupEmailVerification(email, code) {
     throw error;
   }
 
-  signupEmailStore.set(normalizedEmail, { ...saved, verifiedAt: Date.now() });
+  await query(
+    `UPDATE email_verifications SET verified_at = NOW() WHERE email = ?`,
+    [normalizedEmail]
+  );
   return { verified: true };
 }
 
@@ -196,8 +209,12 @@ export async function signup(payload) {
     throw error;
   }
 
-  const verification = signupEmailStore.get(email);
-  if (!verification?.verifiedAt || Date.now() > Number(verification.expiresAt || 0)) {
+  const verification = await queryOne(
+    `SELECT verified_at AS verifiedAt, expires_at AS expiresAt
+     FROM email_verifications WHERE email = ? LIMIT 1`,
+    [email]
+  );
+  if (!verification?.verifiedAt || new Date() > new Date(verification.expiresAt)) {
     const error = new Error("이메일 인증을 먼저 완료해 주세요.");
     error.status = 400;
     throw error;
@@ -266,7 +283,7 @@ export async function signup(payload) {
     [user.id]
   );
 
-  signupEmailStore.delete(email);
+  await query(`DELETE FROM email_verifications WHERE email = ?`, [email]);
   const token = await createSession(user.id);
   return { user: toPublicUser(created), token };
 }

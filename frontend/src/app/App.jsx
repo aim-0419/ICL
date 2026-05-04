@@ -18,6 +18,7 @@ const AdminDashboardPage = lazy(() => import("../features/admin/pages/AdminDashb
 const AdminSalesDashboardPage = lazy(() => import("../features/admin/pages/AdminSalesDashboardPage.jsx").then((m) => ({ default: m.AdminSalesDashboardPage })));
 const AdminRefundPage = lazy(() => import("../features/admin/pages/AdminRefundPage.jsx").then((m) => ({ default: m.AdminRefundPage })));
 const AdminVideoGiftPage = lazy(() => import("../features/admin/pages/AdminVideoGiftPage.jsx").then((m) => ({ default: m.AdminVideoGiftPage })));
+const AdminProductPage = lazy(() => import("../features/admin/pages/AdminProductPage.jsx").then((m) => ({ default: m.AdminProductPage })));
 const AcademyPage = lazy(() => import("../features/academy/pages/AcademyPage.jsx").then((m) => ({ default: m.AcademyPage })));
 const AcademyDetailPage = lazy(() => import("../features/academy/pages/AcademyDetailPage.jsx").then((m) => ({ default: m.AcademyDetailPage })));
 const AcademyPlayerPage = lazy(() => import("../features/academy/pages/AcademyPlayerPage.jsx").then((m) => ({ default: m.AcademyPlayerPage })));
@@ -121,6 +122,14 @@ export default function App() {
             element={
               <RequireAdminStaff>
                 <AdminDashboardPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/products"
+            element={
+              <RequireAdminStaff>
+                <AdminProductPage />
               </RequireAdminStaff>
             }
           />

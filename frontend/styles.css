@@ -559,6 +559,24 @@ body.admin-image-editor-on .admin-draggable-card.admin-editing-selected {
   outline-offset: 4px;
 }
 
+body.admin-image-editor-on .home-main > .home-section-card {
+  cursor: grab;
+}
+
+body.admin-image-editor-on .home-main > .home-section-card * {
+  pointer-events: none;
+}
+
+body.admin-image-editor-on .home-main > .home-section-card:hover {
+  outline: 2px dashed rgba(202, 165, 72, 0.8) !important;
+  outline-offset: 4px;
+}
+
+body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selected {
+  outline: 3px solid rgba(202, 165, 72, 0.98) !important;
+  outline-offset: 4px;
+}
+
 .admin-card-dragging {
   opacity: 0.88;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25) !important;

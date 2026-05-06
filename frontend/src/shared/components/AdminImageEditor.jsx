@@ -16,26 +16,29 @@ const RESET_POSITION_EVENT = "admin-editor-reset-positions";
 const EDITABLE_IMAGE_SELECTOR = "img, [role='img'], .staff-image-slot, [data-admin-bg-editable]";
 const EDITABLE_TEXT_SELECTOR = "h1, h2, h3, p, span, strong, em, small, li, label, time, dt, dd";
 const DRAGGABLE_CARD_SELECTOR = [
+  "[data-admin-draggable-card]",
+  ".home-section-card",
+  ".section-block",
   ".hero-panel",
-  ".academy-video-card",
-  ".review-card",
-  ".status-card",
-  ".social-feed-card",
-  ".content-card",
-  ".mosaic-card",
+  ".dashboard-hero",
   ".tour-gallery-item",
   ".reason-item",
   ".staff-split",
-  ".direction-branch-card",
-  ".intro-speciality-card",
-  ".intro-promise-card",
-  ".admin-dashboard-page .dashboard-hero",
-  ".admin-dashboard-page .dashboard-card",
+  "[class*='card']",
+  "[class*='panel']",
 ].join(", ");
 const CARD_SWAP_OVERLAP_RATIO = 0.2;
 const CARD_DRAG_AUTO_SCROLL_EDGE_PX = 180;
 const CARD_DRAG_AUTO_SCROLL_MIN_VELOCITY = 10;
 const CARD_DRAG_AUTO_SCROLL_MAX_VELOCITY = 113;
+const CARD_ROOT_CLASS_NAMES = new Set([
+  "section-block",
+  "hero-panel",
+  "dashboard-hero",
+  "tour-gallery-item",
+  "reason-item",
+  "staff-split",
+]);
 
 // 함수 역할: 영역 겹침 area 데이터를 조회해 호출자에게 반환합니다.
 function getRectOverlapArea(sourceRect, targetRect) {
@@ -49,10 +52,175 @@ function getRectOverlapArea(sourceRect, targetRect) {
 }
 
 // 함수 역할: 드래그 대상 card from element 대상을 탐색해 반환합니다.
-function findDraggableCardFromElement(element) {
+function roundCardNumber(value) {
+  return Math.round(value * 10000) / 10000;
+}
+
+function readFiniteNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function normalizeCardTransform(value, fallback = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  const scaleFallback = readFiniteNumber(source.scale, fallback.scale || 1);
+  const scaleX = readFiniteNumber(source.scaleX, fallback.scaleX || scaleFallback);
+  const scaleY = readFiniteNumber(source.scaleY, fallback.scaleY || scaleFallback);
+
+  return {
+    x: readFiniteNumber(source.x, fallback.x || 0),
+    y: readFiniteNumber(source.y, fallback.y || 0),
+    scaleX: scaleX > 0 ? scaleX : 1,
+    scaleY: scaleY > 0 ? scaleY : 1,
+  };
+}
+
+function formatCardTransform(transformValue) {
+  const value = normalizeCardTransform(transformValue);
+  return `translate(${roundCardNumber(value.x)}px, ${roundCardNumber(value.y)}px) scale(${roundCardNumber(value.scaleX)}, ${roundCardNumber(value.scaleY)})`;
+}
+
+function applyCardTransformValue(element, transformValue, zIndex = "") {
+  element.style.transform = formatCardTransform(transformValue);
+  element.style.transformOrigin = "top left";
+  element.style.position = "relative";
+  if (zIndex) {
+    element.style.zIndex = zIndex;
+  } else {
+    element.style.removeProperty("z-index");
+  }
+  element.dataset.adminPositionCustomized = "true";
+}
+
+function createCardSwapTransform(savedTransform, sourceRect, targetRect) {
+  const saved = normalizeCardTransform(savedTransform);
+  const sourceWidth = Math.max(1, sourceRect.width);
+  const sourceHeight = Math.max(1, sourceRect.height);
+  const sourceBaseWidth = sourceWidth / Math.max(0.0001, saved.scaleX);
+  const sourceBaseHeight = sourceHeight / Math.max(0.0001, saved.scaleY);
+  const targetWidth = Math.max(1, targetRect.width);
+  const targetHeight = Math.max(1, targetRect.height);
+  const fitScale = Math.min(targetWidth / sourceBaseWidth, targetHeight / sourceBaseHeight);
+  const fittedWidth = sourceBaseWidth * fitScale;
+  const fittedHeight = sourceBaseHeight * fitScale;
+
+  return {
+    x: roundCardNumber(saved.x + (targetRect.left - sourceRect.left) + ((targetWidth - fittedWidth) / 2)),
+    y: roundCardNumber(saved.y + (targetRect.top - sourceRect.top) + ((targetHeight - fittedHeight) / 2)),
+    scaleX: roundCardNumber(fitScale),
+    scaleY: roundCardNumber(fitScale),
+  };
+}
+
+function hasDraggableCardClass(element) {
+  if (!(element instanceof HTMLElement)) return false;
+  if (element.dataset.adminDraggableCard === "true") return true;
+
+  return Array.from(element.classList).some((className) => (
+    CARD_ROOT_CLASS_NAMES.has(className) ||
+    className === "card" ||
+    className === "panel" ||
+    className.endsWith("-card") ||
+    className.endsWith("-panel")
+  ));
+}
+
+function isHomeMainSectionCard(element) {
+  return Boolean(
+    element instanceof HTMLElement &&
+    element.classList.contains("home-section-card") &&
+    element.parentElement?.classList.contains("home-main")
+  );
+}
+
+function findHomeMainSectionCardFromElement(element) {
   if (!(element instanceof Element)) return null;
-  if (element.closest(".admin-image-editor-panel")) return null;
-  return element.closest(DRAGGABLE_CARD_SELECTOR);
+
+  let current = element;
+  while (current && current instanceof Element && current.tagName !== "BODY") {
+    if (isHomeMainSectionCard(current)) return current;
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
+function findHomeMainSectionCardAtPoint(clientX, clientY, activeElement = null) {
+  if (typeof document === "undefined" || typeof document.elementsFromPoint !== "function") return null;
+  if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+
+  const cards = document
+    .elementsFromPoint(clientX, clientY)
+    .map((element) => findHomeMainSectionCardFromElement(element))
+    .filter((card, index, list) => card && list.indexOf(card) === index);
+
+  if (!cards.length) return null;
+
+  const activeCard = activeElement instanceof HTMLElement ? activeElement : null;
+  if (activeCard && cards.length > 1) {
+    const behindActive = cards.find((card) => card !== activeCard);
+    if (behindActive) return behindActive;
+  }
+
+  return cards[0];
+}
+
+function isDraggableCardElement(element) {
+  if (!(element instanceof HTMLElement)) return false;
+  if (element.closest(".admin-image-editor-panel")) return false;
+  if (element.dataset.adminDraggableCard === "false") return false;
+  if (element.closest("[data-admin-draggable-card='false']")) return false;
+  if (element.matches("html, body, main, #root, .site-shell, .topbar, .site-footer")) return false;
+  if (element.closest(".home-main")) return isHomeMainSectionCard(element);
+  return hasDraggableCardClass(element);
+}
+
+function getDraggableCardCandidatesFromElement(element) {
+  if (!(element instanceof Element)) return [];
+  if (element.closest(".admin-image-editor-panel")) return [];
+
+  const homeMainCard = findHomeMainSectionCardFromElement(element);
+  if (homeMainCard) return [homeMainCard];
+
+  const candidates = [];
+  let current = element;
+
+  while (current && current instanceof Element && current.tagName !== "BODY") {
+    if (current.matches(DRAGGABLE_CARD_SELECTOR) && isDraggableCardElement(current)) {
+      candidates.push(current);
+    }
+    current = current.parentElement;
+  }
+
+  return candidates;
+}
+
+function getMainPageSectionCandidate(candidates) {
+  return candidates.find((candidate) => (
+    candidate.parentElement?.classList.contains("home-main") &&
+    (
+      candidate.classList.contains("hero-panel") ||
+      candidate.classList.contains("section-block")
+    )
+  )) || null;
+}
+
+function pickPreferredDraggableCard(candidates) {
+  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+  return getMainPageSectionCandidate(candidates) || candidates[0];
+}
+
+function isCompatibleCardDropTarget(candidate, draggingElement) {
+  if (!(candidate instanceof HTMLElement)) return false;
+  if (!(draggingElement instanceof HTMLElement)) return false;
+  if (candidate === draggingElement) return false;
+  if (candidate.contains(draggingElement) || draggingElement.contains(candidate)) return false;
+  const rect = candidate.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
+function findDraggableCardFromElement(element) {
+  return pickPreferredDraggableCard(getDraggableCardCandidatesFromElement(element));
 }
 
 // 함수 역할: 드롭 대상 at point 대상을 탐색해 반환합니다.
@@ -62,17 +230,24 @@ function findDropTargetAtPoint(clientX, clientY, draggingElement) {
 
   const sourceParent = draggingElement instanceof Element ? draggingElement.parentElement : null;
   const elements = document.elementsFromPoint(clientX, clientY);
+  let fallbackCandidate = null;
   for (const element of elements) {
-    const candidate = findDraggableCardFromElement(element);
-    if (!candidate) continue;
-    if (!(candidate instanceof HTMLElement)) continue;
-    if (candidate === draggingElement) continue;
-    // 같은 부모 컨테이너 내의 카드끼리만 스왑 허용
-    if (sourceParent && candidate.parentElement !== sourceParent) continue;
-    return candidate;
+    const candidates = getDraggableCardCandidatesFromElement(element).filter((candidate) =>
+      isCompatibleCardDropTarget(candidate, draggingElement)
+    );
+    if (!candidates.length) continue;
+
+    if (!fallbackCandidate) {
+      fallbackCandidate = pickPreferredDraggableCard(candidates);
+    }
+
+    const sameLevelCandidate = sourceParent
+      ? candidates.find((candidate) => candidate.parentElement === sourceParent)
+      : null;
+    if (sameLevelCandidate) return sameLevelCandidate;
   }
 
-  return null;
+  return fallbackCandidate;
 }
 
 // 함수 역할: 대시보드 card element 조건에 해당하는지 참/거짓으로 판별합니다.
@@ -816,7 +991,7 @@ export function AdminImageEditor() {
       });
 
       const editableCards = Array.from(document.querySelectorAll(DRAGGABLE_CARD_SELECTOR)).filter(
-        (el) => el instanceof HTMLElement && !el.closest(".admin-image-editor-panel")
+        (el) => isDraggableCardElement(el)
       );
 
       editableCards.forEach((element) => {
@@ -833,12 +1008,10 @@ export function AdminImageEditor() {
         const key = getEditableElementKey(element, location.pathname);
         const saved = positionOverridesRef.current[key];
         if (saved) {
-          element.style.transform = `translate(${saved.x}px, ${saved.y}px)`;
-          element.style.position = "relative";
-          element.style.zIndex = "1";
-          element.dataset.adminPositionCustomized = "true";
+          applyCardTransformValue(element, saved);
         } else if (element.dataset.adminPositionCustomized === "true") {
           element.style.removeProperty("transform");
+          element.style.removeProperty("transform-origin");
           element.style.removeProperty("position");
           element.style.removeProperty("z-index");
           element.dataset.adminPositionCustomized = "false";
@@ -1099,6 +1272,27 @@ export function AdminImageEditor() {
       clearActiveTarget();
     };
 
+    const activateCardTarget = (card) => {
+      if (!(card instanceof HTMLElement)) return;
+
+      getEditableElementKey(card, location.pathname);
+
+      if (activeElementRef.current && activeElementRef.current !== card) {
+        activeElementRef.current.classList.remove("admin-editing-selected");
+      }
+
+      activeElementRef.current = card;
+      activeTypeRef.current = "card";
+      setActiveType("card");
+      card.classList.add("admin-editing-selected");
+      setPanelPosition({ top: 0, left: 0 });
+      requestAnimationFrame(() => {
+        updatePanelPosition();
+        const r = card.getBoundingClientRect();
+        setCardRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height });
+      });
+    };
+
     const stopDragAutoScroll = () => {
       const state = dragAutoScrollRef.current;
       if (state.rafId) {
@@ -1141,9 +1335,11 @@ export function AdminImageEditor() {
       const newX = drag.startOffsetX + dx;
       const newY = drag.startOffsetY + dy;
 
-      drag.element.style.transform = `translate(${newX}px, ${newY}px)`;
-      drag.element.style.position = "relative";
-      drag.element.style.zIndex = "100";
+      applyCardTransformValue(
+        drag.element,
+        { x: newX, y: newY, scaleX: drag.startScaleX, scaleY: drag.startScaleY },
+        "100"
+      );
 
       state.rafId = requestAnimationFrame(runDragAutoScroll);
     };
@@ -1159,17 +1355,19 @@ export function AdminImageEditor() {
       if (event.target.closest("button, a, input, select, textarea, label")) return;
 
       // 이미지 편집 대상 클릭 시 이미지 에디터 우선 — 단, 드래그 가능 카드 내부라면 카드 드래그 우선
+      const card =
+        findHomeMainSectionCardAtPoint(event.clientX, event.clientY, activeElementRef.current) ||
+        findDraggableCardFromElement(event.target);
       const isEditableImageTarget = event.target.matches(EDITABLE_IMAGE_SELECTOR) || Boolean(event.target.closest(".staff-image-slot, [role='img']"));
-      if (isEditableImageTarget && !event.target.closest(DRAGGABLE_CARD_SELECTOR)) return;
-
-      const card = event.target.closest(DRAGGABLE_CARD_SELECTOR);
+      if (isEditableImageTarget && !card) return;
       if (!card) return;
+      activateCardTarget(card);
 
       // 브라우저 native drag ghost(이미지 복사본 유령) 방지
       event.preventDefault();
 
       const key = getEditableElementKey(card, location.pathname);
-      const saved = positionOverridesRef.current[key] || { x: 0, y: 0 };
+      const saved = normalizeCardTransform(positionOverridesRef.current[key]);
 
       dragRef.current = {
         element: card,
@@ -1178,6 +1376,8 @@ export function AdminImageEditor() {
         startPageY: event.clientY + window.scrollY,
         startOffsetX: saved.x,
         startOffsetY: saved.y,
+        startScaleX: saved.scaleX,
+        startScaleY: saved.scaleY,
         startRect: card.getBoundingClientRect(),
         isDashboardCard: isDashboardCardElement(card),
         layoutByKey: new Map(),
@@ -1186,14 +1386,14 @@ export function AdminImageEditor() {
       };
 
       const draggableCards = Array.from(document.querySelectorAll(DRAGGABLE_CARD_SELECTOR)).filter(
-        (candidate) => candidate instanceof HTMLElement && !candidate.closest(".admin-image-editor-panel")
+        (candidate) => isDraggableCardElement(candidate)
       );
       draggableCards.forEach((candidate) => {
         const candidateKey = getEditableElementKey(candidate, location.pathname);
-        const candidateSaved = positionOverridesRef.current[candidateKey] || { x: 0, y: 0 };
+        const candidateSaved = normalizeCardTransform(positionOverridesRef.current[candidateKey]);
         dragRef.current.layoutByKey.set(candidateKey, {
           rect: candidate.getBoundingClientRect(),
-          saved: { x: candidateSaved.x, y: candidateSaved.y },
+          saved: candidateSaved,
         });
       });
 
@@ -1238,9 +1438,11 @@ export function AdminImageEditor() {
       const newX = drag.startOffsetX + dx;
       const newY = drag.startOffsetY + dy;
 
-      drag.element.style.transform = `translate(${newX}px, ${newY}px)`;
-      drag.element.style.position = "relative";
-      drag.element.style.zIndex = "100";
+      applyCardTransformValue(
+        drag.element,
+        { x: newX, y: newY, scaleX: drag.startScaleX, scaleY: drag.startScaleY },
+        "100"
+      );
 
       const hoverTarget = findDropTargetAtPoint(event.clientX, event.clientY, drag.element);
       if (drag.hoverTarget && drag.hoverTarget !== hoverTarget) {
@@ -1289,31 +1491,41 @@ export function AdminImageEditor() {
         if (!swapTarget) {
           const draggedRect = drag.element.getBoundingClientRect();
           const draggedArea = Math.max(1, draggedRect.width * draggedRect.height);
-          let maxOverlapArea = 0;
 
           const sourceParent = drag.element.parentElement;
-          const cardElements = Array.from(document.querySelectorAll(DRAGGABLE_CARD_SELECTOR)).filter(
-            (candidate) => candidate instanceof HTMLElement
-              && candidate !== drag.element
-              && candidate.parentElement === sourceParent
+          const allCardElements = Array.from(document.querySelectorAll(DRAGGABLE_CARD_SELECTOR)).filter(
+            (candidate) => isDraggableCardElement(candidate)
+              && isCompatibleCardDropTarget(candidate, drag.element)
           );
+          const sameLevelCards = sourceParent
+            ? allCardElements.filter((candidate) => candidate.parentElement === sourceParent)
+            : [];
 
-          cardElements.forEach((candidate) => {
-            const candidateRect = candidate.getBoundingClientRect();
-            const overlapArea = getRectOverlapArea(draggedRect, candidateRect);
-            if (overlapArea <= 0) return;
+          const findBestOverlapTarget = (cardElements) => {
+            let bestTarget = null;
+            let maxOverlapArea = 0;
 
-            const candidateArea = Math.max(1, candidateRect.width * candidateRect.height);
-            const overlapRatio = overlapArea / Math.min(draggedArea, candidateArea);
-            if (overlapRatio < CARD_SWAP_OVERLAP_RATIO) return;
+            cardElements.forEach((candidate) => {
+              const candidateRect = candidate.getBoundingClientRect();
+              const overlapArea = getRectOverlapArea(draggedRect, candidateRect);
+              if (overlapArea <= 0) return;
 
-            if (overlapArea <= maxOverlapArea) return;
-            maxOverlapArea = overlapArea;
-            swapTarget = candidate;
-          });
+              const candidateArea = Math.max(1, candidateRect.width * candidateRect.height);
+              const overlapRatio = overlapArea / Math.min(draggedArea, candidateArea);
+              if (overlapRatio < CARD_SWAP_OVERLAP_RATIO) return;
+
+              if (overlapArea <= maxOverlapArea) return;
+              maxOverlapArea = overlapArea;
+              bestTarget = candidate;
+            });
+
+            return bestTarget;
+          };
+
+          swapTarget = findBestOverlapTarget(sameLevelCards) || findBestOverlapTarget(allCardElements);
         }
 
-        drag.element.style.zIndex = "1";
+        drag.element.style.removeProperty("z-index");
         drag.element.dataset.adminPositionCustomized = "true";
 
         if (swapTarget) {
@@ -1322,23 +1534,19 @@ export function AdminImageEditor() {
           const targetLayout = drag.layoutByKey?.get(targetKey);
           const sourceRect = sourceLayout?.rect || drag.startRect || drag.element.getBoundingClientRect();
           const targetRect = targetLayout?.rect || swapTarget.getBoundingClientRect();
-          const sourceSaved = sourceLayout?.saved || { x: drag.startOffsetX, y: drag.startOffsetY };
-          const targetSaved = targetLayout?.saved || { x: 0, y: 0 };
-
-          const nextDragOffset = {
-            x: Math.round(sourceSaved.x + (targetRect.left - sourceRect.left)),
-            y: Math.round(sourceSaved.y + (targetRect.top - sourceRect.top)),
+          const sourceSaved = sourceLayout?.saved || {
+            x: drag.startOffsetX,
+            y: drag.startOffsetY,
+            scaleX: drag.startScaleX,
+            scaleY: drag.startScaleY,
           };
-          const nextTargetOffset = {
-            x: Math.round(targetSaved.x + (sourceRect.left - targetRect.left)),
-            y: Math.round(targetSaved.y + (sourceRect.top - targetRect.top)),
-          };
+          const targetSaved = targetLayout?.saved || normalizeCardTransform(positionOverridesRef.current[targetKey]);
 
-          drag.element.style.transform = `translate(${nextDragOffset.x}px, ${nextDragOffset.y}px)`;
-          swapTarget.style.transform = `translate(${nextTargetOffset.x}px, ${nextTargetOffset.y}px)`;
-          swapTarget.style.position = "relative";
-          swapTarget.style.zIndex = "1";
-          swapTarget.dataset.adminPositionCustomized = "true";
+          const nextDragOffset = createCardSwapTransform(sourceSaved, sourceRect, targetRect);
+          const nextTargetOffset = createCardSwapTransform(targetSaved, targetRect, sourceRect);
+
+          applyCardTransformValue(drag.element, nextDragOffset);
+          applyCardTransformValue(swapTarget, nextTargetOffset);
 
           const nextOverrides = {
             ...positionOverridesRef.current,
@@ -1372,26 +1580,18 @@ export function AdminImageEditor() {
         } else {
           // 스왑 대상을 찾지 못하면 저장된 위치(또는 드래그 시작 위치)로 되돌린다
           const savedPos = positionOverridesRef.current[drag.key];
-          const snapX = savedPos?.x ?? drag.startOffsetX;
-          const snapY = savedPos?.y ?? drag.startOffsetY;
+          const snapTransform = normalizeCardTransform(savedPos, {
+            x: drag.startOffsetX,
+            y: drag.startOffsetY,
+            scaleX: drag.startScaleX,
+            scaleY: drag.startScaleY,
+          });
           drag.element.style.transition = "transform 0.18s ease";
-          drag.element.style.transform = `translate(${snapX}px, ${snapY}px)`;
+          applyCardTransformValue(drag.element, snapTransform);
           setTimeout(() => { drag.element.style.removeProperty("transition"); }, 200);
         }
       } else {
-        if (activeElementRef.current && activeElementRef.current !== drag.element) {
-          activeElementRef.current.classList.remove("admin-editing-selected");
-        }
-        activeElementRef.current = drag.element;
-        activeTypeRef.current = "card";
-        setActiveType("card");
-        drag.element.classList.add("admin-editing-selected");
-        setPanelPosition({ top: 0, left: 0 });
-        requestAnimationFrame(() => {
-          updatePanelPosition();
-          const r = drag.element.getBoundingClientRect();
-          setCardRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height });
-        });
+        activateCardTarget(drag.element);
       }
 
       dragRef.current = null;
@@ -1557,6 +1757,7 @@ export function AdminImageEditor() {
 
     if (activeTypeRef.current === "card") {
       target.style.removeProperty("transform");
+      target.style.removeProperty("transform-origin");
       target.style.removeProperty("position");
       target.style.removeProperty("z-index");
       target.style.removeProperty("width");

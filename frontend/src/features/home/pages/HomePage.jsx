@@ -178,7 +178,7 @@ export function HomePage() {
       <SiteHeader />
 
       <main className="home-main">
-        <section className="hero-panel" id="hero">
+        <section className="hero-panel home-section-card" id="hero" data-admin-draggable-card="true">
           <div className="hero-center">
             <div className="hero-star">✶</div>
             <h1>이끌림 필라테스는 다릅니다.</h1>
@@ -199,7 +199,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="intro-panel bright-panel section-block" id="story">
+        <section className="intro-panel bright-panel section-block home-section-card" id="story" data-admin-draggable-card="true">
           <div className="section-intro center">
             <div className="section-star">✶</div>
             <p className="section-kicker">이끌림</p>
@@ -226,7 +226,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="feature-panel dark-panel section-block" id="features">
+        <section className="feature-panel dark-panel section-block home-section-card" id="features" data-admin-draggable-card="true">
           <div className="feature-layout">
             <div className="feature-image">
               <div className="img-placeholder"><span>비어있는 이미지 6입니다</span></div>
@@ -265,7 +265,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="status-panel section-block" data-admin-bg-editable>
+        <section className="status-panel section-block home-section-card" data-admin-bg-editable data-admin-draggable-card="true">
           <div className="section-intro center on-dark">
             <div className="section-star">✶</div>
             <p className="section-kicker">브랜드 운영 현황</p>
@@ -321,7 +321,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="academy-panel bright-panel section-block" id="academy">
+        <section className="academy-panel bright-panel section-block home-section-card" id="academy" data-admin-draggable-card="true">
           <div className="section-intro center">
             <div className="section-star">✶</div>
             <p className="section-kicker">아카데미 · 교육 영상</p>
@@ -407,7 +407,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="reviews-panel bright-panel section-block" id="reviews">
+        <section className="reviews-panel bright-panel section-block home-section-card" id="reviews" data-admin-draggable-card="true">
           <div className="section-intro center">
             <div className="section-star">✶</div>
             <p className="section-kicker">후기</p>

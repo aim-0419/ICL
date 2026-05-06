@@ -1,5 +1,5 @@
 // 파일 역할: 메인 홈 화면에서 브랜드 소개, 최신 소식, 추천 강의, 후기를 보여주는 페이지 컴포넌트입니다.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDiscountRate } from "../../academy/data/academyVideos.js";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
@@ -131,6 +131,7 @@ export function HomePage() {
   const store = useAppStore();
   const [socialItems, setSocialItems] = useState(() => DEFAULT_SOCIAL_ITEMS);
   const [latestReviews, setLatestReviews] = useState([]);
+  const [showRenewalPopup, setShowRenewalPopup] = useState(true);
 
   useEffect(() => {
     fetch("/api/academy/reviews/latest?limit=3", { credentials: "include" })
@@ -176,6 +177,34 @@ export function HomePage() {
   return (
     <div className="site-shell">
       <SiteHeader />
+
+      {showRenewalPopup && (
+        <div className="renewal-popup-overlay" onClick={() => setShowRenewalPopup(false)}>
+          <div className="renewal-popup" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="renewal-popup-close"
+              type="button"
+              aria-label="닫기"
+              onClick={() => setShowRenewalPopup(false)}
+            >
+              ✕
+            </button>
+            <div className="renewal-popup-icon">🔧</div>
+            <h2 className="renewal-popup-title">홈페이지 리뉴얼 중입니다</h2>
+            <p className="renewal-popup-message">
+              더 나은 서비스를 위해 홈페이지를 새롭게 단장하고 있습니다.<br />
+              빠른 시일 내에 완성하겠습니다.
+            </p>
+            <button
+              className="renewal-popup-confirm"
+              type="button"
+              onClick={() => setShowRenewalPopup(false)}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="home-main">
         <section className="hero-panel home-section-card" id="hero" data-admin-draggable-card="true">

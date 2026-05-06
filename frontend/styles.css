@@ -817,6 +817,83 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
   background: transparent;
 }
 
+/* ── 리뉴얼 팝업 ─────────────────────────────── */
+.renewal-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+  padding: 1rem;
+}
+
+.renewal-popup {
+  position: relative;
+  background: var(--surface, #fff);
+  border-radius: 1rem;
+  padding: 2.5rem 2rem 2rem;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25);
+  animation: renewal-popup-in 0.22s ease;
+}
+
+@keyframes renewal-popup-in {
+  from { opacity: 0; transform: scale(0.93) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.renewal-popup-close {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.9rem;
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.renewal-popup-close:hover { color: var(--text, #222); }
+
+.renewal-popup-icon {
+  font-size: 2.2rem;
+  margin-bottom: 0.8rem;
+}
+
+.renewal-popup-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 0.7rem;
+  color: var(--text, #222);
+}
+
+.renewal-popup-message {
+  font-size: 0.93rem;
+  color: var(--text-muted, #666);
+  line-height: 1.7;
+  margin: 0 0 1.5rem;
+}
+
+.renewal-popup-confirm {
+  display: inline-block;
+  padding: 0.6rem 2rem;
+  background: var(--accent, #b89b6a);
+  color: #fff;
+  border: none;
+  border-radius: 2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.renewal-popup-confirm:hover { opacity: 0.85; }
+
 .hero-panel {
   background: transparent;
   color: var(--text);

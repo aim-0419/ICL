@@ -60,12 +60,15 @@ function findDropTargetAtPoint(clientX, clientY, draggingElement) {
   if (typeof document === "undefined" || typeof document.elementsFromPoint !== "function") return null;
   if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
 
+  const sourceParent = draggingElement instanceof Element ? draggingElement.parentElement : null;
   const elements = document.elementsFromPoint(clientX, clientY);
   for (const element of elements) {
     const candidate = findDraggableCardFromElement(element);
     if (!candidate) continue;
     if (!(candidate instanceof HTMLElement)) continue;
     if (candidate === draggingElement) continue;
+    // 같은 부모 컨테이너 내의 카드끼리만 스왑 허용
+    if (sourceParent && candidate.parentElement !== sourceParent) continue;
     return candidate;
   }
 
@@ -1288,8 +1291,11 @@ export function AdminImageEditor() {
           const draggedArea = Math.max(1, draggedRect.width * draggedRect.height);
           let maxOverlapArea = 0;
 
+          const sourceParent = drag.element.parentElement;
           const cardElements = Array.from(document.querySelectorAll(DRAGGABLE_CARD_SELECTOR)).filter(
-            (candidate) => candidate instanceof HTMLElement && candidate !== drag.element
+            (candidate) => candidate instanceof HTMLElement
+              && candidate !== drag.element
+              && candidate.parentElement === sourceParent
           );
 
           cardElements.forEach((candidate) => {

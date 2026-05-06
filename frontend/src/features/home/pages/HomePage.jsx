@@ -1,5 +1,5 @@
 // 파일 역할: 메인 홈 화면에서 브랜드 소개, 최신 소식, 추천 강의, 후기를 보여주는 페이지 컴포넌트입니다.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDiscountRate } from "../../academy/data/academyVideos.js";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";

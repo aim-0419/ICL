@@ -1,3 +1,28 @@
+/**
+ * 관리자 페이지 편집 도구(AdminImageEditor) 기능
+ * - 관리자가 코드 수정 없이 브라우저에서 직접 페이지 콘텐츠를 수정할 수 있는 오버레이 도구
+ * - App.jsx에서 모든 페이지 위에 렌더링되며, 관리자 + 편집 모드 ON 상태에서만 활성화
+ *
+ * 수정 가능한 항목:
+ * - 이미지(image)   : img·배경 이미지를 파일 업로드 또는 URL로 교체
+ * - 텍스트(text)    : h1·h2·p 등 텍스트 요소를 클릭 후 인라인 편집
+ * - 영상(video)     : 요소 위에 영상 오버레이 삽입
+ * - 위치(position)  : 카드 요소를 드래그해서 같은 부모 내의 다른 카드와 위치 스왑
+ * - 크기(size)      : 리사이즈 핸들로 이미지·카드 크기 조절
+ * - 클래스(class)   : 카드 스왑 시 tall/short/wide 등 레이아웃 modifier 클래스도 함께 교환
+ *
+ * 저장 방식:
+ * - 변경 즉시 localStorage에 캐시 저장 (오프라인 대응)
+ * - 동시에 POST /api/admin/page-overrides로 DB에 동기화
+ * - 페이지 로드 시 DB 데이터를 우선으로 localStorage와 병합해 DOM에 재적용
+ * - 위치 초기화 시 해당 경로의 position/class 오버라이드 일괄 삭제
+ *
+ * 카드 드래그 규칙:
+ * - DRAGGABLE_CARD_SELECTOR에 등록된 요소만 드래그 가능
+ * - 같은 parentElement를 가진 카드끼리만 스왑 (섹션↔내부카드 스왑 불가)
+ * - 스왑 대상 없이 드롭하면 원래 위치로 스냅백 (자유 위치 저장 없음)
+ * - 카드 내부 img의 native 드래그는 비활성화 (draggable=false)
+ */
 // 파일 역할: 관리자에게 페이지 이미지, 배경, 텍스트, 크기를 화면에서 직접 수정하는 편집 도구를 제공합니다.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";

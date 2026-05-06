@@ -1,3 +1,36 @@
+/**
+ * 데이터베이스(MySQL) 설정 및 스키마 관리
+ * - mysql2/promise 기반 커넥션 풀 생성 및 공통 query/queryOne 헬퍼 제공
+ * - 서버 기동 시 initializeDatabase()를 호출해 스키마 자동 초기화 (마이그레이션 도구 불필요)
+ *
+ * 스키마 관리 방식:
+ * - CREATE TABLE IF NOT EXISTS로 테이블을 생성
+ * - 이후 ALTER TABLE로 누락 컬럼을 개별 추가 (기존 테이블 보호)
+ * - ensureUtf8mb4TableCollation(): 모든 테이블의 문자셋을 utf8mb4로 통일
+ * - repairLegacyMojibakeData(): 과거 latin1 인코딩으로 저장된 한글 깨짐 데이터 복구
+ * - purgeWithdrawnUsers(): 탈퇴 후 파기 기한이 지난 회원 데이터 자동 삭제
+ *
+ * 테이블 목록 (26개):
+ * users, sessions, email_verifications              → 인증·회원
+ * products                                          → 상품
+ * academy_videos, academy_video_chapters            → 강의·차시
+ * academy_progress, academy_chapter_progress        → 학습 진도
+ * academy_playback_sessions                         → 보안 재생 세션
+ * academy_reviews, academy_qna_posts, academy_qna_replies → 수강평·Q&A
+ * cart_items, orders, point_history                 → 장바구니·주문·포인트
+ * refund_requests                                   → 환불
+ * video_grants                                      → 강의 선물 권한
+ * social_feed_cache                                 → 소셜 피드 캐시
+ * review_posts, review_comments                     → 커뮤니티 후기
+ * events                                            → 커뮤니티 이벤트
+ * inquiry_posts, inquiry_replies                    → 커뮤니티 문의
+ * admin_page_overrides                              → 관리자 페이지 오버라이드
+ * instructors, branches                             → 강사·지점 정보
+ *
+ * 초기 시드 데이터 (최초 1회):
+ * - 상품 13개, 강의 10개, 강사 3명, 지점 2개
+ * - 후기 11개, 이벤트 6개, 문의 3개 (데모용)
+ */
 // 파일 역할: MySQL 연결 풀, 스키마 자동 보정, 기본 데이터 시드, 공통 query 헬퍼를 담당합니다.
 import mysql from "mysql2/promise";
 import { env } from "../../config/env.js";

@@ -1,3 +1,29 @@
+/**
+ * 백엔드 애플리케이션 진입점 (app.js)
+ * - Express 앱을 생성하고 모든 미들웨어, 라우터, 에러 핸들러를 조립
+ *
+ * 미들웨어 순서:
+ * 1. 보안 헤더 (X-Content-Type-Options, X-Frame-Options, HSTS 등)
+ * 2. CORS (프론트엔드 도메인 허용, credentials: true)
+ * 3. JSON 파서
+ * 4. 헬스 체크 (GET /api/health)
+ * 5. 기능별 API 라우터 11개
+ * 6. 업로드 파일 정적 서빙 (/uploads, 단 /uploads/academy/videos는 403 차단)
+ * 7. 404 핸들러 → 공통 에러 핸들러
+ *
+ * 라우터 매핑:
+ * /api/auth       → 인증 (로그인·가입·세션)
+ * /api/users      → 회원 프로필·탈퇴·포인트
+ * /api/products   → 상품 목록·관리
+ * /api/cart       → 장바구니
+ * /api/orders     → 주문
+ * /api/payments   → 결제 확정 (PortOne)
+ * /api/community  → 후기·이벤트·문의·소셜피드
+ * /api/admin      → 관리자 대시보드·회원관리·선물·페이지오버라이드
+ * /api/academy    → 강의·재생·진도·수강평·Q&A
+ * /api/brand      → 강사·지점 정보
+ * /api/refunds    → 환불 신청·처리
+ */
 // 파일 역할: Express 앱을 만들고 공통 미들웨어, 정적 업로드, 기능별 API 라우터, 에러 핸들러를 연결합니다.
 import cors from "cors";
 import express from "express";

@@ -1,3 +1,26 @@
+/**
+ * 앱 라우팅(App) 구조
+ * - React Router로 전체 페이지 경로를 정의하고 권한에 따라 접근을 제한
+ * - 모든 페이지는 lazy()로 지연 로딩해 초기 번들 크기를 최소화
+ * - RequireAuth: 로그인한 사용자만 접근 가능 (마이페이지, 플레이어, 수료증)
+ * - RequireAdminStaff: 관리자(admin/staff)만 접근 가능 (어드민 페이지 전체)
+ * - AdminImageEditor: 모든 페이지에 오버레이로 렌더링, 관리자 편집 모드에서만 활성화
+ *
+ * 페이지 목록:
+ * /                             → 홈페이지
+ * /login, /signup               → 로그인·회원가입
+ * /find-id, /reset-password     → 계정 찾기·비밀번호 재설정
+ * /cart                         → 장바구니
+ * /academy                      → 강의 목록
+ * /academy/:videoId             → 강의 상세
+ * /academy/player/:videoId      → 강의 플레이어 (로그인 필요)
+ * /academy/certificate/:videoId → 수료증 (로그인 필요)
+ * /ikleulrim/*                  → 브랜드 소개 5개 서브페이지
+ * /community/*                  → 이벤트·후기·문의 커뮤니티
+ * /mypage                       → 마이페이지 (로그인 필요)
+ * /admin, /admin/*              → 관리자 대시보드 (관리자 전용)
+ * /success, /fail               → 결제 결과 페이지
+ */
 // 파일 역할: 프론트엔드 전체 라우팅 구조와 권한 보호 페이지 연결을 정의합니다.
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";

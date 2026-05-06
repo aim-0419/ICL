@@ -1,3 +1,27 @@
+/**
+ * 전역 상태(AppContext) 기능
+ * - 여러 페이지에서 공통으로 사용하는 데이터를 React Context로 한곳에서 관리
+ *
+ * 주요 상태:
+ * - currentUser       : 현재 로그인 사용자 정보 (null이면 비로그인)
+ * - products          : 판매 상품 목록 (Map 형태, 서버 데이터 + 로컬 기본값 병합)
+ * - academyVideos     : 강의 목록 (서버에서 불러온 전체 강의)
+ * - academyProgress   : 내 강의별 학습 진도 목록
+ * - academyChapterProgress : 내 차시별 학습 진도 목록
+ * - cart              : 장바구니 상품 목록
+ * - cartDetailed      : 장바구니 상품 + 상품 정보 결합 (금액 계산 포함)
+ * - orders            : 내 주문 목록
+ * - userPoints        : 내 포인트 잔액
+ * - adminPageEditMode : 관리자 페이지 편집 모드 활성화 여부
+ * - isAuthResolved    : 초기 인증 상태 확인 완료 여부 (로딩 처리용)
+ *
+ * 주요 액션:
+ * - loginUser / logoutUser / signupUser          : 인증 흐름
+ * - addToCart / updateCartItem / removeCartItem  : 장바구니 조작
+ * - saveAcademyProgress / saveAcademyChapterProgress : 학습 진도 저장
+ * - persistOrder                                 : 결제 전 주문 사전 등록
+ * - refreshProducts / refreshAcademyVideos 등    : 서버 데이터 재조회
+ */
 // 파일 역할: 로그인 사용자, 장바구니, 주문, 강의, 진도 등 앱 전역 상태를 관리합니다.
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api/client.js";
@@ -125,7 +149,6 @@ export function AppProvider({ children }) {
   const [academyVideos, setAcademyVideos] = useState([]);
   const [academyProgress, setAcademyProgress] = useState([]);
   const [academyChapterProgress, setAcademyChapterProgress] = useState([]);
-  const [users] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [adminPageEditMode, setAdminPageEditMode] = useState(false);
   const [isAuthResolved, setIsAuthResolved] = useState(false);
@@ -550,7 +573,6 @@ export function AppProvider({ children }) {
         academyVideos,
         academyProgress,
         academyChapterProgress,
-        users,
         currentUser,
         adminPageEditMode,
         setAdminPageEditMode,

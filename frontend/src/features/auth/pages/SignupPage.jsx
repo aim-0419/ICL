@@ -96,7 +96,7 @@ const TERMS_CONTENT = {
 7. 개인정보 보호책임자
 
 - 성명: 정지윤 (대표)
-- 이메일: hello@iclpilates.kr
+- 이메일: jjy@aimcoltd.com
 - 전화: 0507-1377-6302
 
 개인정보 관련 문의사항은 위 연락처 또는 마이페이지를 통해 처리됩니다.

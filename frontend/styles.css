@@ -6805,6 +6805,42 @@ video::-webkit-media-controls-fullscreen-button {
   margin-top: 2px;
 }
 
+.mypage-marketing-card {
+  display: grid;
+  gap: 12px;
+}
+
+.mypage-marketing-desc {
+  margin: 0;
+  color: #555;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.mypage-marketing-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.mypage-marketing-status {
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.mypage-marketing-toggle {
+  background: #eee;
+  color: #444;
+  border-color: #ccc;
+}
+
+.mypage-marketing-toggle.active {
+  background: #2c2c2c;
+  color: #fff;
+  border-color: #2c2c2c;
+}
+
 .mypage-withdraw-card {
   display: grid;
   gap: 12px;

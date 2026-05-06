@@ -334,6 +334,9 @@ export function MyPage() {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawMessage, setWithdrawMessage] = useState({ type: "", text: "" });
 
+  const [isMarketingToggling, setIsMarketingToggling] = useState(false);
+  const [marketingMessage, setMarketingMessage] = useState({ type: "", text: "" });
+
   const normalizedCurrentEmail = String(currentUser.email || "").trim().toLowerCase();
   const normalizedFormEmail = String(form.email || "").trim().toLowerCase();
   const isEmailChanged = normalizedFormEmail !== normalizedCurrentEmail;
@@ -668,6 +671,26 @@ export function MyPage() {
       });
     } finally {
       setIsWithdrawing(false);
+    }
+  }
+
+  async function handleToggleMarketing() {
+    setMarketingMessage({ type: "", text: "" });
+    const next = !currentUser.marketingAgree;
+    try {
+      setIsMarketingToggling(true);
+      await store.updateMarketingAgree(next);
+      setMarketingMessage({
+        type: "success",
+        text: next ? "마케팅 정보 수신에 동의하셨습니다." : "마케팅 정보 수신 동의가 해제되었습니다.",
+      });
+    } catch (error) {
+      setMarketingMessage({
+        type: "error",
+        text: error?.message || "처리에 실패했습니다.",
+      });
+    } finally {
+      setIsMarketingToggling(false);
     }
   }
 
@@ -1024,6 +1047,35 @@ export function MyPage() {
                 {isSaving ? "저장 중..." : "변경사항 저장"}
               </button>
             </form>
+
+            <div className="dashboard-section-header">
+              <h2>마케팅 정보 수신 동의</h2>
+            </div>
+            <div className="dashboard-card mypage-marketing-card">
+              <p className="mypage-marketing-desc">
+                신규 강의, 이벤트, 할인 혜택 등 유용한 정보를 이메일로 받아보실 수 있습니다.
+              </p>
+              <div className="mypage-marketing-row">
+                <span className="mypage-marketing-status">
+                  현재 상태: <strong>{currentUser.marketingAgree ? "동의" : "미동의"}</strong>
+                </span>
+                <button
+                  type="button"
+                  className={`ghost-button small-ghost mypage-marketing-toggle${currentUser.marketingAgree ? " active" : ""}`}
+                  onClick={handleToggleMarketing}
+                  disabled={isMarketingToggling}
+                >
+                  {isMarketingToggling
+                    ? "처리 중..."
+                    : currentUser.marketingAgree
+                      ? "수신 거부"
+                      : "수신 동의"}
+                </button>
+              </div>
+              {marketingMessage.text ? (
+                <p className={`mypage-save-message ${marketingMessage.type}`}>{marketingMessage.text}</p>
+              ) : null}
+            </div>
 
             <div className="dashboard-section-header">
               <h2>회원 탈퇴</h2>

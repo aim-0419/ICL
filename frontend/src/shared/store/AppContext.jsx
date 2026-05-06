@@ -443,6 +443,16 @@ export function AppProvider({ children }) {
     return updatedUser;
   }
 
+  async function updateMarketingAgree(agree) {
+    const result = await apiRequest("/users/me/marketing-agree", {
+      method: "PATCH",
+      body: { agree },
+    });
+    const updatedUser = { ...(result?.user || {}) };
+    setCurrentUser(updatedUser);
+    return updatedUser;
+  }
+
   async function logoutUser() {
     try {
       await apiRequest("/auth/logout", { method: "POST" });
@@ -594,6 +604,7 @@ export function AppProvider({ children }) {
         requestWithdrawPhoneVerification,
         confirmWithdrawPhoneVerification,
         updateMyProfile,
+        updateMarketingAgree,
         logoutUser,
         withdrawMe,
         refreshCart,

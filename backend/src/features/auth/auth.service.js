@@ -75,6 +75,8 @@ function toPublicUser(userRow) {
     withdrawnAt: userRow.withdrawnAt || null,
     withdrawalPurgeAt: userRow.withdrawalPurgeAt || null,
     restoredAt: userRow.restoredAt || null,
+    marketingAgree: Boolean(userRow.marketingAgree),
+    marketingAgreedAt: userRow.marketingAgreedAt || null,
     createdAt: userRow.createdAt,
   };
 }
@@ -104,6 +106,8 @@ export async function findUserBySessionToken(token) {
       u.withdrawn_at AS withdrawnAt,
       u.withdrawal_purge_at AS withdrawalPurgeAt,
       u.restored_at AS restoredAt,
+      u.marketing_agree AS marketingAgree,
+      u.marketing_agreed_at AS marketingAgreedAt,
       u.created_at AS createdAt
      FROM sessions s
      JOIN users u ON u.id = s.user_id
@@ -228,6 +232,8 @@ export async function signup(payload) {
     throw error;
   }
 
+  const marketingAgree = payload.marketingAgree === true ? 1 : 0;
+
   const user = {
     id: `user-${randomUUID()}`,
     loginId,
@@ -236,6 +242,7 @@ export async function signup(payload) {
     password: await hashPassword(password),
     phone,
     birthYear,
+    marketingAgree,
   };
 
   await query(
@@ -248,9 +255,11 @@ export async function signup(payload) {
       phone,
       birth_year,
       account_status,
+      marketing_agree,
+      marketing_agreed_at,
       created_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? = 1, NOW(), NULL), NOW())`,
     [
       user.id,
       user.loginId,
@@ -260,6 +269,8 @@ export async function signup(payload) {
       user.phone || null,
       user.birthYear,
       ACCOUNT_STATUS_ACTIVE,
+      user.marketingAgree,
+      user.marketingAgree,
     ]
   );
 
@@ -278,6 +289,8 @@ export async function signup(payload) {
       withdrawn_at AS withdrawnAt,
       withdrawal_purge_at AS withdrawalPurgeAt,
       restored_at AS restoredAt,
+      marketing_agree AS marketingAgree,
+      marketing_agreed_at AS marketingAgreedAt,
       created_at AS createdAt
      FROM users
      WHERE id = ?`,

@@ -82,6 +82,8 @@ async function selectUserById(userId) {
       withdrawn_at AS withdrawnAt,
       withdrawal_purge_at AS withdrawalPurgeAt,
       restored_at AS restoredAt,
+      marketing_agree AS marketingAgree,
+      marketing_agreed_at AS marketingAgreedAt,
       created_at AS createdAt
      FROM users
      WHERE id = ?
@@ -138,6 +140,8 @@ export async function listUsers() {
       withdrawn_at AS withdrawnAt,
       withdrawal_purge_at AS withdrawalPurgeAt,
       restored_at AS restoredAt,
+      marketing_agree AS marketingAgree,
+      marketing_agreed_at AS marketingAgreedAt,
       created_at AS createdAt
      FROM users
      ORDER BY created_at DESC`
@@ -617,6 +621,19 @@ export async function adjustPoints(userId, amount, reason, orderId = null) {
     [randomUUID(), String(userId), amount, String(reason), orderId || null]
   );
   return { points: newPoints, delta: amount };
+}
+
+// 함수 역할: 마케팅 수신 동의 여부를 갱신합니다.
+export async function updateMarketingAgree(userId, agree) {
+  const value = agree ? 1 : 0;
+  await query(
+    `UPDATE users
+     SET marketing_agree = ?,
+         marketing_agreed_at = IF(? = 1, NOW(), marketing_agreed_at)
+     WHERE id = ?`,
+    [value, value, String(userId)]
+  );
+  return selectUserById(userId);
 }
 
 // 함수 역할: point 이력 데이터를 조회해 호출자에게 반환합니다.

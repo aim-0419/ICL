@@ -76,6 +76,20 @@ export async function getUsers(req, res, next) {
   }
 }
 
+// 함수 역할: 마케팅 수신 동의 상태를 갱신합니다.
+export async function updateMyMarketingAgree(req, res, next) {
+  try {
+    const authUser = await getRequiredAuthUser(req, res);
+    if (!authUser) return;
+
+    const agree = req.body?.agree === true || req.body?.agree === 1;
+    const updatedUser = await usersService.updateMarketingAgree(authUser.id, agree);
+    res.json({ user: updatedUser });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // 함수 역할: me 데이터를 수정합니다.
 export async function updateMe(req, res, next) {
   try {

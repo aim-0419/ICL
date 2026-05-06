@@ -95,7 +95,11 @@ const TERMS_CONTENT = {
 
 7. 개인정보 보호책임자
 
-개인정보 관련 문의사항은 홈페이지 고객센터로 연락해 주시기 바랍니다.
+- 성명: 정지윤 (대표)
+- 이메일: hello@iclpilates.kr
+- 전화: 0507-1377-6302
+
+개인정보 관련 문의사항은 위 연락처 또는 마이페이지를 통해 처리됩니다.
 
 ※ 위 사항에 동의하지 않으실 경우 서비스 이용이 제한될 수 있습니다.`,
   },
@@ -273,6 +277,7 @@ export function SignupPage() {
         password: form.password.trim(),
         phone: form.phone.trim(),
         birthYear: form.birthYear.trim() ? form.birthYear.trim() : null,
+        marketingAgree: agreements.marketing,
       });
       alert("회원가입이 완료되었습니다.");
       navigate("/mypage");

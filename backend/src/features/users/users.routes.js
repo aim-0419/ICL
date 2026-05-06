@@ -19,6 +19,7 @@
  * POST   /api/users/me/points/use                        - 포인트 사용
  * POST   /api/users/me/points/earn                       - 포인트 적립
  * GET    /api/users/me/video-grants                      - 선물 받은 강의 목록
+ * PATCH  /api/users/me/marketing-agree                  - 마케팅 수신 동의 변경
  */
 // 파일 역할: 회원 관련 API 경로와 컨트롤러를 Express Router에 연결합니다.
 import express, { Router } from "express";
@@ -46,3 +47,4 @@ usersRoutes.get("/me/points", usersController.getMyPoints);
 usersRoutes.post("/me/points/use", express.json(), usersController.usePoints);
 usersRoutes.post("/me/points/earn", express.json(), usersController.earnPoints);
 usersRoutes.get("/me/video-grants", usersController.getMyVideoGrants);
+usersRoutes.patch("/me/marketing-agree", express.json(), usersController.updateMyMarketingAgree);

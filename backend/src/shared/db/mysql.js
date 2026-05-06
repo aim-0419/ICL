@@ -240,6 +240,8 @@ const SCHEMA_COLUMN_COMMENTS = {
     withdrawn_at: "회원 탈퇴 처리 완료 시각 값",
     withdrawal_purge_at: "탈퇴 회원 데이터 파기 예정 시각 값",
     restored_at: "탈퇴 계정 복구 처리 시각 값",
+    marketing_agree: "마케팅 정보 수신 동의 여부 값",
+    marketing_agreed_at: "마케팅 동의 처리 시각 값",
     created_at: "회원 가입 생성 시각 값",
   },
   sessions: {
@@ -966,6 +968,8 @@ async function initDatabase() {
       withdrawn_at DATETIME NULL,
       withdrawal_purge_at DATETIME NULL,
       restored_at DATETIME NULL,
+      marketing_agree TINYINT(1) NOT NULL DEFAULT 0,
+      marketing_agreed_at DATETIME NULL,
       created_at DATETIME NOT NULL
     )
   `);
@@ -1155,6 +1159,19 @@ async function initDatabase() {
   );
   if (Number(restoredAtColumnRows?.[0]?.count ?? 0) === 0) {
     await pool.query(`ALTER TABLE users ADD COLUMN restored_at DATETIME NULL AFTER withdrawal_purge_at`);
+  }
+
+  // users.marketing_agree / marketing_agreed_at 컬럼 보정 처리
+  const [marketingAgreeColumnRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'marketing_agree'`
+  );
+  if (Number(marketingAgreeColumnRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE users ADD COLUMN marketing_agree TINYINT(1) NOT NULL DEFAULT 0 AFTER restored_at`);
+    await pool.query(`ALTER TABLE users ADD COLUMN marketing_agreed_at DATETIME NULL AFTER marketing_agree`);
   }
 
   await seedDemoAdminIfEnabled();

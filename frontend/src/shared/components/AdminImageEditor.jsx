@@ -76,16 +76,18 @@ function getRectOverlapArea(sourceRect, targetRect) {
   return (right - left) * (bottom - top);
 }
 
-// 함수 역할: 드래그 대상 card from element 대상을 탐색해 반환합니다.
+// 함수 역할: 부동소수점 오차를 줄이기 위해 소수점 4자리까지 반올림합니다.
 function roundCardNumber(value) {
   return Math.round(value * 10000) / 10000;
 }
 
+// 함수 역할: 유한한 숫자이면 그 값을, 아니면 fallback 값을 반환합니다.
 function readFiniteNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }
 
+// 함수 역할: 카드 변환(이동·스케일) 값을 안전한 표준 객체로 정규화합니다.
 function normalizeCardTransform(value, fallback = {}) {
   const source = value && typeof value === "object" ? value : {};
   const scaleFallback = readFiniteNumber(source.scale, fallback.scale || 1);
@@ -100,11 +102,13 @@ function normalizeCardTransform(value, fallback = {}) {
   };
 }
 
+// 함수 역할: 카드 변환 값을 CSS transform 문자열로 변환합니다.
 function formatCardTransform(transformValue) {
   const value = normalizeCardTransform(transformValue);
   return `translate(${roundCardNumber(value.x)}px, ${roundCardNumber(value.y)}px) scale(${roundCardNumber(value.scaleX)}, ${roundCardNumber(value.scaleY)})`;
 }
 
+// 함수 역할: 카드 요소에 transform·position·z-index 스타일을 적용합니다.
 function applyCardTransformValue(element, transformValue, zIndex = "") {
   element.style.transform = formatCardTransform(transformValue);
   element.style.transformOrigin = "top left";
@@ -117,6 +121,7 @@ function applyCardTransformValue(element, transformValue, zIndex = "") {
   element.dataset.adminPositionCustomized = "true";
 }
 
+// 함수 역할: 두 카드가 위치를 스왑할 때 원본 저장 값 기준으로 대상 위치의 transform을 계산합니다.
 function createCardSwapTransform(savedTransform, sourceRect, targetRect) {
   const saved = normalizeCardTransform(savedTransform);
   const sourceWidth = Math.max(1, sourceRect.width);
@@ -137,6 +142,7 @@ function createCardSwapTransform(savedTransform, sourceRect, targetRect) {
   };
 }
 
+// 함수 역할: 요소가 드래그 가능한 카드 클래스를 가지고 있는지 판별합니다.
 function hasDraggableCardClass(element) {
   if (!(element instanceof HTMLElement)) return false;
   if (element.dataset.adminDraggableCard === "true") return true;
@@ -150,6 +156,7 @@ function hasDraggableCardClass(element) {
   ));
 }
 
+// 함수 역할: 요소가 홈 메인(.home-main)의 직속 섹션 카드인지 판별합니다.
 function isHomeMainSectionCard(element) {
   return Boolean(
     element instanceof HTMLElement &&
@@ -158,6 +165,7 @@ function isHomeMainSectionCard(element) {
   );
 }
 
+// 함수 역할: 요소로부터 가장 가까운 홈 메인 섹션 카드를 탐색해 반환합니다.
 function findHomeMainSectionCardFromElement(element) {
   if (!(element instanceof Element)) return null;
 
@@ -170,6 +178,7 @@ function findHomeMainSectionCardFromElement(element) {
   return null;
 }
 
+// 함수 역할: 특정 화면 좌표에서 홈 메인 섹션 카드를 탐색해 반환합니다.
 function findHomeMainSectionCardAtPoint(clientX, clientY, activeElement = null) {
   if (typeof document === "undefined" || typeof document.elementsFromPoint !== "function") return null;
   if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
@@ -190,6 +199,7 @@ function findHomeMainSectionCardAtPoint(clientX, clientY, activeElement = null) 
   return cards[0];
 }
 
+// 함수 역할: 요소가 드래그 가능한 카드 조건을 충족하는지 판별합니다.
 function isDraggableCardElement(element) {
   if (!(element instanceof HTMLElement)) return false;
   if (element.closest(".admin-image-editor-panel")) return false;
@@ -200,6 +210,7 @@ function isDraggableCardElement(element) {
   return hasDraggableCardClass(element);
 }
 
+// 함수 역할: 요소로부터 드래그 가능한 카드 후보 목록을 DOM 트리를 타고 올라가며 수집합니다.
 function getDraggableCardCandidatesFromElement(element) {
   if (!(element instanceof Element)) return [];
   if (element.closest(".admin-image-editor-panel")) return [];
@@ -220,6 +231,7 @@ function getDraggableCardCandidatesFromElement(element) {
   return candidates;
 }
 
+// 함수 역할: 후보 목록에서 홈 메인 섹션 카드를 우선 탐색해 반환합니다.
 function getMainPageSectionCandidate(candidates) {
   return candidates.find((candidate) => (
     candidate.parentElement?.classList.contains("home-main") &&
@@ -230,11 +242,13 @@ function getMainPageSectionCandidate(candidates) {
   )) || null;
 }
 
+// 함수 역할: 후보 목록에서 가장 적합한 드래그 대상 카드를 선택해 반환합니다.
 function pickPreferredDraggableCard(candidates) {
   if (!Array.isArray(candidates) || candidates.length === 0) return null;
   return getMainPageSectionCandidate(candidates) || candidates[0];
 }
 
+// 함수 역할: 드롭 대상이 드래그 중인 카드와 스왑 가능한 조건을 충족하는지 판별합니다.
 function isCompatibleCardDropTarget(candidate, draggingElement) {
   if (!(candidate instanceof HTMLElement)) return false;
   if (!(draggingElement instanceof HTMLElement)) return false;
@@ -244,6 +258,7 @@ function isCompatibleCardDropTarget(candidate, draggingElement) {
   return rect.width > 0 && rect.height > 0;
 }
 
+// 함수 역할: 드래그 대상 card from element 대상을 탐색해 반환합니다.
 function findDraggableCardFromElement(element) {
   return pickPreferredDraggableCard(getDraggableCardCandidatesFromElement(element));
 }

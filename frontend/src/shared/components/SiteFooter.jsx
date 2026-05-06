@@ -16,7 +16,7 @@ export function SiteFooter() {
       <div className="site-footer-info-grid">
         <p className="site-footer-info-line footer-left">
           <strong>대표</strong> 정지윤 <span aria-hidden="true">|</span>{" "}
-          <strong>Business License</strong> 123-45-67890
+          <strong>Business License</strong> 589-85-01853
         </p>
         <p className="site-footer-info-line footer-right">
           <span className="footer-right-main">
@@ -28,8 +28,7 @@ export function SiteFooter() {
         </p>
 
         <p className="site-footer-info-line footer-left footer-no-wrap">
-          <strong>상담예약·제휴문의</strong> hello@iclpilates.kr <span aria-hidden="true">|</span>{" "}
-          카카오채널 @icl_pilates
+          <strong>상담예약·제휴문의</strong> hello@iclpilates.kr
         </p>
         <p className="site-footer-info-line footer-right">
           <span className="footer-right-main">
@@ -66,6 +65,18 @@ export function SiteFooter() {
           className="site-footer-social"
         >
           <span>B</span>
+        </a>
+        <a
+          href="https://pf.kakao.com/_sjXib"
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label="카카오채널"
+          title="카카오채널"
+          className="site-footer-social"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3C6.477 3 2 6.477 2 10.5c0 2.528 1.52 4.757 3.836 6.108L4.5 21l4.74-2.7A11.6 11.6 0 0 0 12 18c5.523 0 10-3.477 10-7.5S17.523 3 12 3z" />
+          </svg>
         </a>
       </div>
     </footer>

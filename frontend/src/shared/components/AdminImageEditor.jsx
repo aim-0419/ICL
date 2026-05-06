@@ -1116,10 +1116,14 @@ export function AdminImageEditor() {
     };
 
     const onCtrlMouseDown = (event) => {
-      if (!event.ctrlKey || event.button !== 0) return;
+      if (event.button !== 0) return;
+      if (!isAdmin || !adminPageEditMode) return;
       if (!(event.target instanceof Element)) return;
       if (event.target.closest(".admin-image-editor-panel")) return;
       if (isInlineTextEditingRef.current) return;
+
+      // 버튼, 링크, 입력 요소 클릭은 드래그로 가로채지 않는다
+      if (event.target.closest("button, a, input, select, textarea, label")) return;
 
       // 이미지 편집 대상(img, role=img, staff-image-slot 등)을 직접 클릭하면 이미지 에디터 우선
       if (event.target.matches(EDITABLE_IMAGE_SELECTOR) || event.target.closest(".staff-image-slot, [role='img']")) return;
@@ -1609,7 +1613,7 @@ export function AdminImageEditor() {
             onChange={handleFileChange}
           />
           {activeType === "card" ? (
-            <span className="admin-editor-card-label">Ctrl+드래그: 위치 이동 / 핸들: 크기 조절</span>
+            <span className="admin-editor-card-label">드래그: 위치 이동 / 핸들: 크기 조절</span>
           ) : (
             <button type="button" className="admin-image-editor-button" onClick={handleEdit}>
               {activeType === "text"

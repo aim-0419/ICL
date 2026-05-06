@@ -1,6 +1,7 @@
 // 파일 역할: MySQL 연결 풀, 스키마 자동 보정, 기본 데이터 시드, 공통 query 헬퍼를 담당합니다.
 import mysql from "mysql2/promise";
 import { env } from "../../config/env.js";
+import { hashPassword } from "../security/password.js";
 
 // 이 파일은 MySQL 연결, 테이블 보정, 기본 시드 데이터 주입까지 함께 담당한다.
 // 별도 마이그레이션 도구 없이 앱 시작 시 필요한 스키마를 맞추는 구조다.
@@ -855,6 +856,63 @@ async function ensureUtf8mb4TableCollation() {
 }
 
 // 함수 역할: 앱 실행에 필요한 테이블과 기본 데이터를 준비합니다.
+async function seedDemoAdminIfEnabled() {
+  if (!env.demoAdminEnabled) return;
+
+  const loginId = String(env.demoAdminLoginId || "").trim();
+  const password = String(env.demoAdminPassword || "").trim();
+  const email = String(env.demoAdminEmail || "").trim().toLowerCase();
+  const name = String(env.demoAdminName || "").trim() || "Demo Admin";
+
+  if (!loginId || !password || !email) {
+    console.warn("[demo] DEMO_ADMIN_ENABLED is true, but demo admin credentials are incomplete.");
+    return;
+  }
+
+  const passwordHash = await hashPassword(password);
+  const [rows] = await pool.execute(
+    `SELECT id FROM users WHERE login_id = ? OR email = ? LIMIT 1`,
+    [loginId, email]
+  );
+  const existingId = Array.isArray(rows) && rows[0]?.id ? String(rows[0].id) : "";
+
+  if (existingId) {
+    await pool.execute(
+      `UPDATE users
+       SET login_id = ?,
+           name = ?,
+           email = ?,
+           password = ?,
+           role = 'admin',
+           is_admin = 1,
+           user_grade = 'admin0',
+           account_status = 'active',
+           withdrawn_at = NULL,
+           withdrawal_purge_at = NULL
+       WHERE id = ?`,
+      [loginId, name, email, passwordHash, existingId]
+    );
+    return;
+  }
+
+  await pool.execute(
+    `INSERT INTO users (
+      id,
+      login_id,
+      name,
+      email,
+      password,
+      role,
+      is_admin,
+      user_grade,
+      account_status,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, ?, 'admin', 1, 'admin0', 'active', NOW())`,
+    ["demo-admin", loginId, name, email, passwordHash]
+  );
+}
+
 async function initDatabase() {
   // users 테이블은 서비스 확장 과정에서 컬럼이 늘어났기 때문에,
   // 존재 여부를 확인하면서 점진적으로 스키마를 보정한다.
@@ -1065,6 +1123,8 @@ async function initDatabase() {
   if (Number(restoredAtColumnRows?.[0]?.count ?? 0) === 0) {
     await pool.query(`ALTER TABLE users ADD COLUMN restored_at DATETIME NULL AFTER withdrawal_purge_at`);
   }
+
+  await seedDemoAdminIfEnabled();
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sessions (

@@ -34,4 +34,9 @@ export const env = {
   smtpPass: process.env.SMTP_PASS ?? "",
   smtpFrom: process.env.SMTP_FROM ?? "이끌림 필라테스 <noreply@icl-pilates.com>",
   siteUrl: process.env.SITE_URL ?? "http://localhost:5173",
+  demoAdminEnabled: String(process.env.DEMO_ADMIN_ENABLED ?? "false").trim().toLowerCase() === "true",
+  demoAdminLoginId: process.env.DEMO_ADMIN_LOGIN_ID ?? "demo-admin",
+  demoAdminPassword: process.env.DEMO_ADMIN_PASSWORD ?? "",
+  demoAdminEmail: process.env.DEMO_ADMIN_EMAIL ?? "demo-admin@icl.local",
+  demoAdminName: process.env.DEMO_ADMIN_NAME ?? "Demo Admin",
 };

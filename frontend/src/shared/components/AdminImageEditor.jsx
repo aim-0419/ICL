@@ -819,8 +819,11 @@ export function AdminImageEditor() {
       editableCards.forEach((element) => {
         if (isAdmin && adminPageEditMode) {
           element.classList.add("admin-draggable-card");
+          // 카드 내부 img의 브라우저 native 드래그를 막아 카드 단위 드래그만 동작하게 한다
+          element.querySelectorAll("img").forEach(img => img.setAttribute("draggable", "false"));
         } else {
           element.classList.remove("admin-draggable-card");
+          element.querySelectorAll("img").forEach(img => img.removeAttribute("draggable"));
           return;
         }
 
@@ -1152,11 +1155,15 @@ export function AdminImageEditor() {
       // 버튼, 링크, 입력 요소 클릭은 드래그로 가로채지 않는다
       if (event.target.closest("button, a, input, select, textarea, label")) return;
 
-      // 이미지 편집 대상(img, role=img, staff-image-slot 등)을 직접 클릭하면 이미지 에디터 우선
-      if (event.target.matches(EDITABLE_IMAGE_SELECTOR) || event.target.closest(".staff-image-slot, [role='img']")) return;
+      // 이미지 편집 대상 클릭 시 이미지 에디터 우선 — 단, 드래그 가능 카드 내부라면 카드 드래그 우선
+      const isEditableImageTarget = event.target.matches(EDITABLE_IMAGE_SELECTOR) || Boolean(event.target.closest(".staff-image-slot, [role='img']"));
+      if (isEditableImageTarget && !event.target.closest(DRAGGABLE_CARD_SELECTOR)) return;
 
       const card = event.target.closest(DRAGGABLE_CARD_SELECTOR);
       if (!card) return;
+
+      // 브라우저 native drag ghost(이미지 복사본 유령) 방지
+      event.preventDefault();
 
       const key = getEditableElementKey(card, location.pathname);
       const saved = positionOverridesRef.current[key] || { x: 0, y: 0 };
@@ -1357,18 +1364,13 @@ export function AdminImageEditor() {
             syncOverrideToDb("class", targetKey, sourceModifiers);
           }
         } else {
-          if (drag.isDashboardCard) {
-            drag.element.style.transform = `translate(${drag.startOffsetX}px, ${drag.startOffsetY}px)`;
-          } else {
-            const matrix = new DOMMatrix(window.getComputedStyle(drag.element).transform);
-            const finalX = Math.round(matrix.m41);
-            const finalY = Math.round(matrix.m42);
-            const nextOverrides = { ...positionOverridesRef.current, [drag.key]: { x: finalX, y: finalY } };
-            positionOverridesRef.current = nextOverrides;
-            setPositionOverrides(nextOverrides);
-            saveOverrides(POSITION_STORAGE_KEY, nextOverrides);
-            syncOverrideToDb("position", drag.key, { x: finalX, y: finalY });
-          }
+          // 스왑 대상을 찾지 못하면 저장된 위치(또는 드래그 시작 위치)로 되돌린다
+          const savedPos = positionOverridesRef.current[drag.key];
+          const snapX = savedPos?.x ?? drag.startOffsetX;
+          const snapY = savedPos?.y ?? drag.startOffsetY;
+          drag.element.style.transition = "transform 0.18s ease";
+          drag.element.style.transform = `translate(${snapX}px, ${snapY}px)`;
+          setTimeout(() => { drag.element.style.removeProperty("transition"); }, 200);
         }
       } else {
         if (activeElementRef.current && activeElementRef.current !== drag.element) {

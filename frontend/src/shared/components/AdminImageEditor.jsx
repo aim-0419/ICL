@@ -10,10 +10,13 @@ const TEXT_STORAGE_KEY = "icl_admin_text_overrides_v1";
 const VIDEO_STORAGE_KEY = "icl_admin_video_overrides_v1";
 const POSITION_STORAGE_KEY = "icl_admin_position_overrides_v1";
 const SIZE_STORAGE_KEY = "icl_admin_size_overrides_v1";
+const CLASS_STORAGE_KEY = "icl_admin_class_overrides_v1";
+const CARD_MODIFIER_CLASSES = new Set(["tall", "short", "wide", "offset-up", "offset-down"]);
 const RESET_POSITION_EVENT = "admin-editor-reset-positions";
 const EDITABLE_IMAGE_SELECTOR = "img, [role='img'], .staff-image-slot, [data-admin-bg-editable]";
 const EDITABLE_TEXT_SELECTOR = "h1, h2, h3, p, span, strong, em, small, li, label, time, dt, dd";
 const DRAGGABLE_CARD_SELECTOR = [
+  ".hero-panel",
   ".academy-video-card",
   ".review-card",
   ".status-card",
@@ -495,6 +498,7 @@ export function AdminImageEditor() {
   const [videoOverrides, setVideoOverrides] = useState(() => readOverrides(VIDEO_STORAGE_KEY));
   const [positionOverrides, setPositionOverrides] = useState(() => readOverrides(POSITION_STORAGE_KEY));
   const [sizeOverrides, setSizeOverrides] = useState(() => readOverrides(SIZE_STORAGE_KEY));
+  const [classOverrides, setClassOverrides] = useState(() => readOverrides(CLASS_STORAGE_KEY));
   const [panelPosition, setPanelPosition] = useState(null);
   const [activeType, setActiveType] = useState(null);
   const [isInlineTextEditing, setIsInlineTextEditing] = useState(false);
@@ -509,6 +513,7 @@ export function AdminImageEditor() {
   const videoOverridesRef = useRef(videoOverrides);
   const positionOverridesRef = useRef(positionOverrides);
   const sizeOverridesRef = useRef(sizeOverrides);
+  const classOverridesRef = useRef(classOverrides);
   const activeElementRef = useRef(null);
   const activeTypeRef = useRef(activeType);
   const isInlineTextEditingRef = useRef(false);
@@ -548,6 +553,10 @@ export function AdminImageEditor() {
   }, [sizeOverrides]);
 
   useEffect(() => {
+    classOverridesRef.current = classOverrides;
+  }, [classOverrides]);
+
+  useEffect(() => {
     activeTypeRef.current = activeType;
   }, [activeType]);
 
@@ -574,6 +583,7 @@ export function AdminImageEditor() {
       mergeAndApply(VIDEO_STORAGE_KEY, "video", setVideoOverrides, videoOverridesRef);
       mergeAndApply(POSITION_STORAGE_KEY, "position", setPositionOverrides, positionOverridesRef);
       mergeAndApply(SIZE_STORAGE_KEY, "size", setSizeOverrides, sizeOverridesRef);
+      mergeAndApply(CLASS_STORAGE_KEY, "class", setClassOverrides, classOverridesRef);
       // ref가 모두 갱신된 뒤 DOM에 재적용한다
       requestAnimationFrame(() => applyOverridesToPageRef.current?.());
     });
@@ -834,6 +844,12 @@ export function AdminImageEditor() {
         } else if (element.dataset.adminSizeCustomized === "true") {
           restoreOriginalSizeValue(element);
         }
+
+        const classSaved = classOverridesRef.current[key];
+        if (Array.isArray(classSaved)) {
+          CARD_MODIFIER_CLASSES.forEach(cls => element.classList.remove(cls));
+          classSaved.forEach(cls => element.classList.add(cls));
+        }
       });
 
       if (activeElementRef.current && !document.body.contains(activeElementRef.current)) {
@@ -898,10 +914,21 @@ export function AdminImageEditor() {
       positionOverridesRef.current = nextOverrides;
       setPositionOverrides(nextOverrides);
       saveOverrides(POSITION_STORAGE_KEY, nextOverrides);
+      removedKeys.forEach((key) => deleteOverrideFromDb("position", key));
 
-      removedKeys.forEach((key) => {
-        deleteOverrideFromDb("position", key);
+      // 위치 초기화 시 클래스 오버라이드도 함께 초기화한다
+      const currentClass = classOverridesRef.current || {};
+      const nextClassOverrides = {};
+      Object.entries(currentClass).forEach(([key, value]) => {
+        if (String(key).startsWith(prefix)) {
+          deleteOverrideFromDb("class", key);
+          return;
+        }
+        nextClassOverrides[key] = value;
       });
+      classOverridesRef.current = nextClassOverrides;
+      setClassOverrides(nextClassOverrides);
+      saveOverrides(CLASS_STORAGE_KEY, nextClassOverrides);
 
       if (activeTypeRef.current === "card") {
         clearActiveTarget();
@@ -1310,6 +1337,25 @@ export function AdminImageEditor() {
           saveOverrides(POSITION_STORAGE_KEY, nextOverrides);
           syncOverrideToDb("position", drag.key, nextDragOffset);
           syncOverrideToDb("position", targetKey, nextTargetOffset);
+
+          // 두 카드의 레이아웃 modifier 클래스를 교환해 크기/비율도 위치에 맞게 변경한다
+          const sourceModifiers = Array.from(drag.element.classList).filter(cls => CARD_MODIFIER_CLASSES.has(cls));
+          const targetModifiers = Array.from(swapTarget.classList).filter(cls => CARD_MODIFIER_CLASSES.has(cls));
+          if (sourceModifiers.join(",") !== targetModifiers.join(",")) {
+            CARD_MODIFIER_CLASSES.forEach(cls => { drag.element.classList.remove(cls); swapTarget.classList.remove(cls); });
+            targetModifiers.forEach(cls => drag.element.classList.add(cls));
+            sourceModifiers.forEach(cls => swapTarget.classList.add(cls));
+            const nextClassOverrides = {
+              ...classOverridesRef.current,
+              [drag.key]: targetModifiers,
+              [targetKey]: sourceModifiers,
+            };
+            classOverridesRef.current = nextClassOverrides;
+            setClassOverrides(nextClassOverrides);
+            saveOverrides(CLASS_STORAGE_KEY, nextClassOverrides);
+            syncOverrideToDb("class", drag.key, targetModifiers);
+            syncOverrideToDb("class", targetKey, sourceModifiers);
+          }
         } else {
           if (drag.isDashboardCard) {
             drag.element.style.transform = `translate(${drag.startOffsetX}px, ${drag.startOffsetY}px)`;

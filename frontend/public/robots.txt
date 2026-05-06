@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /mypage
+Disallow: /cart
+Disallow: /success
+Disallow: /fail
+
+Sitemap: https://icl-pilates.com/sitemap.xml

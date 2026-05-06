@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { getDiscountRate } from "../data/academyVideos.js";
 import {
   resolveAcademyMediaUrl,
@@ -119,6 +120,13 @@ export function AcademyDetailPage() {
   const store = useAppStore();
   const videos = Array.isArray(store.academyVideos) ? store.academyVideos : [];
   const video = videos.find((item) => String(item.id) === String(videoId));
+
+  useSeoMeta({
+    title: video?.title || "교육 영상 상세",
+    description: video?.description
+      ? String(video.description).slice(0, 120)
+      : "이끌림 필라테스 교육 영상 상세 페이지입니다.",
+  });
 
   const [reviews, setReviews] = useState([]);
   const [reviewForm, setReviewForm] = useState({ rating: 5, content: "" });

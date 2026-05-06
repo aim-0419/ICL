@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
+import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { resolveCommunityMediaUrl, uploadCommunityAsset } from "../api/communityApi.js";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
@@ -130,6 +131,10 @@ function Pagination({ page, totalPages, setPage, ariaLabel }) {
 // 후기 게시판은 회원이 직접 글을 작성할 수 있는 공개 게시판이다.
 // 컴포넌트 역할: 커뮤니티 후기 목록을 조회하고 작성/검색/페이징을 제공하는 페이지 컴포넌트입니다.
 export function CommunityReviewsPage() {
+  useSeoMeta({
+    title: "수강 후기",
+    description: "이끌림 필라테스 수강생 후기. 실제 수강생들의 생생한 필라테스 교육 영상 후기를 확인하세요.",
+  });
   const store = useAppStore();
   const navigate = useNavigate();
   const isAdmin = isAdminStaff(store.currentUser);
@@ -1918,6 +1923,10 @@ export function CommunityInquiryDetailPage() {
 // 이벤트 게시판은 관리자만 작성할 수 있고, 일반 사용자는 조회만 가능하다.
 // 컴포넌트 역할: 이벤트 목록, 작성, 검색, 페이징을 제공하는 페이지 컴포넌트입니다.
 export function CommunityEventsPage() {
+  useSeoMeta({
+    title: "이벤트 & 공지",
+    description: "이끌림 필라테스 이벤트, 공지사항. 최신 소식과 할인 혜택을 확인하세요.",
+  });
   const store = useAppStore();
   const navigate = useNavigate();
   const canWriteEvent = isAdminStaff(store.currentUser);

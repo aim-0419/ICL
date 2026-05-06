@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { canEditPage } from "../../../shared/auth/userRoles.js";
 
 // 컴포넌트 역할: BrandPageLayout 컴포넌트의 화면 구조와 상호작용 상태를 렌더링합니다.
@@ -31,6 +32,10 @@ function BrandPageLayout({ kicker, title, description, points }) {
 
 // 컴포넌트 역할: BrandIntroPage 화면을 렌더링하고 필요한 API 호출과 사용자 입력 상태를 관리합니다.
 export function BrandIntroPage() {
+  useSeoMeta({
+    title: "이끌림 소개",
+    description: "이끌림 필라테스 브랜드 소개. 광주 장덕점·효천점 운영, 전문 필라테스 강사진과 차별화된 프로그램.",
+  });
   const specialityCards = [
     {
       id: "01",
@@ -477,6 +482,10 @@ function buildBranchMapUrls(branch) {
 
 // 컴포넌트 역할: BrandDirectionsPage 화면을 렌더링하고 필요한 API 호출과 사용자 입력 상태를 관리합니다.
 export function BrandDirectionsPage() {
+  useSeoMeta({
+    title: "오시는 길",
+    description: "이끌림 필라테스 장덕점(광산구 풍영로 189)·효천점(남구 효천2로가길 5) 위치 안내.",
+  });
   const [branches, setBranches] = useState(DEFAULT_BRANCHES);
 
   useEffect(() => {

@@ -2,6 +2,7 @@
 import { useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { canRegisterLecture } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { getDiscountRate } from "../data/academyVideos.js";
@@ -189,6 +190,10 @@ function formatPublishScheduleLabel(publishAt) {
 
 // 컴포넌트 역할: 강의 목록과 관리자 강의 등록/수정 기능을 함께 제공하는 아카데미 페이지 컴포넌트입니다.
 export function AcademyPage() {
+  useSeoMeta({
+    title: "교육 영상",
+    description: "이끌림 필라테스 교육 영상. 필라테스 입문부터 전문가 과정까지 온라인으로 수강하세요.",
+  });
   const navigate = useNavigate();
   const store = useAppStore();
   const canCreateLecture = canRegisterLecture(store.currentUser);

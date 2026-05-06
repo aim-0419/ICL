@@ -5,6 +5,7 @@ import { getDiscountRate } from "../../academy/data/academyVideos.js";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
+import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 
 
 const SOCIAL_SOURCE_NAME_MAP = {
@@ -127,6 +128,10 @@ function normalizeSocialItems(apiItems) {
 
 // 컴포넌트 역할: 메인 홈 화면에서 브랜드 소개, 최신 소식, 추천 강의, 후기를 보여주는 페이지 컴포넌트입니다.
 export function HomePage() {
+  useSeoMeta({
+    title: "광주 필라테스 스튜디오",
+    description: "광주 이끌림 필라테스. 장덕점·효천점 운영, 전문 필라테스 교육 영상 판매. 입문부터 전문가 과정까지.",
+  });
   const navigate = useNavigate();
   const store = useAppStore();
   const [socialItems, setSocialItems] = useState(() => DEFAULT_SOCIAL_ITEMS);

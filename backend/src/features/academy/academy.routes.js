@@ -24,6 +24,7 @@ academyRoutes.delete("/videos/:videoId", academyController.deleteAcademyVideoHan
 academyRoutes.patch("/videos/:videoId/visibility", express.json(), academyController.setAcademyVideoVisibilityHandler);
 academyRoutes.post(
   "/uploads",
+  academyController.requireAcademyUploadAdmin,
   express.raw({ type: "application/octet-stream", limit: "1024mb" }),
   academyController.uploadAcademyAsset
 );

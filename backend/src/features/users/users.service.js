@@ -2,6 +2,8 @@
 import { query, queryOne } from "../../shared/db/mysql.js";
 import { env } from "../../config/env.js";
 import { sendEmailVerificationCode } from "../../shared/email/email.service.js";
+import { randomInt } from "node:crypto";
+import { hashPassword, isPasswordHash, verifyPassword } from "../../shared/security/password.js";
 
 // 인증 및 탈퇴 보관 정책 상수 정의
 const EMAIL_VERIFICATION_EXPIRES_MS = 1000 * 60 * 5;
@@ -44,7 +46,7 @@ function normalizeEmail(value) {
 
 // 함수 역할: generateVerificationCode 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function generateVerificationCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(randomInt(100000, 1000000));
 }
 
 // 함수 역할: maskPhone 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
@@ -187,7 +189,7 @@ export async function updateMyProfile(userId, payload) {
     throw error;
   }
 
-  if (existing.password !== currentPassword) {
+  if (!(await verifyPassword(currentPassword, existing.password))) {
     const error = new Error("현재 비밀번호가 일치하지 않습니다.");
     error.status = 401;
     throw error;
@@ -202,7 +204,11 @@ export async function updateMyProfile(userId, payload) {
   const nextLoginId = loginId || existing.loginId;
   const nextEmail = email || existing.email;
   const nextPhone = phone || existing.phone || null;
-  const nextPassword = newPassword || existing.password;
+  const nextPassword = newPassword
+    ? await hashPassword(newPassword)
+    : isPasswordHash(existing.password)
+      ? existing.password
+      : await hashPassword(currentPassword);
   const nextBirthYear = hasBirthYearInput ? birthYear : existing.birthYear ?? null;
   const isEmailChanged = nextEmail !== existing.email;
 

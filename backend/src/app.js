@@ -24,6 +24,18 @@ const uploadRoot = path.resolve(__dirname, "..", "uploads");
 // 함수 역할: Express 인스턴스를 만들고 CORS, JSON 파서, 기능별 API 라우터, 업로드 정적 경로를 등록합니다.
 export function createApp() {
   const app = express();
+  app.disable("x-powered-by");
+
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (env.nodeEnv === "production") {
+      res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+    }
+    next();
+  });
 
   // 프론트엔드에서 쿠키 기반 세션을 사용할 수 있도록 CORS와 JSON 파서를 먼저 연결한다.
   app.use(

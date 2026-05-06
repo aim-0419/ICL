@@ -1,7 +1,8 @@
 // 파일 역할: 인증 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import { query, queryOne } from "../../shared/db/mysql.js";
 import { sendEmailVerificationCode } from "../../shared/email/email.service.js";
+import { hashPassword, isPasswordHash, verifyPassword } from "../../shared/security/password.js";
 
 const ACCOUNT_STATUS_ACTIVE = "active";
 const ACCOUNT_STATUS_WITHDRAWN = "withdrawn";
@@ -19,7 +20,7 @@ async function deleteSessionsByUserId(userId) {
 async function createSession(userId) {
   await deleteSessionsByUserId(userId);
 
-  const token = `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const token = `session-${randomUUID()}-${randomBytes(32).toString("hex")}`;
   await query(
     `INSERT INTO sessions (token, user_id, created_at)
      VALUES (?, ?, NOW())`,
@@ -129,7 +130,7 @@ export async function requestSignupEmailVerification(email) {
     throw error;
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = String(randomInt(100000, 1000000));
   const expiresAt = new Date(Date.now() + SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS);
 
   await query(
@@ -232,7 +233,7 @@ export async function signup(payload) {
     loginId,
     name,
     email,
-    password,
+    password: await hashPassword(password),
     phone,
     birthYear,
   };
@@ -323,7 +324,8 @@ export async function login(payload) {
     [loginId]
   );
 
-  if (!user || user.password !== password) {
+  const passwordMatches = user ? await verifyPassword(password, user.password) : false;
+  if (!user || !passwordMatches) {
     const error = new Error("아이디 또는 비밀번호를 확인해 주세요.");
     error.status = 401;
     throw error;
@@ -339,6 +341,10 @@ export async function login(payload) {
     );
     error.status = 403;
     throw error;
+  }
+
+  if (!isPasswordHash(user.password)) {
+    await query(`UPDATE users SET password = ? WHERE id = ?`, [await hashPassword(password), user.id]);
   }
 
   const token = await createSession(user.id);
@@ -400,7 +406,6 @@ export async function resetPassword(payload) {
     throw error;
   }
 
-  await query(`UPDATE users SET password = ? WHERE id = ?`, [newPassword, target.id]);
+  await query(`UPDATE users SET password = ? WHERE id = ?`, [await hashPassword(newPassword), target.id]);
   return { ok: true };
 }
-

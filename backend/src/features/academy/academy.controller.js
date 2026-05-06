@@ -50,6 +50,26 @@ async function getAuthenticatedUser(req) {
   return authService.findUserBySessionToken(token);
 }
 
+export async function requireAcademyUploadAdmin(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    if (!canManageAcademy(authUser)) {
+      res.status(403).json({ message: "관리자 권한이 필요합니다." });
+      return;
+    }
+
+    req.authUser = authUser;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
 // 함수 역할: request IP 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveRequestIp(req) {
   const forwarded = String(req.headers["x-forwarded-for"] || "")
@@ -64,7 +84,7 @@ function resolveRequestIp(req) {
 // 함수 역할: 아카데미 강의 영상 데이터를 조회해 호출자에게 반환합니다.
 export async function getAcademyVideos(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = req.authUser || await getAuthenticatedUser(req);
     const canManage = canManageAcademy(authUser);
     const videos = await academyService.listAcademyVideos({
       includeHidden: canManage,
@@ -421,7 +441,7 @@ export async function setAcademyVideoVisibilityHandler(req, res, next) {
 // 함수 역할: 아카데미 업로드 파일 파일을 서버로 업로드합니다.
 export async function uploadAcademyAsset(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = req.authUser || await getAuthenticatedUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
@@ -622,4 +642,3 @@ export async function deleteAcademyQnaReply(req, res, next) {
     next(error);
   }
 }
-

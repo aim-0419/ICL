@@ -51,9 +51,25 @@ async function getRequiredAuthUser(req, res) {
   return authUser;
 }
 
+function isAdminUser(user) {
+  const grade = String(user?.userGrade || "").trim().toLowerCase();
+  if (grade === "admin0" || grade === "admin1") return true;
+
+  const role = String(user?.role || "").trim().toLowerCase();
+  const adminFlag = user?.isAdmin === true || user?.isAdmin === 1 || user?.isAdmin === "1";
+  return role === "admin" || role === "admin1" || adminFlag;
+}
+
 // 함수 역할: 회원 데이터를 조회해 호출자에게 반환합니다.
 export async function getUsers(req, res, next) {
   try {
+    const authUser = await getRequiredAuthUser(req, res);
+    if (!authUser) return;
+    if (!isAdminUser(authUser)) {
+      res.status(403).json({ message: "관리자 권한이 필요합니다." });
+      return;
+    }
+
     res.json(await usersService.listUsers());
   } catch (error) {
     next(error);
@@ -212,6 +228,10 @@ export async function earnPoints(req, res, next) {
   try {
     const authUser = await getRequiredAuthUser(req, res);
     if (!authUser) return;
+    if (!isAdminUser(authUser)) {
+      res.status(403).json({ message: "포인트 적립은 관리자만 처리할 수 있습니다." });
+      return;
+    }
 
     const { amount, reason, orderId } = req.body || {};
     const safeAmount = Math.abs(Number(amount) || 0);

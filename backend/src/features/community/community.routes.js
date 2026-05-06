@@ -7,6 +7,7 @@ export const communityRoutes = Router();
 
 communityRoutes.post(
   "/uploads",
+  communityController.requireCommunityUploadAuth,
   express.raw({ type: "application/octet-stream", limit: "1024mb" }),
   communityController.uploadCommunityAsset
 );

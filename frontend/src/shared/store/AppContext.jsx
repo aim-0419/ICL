@@ -176,7 +176,7 @@ export function AppProvider({ children }) {
       return;
     }
 
-    const result = await apiRequest(`/cart?userId=${encodeURIComponent(userId)}`);
+    const result = await apiRequest("/cart");
     setCart(Array.isArray(result?.items) ? result.items : []);
   }
 
@@ -458,7 +458,7 @@ export function AppProvider({ children }) {
       throw new Error("장바구니는 로그인 후 이용 가능합니다.");
     }
 
-    const result = await apiRequest(`/cart/items?userId=${encodeURIComponent(currentUser.id)}`, {
+    const result = await apiRequest("/cart/items", {
       method: "POST",
       body: { productId, quantity },
     });
@@ -472,7 +472,7 @@ export function AppProvider({ children }) {
     }
 
     const result = await apiRequest(
-      `/cart/items/${encodeURIComponent(productId)}?userId=${encodeURIComponent(currentUser.id)}`,
+      `/cart/items/${encodeURIComponent(productId)}`,
       {
         method: "PUT",
         body: { quantity },
@@ -488,7 +488,7 @@ export function AppProvider({ children }) {
     }
 
     const result = await apiRequest(
-      `/cart/items/${encodeURIComponent(productId)}?userId=${encodeURIComponent(currentUser.id)}`,
+      `/cart/items/${encodeURIComponent(productId)}`,
       {
         method: "DELETE",
       }

@@ -27,6 +27,21 @@ async function getAuthUser(req) {
   return authService.findUserBySessionToken(token);
 }
 
+export async function requireCommunityUploadAuth(req, res, next) {
+  try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    req.authUser = authUser;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
 // 함수 역할: 관리자 회원 조건에 해당하는지 참/거짓으로 판별합니다.
 function isAdminUser(user) {
   if (!user) return false;
@@ -69,7 +84,7 @@ function normalizeMediaUrl(value) {
 // 함수 역할: 커뮤니티 첨부 파일을 업로드하고 저장 경로를 반환합니다.
 export async function uploadCommunityAsset(req, res, next) {
   try {
-    const authUser = await getAuthUser(req);
+    const authUser = req.authUser || await getAuthUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;

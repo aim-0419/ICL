@@ -265,6 +265,19 @@ export function AcademyPage() {
     setDragOverIndex(null);
   }
 
+  function moveChapter(index, direction) {
+    const targetIndex = index + direction;
+    setChapterInputs((prev) => {
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const updated = [...prev];
+      [updated[index], updated[targetIndex]] = [updated[targetIndex], updated[index]];
+      return updated.map((item, i) => ({
+        ...item,
+        title: isDefaultChapterTitle(item.title) ? `${i + 1}차시` : item.title,
+      }));
+    });
+  }
+
   const videos = Array.isArray(store.academyVideos) ? store.academyVideos : [];
 
   const categories = useMemo(() => {
@@ -941,6 +954,22 @@ export function AcademyPage() {
                         <span className="chapter-drag-handle" title="드래그하여 순서 변경" aria-hidden="true">
                           ⠿
                         </span>
+                        <div className="chapter-order-controls">
+                          <button
+                            type="button"
+                            className="chapter-order-btn"
+                            onClick={() => moveChapter(index, -1)}
+                            disabled={index === 0}
+                            title="위로"
+                          >▲</button>
+                          <button
+                            type="button"
+                            className="chapter-order-btn"
+                            onClick={() => moveChapter(index, 1)}
+                            disabled={index === chapterInputs.length - 1}
+                            title="아래로"
+                          >▼</button>
+                        </div>
                         <span className="chapter-order-badge">{index + 1}차시</span>
                         <label>
                           차시명

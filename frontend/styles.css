@@ -6069,6 +6069,39 @@ video::-webkit-media-controls-fullscreen-button {
   cursor: grabbing;
 }
 
+.chapter-order-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-self: center;
+}
+
+.chapter-order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(98, 73, 35, 0.22);
+  border-radius: 4px;
+  background: rgba(255, 249, 240, 0.9);
+  color: #6f5a3b;
+  font-size: 0.65rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.chapter-order-btn:hover:not(:disabled) {
+  background: rgba(202, 165, 72, 0.15);
+  border-color: rgba(202, 165, 72, 0.4);
+}
+
+.chapter-order-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 .chapter-order-badge {
   align-self: center;
   font-size: 0.78rem;

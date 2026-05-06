@@ -453,7 +453,7 @@ const DEFAULT_BRANCHES = [
   {
     name: "이끌림 필라테스 장덕점",
     address: "광주광역시 광산구 풍영로 189, 2층",
-    phone: "062-000-0001",
+    phone: "0507-1377-6302",
     parking: "건물 앞 주차 가능 (방문 전 문의)",
     mapEmbedUrl: "https://maps.google.com/maps?hl=ko&q=35.188459164928,126.81392571847&z=16&output=embed",
     mapLink: "https://www.google.com/maps/search/?api=1&query=35.188459164928,126.81392571847",
@@ -461,7 +461,7 @@ const DEFAULT_BRANCHES = [
   {
     name: "이끌림 필라테스 효천점",
     address: "광주광역시 남구 효천2로가길 5, 201-202호",
-    phone: "062-000-0002",
+    phone: "0507-1343-8650",
     parking: "인근 공영/건물 주차장 이용 가능",
     mapEmbedUrl: "https://maps.google.com/maps?hl=ko&q=35.102161560951,126.87396526156&z=16&output=embed",
     mapLink: "https://www.google.com/maps/search/?api=1&query=35.102161560951,126.87396526156",

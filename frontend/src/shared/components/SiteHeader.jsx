@@ -91,11 +91,13 @@ export function SiteHeader({ subpage = false }) {
                 커뮤니티
               </button>
               <div className="nav-menu">
-                <Link to="/community/events">이벤트</Link>
                 <Link to="/community/reviews">후기</Link>
                 <Link to="/community/inquiry">문의하기</Link>
               </div>
             </div>
+            <Link className="nav-link" to="/community/events">
+              이벤트
+            </Link>
           </nav>
         ) : null}
         <div className="header-actions">

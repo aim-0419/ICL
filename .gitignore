@@ -19,6 +19,9 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Claude Code
+.claude/
+
 # Local temp files
 frontend/_tmp_davenue.html
 frontend/_tmp_davenue_intro.html

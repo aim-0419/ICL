@@ -758,6 +758,7 @@ export function AcademyPlayerPage() {
 
   function handleChapterClick(chapter) {
     if (chapter.id === activeChapterId) return;
+    void syncProgress({ force: true });
     const resumeTime = Math.max(0, Math.round(Number(chapter.currentTime || 0)));
     const resumeDuration = Math.max(0, Math.round(Number(chapter.duration || chapter.durationSec || 0)));
 

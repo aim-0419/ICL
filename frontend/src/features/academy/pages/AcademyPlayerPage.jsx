@@ -175,6 +175,7 @@ export function AcademyPlayerPage() {
   const isSavingRef = useRef(false);
   const resumeAppliedRef = useRef(false);
   const resumeChoiceRef = useRef("restart"); // 'resume' | 'restart'
+  const pendingResumeTimeRef = useRef(0); // 챕터 전환 이어보기 시 목표 시간 보존
   const deferredResumeRef = useRef({ videoId: "", checked: false });
 
   const [activeChapterId, setActiveChapterId] = useState("");
@@ -802,6 +803,7 @@ export function AcademyPlayerPage() {
     setResumeDialog(null);
 
     if (selectedChapterId !== activeChapterId) {
+      pendingResumeTimeRef.current = choice === "resume" ? selectedResumeTime : 0;
       setActiveChapterId(selectedChapterId);
       return;
     }
@@ -1043,17 +1045,24 @@ export function AcademyPlayerPage() {
 
                   const choice = resumeChoiceRef.current;
                   if (choice === "resume") {
-                    const resumeTime = Math.max(0, Math.round(Number(activeChapter.currentTime || 0)));
+                    // pendingResumeTimeRef: 챕터 전환 이어보기 시 dialog에서 확정된 시간 우선 사용
+                    const pending = pendingResumeTimeRef.current;
+                    const resumeTime = pending > 0
+                      ? pending
+                      : Math.max(0, Math.round(Number(activeChapter.currentTime || 0)));
+                    pendingResumeTimeRef.current = 0;
                     if (resumeTime > 5) {
-                      const safeTime = Math.min(
-                        resumeTime,
-                        Math.max(0, Math.floor(Number(videoElement.duration || 0)) - 2)
-                      );
+                      const dur = Number(videoElement.duration || 0);
+                      const safeTime = Number.isFinite(dur) && dur > 0
+                        ? Math.min(resumeTime, Math.max(0, Math.floor(dur) - 2))
+                        : resumeTime;
                       videoElement.currentTime = safeTime;
                     }
                   }
 
                   resumeAppliedRef.current = true;
+                  // duration이 처음 로드됐을 때 저장 (이후 이어보기 정확도 향상)
+                  void syncProgress({ force: true });
                 }}
                 onTimeUpdate={() => {
                   void syncProgress();

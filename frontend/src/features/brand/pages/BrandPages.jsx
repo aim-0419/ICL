@@ -332,7 +332,7 @@ export function BrandInstructorsPage() {
           })}
         </section>
 
-        {isAdmin && (
+        {isAdmin && isPageEditMode && (
           <button type="button" className="instructor-add-button" onClick={handleAddInstructor}>
             강사 카드 추가
           </button>

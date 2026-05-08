@@ -234,7 +234,7 @@ export function CartPage() {
         {cartItems.length === 0 ? (
           <section className="checkout-empty checkout-surface">
             <h3>장바구니가 비어 있습니다</h3>
-            <p>교육 영상 페이지에서 원하는 상품을 담아보세요.</p>
+            <p> 원하는 교욱영상을 담아보세요.</p>
             <button className="pill-button" type="button" onClick={() => navigate("/academy")}>
               상품 보러가기
             </button>

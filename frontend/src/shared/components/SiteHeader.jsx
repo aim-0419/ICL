@@ -44,15 +44,49 @@ export function SiteHeader({ subpage = false }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function handleResetCardPositions() {
+  async function handleResetCardPositions() {
     const confirmed = window.confirm("현재 페이지 카드 위치를 기본 상태로 되돌릴까요?");
     if (!confirmed) return;
 
+    // localStorage 즉시 정리
+    try {
+      localStorage.removeItem("icl_admin_position_overrides_v1");
+      localStorage.removeItem("icl_admin_class_overrides_v1");
+      localStorage.removeItem("icl_admin_home_section_order_v1");
+    } catch {}
+
+    // DB에서 키 목록 조회 후 position/class 오버라이드 개별 삭제
+    try {
+      const res = await fetch("/api/admin/page-overrides", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        const overrides = data?.overrides || {};
+        const deleteJobs = [];
+        for (const type of ["position", "class"]) {
+          const keys = Object.keys(overrides[type] || {});
+          for (const key of keys) {
+            deleteJobs.push(
+              fetch("/api/admin/page-overrides", {
+                method: "DELETE",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ type, key }),
+              })
+            );
+          }
+        }
+        await Promise.allSettled(deleteJobs);
+      }
+    } catch {}
+
+    // React 상태도 동기화
     window.dispatchEvent(
       new CustomEvent("admin-editor-reset-positions", {
         detail: { pathname: location.pathname },
       })
     );
+
+    window.location.reload();
   }
 
   async function handleLogout() {

@@ -7,6 +7,21 @@ import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 
+const HOME_SECTION_ORDER_KEY = "icl_admin_home_section_order_v1";
+const DEFAULT_SECTION_ORDER = ["hero", "story", "features", "status", "academy", "reviews"];
+
+function readSectionOrder() {
+  try {
+    const raw = localStorage.getItem(HOME_SECTION_ORDER_KEY);
+    if (!raw) return DEFAULT_SECTION_ORDER;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length !== DEFAULT_SECTION_ORDER.length) return DEFAULT_SECTION_ORDER;
+    return parsed;
+  } catch {
+    return DEFAULT_SECTION_ORDER;
+  }
+}
+
 
 const SOCIAL_SOURCE_NAME_MAP = {
   youtube: "YouTube",
@@ -137,6 +152,25 @@ export function HomePage() {
   const [socialItems, setSocialItems] = useState(() => DEFAULT_SOCIAL_ITEMS);
   const [latestReviews, setLatestReviews] = useState([]);
   const [showRenewalPopup, setShowRenewalPopup] = useState(true);
+  const [sectionOrder, setSectionOrder] = useState(() => readSectionOrder());
+
+  useEffect(() => {
+    function onReorder(event) {
+      const { id1, id2 } = event.detail || {};
+      if (!id1 || !id2 || id1 === id2) return;
+      setSectionOrder((prev) => {
+        const next = [...prev];
+        const i = next.indexOf(id1);
+        const j = next.indexOf(id2);
+        if (i === -1 || j === -1) return prev;
+        [next[i], next[j]] = [next[j], next[i]];
+        try { localStorage.setItem(HOME_SECTION_ORDER_KEY, JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+    window.addEventListener("admin-home-section-reorder", onReorder);
+    return () => window.removeEventListener("admin-home-section-reorder", onReorder);
+  }, []);
 
   useEffect(() => {
     fetch("/api/academy/reviews/latest?limit=3", { credentials: "include" })
@@ -197,8 +231,9 @@ export function HomePage() {
             <div className="renewal-popup-icon">🔧</div>
             <h2 className="renewal-popup-title">홈페이지 리뉴얼 중입니다</h2>
             <p className="renewal-popup-message">
-              더 나은 서비스를 위해 홈페이지를 새롭게 단장하고 있습니다.<br />
-              빠른 시일 내에 완성하겠습니다.
+              더 나은 서비스를 위해 홈페이지를<br/>
+              새롭게 단장하고 있습니다.<br />
+              빠른 시일 내에 더 나은 모습으로 찾아뵙겠습니다
             </p>
             <button
               className="renewal-popup-confirm"
@@ -212,7 +247,7 @@ export function HomePage() {
       )}
 
       <main className="home-main">
-        <section className="hero-panel home-section-card" id="hero" data-admin-draggable-card="true">
+        <section className="hero-panel home-section-card" id="hero" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("hero") }}>
           <div className="hero-center">
             <div className="hero-star">✶</div>
             <h1>이끌림 필라테스는 다릅니다.</h1>
@@ -233,7 +268,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="intro-panel bright-panel section-block home-section-card" id="story" data-admin-draggable-card="true">
+        <section className="intro-panel bright-panel section-block home-section-card" id="story" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("story") }}>
           <div className="section-intro center">
             <div className="section-star">✶</div>
             <p className="section-kicker">이끌림</p>
@@ -260,7 +295,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="feature-panel dark-panel section-block home-section-card" id="features" data-admin-draggable-card="true">
+        <section className="feature-panel dark-panel section-block home-section-card" id="features" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("features") }}>
           <div className="feature-layout">
             <div className="feature-image">
               <div className="img-placeholder"><span>비어있는 이미지 6입니다</span></div>
@@ -299,7 +334,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="status-panel section-block home-section-card" data-admin-bg-editable data-admin-draggable-card="true">
+        <section className="status-panel section-block home-section-card" id="status" data-admin-bg-editable data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("status") }}>
           <div className="section-intro center on-dark">
             <div className="section-star">✶</div>
             <p className="section-kicker">브랜드 운영 현황</p>
@@ -355,7 +390,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="academy-panel bright-panel section-block home-section-card" id="academy" data-admin-draggable-card="true">
+        <section className="academy-panel bright-panel section-block home-section-card" id="academy" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("academy") }}>
           <div className="section-intro center">
             <div className="section-star">✶</div>
             <p className="section-kicker">아카데미 · 교육 영상</p>
@@ -441,7 +476,7 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="reviews-panel bright-panel section-block home-section-card" id="reviews" data-admin-draggable-card="true">
+        <section className="reviews-panel bright-panel section-block home-section-card" id="reviews" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("reviews") }}>
           <div className="section-intro center">
             <div className="section-star">✶</div>
             <p className="section-kicker">후기</p>

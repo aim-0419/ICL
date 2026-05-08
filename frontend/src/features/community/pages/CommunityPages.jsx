@@ -9,7 +9,7 @@ import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
 // 커뮤니티 페이지 파일은 후기 / 문의 / 이벤트 목록과 상세 화면을 함께 담고 있다.
-const POSTS_PER_PAGE = 8;
+const POSTS_PER_PAGE = 10;
 const REVIEW_IMAGES = [
   "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1600&q=80",
   "https://images.unsplash.com/photo-1549576490-b0b4831ef60a?auto=format&fit=crop&w=1600&q=80",
@@ -49,11 +49,11 @@ function isPostOwner(currentUser, authorId) {
 }
 
 // 함수 역할: 페이징 상태나 계산값을 재사용하기 위한 React 훅입니다.
-function usePaging(items, page) {
-  const totalPages = Math.max(1, Math.ceil(items.length / POSTS_PER_PAGE));
+function usePaging(items, page, pageSize = POSTS_PER_PAGE) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  const start = (safePage - 1) * POSTS_PER_PAGE;
-  return { totalPages, safePage, start, currentItems: items.slice(start, start + POSTS_PER_PAGE) };
+  const start = (safePage - 1) * pageSize;
+  return { totalPages, safePage, start, currentItems: items.slice(start, start + pageSize) };
 }
 
 async function uploadOptionalAsset(file, kind) {
@@ -183,7 +183,7 @@ export function CommunityReviewsPage() {
     });
   }, [filtered, sortBy]);
 
-  const { totalPages, safePage, start, currentItems } = usePaging(sorted, page);
+  const { totalPages, safePage, start, currentItems } = usePaging(sorted, page, 10);
   const currentPagePostIds = useMemo(
     () => currentItems.map((post) => normalizeId(post.id)).filter(Boolean),
     [currentItems]

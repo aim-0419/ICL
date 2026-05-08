@@ -24,7 +24,7 @@ html {
 body {
   min-height: 100%;
   margin: 0;
-  font-family: "Noto Serif KR", serif;
+  font-family: "Noto Sans KR", sans-serif;
   color: var(--text);
   overflow-x: hidden;
   background: linear-gradient(180deg, #faf7f1 0%, #f4eada 52%, #f0e1cd 100%);
@@ -766,9 +766,9 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
 
 .pill-button {
   padding: 15px 28px;
-  background: var(--gold);
+  background: #b8860b;
   color: #fff;
-  box-shadow: 0 12px 24px rgba(202, 165, 72, 0.24);
+  box-shadow: 0 12px 24px rgba(184, 134, 11, 0.32);
 }
 
 .pill-button.white {
@@ -878,6 +878,7 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
   color: var(--text-muted, #666);
   line-height: 1.7;
   margin: 0 0 1.5rem;
+  text-align: left;
 }
 
 .renewal-popup-confirm {
@@ -1415,6 +1416,8 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
 }
 
 .home-main {
+  display: flex;
+  flex-direction: column;
   background:
     radial-gradient(circle at 8% 4%, rgba(212, 175, 106, 0.2), transparent 24%),
     radial-gradient(circle at 92% 12%, rgba(186, 142, 72, 0.16), transparent 28%),
@@ -1469,7 +1472,8 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
   margin: 20px 0 28px;
   max-width: 620px;
   color: rgba(58, 45, 31, 0.88);
-  font-size: 1.06rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.01em;
 }
 
 .home-main .hero-image {
@@ -3183,6 +3187,12 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
 .academy-video-card {
   display: grid;
   gap: 10px;
+  background: rgba(255, 252, 246, 0.92);
+  border-radius: 14px;
+  border: 1px solid rgba(98, 73, 35, 0.1);
+  padding: 0 0 14px;
+  box-shadow: 0 4px 16px rgba(89, 63, 26, 0.07);
+  overflow: hidden;
 }
 
 .academy-video-card.interactive {
@@ -3195,9 +3205,10 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
 }
 
 .academy-video-thumb {
-  border-radius: 10px;
+  border-radius: 0;
   overflow: hidden;
-  border: 1px solid rgba(98, 73, 35, 0.14);
+  border: none;
+  border-bottom: 1px solid rgba(98, 73, 35, 0.08);
   background: #d7c6a6;
   aspect-ratio: 16 / 9;
 }
@@ -3211,6 +3222,7 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
 .academy-video-body {
   display: grid;
   gap: 6px;
+  padding: 0 14px;
 }
 
 .academy-video-body h3 {

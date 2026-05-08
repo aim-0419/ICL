@@ -2,7 +2,7 @@
 import { env } from "../../config/env.js";
 import { query } from "../../shared/db/mysql.js";
 
-const DEFAULT_YOUTUBE_VIDEOS_URL = "https://www.youtube.com/@ICL-PILATES/videos";
+const DEFAULT_YOUTUBE_VIDEOS_URL = "https://www.youtube.com/@ICL-PILATES";
 const DEFAULT_YOUTUBE_CHANNEL_ID = "UC5WwEtRClHmSVB0tmUypryA";
 const DEFAULT_BLOG_URL = "https://blog.naver.com/icl_pilates";
 const DEFAULT_BLOG_RSS_URL = "https://rss.blog.naver.com/icl_pilates.xml";
@@ -247,7 +247,10 @@ function parseYoutubeFallbackFromHtml(html, channelUrl) {
   if (!idMatch?.[1]) return null;
 
   const videoId = idMatch[1];
-  const titleMatch = text.match(/"title":\{"runs":\[\{"text":"([^"]+)"/);
+  // videoId 매치 위치 근처 1500자 안에서만 제목 탐색 — 전체 문서 첫 매치 사용 시 UI 라벨이 잡히는 문제 방지
+  const contextStart = text.indexOf(idMatch[0]);
+  const contextWindow = text.slice(contextStart, contextStart + 1500);
+  const titleMatch = contextWindow.match(/"title":\{"runs":\[\{"text":"([^"]+)"/);
   const title = cleanupText(titleMatch?.[1] || SOURCE_DEFAULTS.youtube.title);
 
   return {
@@ -319,34 +322,8 @@ function toSourceItem(source, label, baseUrl, entry, fallbackTitle) {
 
 // 함수 역할: you tube 최신 데이터를 외부/서버에서 가져옵니다.
 async function fetchYouTubeLatest() {
-  const tryFeedByChannelId = async (channelId) => {
-    if (!channelId) return null;
-    const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`;
-    const feedXml = await fetchText(feedUrl);
-    const entry = parseRssFirstEntry(feedXml);
-    return entry?.url ? entry : null;
-  };
-
-  try {
-    const primary = await tryFeedByChannelId(socialConfig.youtubeChannelId);
-    if (primary) return primary;
-  } catch {
-    // Continue with fallback parsing.
-  }
-
-  const channelPageHtml = await fetchText(socialConfig.youtubeVideosUrl);
-  const parsedChannelId = parseYoutubeChannelId(channelPageHtml);
-
-  if (parsedChannelId && parsedChannelId !== socialConfig.youtubeChannelId) {
-    try {
-      const secondary = await tryFeedByChannelId(parsedChannelId);
-      if (secondary) return secondary;
-    } catch {
-      // Continue with HTML fallback.
-    }
-  }
-
-  return parseYoutubeFallbackFromHtml(channelPageHtml, socialConfig.youtubeVideosUrl);
+  // 서버 IP에서 YouTube RSS/스크래핑이 차단됨 — 채널 링크 fallback 사용
+  return null;
 }
 
 // 함수 역할: 블로그 최신 데이터를 외부/서버에서 가져옵니다.

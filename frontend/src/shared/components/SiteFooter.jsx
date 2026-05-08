@@ -28,7 +28,7 @@ export function SiteFooter() {
         </p>
 
         <p className="site-footer-info-line footer-left footer-no-wrap">
-          <strong>상담예약·제휴문의</strong> hello@iclpilates.kr
+          <strong>상담예약·제휴문의</strong> jjy@aimcoltd.com
         </p>
         <p className="site-footer-info-line footer-right">
           <span className="footer-right-main">

@@ -122,8 +122,18 @@ function applyCardTransformValue(element, transformValue, zIndex = "") {
 }
 
 // 함수 역할: 두 카드가 위치를 스왑할 때 원본 저장 값 기준으로 대상 위치의 transform을 계산합니다.
-function createCardSwapTransform(savedTransform, sourceRect, targetRect) {
+function createCardSwapTransform(savedTransform, sourceRect, targetRect, noScale = false) {
   const saved = normalizeCardTransform(savedTransform);
+
+  if (noScale) {
+    return {
+      x: roundCardNumber(saved.x + (targetRect.left - sourceRect.left)),
+      y: roundCardNumber(saved.y + (targetRect.top - sourceRect.top)),
+      scaleX: saved.scaleX,
+      scaleY: saved.scaleY,
+    };
+  }
+
   const sourceWidth = Math.max(1, sourceRect.width);
   const sourceHeight = Math.max(1, sourceRect.height);
   const sourceBaseWidth = sourceWidth / Math.max(0.0001, saved.scaleX);
@@ -892,13 +902,17 @@ export function AdminImageEditor() {
       return;
     }
 
+    if (activeTypeRef.current === "card") {
+      const top = Math.min(rect.top + 10, rect.bottom - panelHeight - 4);
+      const left = Math.max(rect.left + 4, rect.right - panelWidth - 4);
+      setPanelPosition({ top, left });
+      setCardRect({ top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height });
+      return;
+    }
+
     const top = Math.max(8, rect.top + 10);
     const left = Math.min(window.innerWidth - panelWidth - 8, Math.max(8, rect.right - panelWidth));
     setPanelPosition({ top, left });
-
-    if (activeTypeRef.current === "card") {
-      setCardRect({ top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height });
-    }
   }, [clearActiveTarget]);
 
   // 텍스트는 contentEditable 기반으로 즉시 수정하고, Ctrl/Cmd + Enter로 저장한다.
@@ -1046,15 +1060,18 @@ export function AdminImageEditor() {
         }
 
         const key = getEditableElementKey(element, location.pathname);
-        const saved = positionOverridesRef.current[key];
-        if (saved) {
-          applyCardTransformValue(element, saved);
-        } else if (element.dataset.adminPositionCustomized === "true") {
-          element.style.removeProperty("transform");
-          element.style.removeProperty("transform-origin");
-          element.style.removeProperty("position");
-          element.style.removeProperty("z-index");
-          element.dataset.adminPositionCustomized = "false";
+
+        if (!isHomeMainSectionCard(element)) {
+          const saved = positionOverridesRef.current[key];
+          if (saved) {
+            applyCardTransformValue(element, saved);
+          } else if (element.dataset.adminPositionCustomized === "true") {
+            element.style.removeProperty("transform");
+            element.style.removeProperty("transform-origin");
+            element.style.removeProperty("position");
+            element.style.removeProperty("z-index");
+            element.dataset.adminPositionCustomized = "false";
+          }
         }
 
         const sizeSaved = sizeOverridesRef.current[key];
@@ -1570,65 +1587,91 @@ export function AdminImageEditor() {
 
         if (swapTarget) {
           const targetKey = getEditableElementKey(swapTarget, location.pathname);
-          const sourceLayout = drag.layoutByKey?.get(drag.key);
-          const targetLayout = drag.layoutByKey?.get(targetKey);
-          const sourceRect = sourceLayout?.rect || drag.startRect || drag.element.getBoundingClientRect();
-          const targetRect = targetLayout?.rect || swapTarget.getBoundingClientRect();
-          const sourceSaved = sourceLayout?.saved || {
-            x: drag.startOffsetX,
-            y: drag.startOffsetY,
-            scaleX: drag.startScaleX,
-            scaleY: drag.startScaleY,
-          };
-          const targetSaved = targetLayout?.saved || normalizeCardTransform(positionOverridesRef.current[targetKey]);
+          const isHomeSectionSwap = isHomeMainSectionCard(drag.element) && isHomeMainSectionCard(swapTarget);
 
-          const nextDragOffset = createCardSwapTransform(sourceSaved, sourceRect, targetRect);
-          const nextTargetOffset = createCardSwapTransform(targetSaved, targetRect, sourceRect);
+          if (isHomeSectionSwap) {
+            // 홈 섹션은 CSS flex order로 순서 변경 — transform 미사용
+            drag.element.style.removeProperty("transform");
+            drag.element.style.removeProperty("transform-origin");
+            drag.element.style.removeProperty("position");
+            drag.element.style.removeProperty("z-index");
+            drag.element.dataset.adminPositionCustomized = "false";
 
-          applyCardTransformValue(drag.element, nextDragOffset);
-          applyCardTransformValue(swapTarget, nextTargetOffset);
-
-          const nextOverrides = {
-            ...positionOverridesRef.current,
-            [drag.key]: nextDragOffset,
-            [targetKey]: nextTargetOffset,
-          };
-          positionOverridesRef.current = nextOverrides;
-          setPositionOverrides(nextOverrides);
-          saveOverrides(POSITION_STORAGE_KEY, nextOverrides);
-          syncOverrideToDb("position", drag.key, nextDragOffset);
-          syncOverrideToDb("position", targetKey, nextTargetOffset);
-
-          // 두 카드의 레이아웃 modifier 클래스를 교환해 크기/비율도 위치에 맞게 변경한다
-          const sourceModifiers = Array.from(drag.element.classList).filter(cls => CARD_MODIFIER_CLASSES.has(cls));
-          const targetModifiers = Array.from(swapTarget.classList).filter(cls => CARD_MODIFIER_CLASSES.has(cls));
-          if (sourceModifiers.join(",") !== targetModifiers.join(",")) {
-            CARD_MODIFIER_CLASSES.forEach(cls => { drag.element.classList.remove(cls); swapTarget.classList.remove(cls); });
-            targetModifiers.forEach(cls => drag.element.classList.add(cls));
-            sourceModifiers.forEach(cls => swapTarget.classList.add(cls));
-            const nextClassOverrides = {
-              ...classOverridesRef.current,
-              [drag.key]: targetModifiers,
-              [targetKey]: sourceModifiers,
+            const id1 = drag.element.id || drag.element.dataset.sectionId || "";
+            const id2 = swapTarget.id || swapTarget.dataset.sectionId || "";
+            if (id1 && id2) {
+              window.dispatchEvent(new CustomEvent("admin-home-section-reorder", { detail: { id1, id2 } }));
+            }
+          } else {
+            const sourceLayout = drag.layoutByKey?.get(drag.key);
+            const targetLayout = drag.layoutByKey?.get(targetKey);
+            const sourceRect = sourceLayout?.rect || drag.startRect || drag.element.getBoundingClientRect();
+            const targetRect = targetLayout?.rect || swapTarget.getBoundingClientRect();
+            const sourceSaved = sourceLayout?.saved || {
+              x: drag.startOffsetX,
+              y: drag.startOffsetY,
+              scaleX: drag.startScaleX,
+              scaleY: drag.startScaleY,
             };
-            classOverridesRef.current = nextClassOverrides;
-            setClassOverrides(nextClassOverrides);
-            saveOverrides(CLASS_STORAGE_KEY, nextClassOverrides);
-            syncOverrideToDb("class", drag.key, targetModifiers);
-            syncOverrideToDb("class", targetKey, sourceModifiers);
+            const targetSaved = targetLayout?.saved || normalizeCardTransform(positionOverridesRef.current[targetKey]);
+
+            const nextDragOffset = createCardSwapTransform(sourceSaved, sourceRect, targetRect);
+            const nextTargetOffset = createCardSwapTransform(targetSaved, targetRect, sourceRect);
+
+            applyCardTransformValue(drag.element, nextDragOffset);
+            applyCardTransformValue(swapTarget, nextTargetOffset);
+
+            const nextOverrides = {
+              ...positionOverridesRef.current,
+              [drag.key]: nextDragOffset,
+              [targetKey]: nextTargetOffset,
+            };
+            positionOverridesRef.current = nextOverrides;
+            setPositionOverrides(nextOverrides);
+            saveOverrides(POSITION_STORAGE_KEY, nextOverrides);
+            syncOverrideToDb("position", drag.key, nextDragOffset);
+            syncOverrideToDb("position", targetKey, nextTargetOffset);
+
+            // 두 카드의 레이아웃 modifier 클래스를 교환해 크기/비율도 위치에 맞게 변경한다
+            const sourceModifiers = Array.from(drag.element.classList).filter(cls => CARD_MODIFIER_CLASSES.has(cls));
+            const targetModifiers = Array.from(swapTarget.classList).filter(cls => CARD_MODIFIER_CLASSES.has(cls));
+            if (sourceModifiers.join(",") !== targetModifiers.join(",")) {
+              CARD_MODIFIER_CLASSES.forEach(cls => { drag.element.classList.remove(cls); swapTarget.classList.remove(cls); });
+              targetModifiers.forEach(cls => drag.element.classList.add(cls));
+              sourceModifiers.forEach(cls => swapTarget.classList.add(cls));
+              const nextClassOverrides = {
+                ...classOverridesRef.current,
+                [drag.key]: targetModifiers,
+                [targetKey]: sourceModifiers,
+              };
+              classOverridesRef.current = nextClassOverrides;
+              setClassOverrides(nextClassOverrides);
+              saveOverrides(CLASS_STORAGE_KEY, nextClassOverrides);
+              syncOverrideToDb("class", drag.key, targetModifiers);
+              syncOverrideToDb("class", targetKey, sourceModifiers);
+            }
           }
         } else {
-          // 스왑 대상을 찾지 못하면 저장된 위치(또는 드래그 시작 위치)로 되돌린다
-          const savedPos = positionOverridesRef.current[drag.key];
-          const snapTransform = normalizeCardTransform(savedPos, {
-            x: drag.startOffsetX,
-            y: drag.startOffsetY,
-            scaleX: drag.startScaleX,
-            scaleY: drag.startScaleY,
-          });
-          drag.element.style.transition = "transform 0.18s ease";
-          applyCardTransformValue(drag.element, snapTransform);
-          setTimeout(() => { drag.element.style.removeProperty("transition"); }, 200);
+          // 스왑 대상을 찾지 못하면 원래 위치로 되돌린다
+          if (isHomeMainSectionCard(drag.element)) {
+            drag.element.style.transition = "transform 0.18s ease";
+            drag.element.style.transform = "none";
+            setTimeout(() => {
+              drag.element.style.removeProperty("transition");
+              drag.element.style.removeProperty("transform");
+            }, 200);
+          } else {
+            const savedPos = positionOverridesRef.current[drag.key];
+            const snapTransform = normalizeCardTransform(savedPos, {
+              x: drag.startOffsetX,
+              y: drag.startOffsetY,
+              scaleX: drag.startScaleX,
+              scaleY: drag.startScaleY,
+            });
+            drag.element.style.transition = "transform 0.18s ease";
+            applyCardTransformValue(drag.element, snapTransform);
+            setTimeout(() => { drag.element.style.removeProperty("transition"); }, 200);
+          }
         }
       } else {
         activateCardTarget(drag.element);

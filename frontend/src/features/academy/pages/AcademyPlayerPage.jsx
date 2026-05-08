@@ -532,6 +532,7 @@ export function AcademyPlayerPage() {
       }
 
       try {
+        setPlaybackSession(null);
         setPlaybackSessionLoading(true);
         setPlaybackSessionError("");
         const session = await createAcademyPlaybackSession(activeVideo.id, activeChapter.id);

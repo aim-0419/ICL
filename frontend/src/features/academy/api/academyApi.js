@@ -1,37 +1,19 @@
 // 파일 역할: 프론트엔드 아카데미 화면에서 사용하는 백엔드 API 호출 함수를 모읍니다.
 import { API_BASE_URL, apiRequest } from "../../../shared/api/client.js";
 
-// 함수 역할: API 원본 주소 데이터를 조회해 호출자에게 반환합니다.
-function getApiOrigin() {
-  if (typeof window === "undefined") return "";
-
-  try {
-    if (String(API_BASE_URL).startsWith("http://") || String(API_BASE_URL).startsWith("https://")) {
-      return new URL(API_BASE_URL).origin;
-    }
-  } catch {
-    return "";
-  }
-
-  return "";
-}
-
 // 함수 역할: 아카데미 미디어 URL 상황에 맞는 값을 계산하거나 선택합니다.
 export function resolveAcademyMediaUrl(path) {
   const source = String(path || "").trim();
   if (!source) return "";
 
-  if (source.startsWith("http://") || source.startsWith("https://") || source.startsWith("blob:")) {
-    return source;
+  // http(s)://도메인/uploads/... 형태의 절대 URL은 상대경로로 정규화
+  const normalized = source.replace(/^https?:\/\/[^/]+(?=\/uploads\/)/i, "");
+
+  if (normalized.startsWith("http://") || normalized.startsWith("https://") || normalized.startsWith("blob:")) {
+    return normalized;
   }
 
-  if (!source.startsWith("/")) {
-    return source;
-  }
-
-  const apiOrigin = getApiOrigin();
-  if (apiOrigin) return `${apiOrigin}${source}`;
-  return source;
+  return normalized;
 }
 
 // 함수 역할: 노출 가능한 강의와 차시 목록을 조회해 화면 표시용 데이터로 반환합니다.

@@ -142,20 +142,7 @@ export async function createAcademyPlaybackSession(req, res, next) {
       userAgent: String(req.headers["user-agent"] || ""),
     });
 
-    const host = String(req.get("host") || "").trim();
-    const protocol = String(req.protocol || "http").trim() || "http";
-    const playbackUrl = String(session?.playbackUrl || "").trim();
-    const absolutePlaybackUrl =
-      playbackUrl && /^https?:\/\//i.test(playbackUrl)
-        ? playbackUrl
-        : host && playbackUrl
-          ? `${protocol}://${host}${playbackUrl}`
-          : playbackUrl;
-
-    res.json({
-      ...session,
-      playbackUrl: absolutePlaybackUrl,
-    });
+    res.json(session);
   } catch (error) {
     next(error);
   }

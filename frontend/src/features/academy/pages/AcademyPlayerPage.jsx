@@ -190,7 +190,7 @@ export function AcademyPlayerPage() {
   const lastSurfaceToggleAtRef = useRef(0);
 
   const [playbackSession, setPlaybackSession] = useState(null);
-  const [playbackSessionLoading, setPlaybackSessionLoading] = useState(false);
+  const [playbackSessionLoading, setPlaybackSessionLoading] = useState(true);
   const [playbackSessionError, setPlaybackSessionError] = useState("");
   const [playbackSessionReloadKey, setPlaybackSessionReloadKey] = useState(0);
   const [watermarkPositionIndex, setWatermarkPositionIndex] = useState(0);
@@ -817,11 +817,13 @@ export function AcademyPlayerPage() {
         ? Math.min(selectedResumeTime, Math.max(0, Math.floor(duration) - 2))
         : selectedResumeTime;
       videoElement.currentTime = safeResumeTime;
+      void videoElement.play().catch(() => {});
       return;
     }
 
     if (choice === "restart") {
       videoElement.currentTime = 0;
+      void videoElement.play().catch(() => {});
     }
   }
 
@@ -1058,6 +1060,7 @@ export function AcademyPlayerPage() {
                         : resumeTime;
                       videoElement.currentTime = safeTime;
                     }
+                    void videoElement.play().catch(() => {});
                   }
 
                   resumeAppliedRef.current = true;

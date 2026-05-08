@@ -376,15 +376,6 @@ export function HomePage() {
                     {item.title}
                   </a>
                 </strong>
-                <div className="status-card-meta">
-                  {item.publishedAt ? (
-                    <span>{item.publishedAt}</span>
-                  ) : item.isLive ? (
-                    <span>연동됨</span>
-                  ) : (
-                    <span>업데이트 대기</span>
-                  )}
-                </div>
               </article>
             ))}
           </div>

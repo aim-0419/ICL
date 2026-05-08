@@ -1061,8 +1061,6 @@ export function AcademyPlayerPage() {
                   }
 
                   resumeAppliedRef.current = true;
-                  // duration이 처음 로드됐을 때 저장 (이후 이어보기 정확도 향상)
-                  void syncProgress({ force: true });
                 }}
                 onTimeUpdate={() => {
                   void syncProgress();

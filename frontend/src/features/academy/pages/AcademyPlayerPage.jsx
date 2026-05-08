@@ -175,6 +175,7 @@ export function AcademyPlayerPage() {
   const isSavingRef = useRef(false);
   const resumeAppliedRef = useRef(false);
   const resumeChoiceRef = useRef("restart"); // 'resume' | 'restart'
+  const deferredResumeRef = useRef({ videoId: "", checked: false });
 
   const [activeChapterId, setActiveChapterId] = useState("");
   const [resumeDialog, setResumeDialog] = useState(null); // { chapterId, resumeTime }
@@ -359,6 +360,7 @@ export function AcademyPlayerPage() {
     if (!activeVideo) {
       setActiveChapterId("");
       setResumeDialog(null);
+      deferredResumeRef.current = { videoId: "", checked: false };
       return;
     }
 
@@ -374,11 +376,31 @@ export function AcademyPlayerPage() {
     resumeChoiceRef.current = "restart";
     setActiveChapterId(nextChapterId);
     if (nextChapterId && shouldOfferResume(resumeTime, resumeDuration)) {
+      deferredResumeRef.current = { videoId: activeVideo.id, checked: true };
       setResumeDialog({ chapterId: nextChapterId, resumeTime });
     } else {
+      // progress 데이터가 아직 안 로드됐을 수 있으므로 deferred check 예약
+      deferredResumeRef.current = { videoId: activeVideo.id, checked: false };
       setResumeDialog(null);
     }
   }, [activeVideo?.id]);
+
+  // progress가 나중에 로드됐을 때 이어보기 다이얼로그 재확인 (페이지 진입 시 race condition 보완)
+  useEffect(() => {
+    if (deferredResumeRef.current.checked) return;
+    if (deferredResumeRef.current.videoId !== activeVideo?.id) return;
+    if (!activeChapterId || !activeChapter) return;
+    // 이미 재생 시작한 경우 방해하지 않음
+    const videoEl = videoRef.current;
+    if (videoEl instanceof HTMLVideoElement && videoEl.currentTime > 0) return;
+
+    const resumeTime = Math.max(0, Math.round(Number(activeChapter.currentTime || 0)));
+    const resumeDuration = Math.max(0, Math.round(Number(activeChapter.duration || activeChapter.durationSec || 0)));
+    if (!shouldOfferResume(resumeTime, resumeDuration)) return;
+
+    deferredResumeRef.current = { videoId: activeVideo.id, checked: true };
+    setResumeDialog({ chapterId: activeChapterId, resumeTime });
+  }, [store.academyChapterProgress, activeVideo?.id]);
 
   useEffect(() => {
     lastSavedTimeRef.current = Number(activeChapter?.currentTime || 0);

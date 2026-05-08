@@ -711,6 +711,16 @@ export function AcademyPlayerPage() {
     return () => observer.disconnect();
   }, [playbackSession?.sessionId, playbackSession?.watermarkText]);
 
+  // playbackSource가 바뀌면 video src를 명령형으로 업데이트 (key 변경 없이 새 URL 적용)
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!(videoElement instanceof HTMLVideoElement)) return;
+    if (!playbackSource) return;
+    resumeAppliedRef.current = false;
+    videoElement.src = playbackSource;
+    videoElement.load();
+  }, [playbackSource]);
+
   // Q&A 로드
   const loadQna = useCallback(async (videoId) => {
     setQnaLoading(true);
@@ -1034,7 +1044,7 @@ export function AcademyPlayerPage() {
               </button>
               <video
                 ref={videoRef}
-                key={`${activeVideo.id}-${activeChapter.id}-${playbackSession?.sessionId || "init"}`}
+                key={`${activeVideo.id}-${activeChapter.id}`}
                 className="academy-player-video"
                 controls
                 controlsList="nodownload nofullscreen"
@@ -1089,9 +1099,8 @@ export function AcademyPlayerPage() {
                     setPlaybackSessionError("영상 재생 중 오류가 발생했습니다. 다시 시도해 주세요.");
                   }
                 }}
-              >
-                {playbackSource ? <source src={playbackSource} /> : null}
-              </video>
+              />
+
             </div>
 
             <div className="academy-player-controls-bar">

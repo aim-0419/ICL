@@ -841,6 +841,12 @@ export async function createLecture(req, res, next) {
 
 // ─── 페이지 오버라이드 (관리자 편집 DB 저장) ──────────────────────────────────
 
+// http(s)://도메인/uploads/... 절대 URL을 /uploads/... 상대 경로로 정규화
+function normalizeOverrideUrl(value) {
+  if (typeof value !== "string") return value;
+  return value.replace(/^https?:\/\/[^/]+(?=\/uploads\/)/i, "");
+}
+
 // 함수 역할: 페이지 수정값 데이터를 조회해 호출자에게 반환합니다.
 export async function getPageOverrides(req, res, next) {
   try {
@@ -851,8 +857,10 @@ export async function getPageOverrides(req, res, next) {
     const result = {};
     for (const row of (Array.isArray(rows) ? rows : [])) {
       if (!result[row.type]) result[row.type] = {};
-      try { result[row.type][row.key] = typeof row.value === "string" ? JSON.parse(row.value) : row.value; }
-      catch { result[row.type][row.key] = row.value; }
+      try {
+        const parsed = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+        result[row.type][row.key] = normalizeOverrideUrl(parsed);
+      } catch { result[row.type][row.key] = normalizeOverrideUrl(row.value); }
     }
     res.json({ overrides: result });
   } catch (error) { next(error); }

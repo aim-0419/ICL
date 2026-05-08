@@ -52,9 +52,10 @@ export async function listLatestAcademyReviews(limit = 6) {
   const rows = await query(
     `SELECT r.id, r.video_id AS videoId, r.user_name AS userName,
             r.rating, r.content, r.created_at AS createdAt,
-            v.title AS videoTitle
+            p.name AS videoTitle
      FROM academy_reviews r
      LEFT JOIN academy_videos v ON v.id = r.video_id
+     LEFT JOIN products p ON p.id = v.product_id
      ORDER BY r.created_at DESC LIMIT ?`,
     [limit]
   );

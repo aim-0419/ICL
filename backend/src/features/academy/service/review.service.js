@@ -49,6 +49,7 @@ async function hasUserPurchasedVideo(userId, videoId) {
 // 최신 리뷰 조회 로직
 // 함수 역할: 최신 아카데미 후기 목록을 조회해 반환합니다.
 export async function listLatestAcademyReviews(limit = 6) {
+  const safeLimit = Math.max(1, Math.min(100, Number.parseInt(limit, 10) || 6));
   const rows = await query(
     `SELECT r.id, r.video_id AS videoId, r.user_name AS userName,
             r.rating, r.content, r.created_at AS createdAt,
@@ -56,8 +57,7 @@ export async function listLatestAcademyReviews(limit = 6) {
      FROM academy_reviews r
      LEFT JOIN academy_videos v ON v.id = r.video_id
      LEFT JOIN products p ON p.id = v.product_id
-     ORDER BY r.created_at DESC LIMIT ?`,
-    [limit]
+     ORDER BY r.created_at DESC LIMIT ${safeLimit}`
   );
   return Array.isArray(rows) ? rows : [];
 }

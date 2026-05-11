@@ -24,3 +24,5 @@ jobs:
             cd ../backend
             npm install
             pm2 restart icl-backend
+            sudo cp ~/ICL/deploy/nginx-prod.conf /etc/nginx/sites-enabled/default
+            sudo nginx -t && sudo nginx -s reload

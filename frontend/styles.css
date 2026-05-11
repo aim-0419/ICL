@@ -3865,7 +3865,7 @@ video::-webkit-media-controls-fullscreen-button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 14px;
+  margin-bottom: 12px;
   align-items: center;
 }
 

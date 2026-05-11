@@ -974,46 +974,46 @@ export function AcademyPlayerPage() {
           <p className="section-text">
             {activeVideo.instructor} · {activeVideo.category}
           </p>
-          <div className="academy-player-meta-bar">
-            {totalSec > 0 ? (
-              <span className="academy-player-meta-item">
-                총 학습 {formatTotalDuration(totalSec)}
-              </span>
-            ) : null}
-            {remainingSec > 30 && !activeVideo.completed ? (
-              <span className="academy-player-meta-item">
-                잔여 {formatTotalDuration(remainingSec)}
-              </span>
-            ) : null}
-            {activeVideo.completed ? (
-              <span className="academy-player-meta-item is-complete">완강</span>
-            ) : null}
-            {expiryInfo?.type === "unlimited" ? (
-              <span className="academy-player-meta-item">무제한 수강</span>
-            ) : expiryInfo?.type === "timed" ? (
-              <span
-                className={`academy-player-meta-item academy-expiry-badge ${
-                  expiryInfo.daysLeft <= 0
-                    ? "is-expired"
-                    : expiryInfo.daysLeft <= 7
-                    ? "is-urgent"
-                    : expiryInfo.daysLeft <= 30
-                    ? "is-warning"
-                    : ""
-                }`}
-              >
-                {expiryInfo.daysLeft <= 0
-                  ? "수강 기한 만료"
-                  : `수강 만료 ${expiryInfo.expiryLabel} (${expiryInfo.daysLeft}일 남음)`}
-              </span>
-            ) : expiryInfo?.type === "period" ? (
-              <span className="academy-player-meta-item">수강 기한 {expiryInfo.text}</span>
-            ) : null}
-          </div>
         </section>
 
         <section className="academy-player-layout">
           <article className="academy-player-main">
+            <div className="academy-player-meta-bar">
+              {totalSec > 0 ? (
+                <span className="academy-player-meta-item">
+                  총 학습 {formatTotalDuration(totalSec)}
+                </span>
+              ) : null}
+              {remainingSec > 30 && !activeVideo.completed ? (
+                <span className="academy-player-meta-item">
+                  잔여 {formatTotalDuration(remainingSec)}
+                </span>
+              ) : null}
+              {activeVideo.completed ? (
+                <span className="academy-player-meta-item is-complete">완강</span>
+              ) : null}
+              {expiryInfo?.type === "unlimited" ? (
+                <span className="academy-player-meta-item">무제한 수강</span>
+              ) : expiryInfo?.type === "timed" ? (
+                <span
+                  className={`academy-player-meta-item academy-expiry-badge ${
+                    expiryInfo.daysLeft <= 0
+                      ? "is-expired"
+                      : expiryInfo.daysLeft <= 7
+                      ? "is-urgent"
+                      : expiryInfo.daysLeft <= 30
+                      ? "is-warning"
+                      : ""
+                  }`}
+                >
+                  {expiryInfo.daysLeft <= 0
+                    ? "수강 기한 만료"
+                    : `수강 만료 ${expiryInfo.expiryLabel} (${expiryInfo.daysLeft}일 남음)`}
+                </span>
+              ) : expiryInfo?.type === "period" ? (
+                <span className="academy-player-meta-item">수강 기한 {expiryInfo.text}</span>
+              ) : null}
+            </div>
             <div className="academy-player-video-wrap" ref={playerWrapRef} onPointerUp={handleVideoSurfaceToggle}>
               {playbackSessionLoading ? (
                 <div className="academy-playback-status">보안 재생 링크를 준비 중입니다.</div>

@@ -64,9 +64,15 @@ export function createApp() {
   });
 
   // 프론트엔드에서 쿠키 기반 세션을 사용할 수 있도록 CORS와 JSON 파서를 먼저 연결한다.
+  const allowedOrigins = new Set(
+    String(env.corsOrigin || "").split(",").map((o) => o.trim()).filter(Boolean)
+  );
   app.use(
     cors({
-      origin: env.corsOrigin,
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+        callback(new Error(`CORS: origin not allowed — ${origin}`));
+      },
       credentials: true,
       exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length"],
     })

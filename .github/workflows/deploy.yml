@@ -23,6 +23,11 @@ jobs:
             npm run build
             cd ../backend
             npm install
+            if grep -q "^CORS_ORIGIN=" .env 2>/dev/null; then
+              sed -i 's|^CORS_ORIGIN=.*|CORS_ORIGIN=https://icl-pilates.com,http://localhost:5173|' .env
+            else
+              echo "CORS_ORIGIN=https://icl-pilates.com,http://localhost:5173" >> .env
+            fi
             pm2 restart icl-backend
             sudo cp ~/ICL/deploy/nginx-prod.conf /etc/nginx/sites-enabled/default
             sudo nginx -t && sudo nginx -s reload

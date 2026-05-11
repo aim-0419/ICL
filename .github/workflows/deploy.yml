@@ -17,6 +17,8 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             cd ~/ICL
+            git fetch origin main
+            git checkout main
             git pull origin main
             cd frontend
             npm install

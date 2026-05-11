@@ -711,15 +711,16 @@ export function AcademyPlayerPage() {
     return () => observer.disconnect();
   }, [playbackSession?.sessionId, playbackSession?.watermarkText]);
 
-  // playbackSource가 바뀌면 video src를 명령형으로 업데이트 (key 변경 없이 새 URL 적용)
+  // 세션 URL이 바뀌면 video src를 명령형으로 업데이트 (key 변경 없이 새 URL 적용)
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!(videoElement instanceof HTMLVideoElement)) return;
-    if (!playbackSource) return;
+    const url = String(playbackSession?.playbackUrl || "").trim();
+    if (!url) return;
     resumeAppliedRef.current = false;
-    videoElement.src = playbackSource;
+    videoElement.src = url;
     videoElement.load();
-  }, [playbackSource]);
+  }, [playbackSession?.playbackUrl]);
 
   // Q&A 로드
   const loadQna = useCallback(async (videoId) => {

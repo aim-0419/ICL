@@ -2,8 +2,7 @@
 import * as authService from "../auth/auth.service.js";
 import * as communityService from "./community.service.js";
 import * as communitySocialService from "./community.social.service.js";
-
-const SESSION_COOKIE_NAME = "icl_session";
+import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
 const EVENT_STATUSES = new Set(["진행중", "종료"]);
 
 // 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
@@ -52,8 +51,7 @@ function isAdminUser(user) {
   return (
     normalizedRole === "admin" ||
     normalizedRole === "admin1" ||
-    adminFlag ||
-    user.email === "admin@iclpilates.com"
+    adminFlag
   );
 }
 

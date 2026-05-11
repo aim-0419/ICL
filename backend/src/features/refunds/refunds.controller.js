@@ -1,8 +1,7 @@
 // 파일 역할: 환불 API 요청을 검증하고 서비스 호출 결과를 HTTP 응답으로 변환합니다.
 import * as authService from "../auth/auth.service.js";
 import * as refundsService from "./refunds.service.js";
-
-const SESSION_COOKIE_NAME = "icl_session";
+import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
 
 // 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
 function getCookieValue(req, name) {

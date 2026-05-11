@@ -1,8 +1,7 @@
 // 파일 역할: 장바구니 API 요청을 검증하고 서비스 호출 결과를 HTTP 응답으로 변환합니다.
 import * as cartService from "./cart.service.js";
 import * as authService from "../auth/auth.service.js";
-
-const SESSION_COOKIE_NAME = "icl_session";
+import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
 
 function getCookieValue(req, name) {
   const cookieHeader = String(req.headers.cookie || "");

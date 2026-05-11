@@ -1,7 +1,6 @@
 // 파일 역할: 인증 API 요청을 검증하고 서비스 호출 결과를 HTTP 응답으로 변환합니다.
 import * as authService from "./auth.service.js";
-
-const SESSION_COOKIE_NAME = "icl_session";
+import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
 
 const loginAttempts = new Map();
 const MAX_LOGIN_ATTEMPTS = 5;

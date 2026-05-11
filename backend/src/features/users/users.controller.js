@@ -2,8 +2,7 @@
 import * as authService from "../auth/auth.service.js";
 import * as usersService from "./users.service.js";
 import { query } from "../../shared/db/mysql.js";
-
-const SESSION_COOKIE_NAME = "icl_session";
+import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
 
 // 요청 쿠키에서 특정 값 추출 유틸리티
 // 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.

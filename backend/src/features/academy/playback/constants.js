@@ -18,7 +18,8 @@ export const PLAYBACK_TOKEN_TTL_SEC = Math.max(
 );
 
 // 상수 역할: 재생 토큰 서명에 사용할 비밀키를 환경 변수에서 읽습니다.
-export const PLAYBACK_TOKEN_SECRET = String(
-  env.academyPlaybackTokenSecret || `${env.dbName}-academy-playback-secret`
-).trim();
+if (!env.academyPlaybackTokenSecret) {
+  throw new Error("ACADEMY_PLAYBACK_TOKEN_SECRET 환경변수가 설정되지 않았습니다. 서버를 시작할 수 없습니다.");
+}
+export const PLAYBACK_TOKEN_SECRET = String(env.academyPlaybackTokenSecret).trim();
 

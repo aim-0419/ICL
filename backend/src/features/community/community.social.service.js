@@ -2,23 +2,17 @@
 import { env } from "../../config/env.js";
 import { query } from "../../shared/db/mysql.js";
 
-const DEFAULT_YOUTUBE_VIDEOS_URL = "https://www.youtube.com/@ICL-PILATES";
-const DEFAULT_YOUTUBE_CHANNEL_ID = "UC5WwEtRClHmSVB0tmUypryA";
-const DEFAULT_BLOG_URL = "https://blog.naver.com/icl_pilates";
-const DEFAULT_BLOG_RSS_URL = "https://rss.blog.naver.com/icl_pilates.xml";
-const DEFAULT_INSTAGRAM_URL = "https://www.instagram.com/icl.pilates/";
-const DEFAULT_FETCH_TIMEOUT_MS = 8000;
 const USER_AGENT = "Mozilla/5.0";
 const SOURCE_ORDER = ["youtube", "blog", "instagram"];
 
 const socialConfig = {
-  youtubeVideosUrl: normalizeUrl(env.socialYoutubeVideosUrl) || DEFAULT_YOUTUBE_VIDEOS_URL,
-  youtubeChannelId: String(env.socialYoutubeChannelId || DEFAULT_YOUTUBE_CHANNEL_ID).trim(),
-  blogUrl: normalizeUrl(env.socialBlogUrl) || DEFAULT_BLOG_URL,
-  blogRssUrl: normalizeUrl(env.socialBlogRssUrl) || DEFAULT_BLOG_RSS_URL,
-  instagramUrl: normalizeUrl(env.socialInstagramUrl) || DEFAULT_INSTAGRAM_URL,
-  cacheSeconds: Number(env.socialFeedCacheSeconds) > 0 ? Number(env.socialFeedCacheSeconds) : 300,
-  fetchTimeoutMs: Number(env.socialFetchTimeoutMs) > 0 ? Number(env.socialFetchTimeoutMs) : DEFAULT_FETCH_TIMEOUT_MS,
+  youtubeVideosUrl: normalizeUrl(env.socialYoutubeVideosUrl),
+  youtubeChannelId: String(env.socialYoutubeChannelId || "").trim(),
+  blogUrl: normalizeUrl(env.socialBlogUrl),
+  blogRssUrl: normalizeUrl(env.socialBlogRssUrl),
+  instagramUrl: normalizeUrl(env.socialInstagramUrl),
+  cacheSeconds: Number(env.socialFeedCacheSeconds) || 300,
+  fetchTimeoutMs: Number(env.socialFetchTimeoutMs) || 8000,
 };
 
 const SOURCE_DEFAULTS = {

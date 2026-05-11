@@ -4,8 +4,7 @@ import * as adminService from "./admin.service.js";
 import * as usersService from "../users/users.service.js";
 import { query } from "../../shared/db/mysql.js";
 import { randomUUID } from "node:crypto";
-
-const SESSION_COOKIE_NAME = "icl_session";
+import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
 const DASHBOARD_RANGE_DAYS = {
   all: 0,
   today: 1,

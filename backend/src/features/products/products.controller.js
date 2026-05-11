@@ -1,8 +1,7 @@
 // 파일 역할: 상품 API 요청을 검증하고 서비스 호출 결과를 HTTP 응답으로 변환합니다.
 import * as authService from "../auth/auth.service.js";
 import * as productsService from "./products.service.js";
-
-const SESSION_COOKIE_NAME = "icl_session";
+import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
 
 function getCookieValue(req, name) {
   const cookieHeader = String(req.headers.cookie || "");
@@ -24,7 +23,7 @@ function isAdminUser(user) {
   if (grade === "admin0" || grade === "admin1") return true;
   const role = String(user.role || "").toLowerCase();
   const adminFlag = user.isAdmin === true || user.isAdmin === 1 || user.isAdmin === "1";
-  return role === "admin" || role === "admin1" || adminFlag || user.email === "admin@iclpilates.com";
+  return role === "admin" || role === "admin1" || adminFlag;
 }
 
 // 함수 역할: 상품 데이터를 조회해 호출자에게 반환합니다.

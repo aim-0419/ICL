@@ -2,8 +2,7 @@
 import * as authService from "../auth/auth.service.js";
 import * as academyService from "./academy.service.js";
 import * as academyPlaybackService from "./academy.playback.service.js";
-
-const SESSION_COOKIE_NAME = "icl_session";
+import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
 
 // 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
 function getCookieValue(req, name) {

@@ -23,7 +23,7 @@
  * - refreshProducts / refreshAcademyVideos 등    : 서버 데이터 재조회
  */
 // 파일 역할: 로그인 사용자, 장바구니, 주문, 강의, 진도 등 앱 전역 상태를 관리합니다.
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api/client.js";
 import {
   ACADEMY_VIDEOS,

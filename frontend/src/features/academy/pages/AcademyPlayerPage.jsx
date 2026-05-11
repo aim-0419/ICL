@@ -1161,15 +1161,29 @@ export function AcademyPlayerPage() {
                     >
                       <div className="chapter-item-header">
                         <strong>
-                          {chapter.chapterOrder}차시 · {chapter.title}
+                          {chapter.title.startsWith(`${chapter.chapterOrder}차시`)
+                            ? chapter.title
+                            : `${chapter.chapterOrder}차시 · ${chapter.title}`}
                         </strong>
-                        {chapterDurSec > 0 ? (
-                          <span className="chapter-item-duration">{formatTotalDuration(chapterDurSec)}</span>
-                        ) : null}
+                        <span className="chapter-item-right">
+                          {isActiveChapter && (
+                            <span className="chapter-playing-badge">▶ 재생 중</span>
+                          )}
+                          {chapterDurSec > 0 ? (
+                            <span className="chapter-item-duration">{formatTotalDuration(chapterDurSec)}</span>
+                          ) : null}
+                        </span>
                       </div>
                       <div className="chapter-item-status">
                         {chapter.completed ? (
-                          <span className="chapter-status-label is-done">완료</span>
+                          <>
+                            <span className="chapter-status-label is-done">완료</span>
+                            {chapter.currentTime > 5 && chapter.progressPercent < 100 ? (
+                              <span className="chapter-status-label">
+                                {` · ${formatSeconds(chapter.currentTime)}까지 시청`}
+                              </span>
+                            ) : null}
+                          </>
                         ) : chapter.progressPercent > 0 ? (
                           <span className="chapter-status-label">
                             {chapter.progressPercent}%

@@ -149,7 +149,7 @@ function normalizeProgressRow(row) {
 
   return {
     videoId: String(row.videoId || ""),
-    currentTime: completed && duration > 0 ? duration : currentTime,
+    currentTime,
     duration,
     progressPercent: completed ? 100 : progressPercent,
     completed,
@@ -176,7 +176,7 @@ function normalizeChapterProgressRow(row) {
     chapterId: String(row.chapterId || ""),
     chapterOrder: Math.max(1, Math.round(toNumber(row.chapterOrder, 1))),
     chapterTitle: String(row.chapterTitle || ""),
-    currentTime: completed && duration > 0 ? duration : currentTime,
+    currentTime,
     duration,
     progressPercent: completed ? 100 : progressPercent,
     completed,

@@ -3701,8 +3701,11 @@ video::-webkit-media-controls-fullscreen-button {
 }
 
 .academy-player-chapter-item.active {
-  border-color: rgba(202, 165, 72, 0.8);
-  background: rgba(247, 238, 223, 0.86);
+  border-color: #b8860b;
+  border-left-width: 4px;
+  background: rgba(252, 244, 218, 0.97);
+  padding-left: 10px;
+  box-shadow: 0 2px 10px rgba(184, 134, 11, 0.18);
 }
 
 .academy-player-chapter-item strong {
@@ -3911,11 +3914,31 @@ video::-webkit-media-controls-fullscreen-button {
   background: rgba(240, 248, 240, 0.6);
 }
 
+.academy-player-chapter-item.is-completed.active {
+  background: rgba(252, 244, 218, 0.97);
+}
+
 .chapter-item-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 8px;
+}
+
+.chapter-item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 3px;
+}
+
+.chapter-playing-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #b8860b;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .chapter-item-duration {

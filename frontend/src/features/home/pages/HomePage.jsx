@@ -151,7 +151,24 @@ export function HomePage() {
   const store = useAppStore();
   const [socialItems, setSocialItems] = useState(() => DEFAULT_SOCIAL_ITEMS);
   const [latestReviews, setLatestReviews] = useState([]);
-  const [showRenewalPopup, setShowRenewalPopup] = useState(true);
+  const [showRenewalPopup, setShowRenewalPopup] = useState(() => {
+    try {
+      const hideUntil = localStorage.getItem("renewal_popup_hide_until");
+      const today = new Date().toLocaleDateString("sv");
+      return hideUntil !== today;
+    } catch {
+      return true;
+    }
+  });
+
+  function closeRenewalPopup() { setShowRenewalPopup(false); }
+
+  function hideRenewalPopupToday() {
+    try {
+      localStorage.setItem("renewal_popup_hide_until", new Date().toLocaleDateString("sv"));
+    } catch {}
+    setShowRenewalPopup(false);
+  }
   const [sectionOrder, setSectionOrder] = useState(() => readSectionOrder());
 
   useEffect(() => {
@@ -218,13 +235,13 @@ export function HomePage() {
       <SiteHeader />
 
       {showRenewalPopup && (
-        <div className="renewal-popup-overlay" onClick={() => setShowRenewalPopup(false)}>
+        <div className="renewal-popup-overlay" onClick={closeRenewalPopup}>
           <div className="renewal-popup" onClick={(e) => e.stopPropagation()}>
             <button
               className="renewal-popup-close"
               type="button"
               aria-label="닫기"
-              onClick={() => setShowRenewalPopup(false)}
+              onClick={closeRenewalPopup}
             >
               ✕
             </button>
@@ -238,9 +255,16 @@ export function HomePage() {
             <button
               className="renewal-popup-confirm"
               type="button"
-              onClick={() => setShowRenewalPopup(false)}
+              onClick={closeRenewalPopup}
             >
               확인
+            </button>
+            <button
+              className="renewal-popup-hide-today"
+              type="button"
+              onClick={hideRenewalPopupToday}
+            >
+              오늘 하루 보지 않기
             </button>
           </div>
         </div>

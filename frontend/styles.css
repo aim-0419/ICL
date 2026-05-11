@@ -895,6 +895,21 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
 }
 .renewal-popup-confirm:hover { opacity: 0.85; }
 
+.renewal-popup-hide-today {
+  display: block;
+  margin: 0.6rem auto 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 0.82rem;
+  color: var(--text-muted, #999);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.renewal-popup-hide-today:hover { color: var(--text, #444); }
+
 .hero-panel {
   background: transparent;
   color: var(--text);

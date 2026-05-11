@@ -404,9 +404,9 @@ export function AcademyPlayerPage() {
   }, [store.academyChapterProgress, activeVideo?.id]);
 
   useEffect(() => {
-    lastSavedTimeRef.current = Number(activeChapter?.currentTime || 0);
+    lastSavedTimeRef.current = 0;
     resumeAppliedRef.current = false;
-  }, [activeVideo?.id, activeChapter?.id, activeChapter?.currentTime]);
+  }, [activeVideo?.id, activeChapter?.id]);
 
   const syncProgress = useCallback(
     async ({ force = false, completed = false } = {}) => {

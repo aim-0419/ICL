@@ -1,4 +1,5 @@
 // 파일 역할: 관리자/스태프 권한이 있는 사용자만 접근할 수 있는 보호 라우트를 제공합니다.
+import React from "react";
 import { Navigate } from "react-router-dom";
 import { isAdminStaff } from "../auth/userRoles.js";
 import { useAppStore } from "../store/AppContext.jsx";

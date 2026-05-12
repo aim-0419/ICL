@@ -1,4 +1,5 @@
 // 파일 역할: 결제 실패 사유를 정리해 사용자에게 안내하는 페이지 컴포넌트입니다.
+import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 

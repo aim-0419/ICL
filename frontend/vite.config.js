@@ -6,5 +6,15 @@ export default defineConfig({
   plugins: [react()],
   server: {
     allowedHosts: true,
+    proxy: {
+      "/api": {
+        target: "https://icl-pilates.com",
+        changeOrigin: true,
+      },
+      "/uploads": {
+        target: "https://icl-pilates.com",
+        changeOrigin: true,
+      },
+    },
   },
 });

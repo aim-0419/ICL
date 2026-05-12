@@ -1,8 +1,8 @@
-// 파일 역할: 관리자가 상품을 조회, 추가, 수정, 삭제하는 페이지 컴포넌트입니다.
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import { apiRequest } from "../../../shared/api/client.js";
+﻿// 파일 역할: 관리자가 상품을 조회, 추가, 수정, 삭제하는 페이지 컴포넌트입니다.
+import React, { useEffect, useState } from "react";
+import React, { Link } from "react-router-dom";
+import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import React, { apiRequest } from "../../../shared/api/client.js";
 
 function formatCurrency(value) {
   const num = Number(value);

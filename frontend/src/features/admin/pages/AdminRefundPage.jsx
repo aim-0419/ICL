@@ -1,8 +1,8 @@
-// 파일 역할: 관리자가 환불 요청을 조회하고 승인 또는 거절하는 페이지 컴포넌트입니다.
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import { apiRequest } from "../../../shared/api/client.js";
+﻿// 파일 역할: 관리자가 환불 요청을 조회하고 승인 또는 거절하는 페이지 컴포넌트입니다.
+import React, { useEffect, useState } from "react";
+import React, { Link } from "react-router-dom";
+import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import React, { apiRequest } from "../../../shared/api/client.js";
 
 // 함수 역할: 날짜 시간 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatDateTime(value) {

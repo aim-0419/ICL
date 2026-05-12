@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 관리자 페이지 편집 도구(AdminImageEditor) 기능
  * - 관리자가 코드 수정 없이 브라우저에서 직접 페이지 콘텐츠를 수정할 수 있는 오버레이 도구
  * - App.jsx에서 모든 페이지 위에 렌더링되며, 관리자 + 편집 모드 ON 상태에서만 활성화
@@ -24,10 +24,10 @@
  * - 카드 내부 img의 native 드래그는 비활성화 (draggable=false)
  */
 // 파일 역할: 관리자에게 페이지 이미지, 배경, 텍스트, 크기를 화면에서 직접 수정하는 편집 도구를 제공합니다.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { useAppStore } from "../store/AppContext.jsx";
-import { canEditPage } from "../auth/userRoles.js";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useLocation } from "react-router-dom";
+import React, { useAppStore } from "../store/AppContext.jsx";
+import React, { canEditPage } from "../auth/userRoles.js";
 
 // 관리자0의 페이지 수정 기능은 localStorage를 캐시로 사용하고 DB를 원본으로 동기화한다.
 const IMAGE_STORAGE_KEY = "icl_admin_image_overrides_v1";

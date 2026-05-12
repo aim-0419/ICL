@@ -1,12 +1,12 @@
-// 파일 역할: 강의 목록과 관리자 강의 등록/수정 기능을 함께 제공하는 아카데미 페이지 컴포넌트입니다.
-import { useMemo, useRef, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
-import { canRegisterLecture } from "../../../shared/auth/userRoles.js";
-import { useAppStore } from "../../../shared/store/AppContext.jsx";
-import { getDiscountRate } from "../data/academyVideos.js";
-import {
+﻿// 파일 역할: 강의 목록과 관리자 강의 등록/수정 기능을 함께 제공하는 아카데미 페이지 컴포넌트입니다.
+import React, { useMemo, useRef, useState, useCallback } from "react";
+import React, { useNavigate } from "react-router-dom";
+import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import React, { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
+import React, { canRegisterLecture } from "../../../shared/auth/userRoles.js";
+import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
+import React, { getDiscountRate } from "../data/academyVideos.js";
+import React, {
   createAcademyVideo,
   deleteAcademyVideo,
   listAcademyInstructors,

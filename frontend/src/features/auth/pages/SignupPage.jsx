@@ -1,9 +1,9 @@
-// 파일 역할: 신규 회원 가입 입력과 제출을 처리하는 페이지 컴포넌트입니다.
-import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import { useAppStore } from "../../../shared/store/AppContext.jsx";
-import { apiRequest } from "../../../shared/api/client.js";
+﻿// 파일 역할: 신규 회원 가입 입력과 제출을 처리하는 페이지 컴포넌트입니다.
+import React, { useState, useEffect, useRef } from "react";
+import React, { useNavigate } from "react-router-dom";
+import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
+import React, { apiRequest } from "../../../shared/api/client.js";
 
 const TERMS_CONTENT = {
   service: {

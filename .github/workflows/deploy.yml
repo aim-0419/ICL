@@ -30,6 +30,9 @@ jobs:
             else
               echo "CORS_ORIGIN=https://icl-pilates.com,http://localhost:5173" >> .env
             fi
+            if ! grep -q "^ACADEMY_PLAYBACK_TOKEN_SECRET=" .env 2>/dev/null; then
+              echo "ACADEMY_PLAYBACK_TOKEN_SECRET=$(openssl rand -hex 32)" >> .env
+            fi
             pm2 restart icl-backend
             sudo cp ~/ICL/deploy/nginx-prod.conf /etc/nginx/sites-enabled/default
             sudo nginx -t && sudo nginx -s reload

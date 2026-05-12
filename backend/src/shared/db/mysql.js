@@ -28,8 +28,7 @@
  * instructors, branches                             → 강사·지점 정보
  *
  * 초기 시드 데이터 (최초 1회):
- * - 상품 13개, 강의 10개, 강사 3명, 지점 2개
- * - 후기 11개, 이벤트 6개, 문의 3개 (데모용)
+ * - 강사 3명, 지점 2개 (테이블이 비어 있을 때만 삽입)
  */
 // 파일 역할: MySQL 연결 풀, 스키마 자동 보정, 기본 데이터 시드, 공통 query 헬퍼를 담당합니다.
 import mysql from "mysql2/promise";
@@ -38,174 +37,6 @@ import { hashPassword } from "../security/password.js";
 
 // 이 파일은 MySQL 연결, 테이블 보정, 기본 시드 데이터 주입까지 함께 담당한다.
 // 별도 마이그레이션 도구 없이 앱 시작 시 필요한 스키마를 맞추는 구조다.
-const DEFAULT_PRODUCTS = [
-  {
-    id: "starter",
-    name: "Starter Guide Pack",
-    price: 129000,
-    description: "기초 해부학, 자세 분석, 수업 도입 스크립트를 담은 입문 패키지",
-    period: "90일",
-  },
-  {
-    id: "cueing",
-    name: "Cueing & Sequencing Master",
-    price: 219000,
-    description: "회원 반응을 끌어내는 큐잉 언어와 시퀀스 설계 노하우 집중 과정",
-    period: "180일",
-  },
-  {
-    id: "premium",
-    name: "Premium Academy Bundle",
-    price: 349000,
-    description: "강사 교육, 회원 상담, 스튜디오 운영 가이드를 한 번에 묶은 통합 번들",
-    period: "365일",
-  },
-];
-
-const ACADEMY_VIDEO_PRODUCTS = [
-  {
-    id: "video-1",
-    name: "코어 정렬과 호흡 패턴 입문",
-    price: 129000,
-    description: "코어 정렬, 호흡 패턴, 기초 수업 루틴 구성 입문 과정",
-    period: "90일",
-  },
-  {
-    id: "video-2",
-    name: "기구 필라테스 큐잉 언어 마스터",
-    price: 159000,
-    description: "실전 큐잉 언어와 시퀀싱을 배우는 초급 집중 과정",
-    period: "180일",
-  },
-  {
-    id: "video-3",
-    name: "초급 회원 체형 분석 실전 워크숍",
-    price: 69300,
-    description: "회원별 체형 분석과 동작 교정 포인트 실습 과정",
-    period: "90일",
-  },
-  {
-    id: "video-4",
-    name: "소그룹 수업 운영 시나리오 설계",
-    price: 89000,
-    description: "소그룹 클래스 운영 흐름과 상담 전환 구조 설계",
-    period: "180일",
-  },
-  {
-    id: "video-5",
-    name: "누구나 빠르게 시작하는 레슨 가이드",
-    price: 9900,
-    description: "처음 수업을 시작하는 강사를 위한 레슨 진행 가이드",
-    period: "90일",
-  },
-  {
-    id: "video-6",
-    name: "리포머 자동 교정 큐 실습",
-    price: 5500,
-    description: "리포머 동작의 교정 큐를 빠르게 적용하는 실습 과정",
-    period: "180일",
-  },
-  {
-    id: "video-7",
-    name: "코칭 대본으로 완성하는 바이브 코딩",
-    price: 38500,
-    description: "상담/수업 코칭 대본으로 운영 퍼포먼스를 높이는 과정",
-    period: "180일",
-  },
-  {
-    id: "video-8",
-    name: "매출로 연결되는 상담 스크립트",
-    price: 77000,
-    description: "상담부터 결제 전환까지 이어지는 실전 스크립트",
-    period: "365일",
-  },
-  {
-    id: "video-9",
-    name: "필라테스 스튜디오 운영툴 기초",
-    price: 8250,
-    description: "스튜디오 운영 자동화를 위한 기초 관리 툴 정리",
-    period: "180일",
-  },
-  {
-    id: "video-10",
-    name: "썸네일/홍보 디자인으로 매출 높이기",
-    price: 4400,
-    description: "온라인 홍보 소재 제작과 운영 실전 가이드",
-    period: "365일",
-  },
-];
-
-const DEFAULT_ACADEMY_VIDEO_META = [
-  { id: "video-1",  instructor: "ICL Academy",      category: "입문", badge: "",    rating: 4.9, reviews: 530, imagePath: null, videoPath: null },
-  { id: "video-2",  instructor: "ICL Academy",      category: "초급", badge: "New", rating: 5.0, reviews: 100, imagePath: null, videoPath: null },
-  { id: "video-3",  instructor: "Master Instructor", category: "입문", badge: "New", rating: 4.8, reviews: 72,  imagePath: null, videoPath: null },
-  { id: "video-4",  instructor: "Studio Coaching",  category: "중급", badge: "Hot", rating: 4.7, reviews: 61,  imagePath: null, videoPath: null },
-  { id: "video-5",  instructor: "Neo Team",         category: "입문", badge: "New", rating: 5.0, reviews: 8,   imagePath: null, videoPath: null },
-  { id: "video-6",  instructor: "Pro Coach",        category: "초급", badge: "",    rating: 4.8, reviews: 43,  imagePath: null, videoPath: null },
-  { id: "video-7",  instructor: "Content Bridge",   category: "중급", badge: "",    rating: 4.9, reviews: 25,  imagePath: null, videoPath: null },
-  { id: "video-8",  instructor: "ICL Business",     category: "고급", badge: "Hot", rating: 5.0, reviews: 14,  imagePath: null, videoPath: null },
-  { id: "video-9",  instructor: "AhaLinux",         category: "중급", badge: "New", rating: 4.7, reviews: 12,  imagePath: null, videoPath: null },
-  { id: "video-10", instructor: "Sunny Studio",     category: "고급", badge: "",    rating: 4.6, reviews: 30,  imagePath: null, videoPath: null },
-];
-
-const DEFAULT_REVIEW_POSTS = [
-  { id: "review-101", title: "체형 분석 이후 수업 몰입도가 확실히 달라졌어요", author: "김OO", date: "2026-04-05", views: 128 },
-  { id: "review-100", title: "초급 가이드 영상으로 수업 준비 시간이 줄었습니다", author: "박OO", date: "2026-04-03", views: 94 },
-  { id: "review-099", title: "강사 코칭 피드백이 상세해서 재등록 결정했어요", author: "이OO", date: "2026-04-01", views: 156 },
-  { id: "review-098", title: "리포머 수업 동작 설명이 이해하기 쉬웠습니다", author: "정OO", date: "2026-03-29", views: 77 },
-  { id: "review-097", title: "중급 프로그램 루틴이 체계적이라 만족합니다", author: "최OO", date: "2026-03-27", views: 83 },
-  { id: "review-096", title: "수업 후 루틴 가이드 덕분에 집에서도 꾸준히 했어요", author: "유OO", date: "2026-03-25", views: 102 },
-  { id: "review-095", title: "상담부터 수업까지 흐름이 자연스러워서 좋았습니다", author: "한OO", date: "2026-03-23", views: 69 },
-  { id: "review-094", title: "교육 영상 구매 후 실제 수업 적용에 도움이 됐어요", author: "임OO", date: "2026-03-20", views: 117 },
-  { id: "review-093", title: "장비 설명이 자세해서 처음인데도 불안하지 않았습니다", author: "송OO", date: "2026-03-18", views: 58 },
-  { id: "review-092", title: "클래스 분위기가 차분해서 집중하기 좋았어요", author: "오OO", date: "2026-03-15", views: 141 },
-  { id: "review-091", title: "고급 과정에서 큐잉 포인트를 많이 배웠습니다", author: "서OO", date: "2026-03-12", views: 88 },
-];
-
-const DEFAULT_EVENTS = [
-  { id: "event-1", title: "신규 회원 웰컴 패키지 증정 이벤트", status: "진행중", startDate: "2026-04-05", endDate: "2026-04-30", likes: 48, image: "", summary: "첫 등록 회원에게 체형 분석 1회 + 개인 루틴 카드 + 필라테스 밴드를 함께 제공하는 봄 시즌 한정 프로모션입니다." },
-  { id: "event-2", title: "강사용 큐잉 가이드 봄 시즌 할인",   status: "진행중", startDate: "2026-03-28", endDate: "2026-04-18", likes: 31, image: "", summary: "큐잉 실전 가이드 영상 패키지를 기간 한정가로 제공하며, 구매자 대상 라이브 Q&A 세션 참여 혜택이 포함됩니다." },
-  { id: "event-3", title: "리뉴얼 오픈 기념 상담 혜택",         status: "종료",   startDate: "2026-03-01", endDate: "2026-03-15", likes: 64, image: "", summary: "리뉴얼 기간 동안 진행된 상담 이벤트로, 신규 상담 고객에게 수업 체험권과 등록 할인 혜택을 제공했습니다." },
-  { id: "event-4", title: "회원 추천 리워드 프로그램",           status: "진행중", startDate: "2026-04-01", endDate: "2026-05-01", likes: 19, image: "", summary: "기존 회원이 친구를 추천하면 추천인/피추천인 모두에게 수강 할인 쿠폰과 굿즈 포인트를 지급하는 이벤트입니다." },
-  { id: "event-5", title: "주말 집중 리포머 클래스 특가",        status: "종료",   startDate: "2026-02-10", endDate: "2026-02-28", likes: 27, image: "", summary: "주말 시간대 집중 프로그램을 한정 오픈했던 이벤트로, 단기 집중 수업을 원하는 회원 중심으로 운영되었습니다." },
-  { id: "event-6", title: "강사 역량 업 세미나 모집 이벤트",     status: "종료",   startDate: "2026-01-20", endDate: "2026-02-05", likes: 15, image: "", summary: "강사 대상 시퀀스 설계 세미나 참가자 모집 이벤트로, 우수 후기 작성자에게 추가 교육 콘텐츠를 제공했습니다." },
-];
-
-const DEFAULT_INQUIRIES = [
-  {
-    id: "inquiry-301",
-    title: "강사 교육 영상 단체 구매 문의드립니다",
-    content:
-      "안녕하세요.\n지점 강사 4명이 함께 수강할 예정인데 단체 결제 가능한지 문의드립니다.\n결제 방식과 할인 조건이 있다면 안내 부탁드립니다.",
-    author: "김OO",
-    authorId: "seed-user-1",
-    date: "2026-04-07",
-    views: 41,
-    isSecret: false,
-  },
-  {
-    id: "inquiry-300",
-    title: "수강권 결제 오류 관련 문의",
-    content:
-      "결제 승인 이후 페이지가 멈춰서 수강권 등록 여부를 확인하고 싶습니다.\n주문번호는 PILATES-20260406-112 입니다.\n확인 후 답변 부탁드립니다.",
-    author: "박OO",
-    authorId: "seed-user-2",
-    date: "2026-04-06",
-    views: 26,
-    isSecret: true,
-  },
-  {
-    id: "inquiry-299",
-    title: "사업자용 영수증 발행 가능 여부",
-    content:
-      "교육영상 결제 건에 대해 사업자등록번호로 영수증 발행 가능한지 궁금합니다.\n가능하다면 발행 절차도 함께 안내 부탁드립니다.",
-    author: "이OO",
-    authorId: "seed-user-3",
-    date: "2026-04-04",
-    views: 33,
-    isSecret: false,
-  },
-];
 
 const pool = mysql.createPool({
   host: env.dbHost,
@@ -568,101 +399,6 @@ async function dropUnusedSchemaObjects() {
   // 운영 데이터 손실 방지를 위해 자동 삭제는 수행하지 않음
 }
 
-// 함수 역할: 상품 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
-async function seedProductsIfEmpty() {
-  // 개발 편의를 위해 기본 상품은 비어 있어도 항상 같은 기준 데이터로 맞춘다.
-  const products = [...DEFAULT_PRODUCTS, ...ACADEMY_VIDEO_PRODUCTS];
-  for (const product of products) {
-    await pool.execute(
-      `INSERT INTO products (id, name, price, description, period)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         name = VALUES(name),
-         price = VALUES(price),
-         description = VALUES(description),
-         period = VALUES(period)`,
-      [product.id, product.name, product.price, product.description, product.period]
-    );
-  }
-}
-
-// 함수 역할: 아카데미 강의 영상 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
-async function seedAcademyVideosIfEmpty() {
-  // 강의 메타 정보는 상품 시드와 1:1로 대응되도록 함께 넣는다.
-  for (const video of DEFAULT_ACADEMY_VIDEO_META) {
-    const product = ACADEMY_VIDEO_PRODUCTS.find((item) => item.id === video.id);
-    if (!product) continue;
-    const salePrice = Number(product.price) || 0;
-    const originalPrice = Math.max(salePrice, Math.round(salePrice * 1.45));
-
-    await pool.execute(
-      `INSERT INTO academy_videos (
-        id,
-        product_id,
-        instructor,
-        category,
-        badge,
-        original_price,
-        sale_price,
-        rating,
-        reviews,
-      image_path,
-      video_path,
-      publish_at,
-      is_hidden,
-      created_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 0, NOW())
-      ON DUPLICATE KEY UPDATE
-        id = id`,
-      [
-        video.id,
-        video.id,
-        video.instructor,
-        video.category,
-        video.badge || "",
-        originalPrice,
-        salePrice,
-        Number(video.rating) || 0,
-      Number(video.reviews) || 0,
-      video.imagePath || null,
-      video.videoPath || null,
-      ]
-    );
-  }
-}
-
-// 함수 역할: 아카데미 차시 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
-async function seedAcademyChaptersIfEmpty() {
-  await pool.query(
-    `INSERT INTO academy_video_chapters (
-      id,
-      video_id,
-      chapter_order,
-      title,
-      description,
-      video_path,
-      duration_sec,
-      is_preview,
-      created_at
-    )
-    SELECT
-      CONCAT(av.id, '-ch-1') AS id,
-      av.id AS video_id,
-      1 AS chapter_order,
-      '1차시' AS title,
-      NULL AS description,
-      av.video_path,
-      0 AS duration_sec,
-      0 AS is_preview,
-      av.created_at
-    FROM academy_videos av
-    LEFT JOIN academy_video_chapters chapter
-      ON chapter.video_id = av.id
-      AND chapter.chapter_order = 1
-    WHERE chapter.id IS NULL`
-  );
-}
 
 // 함수 역할: 강사 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
 async function seedInstructorsIfEmpty() {
@@ -744,62 +480,6 @@ async function seedBranchesIfEmpty() {
   }
 }
 
-// 함수 역할: 커뮤니티 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
-async function seedCommunityIfEmpty() {
-  // 후기/이벤트/문의 기본 데이터는 로컬 개발 화면을 바로 확인하기 위한 시드다.
-  const [reviewCountRows] = await pool.query("SELECT COUNT(*) AS count FROM review_posts");
-  const reviewCount = Number(reviewCountRows?.[0]?.count ?? 0);
-  if (reviewCount === 0) {
-    for (const post of DEFAULT_REVIEW_POSTS) {
-      await pool.execute(
-        `INSERT INTO review_posts (id, title, content, author, author_id, date, views, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-        [
-          post.id,
-          post.title,
-          post.content || `${post.title}\n후기 게시판 기본 데이터입니다.`,
-          post.author,
-          post.authorId || null,
-          post.date,
-          post.views,
-        ]
-      );
-    }
-  }
-
-  const [eventCountRows] = await pool.query("SELECT COUNT(*) AS count FROM events");
-  const eventCount = Number(eventCountRows?.[0]?.count ?? 0);
-  if (eventCount === 0) {
-    for (const event of DEFAULT_EVENTS) {
-      await pool.execute(
-        `INSERT INTO events (id, title, status, start_date, end_date, likes, image, summary)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [event.id, event.title, event.status, event.startDate, event.endDate, event.likes, event.image, event.summary]
-      );
-    }
-  }
-
-  const [inquiryCountRows] = await pool.query("SELECT COUNT(*) AS count FROM inquiry_posts");
-  const inquiryCount = Number(inquiryCountRows?.[0]?.count ?? 0);
-  if (inquiryCount === 0) {
-    for (const inquiry of DEFAULT_INQUIRIES) {
-      await pool.execute(
-        `INSERT INTO inquiry_posts (id, title, content, author, author_id, date, views, is_secret, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-        [
-          inquiry.id,
-          inquiry.title,
-          inquiry.content,
-          inquiry.author,
-          inquiry.authorId,
-          inquiry.date,
-          inquiry.views,
-          inquiry.isSecret ? 1 : 0,
-        ]
-      );
-    }
-  }
-}
 
 // 함수 역할: 만료된 탈퇴 회원 데이터를 조건에 맞게 영구 정리합니다.
 async function purgeExpiredWithdrawnUsers() {
@@ -1565,9 +1245,6 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE orders ADD COLUMN cancelled_product_ids JSON NULL`);
   }
 
-  await seedProductsIfEmpty();
-  await seedAcademyVideosIfEmpty();
-  await seedAcademyChaptersIfEmpty();
   await pool.query(
     `INSERT INTO academy_chapter_progress (
       user_id,
@@ -1652,8 +1329,6 @@ async function initDatabase() {
 
   await seedInstructorsIfEmpty();
   await seedBranchesIfEmpty();
-
-  await seedCommunityIfEmpty();
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS academy_reviews (

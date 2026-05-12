@@ -73,6 +73,8 @@ export function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [savingGradeUserId, setSavingGradeUserId] = useState("");
   const [gradeMessage, setGradeMessage] = useState({ type: "", text: "" });
+  const [withdrawingUserId, setWithdrawingUserId] = useState("");
+  const [withdrawMessage, setWithdrawMessage] = useState({ type: "", text: "" });
   const [refundingOrderId, setRefundingOrderId] = useState("");
   const [refundMessage, setRefundMessage] = useState({ type: "", text: "" });
 
@@ -183,6 +185,46 @@ export function AdminDashboardPage() {
       setGradeMessage({ type: "error", text: error.message || "등급 변경에 실패했습니다." });
     } finally {
       setSavingGradeUserId("");
+    }
+  }
+
+  async function handleWithdrawUser(user) {
+    const confirmed = window.confirm(
+      `"${user.name}" (${user.loginId}) 회원을 탈퇴 처리하시겠습니까?\n탈퇴 후 90일간 데이터가 보관되며 복구 가능합니다.`
+    );
+    if (!confirmed) return;
+
+    setWithdrawingUserId(user.id);
+    setWithdrawMessage({ type: "", text: "" });
+    try {
+      await apiRequest(`/admin/users/${encodeURIComponent(user.id)}/withdraw`, { method: "POST" });
+      setUsers((current) =>
+        current.map((u) => (u.id === user.id ? { ...u, accountStatus: "withdrawn" } : u))
+      );
+      setWithdrawMessage({ type: "success", text: `${user.name} 회원이 탈퇴 처리되었습니다.` });
+    } catch (error) {
+      setWithdrawMessage({ type: "error", text: error.message || "탈퇴 처리에 실패했습니다." });
+    } finally {
+      setWithdrawingUserId("");
+    }
+  }
+
+  async function handleRestoreUser(user) {
+    const confirmed = window.confirm(`"${user.name}" (${user.loginId}) 회원의 탈퇴를 복구하시겠습니까?`);
+    if (!confirmed) return;
+
+    setWithdrawingUserId(user.id);
+    setWithdrawMessage({ type: "", text: "" });
+    try {
+      await apiRequest(`/admin/users/${encodeURIComponent(user.id)}/restore`, { method: "POST" });
+      setUsers((current) =>
+        current.map((u) => (u.id === user.id ? { ...u, accountStatus: "active" } : u))
+      );
+      setWithdrawMessage({ type: "success", text: `${user.name} 회원이 복구되었습니다.` });
+    } catch (error) {
+      setWithdrawMessage({ type: "error", text: error.message || "복구에 실패했습니다." });
+    } finally {
+      setWithdrawingUserId("");
     }
   }
 
@@ -385,6 +427,9 @@ export function AdminDashboardPage() {
             {gradeMessage.text ? (
               <p className={`admin-form-message ${gradeMessage.type}`}>{gradeMessage.text}</p>
             ) : null}
+            {withdrawMessage.text ? (
+              <p className={`admin-form-message ${withdrawMessage.type}`}>{withdrawMessage.text}</p>
+            ) : null}
             {refundMessage.text ? (
               <p className={`admin-form-message ${refundMessage.type}`}>{refundMessage.text}</p>
             ) : null}
@@ -404,18 +449,23 @@ export function AdminDashboardPage() {
                     const isLearningOpen = openLearningUserId === user.id;
                     const isPurchaseOpen = openPurchaseUserId === user.id;
 
+                    const isWithdrawn = user.accountStatus === "withdrawn";
                     return (
-                      <article key={user.id} className="admin-member-card">
+                      <article key={user.id} className={`admin-member-card${isWithdrawn ? " is-withdrawn" : ""}`}>
                         <header className="admin-member-head">
                           <div>
                             <strong>{user.name}</strong>
+                            {isWithdrawn && <span className="admin-member-withdrawn-badge">탈퇴</span>}
                             <p>
                               {user.loginId} · {user.email}
                             </p>
+                            {isWithdrawn && user.withdrawnAt && (
+                              <p className="admin-member-withdrawn-date">탈퇴일: {formatDateTime(user.withdrawnAt)}</p>
+                            )}
                           </div>
                           <div className="admin-member-grade">
                             <span>{formatUserGradeLabel(user.userGrade)}</span>
-                            {canManageGrades ? (
+                            {canManageGrades && !isWithdrawn ? (
                               <select
                                 value={String(user.userGrade || "member").toLowerCase()}
                                 disabled={savingGradeUserId === user.id}
@@ -457,17 +507,40 @@ export function AdminDashboardPage() {
                           >
                             {isPurchaseOpen ? "구매 이력 닫기" : "구매 이력 보기"}
                           </button>
-                          <button
-                            type="button"
-                            className="ghost-button small-ghost"
-                            onClick={() =>
-                              navigate(`/admin/members/${encodeURIComponent(user.id)}/gift-videos`, {
-                                state: { userName: user.name, userEmail: user.email },
-                              })
-                            }
-                          >
-                            영상 선물하기
-                          </button>
+                          {!isWithdrawn && (
+                            <button
+                              type="button"
+                              className="ghost-button small-ghost"
+                              onClick={() =>
+                                navigate(`/admin/members/${encodeURIComponent(user.id)}/gift-videos`, {
+                                  state: { userName: user.name, userEmail: user.email },
+                                })
+                              }
+                            >
+                              영상 선물하기
+                            </button>
+                          )}
+                          {canManageGrades && (
+                            isWithdrawn ? (
+                              <button
+                                type="button"
+                                className="ghost-button small-ghost"
+                                disabled={withdrawingUserId === user.id}
+                                onClick={() => handleRestoreUser(user)}
+                              >
+                                {withdrawingUserId === user.id ? "처리 중..." : "탈퇴 복구"}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="ghost-button small-ghost danger"
+                                disabled={withdrawingUserId === user.id}
+                                onClick={() => handleWithdrawUser(user)}
+                              >
+                                {withdrawingUserId === user.id ? "처리 중..." : "회원 탈퇴"}
+                              </button>
+                            )
+                          )}
                         </div>
 
                         {isLearningOpen ? (

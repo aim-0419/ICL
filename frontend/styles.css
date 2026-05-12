@@ -5346,7 +5346,7 @@ video::-webkit-media-controls-fullscreen-button {
 
 .admin-sales-date-range {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
@@ -5358,8 +5358,8 @@ video::-webkit-media-controls-fullscreen-button {
   padding: 8px 10px;
   color: #5f4a2f;
   font-size: 0.82rem;
-  flex: 0 0 auto;
-  min-width: 146px;
+  flex: 1 1 130px;
+  min-width: 0;
 }
 
 .admin-sales-range-button {
@@ -5496,21 +5496,19 @@ video::-webkit-media-controls-fullscreen-button {
   pointer-events: none;
 }
 
-.admin-sales-line-overlay polyline {
+.admin-sales-line-overlay .admin-sales-line-area {
+  fill: rgba(188, 147, 83, 0.13);
+  stroke: none;
+}
+
+.admin-sales-line-overlay .admin-sales-line-path {
   fill: none;
-  stroke: #6f522d;
-  stroke-width: 1.25;
+  stroke: #8a6a3c;
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   shape-rendering: geometricPrecision;
-  opacity: 0.94;
-}
-
-.admin-sales-line-overlay circle {
-  fill: #6f522d;
-  stroke: rgba(255, 252, 246, 0.95);
-  stroke-width: 0.85;
 }
 
 .admin-sales-chart-item {
@@ -5537,8 +5535,9 @@ video::-webkit-media-controls-fullscreen-button {
 
 .admin-sales-chart-bar {
   width: 46%;
-  min-height: 6px;
-  border-radius: 8px;
+  min-height: 0;
+  border-radius: 6px 6px 0 0;
+  transition: height 0.25s ease, opacity 0.25s ease;
 }
 
 .admin-sales-chart-bar.gross {
@@ -6409,6 +6408,27 @@ video::-webkit-media-controls-fullscreen-button {
   padding: 14px;
   background: rgba(255, 255, 255, 0.72);
 }
+.admin-member-card.is-withdrawn {
+  background: rgba(240, 240, 240, 0.6);
+  border-color: rgba(150, 150, 150, 0.2);
+  opacity: 0.8;
+}
+.admin-member-withdrawn-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #e53e3e;
+  color: #fff;
+  vertical-align: middle;
+}
+.admin-member-withdrawn-date {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #999;
+}
 
 .admin-member-head {
   display: flex;
@@ -6732,8 +6752,14 @@ video::-webkit-media-controls-fullscreen-button {
 
 .mypage-form-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 12px;
+}
+
+@media (min-width: 600px) {
+  .mypage-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .mypage-field {
@@ -6745,6 +6771,12 @@ video::-webkit-media-controls-fullscreen-button {
 
 .mypage-field-full {
   grid-column: 1 / -1;
+}
+
+@media (max-width: 599px) {
+  .mypage-field-full {
+    grid-column: auto;
+  }
 }
 
 .mypage-inline-field {
@@ -7420,6 +7452,20 @@ video::-webkit-media-controls-fullscreen-button {
   }
 }
 
+@media (max-width: 1060px) {
+  .admin-sales-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-sales-primary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sales-filter-panel .admin-members-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1180px) {
   .feature-layout,
   .academy-layout,
@@ -7736,7 +7782,24 @@ video::-webkit-media-controls-fullscreen-button {
   }
 
   .admin-sales-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-sales-primary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-sales-filter-panel .admin-members-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sales-date-range {
+    flex-wrap: wrap;
+  }
+
+  .admin-sales-date-range input[type="date"] {
+    flex: 1 1 130px;
+    min-width: 0;
   }
 
   .admin-sales-hero-meta {
@@ -7869,24 +7932,20 @@ video::-webkit-media-controls-fullscreen-button {
     font-size: clamp(1.4rem, 6vw, 2rem);
   }
 
+  .dashboard-card {
+    padding: 18px;
+  }
+
   .mypage-hero-card {
-    padding: 24px 18px;
+    padding: 20px 18px;
   }
 
   .mypage-identity-row {
     gap: 8px;
   }
 
-  .mypage-form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .mypage-field-full {
-    grid-column: auto;
-  }
-
-  .mypage-inline-field {
-    grid-template-columns: 1fr;
+  .mypage-save-button {
+    width: 100%;
   }
 
   .mypage-video-card {
@@ -7896,8 +7955,18 @@ video::-webkit-media-controls-fullscreen-button {
 
   .mypage-video-thumb {
     width: 100%;
-    max-width: 360px;
-    height: 200px;
+    max-width: 100%;
+    height: 180px;
+  }
+
+  .mypage-course-actions {
+    width: 100%;
+  }
+
+  .mypage-course-actions .pill-button,
+  .mypage-course-actions .ghost-button {
+    width: 100%;
+    text-align: center;
   }
 
   .order-row {
@@ -8414,6 +8483,10 @@ video::-webkit-media-controls-fullscreen-button {
 
   .academy-catalog-grid.home-academy-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-sales-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

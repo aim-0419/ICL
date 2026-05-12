@@ -85,6 +85,41 @@ function resolveRefundInsightKey(item) {
   return String(item?.productId || item?.videoId || "").trim();
 }
 
+function smoothLinePath(dots) {
+  if (!dots || dots.length < 2) return "";
+  const n = dots.length;
+  const delta = [];
+  for (let i = 0; i < n - 1; i++) {
+    const dx = dots[i + 1].x - dots[i].x;
+    delta.push(dx === 0 ? 0 : (dots[i + 1].y - dots[i].y) / dx);
+  }
+  const m = new Array(n);
+  m[0] = delta[0];
+  m[n - 1] = delta[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    m[i] = delta[i - 1] * delta[i] <= 0 ? 0 : (delta[i - 1] + delta[i]) / 2;
+  }
+  for (let i = 0; i < n - 1; i++) {
+    if (Math.abs(delta[i]) < 1e-9) {
+      m[i] = 0;
+      m[i + 1] = 0;
+    } else {
+      const a = m[i] / delta[i];
+      const b = m[i + 1] / delta[i];
+      const h = Math.sqrt(a * a + b * b);
+      if (h > 3) { m[i] = (3 * a / h) * delta[i]; m[i + 1] = (3 * b / h) * delta[i]; }
+    }
+  }
+  let d = `M ${dots[0].x.toFixed(2)},${dots[0].y.toFixed(2)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const dx = (dots[i + 1].x - dots[i].x) / 3;
+    const cp1x = dots[i].x + dx, cp1y = dots[i].y + m[i] * dx;
+    const cp2x = dots[i + 1].x - dx, cp2y = dots[i + 1].y - m[i + 1] * dx;
+    d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${dots[i + 1].x.toFixed(2)},${dots[i + 1].y.toFixed(2)}`;
+  }
+  return d;
+}
+
 // 컴포넌트 역할: 관리자가 매출, 주문, 환불 분석을 기간별로 확인하는 대시보드 페이지 컴포넌트입니다.
 export function AdminSalesDashboardPage() {
   const store = useAppStore();
@@ -321,10 +356,14 @@ export function AdminSalesDashboardPage() {
     [chartSeries, maxRevenue]
   );
 
-  const linePoints = useMemo(
-    () => lineDots.map((dot) => `${dot.x},${dot.y}`).join(" "),
-    [lineDots]
-  );
+  const smoothPath = useMemo(() => smoothLinePath(lineDots), [lineDots]);
+
+  const smoothArea = useMemo(() => {
+    if (!lineDots.length || !smoothPath) return "";
+    const first = lineDots[0];
+    const last = lineDots[lineDots.length - 1];
+    return `${smoothPath} L ${last.x.toFixed(2)},100 L ${first.x.toFixed(2)},100 Z`;
+  }, [smoothPath, lineDots]);
 
   const lastSeries = chartSeries.length ? chartSeries[chartSeries.length - 1] : null;
   const prevSeries = chartSeries.length > 1 ? chartSeries[chartSeries.length - 2] : null;
@@ -727,7 +766,8 @@ export function AdminSalesDashboardPage() {
                           preserveAspectRatio="none"
                           aria-hidden="true"
                         >
-                          <polyline points={linePoints} />
+                          <path className="admin-sales-line-area" d={smoothArea} />
+                          <path className="admin-sales-line-path" d={smoothPath} />
                         </svg>
 
                         {chartSeries.map((item) => (
@@ -736,12 +776,10 @@ export function AdminSalesDashboardPage() {
                               <div
                                 className="admin-sales-chart-bar gross"
                                 style={{
-                                  height: `${Math.max(
-                                    6,
-                                    Math.round(
-                                      (toAmount(item.grossRevenue || item.totalRevenue) / maxRevenue) * 100
-                                    )
+                                  height: `${Math.round(
+                                    (toAmount(item.grossRevenue || item.totalRevenue) / maxRevenue) * 100
                                   )}%`,
+                                  opacity: toAmount(item.grossRevenue || item.totalRevenue) > 0 ? 1 : 0,
                                 }}
                                 title={`총매출 ${store.formatCurrency(
                                   toAmount(item.grossRevenue || item.totalRevenue)

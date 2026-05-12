@@ -238,10 +238,6 @@ export function MyPage() {
     () => learningHistory.filter((video) => video.completed).length,
     [learningHistory]
   );
-  const totalSpent = useMemo(
-    () => userOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0),
-    [userOrders]
-  );
 
   const [myGrants, setMyGrants] = useState([]);
   const [activeVideoTab, setActiveVideoTab] = useState("purchased");
@@ -754,7 +750,6 @@ export function MyPage() {
             <span className="mypage-identity-chip">수강 영상 {grantedVideos.length}개</span>
             <span className="mypage-identity-chip">수강 완료 {completedVideoCount}개</span>
             <span className="mypage-identity-chip">주문 {userOrders.length}건</span>
-            <span className="mypage-identity-chip">누적 결제 {store.formatCurrency(totalSpent)}</span>
             <span className="mypage-identity-chip">포인트 {store.formatCurrency(store.userPoints ?? 0)}</span>
           </div>
         </section>

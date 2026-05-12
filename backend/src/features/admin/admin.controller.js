@@ -682,6 +682,36 @@ export async function updateUserGrade(req, res, next) {
   }
 }
 
+// 함수 역할: 관리자 강제 탈퇴 처리를 실행합니다.
+export async function withdrawUser(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    if (!canManageUserGrades(authUser)) {
+      res.status(403).json({ message: "최고 관리자만 회원을 탈퇴시킬 수 있습니다." });
+      return;
+    }
+
+    const targetUserId = String(req.params.userId || "").trim();
+    if (!targetUserId) {
+      res.status(400).json({ message: "탈퇴 처리할 회원 ID가 필요합니다." });
+      return;
+    }
+    if (targetUserId === String(authUser.id)) {
+      res.status(400).json({ message: "자기 자신을 탈퇴시킬 수 없습니다." });
+      return;
+    }
+
+    const withdrawnUser = await usersService.withdrawUserByAdmin(targetUserId);
+    res.json({ user: withdrawnUser });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // 함수 역할: 탈퇴 회원 값을 원래 상태로 되돌립니다.
 export async function restoreWithdrawnUser(req, res, next) {
   // 관리자 권한 기반 탈퇴 계정 복구 처리

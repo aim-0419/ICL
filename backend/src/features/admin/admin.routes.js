@@ -17,6 +17,7 @@
  *
  * 엔드포인트 (회원·주문 관리):
  * PATCH /api/admin/users/:userId/grade             - 회원 등급 변경
+ * POST  /api/admin/users/:userId/withdraw          - 관리자 강제 탈퇴
  * POST  /api/admin/users/:userId/restore           - 탈퇴 회원 복구
  * POST  /api/admin/orders/:orderId/refund          - 주문 환불 처리
  * POST  /api/admin/lectures                        - 강의 등록
@@ -45,6 +46,7 @@ adminRoutes.get("/dashboard/lectures/progress", adminController.getDashboardLect
 adminRoutes.get("/dashboard/sales", adminController.getDashboardSales);
 adminRoutes.get("/dashboard/sales/refund-insights", adminController.getSalesRefundInsights);
 adminRoutes.patch("/users/:userId/grade", adminController.updateUserGrade);
+adminRoutes.post("/users/:userId/withdraw", adminController.withdrawUser);
 adminRoutes.post("/users/:userId/restore", adminController.restoreWithdrawnUser);
 adminRoutes.post("/orders/:orderId/refund", express.json(), adminController.refundOrder);
 adminRoutes.post("/lectures", adminController.createLecture);

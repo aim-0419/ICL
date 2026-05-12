@@ -523,6 +523,8 @@ export async function listDashboardUsers() {
         role,
         is_admin AS isAdmin,
         user_grade AS userGrade,
+        account_status AS accountStatus,
+        DATE_FORMAT(withdrawn_at, '%Y-%m-%d %H:%i:%s') AS withdrawnAt,
         DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS createdAt
        FROM users
        ORDER BY created_at DESC`

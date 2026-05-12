@@ -305,24 +305,24 @@ export function AppProvider({ children }) {
     return { ...savedChapter, lectureProgress: savedLecture };
   }
 
-  // 앱 최초 진입 시 세션 복구와 공개 데이터를 병렬로 불러온다.
+  // 앱 최초 진입 시 인증 확인을 먼저 완료한 뒤, 상품/강의 데이터를 백그라운드로 불러온다.
   // 세션 복구가 끝난 뒤 사용자 전용 데이터(cart/orders/progress)는
   // currentUser 변경 이펙트에서 자동으로 로드된다.
   useEffect(() => {
     let mounted = true;
 
     async function bootstrap() {
-      const [, , authResult] = await Promise.allSettled([
-        refreshProducts(),
-        refreshAcademyVideos(),
-        apiRequest("/auth/me"),
-      ]);
+      const authResult = await Promise.allSettled([apiRequest("/auth/me")]);
 
       if (!mounted) return;
 
-      const user = authResult.status === "fulfilled" ? (authResult.value?.user || null) : null;
+      const user =
+        authResult[0].status === "fulfilled" ? (authResult[0].value?.user || null) : null;
       setCurrentUser(user);
       setIsAuthResolved(true);
+
+      // 상품·강의 데이터는 인증과 무관하므로 이후 백그라운드에서 로드
+      Promise.allSettled([refreshProducts(), refreshAcademyVideos()]).catch(() => {});
     }
 
     bootstrap();

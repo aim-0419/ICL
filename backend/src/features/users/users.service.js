@@ -542,6 +542,34 @@ export async function withdrawMyAccount(userId, payload = {}) {
   };
 }
 
+// 관리자 강제 탈퇴 처리 (휴대폰 인증 불필요)
+export async function withdrawUserByAdmin(userId) {
+  const user = await selectUserById(userId);
+  if (!user?.id) {
+    const error = new Error("회원 정보를 찾을 수 없습니다.");
+    error.status = 404;
+    throw error;
+  }
+  if (isWithdrawn(user)) {
+    const error = new Error("이미 탈퇴 처리된 계정입니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  await query(
+    `UPDATE users
+     SET account_status = ?,
+         withdrawn_at = NOW(),
+         withdrawal_purge_at = DATE_ADD(NOW(), INTERVAL ? DAY),
+         restored_at = NULL
+     WHERE id = ?`,
+    [ACCOUNT_STATUS_WITHDRAWN, ACCOUNT_WITHDRAW_RETENTION_DAYS, userId]
+  );
+
+  await query(`DELETE FROM sessions WHERE user_id = ?`, [String(userId)]);
+  return selectUserById(userId);
+}
+
 // 보관 기간 내 탈퇴 계정 복구 처리
 // 함수 역할: 탈퇴 회원 값을 원래 상태로 되돌립니다.
 export async function restoreWithdrawnUser(userId) {

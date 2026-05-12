@@ -16,6 +16,14 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           script: |
+            mkdir -p ~/backups
+            if [ -f ~/ICL/backend/.env ]; then
+              DB_USER=$(grep "^DB_USER=" ~/ICL/backend/.env | cut -d= -f2)
+              DB_PASS=$(grep "^DB_PASSWORD=" ~/ICL/backend/.env | cut -d= -f2)
+              DB_NAME=$(grep "^DB_NAME=" ~/ICL/backend/.env | cut -d= -f2)
+              mysqldump -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > ~/backups/db_$(date +%Y%m%d_%H%M%S).sql 2>/dev/null || true
+              find ~/backups -name "db_*.sql" -mtime +7 -delete 2>/dev/null || true
+            fi
             cd ~/ICL
             git fetch origin main
             git reset --hard origin/main
@@ -33,5 +41,6 @@ jobs:
               echo "ACADEMY_PLAYBACK_TOKEN_SECRET=$(openssl rand -hex 32)" >> .env
             fi
             pm2 describe icl-backend > /dev/null 2>&1 && pm2 restart icl-backend || pm2 start ~/ICL/backend/src/server.js --name icl-backend
+            pm2 save
             sudo cp ~/ICL/deploy/nginx-prod.conf /etc/nginx/sites-enabled/default
             sudo nginx -t && sudo nginx -s reload

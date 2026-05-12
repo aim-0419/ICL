@@ -18,8 +18,7 @@ jobs:
           script: |
             cd ~/ICL
             git fetch origin main
-            git checkout main
-            git pull origin main
+            git reset --hard origin/main
             cd frontend
             npm install
             npm run build
@@ -33,6 +32,6 @@ jobs:
             if ! grep -q "^ACADEMY_PLAYBACK_TOKEN_SECRET=" .env 2>/dev/null; then
               echo "ACADEMY_PLAYBACK_TOKEN_SECRET=$(openssl rand -hex 32)" >> .env
             fi
-            pm2 restart icl-backend
+            pm2 describe icl-backend > /dev/null 2>&1 && pm2 restart icl-backend || pm2 start ~/ICL/backend/src/server.js --name icl-backend
             sudo cp ~/ICL/deploy/nginx-prod.conf /etc/nginx/sites-enabled/default
             sudo nginx -t && sudo nginx -s reload

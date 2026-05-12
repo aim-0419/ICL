@@ -1,18 +1,18 @@
 ﻿// 파일 역할: 회원의 주문, 강의 수강권, 진도, 포인트, 프로필, 탈퇴 흐름을 보여주는 마이페이지 컴포넌트입니다.
 import React, { useEffect, useMemo, useState } from "react";
-import React, { Link, useNavigate } from "react-router-dom";
-import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
-import React, {
+import { Link, useNavigate } from "react-router-dom";
+import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { 
   deleteAcademyVideo,
   listMyAcademyQna,
   resolveAcademyMediaUrl,
   updateAcademyVideo,
   uploadAcademyAsset,
 } from "../../academy/api/academyApi.js";
-import React, { countPurchasedVideoItems, getPurchasedVideos } from "../../academy/lib/purchases.js";
-import React, { apiRequest } from "../../../shared/api/client.js";
-import React, { isAdminStaff } from "../../../shared/auth/userRoles.js";
+import { countPurchasedVideoItems, getPurchasedVideos } from "../../academy/lib/purchases.js";
+import { apiRequest } from "../../../shared/api/client.js";
+import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 
 // 함수 역할: study 기간 days 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parseStudyPeriodDays(periodText) {

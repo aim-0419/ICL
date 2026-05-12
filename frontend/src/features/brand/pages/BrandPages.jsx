@@ -1,10 +1,10 @@
 ﻿// 파일 역할: BrandPages 화면의 UI, 상태, API 연동 흐름을 담당합니다.
 import React, { useEffect, useState } from "react";
-import React, { Link } from "react-router-dom";
-import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
-import React, { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
-import React, { canEditPage } from "../../../shared/auth/userRoles.js";
+import { Link } from "react-router-dom";
+import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
+import { canEditPage } from "../../../shared/auth/userRoles.js";
 
 // 컴포넌트 역할: BrandPageLayout 컴포넌트의 화면 구조와 상호작용 상태를 렌더링합니다.
 function BrandPageLayout({ kicker, title, description, points }) {

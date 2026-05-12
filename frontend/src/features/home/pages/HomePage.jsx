@@ -1,11 +1,11 @@
 ﻿// 파일 역할: 메인 홈 화면에서 브랜드 소개, 최신 소식, 추천 강의, 후기를 보여주는 페이지 컴포넌트입니다.
 import React, { useEffect, useMemo, useState } from "react";
-import React, { useNavigate } from "react-router-dom";
-import React, { getDiscountRate } from "../../academy/data/academyVideos.js";
-import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
-import React, { apiRequest } from "../../../shared/api/client.js";
-import React, { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
+import { useNavigate } from "react-router-dom";
+import { getDiscountRate } from "../../academy/data/academyVideos.js";
+import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { apiRequest } from "../../../shared/api/client.js";
+import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 
 const HOME_SECTION_ORDER_KEY = "icl_admin_home_section_order_v1";
 const DEFAULT_SECTION_ORDER = ["hero", "story", "features", "status", "academy", "reviews"];

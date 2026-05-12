@@ -1,9 +1,9 @@
 ﻿// 파일 역할: 관리자가 매출, 주문, 환불 분석을 기간별로 확인하는 대시보드 페이지 컴포넌트입니다.
 import React, { useEffect, useMemo, useState } from "react";
-import React, { Link } from "react-router-dom";
-import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import React, { apiRequest } from "../../../shared/api/client.js";
-import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { Link } from "react-router-dom";
+import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { apiRequest } from "../../../shared/api/client.js";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
 const SALES_PERIOD_OPTIONS = [
   { value: "day", label: "일별" },

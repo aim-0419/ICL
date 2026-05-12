@@ -1,11 +1,11 @@
 ﻿// 파일 역할: 관리자가 특정 회원에게 강의 수강권을 지급하거나 회수하는 페이지 컴포넌트입니다.
 import React, { useEffect, useMemo, useState } from "react";
-import React, { Link, useNavigate, useParams, useLocation } from "react-router-dom";
-import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
-import React, { apiRequest } from "../../../shared/api/client.js";
-import React, { resolveAcademyMediaUrl } from "../../academy/api/academyApi.js";
-import React, { getDiscountRate } from "../../academy/data/academyVideos.js";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
+import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { apiRequest } from "../../../shared/api/client.js";
+import { resolveAcademyMediaUrl } from "../../academy/api/academyApi.js";
+import { getDiscountRate } from "../../academy/data/academyVideos.js";
 
 const DURATION_OPTIONS = [
   { value: "1d", label: "1일" },

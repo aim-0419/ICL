@@ -1,10 +1,10 @@
 ﻿// 파일 역할: 장바구니 상품 조회, 수량 변경, 결제 진입을 담당하는 페이지 컴포넌트입니다.
 import React, { useEffect, useMemo, useState } from "react";
-import React, { useNavigate } from "react-router-dom";
-import React, { resolveAcademyMediaUrl } from "../../academy/api/academyApi.js";
-import React, { requestExternalPayment } from "../../payment/lib/requestExternalPayment.js";
-import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { useNavigate } from "react-router-dom";
+import { resolveAcademyMediaUrl } from "../../academy/api/academyApi.js";
+import { requestExternalPayment } from "../../payment/lib/requestExternalPayment.js";
+import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
 const PAYMENT_METHODS = [
   {

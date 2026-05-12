@@ -22,7 +22,7 @@
  * /success, /fail               → 결제 결과 페이지
  */
 // 파일 역할: 프론트엔드 전체 라우팅 구조와 권한 보호 페이지 연결을 정의합니다.
-import { lazy, Suspense } from "react";
+import React, { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "../shared/components/RequireAuth.jsx";
 import { RequireAdminStaff } from "../shared/components/RequireAdminStaff.jsx";

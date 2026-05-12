@@ -1,9 +1,9 @@
 ﻿// 파일 역할: 강의 수료 정보를 바탕으로 수료증 화면을 렌더링하는 페이지 컴포넌트입니다.
 import React, { useMemo } from "react";
-import React, { Link, useParams } from "react-router-dom";
-import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
-import React, { resolveAcademyMediaUrl } from "../api/academyApi.js";
+import { Link, useParams } from "react-router-dom";
+import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { resolveAcademyMediaUrl } from "../api/academyApi.js";
 
 const DETAIL_SUMMARY = {
   입문: { duration: "4주 과정", lessons: "총 12강" },

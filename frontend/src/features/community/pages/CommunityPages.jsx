@@ -1,12 +1,12 @@
 ﻿// 파일 역할: CommunityPages 화면의 UI, 상태, API 연동 흐름을 담당합니다.
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import React, { Link, useNavigate, useParams } from "react-router-dom";
-import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import React, { apiRequest } from "../../../shared/api/client.js";
-import React, { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
-import React, { resolveCommunityMediaUrl, uploadCommunityAsset } from "../api/communityApi.js";
-import React, { isAdminStaff } from "../../../shared/auth/userRoles.js";
-import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { apiRequest } from "../../../shared/api/client.js";
+import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
+import { resolveCommunityMediaUrl, uploadCommunityAsset } from "../api/communityApi.js";
+import { isAdminStaff } from "../../../shared/auth/userRoles.js";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
 // 커뮤니티 페이지 파일은 후기 / 문의 / 이벤트 목록과 상세 화면을 함께 담고 있다.
 const POSTS_PER_PAGE = 10;

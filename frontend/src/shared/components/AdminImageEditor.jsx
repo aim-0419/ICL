@@ -25,9 +25,9 @@
  */
 // 파일 역할: 관리자에게 페이지 이미지, 배경, 텍스트, 크기를 화면에서 직접 수정하는 편집 도구를 제공합니다.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import React, { useLocation } from "react-router-dom";
-import React, { useAppStore } from "../store/AppContext.jsx";
-import React, { canEditPage } from "../auth/userRoles.js";
+import { useLocation } from "react-router-dom";
+import { useAppStore } from "../store/AppContext.jsx";
+import { canEditPage } from "../auth/userRoles.js";
 
 // 관리자0의 페이지 수정 기능은 localStorage를 캐시로 사용하고 DB를 원본으로 동기화한다.
 const IMAGE_STORAGE_KEY = "icl_admin_image_overrides_v1";

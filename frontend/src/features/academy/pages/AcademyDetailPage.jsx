@@ -1,18 +1,18 @@
 ﻿// 파일 역할: 선택한 강의의 상세 정보, 차시 목록, 후기, Q&A, 구매/수강 진입을 제공하는 페이지 컴포넌트입니다.
 import React, { useEffect, useState } from "react";
-import React, { Link, useNavigate, useParams } from "react-router-dom";
-import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
-import React, { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
-import React, { getDiscountRate } from "../data/academyVideos.js";
-import React, {
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
+import { getDiscountRate } from "../data/academyVideos.js";
+import { 
   resolveAcademyMediaUrl,
   listAcademyReviews,
   createAcademyReview,
   deleteAcademyReview,
 } from "../api/academyApi.js";
-import React, { collectPurchasedVideoProductIds } from "../lib/purchases.js";
-import React, { isAdminStaff } from "../../../shared/auth/userRoles.js";
+import { collectPurchasedVideoProductIds } from "../lib/purchases.js";
+import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 
 // 함수 역할: detail 전체 재생 시간 값을 계산합니다.
 function calcDetailTotalDuration(chapters) {

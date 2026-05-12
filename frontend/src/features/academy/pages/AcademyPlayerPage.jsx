@@ -1,10 +1,10 @@
 ﻿// 파일 역할: 강의 영상을 재생하고 차시별 학습 진도를 저장하는 수강 플레이어 페이지 컴포넌트입니다.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import React, { Link, useNavigate, useParams } from "react-router-dom";
-import React, { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
-import React, { isAdminStaff } from "../../../shared/auth/userRoles.js";
-import React, { useAppStore } from "../../../shared/store/AppContext.jsx";
-import React, {
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { isAdminStaff } from "../../../shared/auth/userRoles.js";
+import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { 
   createAcademyPlaybackSession,
   heartbeatAcademyPlaybackSession,
   resolveAcademyMediaUrl,
@@ -14,8 +14,8 @@ import React, {
   deleteAcademyQnaPost,
   deleteAcademyQnaReply,
 } from "../api/academyApi.js";
-import React, { getAcademyPlaybackSourceByVideoId } from "../data/academyVideos.js";
-import React, { collectPurchasedVideoProductIds, getPreviewAccessibleVideos } from "../lib/purchases.js";
+import { getAcademyPlaybackSourceByVideoId } from "../data/academyVideos.js";
+import { collectPurchasedVideoProductIds, getPreviewAccessibleVideos } from "../lib/purchases.js";
 
 const AUTO_SAVE_INTERVAL_SECONDS = 10;
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2];

@@ -45,6 +45,7 @@ import {
   normalizeName,
   normalizePhone,
   phoneHash,
+  shouldReencryptPii,
 } from "../security/pii.js";
 
 // 이 파일은 MySQL 연결, 테이블 보정, 기본 시드 데이터 주입까지 함께 담당한다.
@@ -440,6 +441,28 @@ async function purgeAllHardcodedSeedData() {
 
 
 // 함수 역할: 만료된 탈퇴 회원 데이터를 조건에 맞게 영구 정리합니다.
+function readExistingPiiValue(value) {
+  const raw = String(value || "");
+  if (!raw) return { raw, plain: "", encrypted: false, readable: true };
+  if (!isEncryptedPii(raw)) return { raw, plain: raw, encrypted: false, readable: true };
+
+  const plain = decryptPii(raw);
+  return { raw, plain, encrypted: true, readable: Boolean(plain) };
+}
+
+function resolveEncryptedPiiValue(info, normalizedValue, { nullable = false } = {}) {
+  if (!normalizedValue) {
+    if (info.encrypted && !info.readable) return info.raw;
+    return nullable ? null : "";
+  }
+
+  if (!info.encrypted || shouldReencryptPii(info.raw)) {
+    return encryptPii(normalizedValue);
+  }
+
+  return info.raw;
+}
+
 async function encryptExistingUserPii() {
   const [rows] = await pool.query(
     `SELECT id, name, email, phone, birth_year AS birthYear, birth_year_encrypted AS birthYearEncrypted
@@ -447,18 +470,16 @@ async function encryptExistingUserPii() {
   );
 
   for (const row of Array.isArray(rows) ? rows : []) {
-    const decryptedName = normalizeName(decryptPii(row.name) || row.name);
-    const decryptedEmail = normalizeEmail(decryptPii(row.email) || row.email);
-    const decryptedPhone = normalizePhone(decryptPii(row.phone) || row.phone);
+    const nameValue = readExistingPiiValue(row.name);
+    const emailValue = readExistingPiiValue(row.email);
+    const phoneValue = readExistingPiiValue(row.phone);
+    const birthYearValue = readExistingPiiValue(row.birthYearEncrypted);
+    const decryptedName = normalizeName(nameValue.plain);
+    const decryptedEmail = normalizeEmail(emailValue.plain);
+    const decryptedPhone = normalizePhone(phoneValue.plain);
     const decryptedBirthYear =
-      normalizeBirthYear(decryptPii(row.birthYearEncrypted)) ||
+      normalizeBirthYear(birthYearValue.plain) ||
       normalizeBirthYear(row.birthYear);
-    const encryptedBirthYear =
-      row.birthYearEncrypted && isEncryptedPii(row.birthYearEncrypted)
-        ? row.birthYearEncrypted
-        : decryptedBirthYear
-          ? encryptPii(decryptedBirthYear)
-          : null;
 
     if (!decryptedEmail) continue;
 
@@ -474,13 +495,13 @@ async function encryptExistingUserPii() {
            birth_year = NULL
        WHERE id = ?`,
       [
-        isEncryptedPii(row.name) ? row.name : encryptPii(decryptedName),
-        isEncryptedPii(row.email) ? row.email : encryptPii(decryptedEmail),
-        decryptedPhone ? (isEncryptedPii(row.phone) ? row.phone : encryptPii(decryptedPhone)) : null,
+        resolveEncryptedPiiValue(nameValue, decryptedName),
+        resolveEncryptedPiiValue(emailValue, decryptedEmail),
+        resolveEncryptedPiiValue(phoneValue, decryptedPhone, { nullable: true }),
         emailHash(decryptedEmail),
         phoneHash(decryptedPhone),
         nameHash(decryptedName),
-        encryptedBirthYear,
+        resolveEncryptedPiiValue(birthYearValue, decryptedBirthYear, { nullable: true }),
         row.id,
       ]
     );

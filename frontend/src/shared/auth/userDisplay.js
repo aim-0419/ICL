@@ -3,8 +3,5 @@ export function getUserDisplayName(user, fallback = "회원") {
   const name = String(user?.name || "").trim();
   if (name) return name;
 
-  const loginId = String(user?.loginId || "").trim();
-  if (loginId) return loginId;
-
   return fallback;
 }

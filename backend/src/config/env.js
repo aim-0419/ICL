@@ -31,6 +31,7 @@ export const env = {
     .toLowerCase() !== "false",
   academyPublishSchedulerIntervalSec: Number(process.env.ACADEMY_PUBLISH_SCHEDULER_INTERVAL_SEC ?? 60),
   piiEncryptionKey: process.env.PII_ENCRYPTION_KEY ?? "",
+  piiEncryptionLegacyKeys: process.env.PII_ENCRYPTION_LEGACY_KEYS ?? "",
   smtpHost: process.env.SMTP_HOST ?? "",
   smtpPort: Number(process.env.SMTP_PORT ?? 587),
   smtpUser: process.env.SMTP_USER ?? "",

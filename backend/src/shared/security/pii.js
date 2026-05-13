@@ -8,6 +8,10 @@ const AUTH_TAG_LENGTH = 16;
 
 let warnedAboutDevKey = false;
 
+function getDevelopmentFallbackKeyMaterial() {
+  return `dev:${env.dbName}:${env.dbPassword || "local"}`;
+}
+
 function getKeyMaterial() {
   const configured = String(env.piiEncryptionKey || "").trim();
   if (configured) return configured;
@@ -21,15 +25,47 @@ function getKeyMaterial() {
     warnedAboutDevKey = true;
   }
 
-  return `dev:${env.dbName}:${env.dbPassword || "local"}`;
+  return getDevelopmentFallbackKeyMaterial();
 }
 
-function getEncryptionKey() {
-  return createHash("sha256").update(getKeyMaterial()).digest();
+function getLegacyKeyMaterials() {
+  const current = getKeyMaterial();
+  const configuredLegacyKeys = String(env.piiEncryptionLegacyKeys || "")
+    .split(/[\n,]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const candidates = [...configuredLegacyKeys, getDevelopmentFallbackKeyMaterial()];
+  return [...new Set(candidates)].filter((value) => value && value !== current);
+}
+
+function getEncryptionKey(keyMaterial = getKeyMaterial()) {
+  return createHash("sha256").update(keyMaterial).digest();
 }
 
 function getHashKey() {
   return createHash("sha256").update(`hash:${getKeyMaterial()}`).digest();
+}
+
+function decryptPiiWithKeyMaterial(text, keyMaterial) {
+  const parts = text.split(":");
+  if (parts.length !== 5) return null;
+
+  try {
+    const [, , ivText, tagText, ciphertextText] = parts;
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      getEncryptionKey(keyMaterial),
+      Buffer.from(ivText, "base64url"),
+      { authTagLength: AUTH_TAG_LENGTH }
+    );
+    decipher.setAuthTag(Buffer.from(tagText, "base64url"));
+    return Buffer.concat([
+      decipher.update(Buffer.from(ciphertextText, "base64url")),
+      decipher.final(),
+    ]).toString("utf8");
+  } catch {
+    return null;
+  }
 }
 
 export function isEncryptedPii(value) {
@@ -62,25 +98,22 @@ export function decryptPii(value) {
   const text = String(value);
   if (!text || !isEncryptedPii(text)) return text;
 
-  const parts = text.split(":");
-  if (parts.length !== 5) return "";
+  const primaryValue = decryptPiiWithKeyMaterial(text, getKeyMaterial());
+  if (primaryValue !== null) return primaryValue;
 
-  try {
-    const [, , ivText, tagText, ciphertextText] = parts;
-    const decipher = createDecipheriv(
-      "aes-256-gcm",
-      getEncryptionKey(),
-      Buffer.from(ivText, "base64url"),
-      { authTagLength: AUTH_TAG_LENGTH }
-    );
-    decipher.setAuthTag(Buffer.from(tagText, "base64url"));
-    return Buffer.concat([
-      decipher.update(Buffer.from(ciphertextText, "base64url")),
-      decipher.final(),
-    ]).toString("utf8");
-  } catch {
-    return "";
+  for (const legacyKeyMaterial of getLegacyKeyMaterials()) {
+    const legacyValue = decryptPiiWithKeyMaterial(text, legacyKeyMaterial);
+    if (legacyValue !== null) return legacyValue;
   }
+
+  return "";
+}
+
+export function shouldReencryptPii(value) {
+  const text = String(value || "");
+  if (!text) return false;
+  if (!isEncryptedPii(text)) return true;
+  return decryptPiiWithKeyMaterial(text, getKeyMaterial()) === null && decryptPii(text) !== "";
 }
 
 export function normalizeEmail(value) {

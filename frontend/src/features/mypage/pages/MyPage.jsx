@@ -12,6 +12,7 @@ import {
 } from "../../academy/api/academyApi.js";
 import { countPurchasedVideoItems, getPurchasedVideos } from "../../academy/lib/purchases.js";
 import { apiRequest } from "../../../shared/api/client.js";
+import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 
 // 함수 역할: study 기간 days 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
@@ -159,6 +160,7 @@ export function MyPage() {
   const currentUser = store.currentUser || {};
   const isAdmin = isAdminStaff(currentUser);
   const normalizedCurrentUserEmail = String(currentUser.email || "").trim().toLowerCase();
+  const currentUserDisplayName = getUserDisplayName(currentUser);
 
   const userOrders = useMemo(
     () =>
@@ -744,7 +746,7 @@ export function MyPage() {
       <main className="dashboard-page">
         <section className="dashboard-hero mypage-hero-card">
           <p className="section-kicker">마이페이지</p>
-          <h1>{currentUser.name} 님의 마이페이지</h1>
+          <h1>{currentUserDisplayName} 님의 마이페이지</h1>
           <div className="mypage-identity-row">
             <span className="mypage-identity-chip">구매 영상 {purchasedVideoItemCount}건</span>
             <span className="mypage-identity-chip">수강 영상 {grantedVideos.length}개</span>

@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
 // 컴포넌트 역할: 회원 로그인을 처리하고 로그인 후 이동을 담당하는 페이지 컴포넌트입니다.
@@ -9,6 +10,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const store = useAppStore();
   const [form, setForm] = useState({ loginId: "", password: "" });
+  const currentUserDisplayName = getUserDisplayName(store.currentUser);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -30,7 +32,7 @@ export function LoginPage() {
           <h1 className="login-title">몸이 바뀌는 방향, 이끌림에서 시작됩니다</h1>
           <p className="section-text">
             {store.currentUser
-              ? `${store.currentUser.name} 님으로 이용 중입니다.`
+              ? `${currentUserDisplayName} 님으로 이용 중입니다.`
               : "로그인 후 수강 내역을 관리할 수 있습니다."}
           </p>
           <form className="auth-form" onSubmit={handleSubmit}>

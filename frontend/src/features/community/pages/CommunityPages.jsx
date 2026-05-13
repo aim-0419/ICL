@@ -5,6 +5,7 @@ import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { resolveCommunityMediaUrl, uploadCommunityAsset } from "../api/communityApi.js";
+import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
@@ -609,8 +610,8 @@ export function CommunityReviewDetailPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    if (store.currentUser?.name) {
-      setCommentAuthor(store.currentUser.name);
+    if (store.currentUser) {
+      setCommentAuthor(getUserDisplayName(store.currentUser));
     }
   }, [store.currentUser]);
 

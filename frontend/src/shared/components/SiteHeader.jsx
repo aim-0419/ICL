@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { canEditPage, isAdminStaff } from "../auth/userRoles.js";
+import { getUserDisplayName } from "../auth/userDisplay.js";
 import { useAppStore } from "../store/AppContext.jsx";
 
 // 컴포넌트 역할: 공통 상단 헤더와 메뉴, 로그인/로그아웃, 장바구니 이동 버튼을 렌더링합니다.
@@ -10,6 +11,7 @@ export function SiteHeader({ subpage = false }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const currentUserDisplayName = getUserDisplayName(currentUser);
 
   const cartQuantity = useMemo(
     () => cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
@@ -138,7 +140,7 @@ export function SiteHeader({ subpage = false }) {
           {currentUser ? (
             <>
               <Link className="text-link-button header-pill-button user-greeting-link" to="/mypage">
-                {currentUser.name}님
+                {currentUserDisplayName}님
               </Link>
               {isAdminStaff(currentUser) ? (
                 <Link className="text-link-button header-pill-button" to="/admin">

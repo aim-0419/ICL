@@ -2,6 +2,7 @@
 import React, { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { resolveAcademyMediaUrl } from "../api/academyApi.js";
 
@@ -45,6 +46,7 @@ export function AcademyCertificatePage() {
   const totalChapters = Array.isArray(video?.chapters) ? video.chapters.length : completedChapters;
   const completedAt = progress?.lastWatchedAt || new Date().toISOString();
   const detail = DETAIL_SUMMARY[video?.category] || DETAIL_SUMMARY["입문"];
+  const currentUserDisplayName = getUserDisplayName(store.currentUser);
 
   if (!store.currentUser) {
     return (
@@ -114,7 +116,7 @@ export function AcademyCertificatePage() {
             <div className="certificate-body">
               <div className="certificate-student-block">
                 <p className="certificate-label">수료자</p>
-                <p className="certificate-value name">{store.currentUser.name} 님</p>
+                <p className="certificate-value name">{currentUserDisplayName} 님</p>
               </div>
 
               <div className="certificate-divider" />

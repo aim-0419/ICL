@@ -88,6 +88,11 @@ export async function getOrders(req, res, next) {
 export async function createOrder(req, res, next) {
   try {
     const authUser = await getAuthenticatedUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
     const order = await ordersService.createOrder(req.body, authUser);
     res.status(201).json(order);
     void sendPurchaseConfirmation(order);

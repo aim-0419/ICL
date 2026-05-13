@@ -54,6 +54,48 @@ function resolveExtension({ kind, filename, mimeType }) {
   return ".jpg";
 }
 
+function validateMagicBytes(buffer, extension) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return false;
+
+  switch (extension) {
+    case ".jpg":
+    case ".jpeg":
+      return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    case ".png":
+      return (
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47 &&
+        buffer[4] === 0x0d &&
+        buffer[5] === 0x0a &&
+        buffer[6] === 0x1a &&
+        buffer[7] === 0x0a
+      );
+    case ".gif":
+      return buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38;
+    case ".webp":
+      return (
+        buffer[0] === 0x52 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x46 &&
+        buffer[8] === 0x57 &&
+        buffer[9] === 0x45 &&
+        buffer[10] === 0x42 &&
+        buffer[11] === 0x50
+      );
+    case ".mp4":
+    case ".m4v":
+    case ".mov":
+      return buffer[4] === 0x66 && buffer[5] === 0x74 && buffer[6] === 0x79 && buffer[7] === 0x70;
+    case ".webm":
+      return buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3;
+    default:
+      return false;
+  }
+}
+
 // 아카데미 자산 저장 로직
 // 함수 역할: 업로드된 강의 이미지나 영상을 안전한 파일명으로 저장하고 접근 경로를 반환합니다.
 export async function saveAcademyAsset({ kind, fileName, mimeType, buffer, videoId = "", chapterOrder = "" }) {
@@ -70,6 +112,12 @@ export async function saveAcademyAsset({ kind, fileName, mimeType, buffer, video
   }
 
   const extension = resolveExtension({ kind, filename: fileName, mimeType });
+  if (!validateMagicBytes(buffer, extension)) {
+    const error = new Error("파일 형식이 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+
   const subDir = kind === "video" ? "videos" : "images";
   const targetDir = path.resolve(UPLOAD_ROOT, subDir);
   await mkdir(targetDir, { recursive: true });

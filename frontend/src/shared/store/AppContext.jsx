@@ -26,10 +26,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api/client.js";
 import {
-  ACADEMY_VIDEOS,
-  getAcademyPlaybackSourceByVideoId,
-} from "../../features/academy/data/academyVideos.js";
-import {
   listAcademyProgress,
   listAcademyVideos,
   saveAcademyChapterProgress as saveAcademyChapterProgressApi,
@@ -39,46 +35,6 @@ import { canEditPage } from "../auth/userRoles.js";
 
 const AppContext = createContext(null);
 
-// 서버가 비어 있거나 로딩에 실패해도 화면이 최소한으로 동작하도록 사용하는 기본 상품 데이터다.
-const DEFAULT_PRODUCTS = [
-  {
-    id: "starter",
-    name: "Starter Guide Pack",
-    price: 129000,
-    description: "입문자를 위한 필라테스 기본 가이드",
-    period: "90일",
-  },
-  {
-    id: "cueing",
-    name: "Cueing & Sequencing Master",
-    price: 219000,
-    description: "실전 코칭 큐잉과 시퀀싱 심화 과정",
-    period: "180일",
-  },
-  {
-    id: "premium",
-    name: "Premium Academy Bundle",
-    price: 349000,
-    description: "강사 교육 + 운영 가이드를 묶은 통합 번들",
-    period: "365일",
-  },
-];
-
-const DEFAULT_VIDEO_PRODUCTS = ACADEMY_VIDEOS.map((video) => ({
-  id: video.productId || video.id,
-  name: video.title,
-  price: Number(video.salePrice || 0),
-  description: `${video.instructor} · ${video.category}`,
-  period: "온라인 수강",
-}));
-
-const FALLBACK_PRODUCT_MAP = toProductMap([...DEFAULT_PRODUCTS, ...DEFAULT_VIDEO_PRODUCTS]);
-
-const DEFAULT_ACADEMY_VIDEOS = ACADEMY_VIDEOS.map((video) => ({
-  ...video,
-  productId: video.productId || video.id,
-  videoUrl: video.videoUrl || getAcademyPlaybackSourceByVideoId(video.id),
-}));
 
 // 함수 역할: 상품 맵 값으로 안전하게 변환합니다.
 function toProductMap(products) {
@@ -145,7 +101,7 @@ function normalizeChapterProgressItem(item) {
 // 여러 페이지에서 함께 쓰는 데이터를 한곳에서 관리한다.
 // 컴포넌트 역할: 전역 상태와 액션을 준비해 하위 컴포넌트에서 공유할 수 있게 제공합니다.
 export function AppProvider({ children }) {
-  const [products, setProducts] = useState(() => FALLBACK_PRODUCT_MAP);
+  const [products, setProducts] = useState({});
   const [academyVideos, setAcademyVideos] = useState([]);
   const [academyProgress, setAcademyProgress] = useState([]);
   const [academyChapterProgress, setAcademyChapterProgress] = useState([]);
@@ -156,40 +112,31 @@ export function AppProvider({ children }) {
   const [orders, setOrders] = useState([]);
   const [userPoints, setUserPoints] = useState(0);
 
-  // 상품 목록은 서버 데이터에 기본값을 섞어 화면이 비는 상황을 줄인다.
   async function refreshProducts() {
     const rows = await apiRequest("/products");
-    if (!Array.isArray(rows) || rows.length === 0) return;
-    setProducts(toProductMap([...DEFAULT_PRODUCTS, ...DEFAULT_VIDEO_PRODUCTS, ...rows]));
+    if (!Array.isArray(rows) || rows.length === 0) {
+      setProducts({});
+      return;
+    }
+    setProducts(toProductMap(rows));
   }
 
-  // 강의 메타데이터는 서버 응답과 프론트 기본값을 합쳐 누락 필드를 보완한다.
   async function refreshAcademyVideos() {
     const rows = await listAcademyVideos();
     if (!Array.isArray(rows) || rows.length === 0) {
       setAcademyVideos([]);
       return;
     }
-
-    const fallbackMap = new Map(
-      DEFAULT_ACADEMY_VIDEOS.map((video) => [String(video.id || video.productId), video])
-    );
-
-    const merged = rows.map((row) => {
-      const fallback = fallbackMap.get(String(row.id || row.productId)) || {};
-      return {
-        ...fallback,
+    setAcademyVideos(
+      rows.map((row) => ({
         ...row,
-        id: String(row.id || row.productId || fallback.id || ""),
-        productId: String(row.productId || row.id || fallback.productId || ""),
-        image: row.image || fallback.image || "",
-        videoUrl:
-          row.videoUrl || fallback.videoUrl || getAcademyPlaybackSourceByVideoId(row.id || row.productId),
-        chapters: Array.isArray(row.chapters) ? row.chapters : Array.isArray(fallback.chapters) ? fallback.chapters : [],
-      };
-    });
-
-    setAcademyVideos(merged);
+        id: String(row.id || row.productId || ""),
+        productId: String(row.productId || row.id || ""),
+        image: row.image || "",
+        videoUrl: row.videoUrl || "",
+        chapters: Array.isArray(row.chapters) ? row.chapters : [],
+      }))
+    );
   }
 
   // 로그인한 사용자 기준으로 장바구니를 다시 가져온다.
@@ -391,10 +338,17 @@ export function AppProvider({ children }) {
     return String(result?.loginId || "");
   }
 
-  async function resetUserPassword({ loginId, name, phone, newPassword }) {
+  async function requestPasswordResetEmailVerification({ loginId, email }) {
+    return apiRequest("/auth/reset-password/email-verification/request", {
+      method: "POST",
+      body: { loginId, email },
+    });
+  }
+
+  async function resetUserPassword({ loginId, email, code, newPassword }) {
     return apiRequest("/auth/reset-password", {
       method: "POST",
-      body: { loginId, name, phone, newPassword },
+      body: { loginId, email, code, newPassword },
     });
   }
 
@@ -549,7 +503,7 @@ export function AppProvider({ children }) {
     () =>
       cart
         .map((item) => {
-          const product = products[item.productId] || FALLBACK_PRODUCT_MAP[item.productId];
+          const product = products[item.productId];
           if (!product) {
             return {
               ...item,
@@ -598,6 +552,7 @@ export function AppProvider({ children }) {
         signupUser,
         loginUser,
         findUserLoginId,
+        requestPasswordResetEmailVerification,
         resetUserPassword,
         requestEmailVerification,
         confirmEmailVerification,

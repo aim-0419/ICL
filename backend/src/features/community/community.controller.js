@@ -60,6 +60,13 @@ function isSameUser(leftId, rightId) {
   return Boolean(leftId && rightId && String(leftId) === String(rightId));
 }
 
+function canReadInquiry(user, inquiry) {
+  return Boolean(
+    inquiry &&
+    (!inquiry.isSecret || isAdminUser(user) || isSameUser(user?.id, inquiry.authorId))
+  );
+}
+
 function stripHtml(value) {
   return String(value || "").replace(/<[^>]*>/g, "").trim();
 }
@@ -322,8 +329,14 @@ export async function getReviewComments(req, res, next) {
 // 함수 역할: 후기 댓글 데이터를 새로 생성합니다.
 export async function createReviewComment(req, res, next) {
   try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
     const content = String(req.body?.content || "").trim();
-    const author = String(req.body?.author || "").trim() || "익명";
+    const author = authUser.name || authUser.loginId || authUser.email || "익명";
 
     if (!content) {
       res.status(400).json({ message: "댓글 내용을 입력해주세요." });
@@ -340,6 +353,20 @@ export async function createReviewComment(req, res, next) {
 // 함수 역할: 후기 댓글 데이터를 삭제합니다.
 export async function deleteReviewComment(req, res, next) {
   try {
+    const authUser = await getAuthUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    if (!isAdminUser(authUser)) {
+      const review = await communityService.getReview(req.params.reviewId);
+      if (!review || !isSameUser(authUser.id, review.authorId)) {
+        res.status(403).json({ message: "댓글 삭제 권한이 없습니다." });
+        return;
+      }
+    }
+
     await communityService.deleteReviewComment(req.params.reviewId, req.params.commentId);
     res.json({ ok: true });
   } catch (error) {
@@ -520,7 +547,12 @@ export async function deleteEvent(req, res, next) {
 export async function getInquiries(req, res, next) {
   try {
     const search = String(req.query.search || "").trim();
-    res.json(await communityService.listInquiries({ search }));
+    const authUser = await getAuthUser(req);
+    res.json(await communityService.listInquiries({
+      search,
+      viewerUserId: authUser?.id || "",
+      viewerIsAdmin: isAdminUser(authUser),
+    }));
   } catch (error) {
     next(error);
   }
@@ -534,6 +566,19 @@ export async function getInquiry(req, res, next) {
       res.status(404).json({ message: "문의 정보를 찾을 수 없습니다." });
       return;
     }
+
+    if (inquiry.isSecret) {
+      const authUser = await getAuthUser(req);
+      if (!authUser?.id) {
+        res.status(401).json({ message: "비밀글은 로그인 후 조회할 수 있습니다." });
+        return;
+      }
+      if (!canReadInquiry(authUser, inquiry)) {
+        res.status(403).json({ message: "비밀글은 작성자 또는 관리자만 조회할 수 있습니다." });
+        return;
+      }
+    }
+
     res.json(inquiry);
   } catch (error) {
     next(error);
@@ -543,6 +588,24 @@ export async function getInquiry(req, res, next) {
 // 함수 역할: addInquiryView 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function addInquiryView(req, res, next) {
   try {
+    const inquiry = await communityService.getInquiry(req.params.inquiryId);
+    if (!inquiry) {
+      res.status(404).json({ message: "문의 정보를 찾을 수 없습니다." });
+      return;
+    }
+
+    if (inquiry.isSecret) {
+      const authUser = await getAuthUser(req);
+      if (!authUser?.id) {
+        res.status(401).json({ message: "비밀글은 로그인 후 조회할 수 있습니다." });
+        return;
+      }
+      if (!canReadInquiry(authUser, inquiry)) {
+        res.status(403).json({ message: "비밀글은 작성자 또는 관리자만 조회할 수 있습니다." });
+        return;
+      }
+    }
+
     await communityService.increaseInquiryViews(req.params.inquiryId);
     res.json({ ok: true });
   } catch (error) {
@@ -711,6 +774,24 @@ export async function bulkDeleteInquiries(req, res, next) {
 // 함수 역할: 문의 답변 데이터를 조회해 호출자에게 반환합니다.
 export async function getInquiryReplies(req, res, next) {
   try {
+    const inquiry = await communityService.getInquiry(req.params.inquiryId);
+    if (!inquiry) {
+      res.status(404).json({ message: "문의 정보를 찾을 수 없습니다." });
+      return;
+    }
+
+    if (inquiry.isSecret) {
+      const authUser = await getAuthUser(req);
+      if (!authUser?.id) {
+        res.status(401).json({ message: "비밀글 답변은 로그인 후 조회할 수 있습니다." });
+        return;
+      }
+      if (!canReadInquiry(authUser, inquiry)) {
+        res.status(403).json({ message: "비밀글 답변은 작성자 또는 관리자만 조회할 수 있습니다." });
+        return;
+      }
+    }
+
     const replies = await communityService.listInquiryReplies(req.params.inquiryId);
     res.json({ replies });
   } catch (error) {

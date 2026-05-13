@@ -6,6 +6,7 @@ import {
   saveCommunityAsset as saveAssetFile,
 } from "./community.asset.service.js";
 import { sendInquiryReplyNotification } from "../../shared/email/email.service.js";
+import { decryptUserRow } from "../../shared/security/pii.js";
 
 // 함수 역할: boolean 값으로 안전하게 변환합니다.
 function toBoolean(value) {
@@ -287,14 +288,16 @@ export async function deleteEvent(eventId) {
 }
 
 // 함수 역할: 문의 목록을 조회해 반환합니다.
-export async function listInquiries({ search = "" } = {}) {
+export async function listInquiries({ search = "", viewerUserId = "", viewerIsAdmin = false } = {}) {
+  const normalizedViewerUserId = String(viewerUserId || "").trim();
+  const canReadAsAdmin = Boolean(viewerIsAdmin);
   const params = [];
   let whereClause = "";
 
   if (search) {
-    whereClause = "WHERE (ip.title LIKE ? OR ip.author LIKE ?)";
+    whereClause = "WHERE (ip.is_secret = 0 OR ? = 1 OR ip.author_id = ?) AND (ip.title LIKE ? OR ip.author LIKE ?)";
     const s = `%${search}%`;
-    params.push(s, s);
+    params.push(canReadAsAdmin ? 1 : 0, normalizedViewerUserId, s, s);
   }
 
   const rows = await query(
@@ -316,7 +319,29 @@ export async function listInquiries({ search = "" } = {}) {
      ORDER BY ip.date DESC, ip.id DESC`,
     params
   );
-  return rows.map((row) => ({ ...row, isSecret: toBoolean(row.isSecret), replyCount: Number(row.replyCount || 0) }));
+  return rows.map((row) => {
+    const isSecret = toBoolean(row.isSecret);
+    const canRead = !isSecret || canReadAsAdmin || (
+      normalizedViewerUserId && String(row.authorId || "") === normalizedViewerUserId
+    );
+    const normalized = {
+      ...row,
+      isSecret,
+      replyCount: Number(row.replyCount || 0),
+    };
+
+    if (canRead) return normalized;
+
+    return {
+      ...normalized,
+      title: "비밀글입니다.",
+      author: "비공개",
+      authorId: "",
+      imageUrl: "",
+      videoUrl: "",
+      locked: true,
+    };
+  });
 }
 
 // 함수 역할: 문의 데이터를 조회해 호출자에게 반환합니다.
@@ -474,16 +499,17 @@ export async function createInquiryReply({ inquiryId, authorId, authorName, cont
     try {
       const row = await queryOne(
         `SELECT ip.title, ip.content AS inquiryContent, ip.date AS inquiryDate,
-                u.email, u.name AS userName
+                u.email, u.name
          FROM inquiry_posts ip
          LEFT JOIN users u ON u.id = ip.author_id
          WHERE ip.id = ?`,
         [inquiryId]
       );
-      if (row?.email) {
+      const author = decryptUserRow(row);
+      if (author?.email) {
         await sendInquiryReplyNotification({
-          toEmail: row.email,
-          userName: row.userName || "",
+          toEmail: author.email,
+          userName: author.name || "",
           inquiryTitle: row.title || "문의",
           inquiryContent: row.inquiryContent || "",
           inquiryDate: row.inquiryDate || "",

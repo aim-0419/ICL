@@ -46,17 +46,32 @@ import { errorHandler, notFoundHandler } from "./shared/middlewares/error-handle
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadRoot = path.resolve(__dirname, "..", "uploads");
+const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function resolveOriginHeader(value) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const normalized = String(rawValue || "").trim();
+  if (!normalized) return "";
+
+  try {
+    return new URL(normalized).origin;
+  } catch {
+    return "";
+  }
+}
 
 // 함수 역할: Express 인스턴스를 만들고 CORS, JSON 파서, 기능별 API 라우터, 업로드 정적 경로를 등록합니다.
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
+  app.set("trust proxy", 1);
 
   app.use((req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "SAMEORIGIN");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
     if (env.nodeEnv === "production") {
       res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
     }
@@ -77,6 +92,21 @@ export function createApp() {
       exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length"],
     })
   );
+  app.use((req, res, next) => {
+    if (!STATE_CHANGING_METHODS.has(String(req.method || "").toUpperCase())) {
+      next();
+      return;
+    }
+
+    const requestOrigin = resolveOriginHeader(req.headers.origin) || resolveOriginHeader(req.headers.referer);
+    if (requestOrigin && !allowedOrigins.has(requestOrigin)) {
+      res.status(403).json({ message: "허용되지 않은 요청 출처입니다." });
+      return;
+    }
+
+    next();
+  });
+  app.use("/api/payments/webhook", express.raw({ type: "application/json", limit: "128kb" }));
   app.use(express.json());
 
   // 헬스 체크는 DB 연결까지 확인해서 프론트/배포 환경에서 빠르게 상태를 진단할 수 있게 한다.

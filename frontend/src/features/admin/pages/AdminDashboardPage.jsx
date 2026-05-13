@@ -73,6 +73,7 @@ export function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [savingGradeUserId, setSavingGradeUserId] = useState("");
   const [gradeMessage, setGradeMessage] = useState({ type: "", text: "" });
+  const [memberTab, setMemberTab] = useState("active");
   const [withdrawingUserId, setWithdrawingUserId] = useState("");
   const [withdrawMessage, setWithdrawMessage] = useState({ type: "", text: "" });
   const [refundingOrderId, setRefundingOrderId] = useState("");
@@ -88,6 +89,7 @@ export function AdminDashboardPage() {
   const [lectureReports, setLectureReports] = useState([]);
   const [lectureReportsLoading, setLectureReportsLoading] = useState(true);
   const [lectureReportsError, setLectureReportsError] = useState("");
+  const [lectureTab, setLectureTab] = useState("active");
 
   function buildLearningCacheKey(userId, range = learningRange) {
     return `${String(userId || "")}::${String(range || "all")}`;
@@ -129,19 +131,22 @@ export function AdminDashboardPage() {
     loadLectureReports(learningRange);
   }, [learningRange]);
 
-  const filteredUsers = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-    if (!normalizedQuery) return users;
+  const activeUsers = useMemo(() => users.filter((u) => u.accountStatus !== "withdrawn"), [users]);
+  const withdrawnUsers = useMemo(() => users.filter((u) => u.accountStatus === "withdrawn"), [users]);
 
-    return users.filter((user) =>
+  const filteredUsers = useMemo(() => {
+    const base = memberTab === "withdrawn" ? withdrawnUsers : activeUsers;
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) return base;
+    return base.filter((user) =>
       `${user.name} ${user.loginId} ${user.email} ${formatUserGradeLabel(user.userGrade)}`
         .toLowerCase()
         .includes(normalizedQuery)
     );
-  }, [searchQuery, users]);
+  }, [searchQuery, memberTab, activeUsers, withdrawnUsers]);
 
   const summary = useMemo(() => {
-    return users.reduce(
+    return activeUsers.reduce(
       (acc, user) => {
         const grade = String(user.userGrade || "member").toLowerCase();
         acc.totalMembers += 1;
@@ -153,7 +158,7 @@ export function AdminDashboardPage() {
       },
       { totalMembers: 0, totalAdmins: 0, totalVip: 0, totalVvip: 0, totalRevenue: 0 }
     );
-  }, [users]);
+  }, [activeUsers]);
 
   async function handleGradeChange(userId, nextGrade) {
     if (!canManageGrades) return;
@@ -189,8 +194,18 @@ export function AdminDashboardPage() {
   }
 
   async function handleWithdrawUser(user) {
+    const purchases = Array.isArray(user.purchases) ? user.purchases : [];
+    const activePurchases = purchases.filter((p) => {
+      const { refundStatus, refundableAmount } = resolveRefundPresentation(p);
+      return refundStatus !== "refunded" && refundableAmount > 0;
+    });
+
+    const warningLine = activePurchases.length > 0
+      ? `\n\n⚠️ 미환불 구매 ${activePurchases.length}건이 있습니다. 탈퇴 전 환불 처리를 권장합니다.`
+      : "";
+
     const confirmed = window.confirm(
-      `"${user.name}" (${user.loginId}) 회원을 탈퇴 처리하시겠습니까?\n탈퇴 후 90일간 데이터가 보관되며 복구 가능합니다.`
+      `"${user.name}" (${user.loginId}) 회원을 탈퇴 처리하시겠습니까?\n탈퇴 후 90일간 데이터가 보관되며 복구 가능합니다.${warningLine}`
     );
     if (!confirmed) return;
 
@@ -399,7 +414,22 @@ export function AdminDashboardPage() {
         <section className="admin-dashboard-grid">
           <section className="dashboard-card admin-members-panel">
             <div className="admin-members-toolbar">
-              <h2>회원 조회</h2>
+              <div className="admin-member-tabs">
+                <button
+                  type="button"
+                  className={`admin-member-tab${memberTab === "active" ? " active" : ""}`}
+                  onClick={() => setMemberTab("active")}
+                >
+                  활성 회원 ({activeUsers.length})
+                </button>
+                <button
+                  type="button"
+                  className={`admin-member-tab${memberTab === "withdrawn" ? " active" : ""}`}
+                  onClick={() => setMemberTab("withdrawn")}
+                >
+                  탈퇴 회원 ({withdrawnUsers.length})
+                </button>
+              </div>
               <div className="admin-toolbar-right">
                 <select
                   className="admin-range-select"
@@ -665,7 +695,9 @@ export function AdminDashboardPage() {
                     );
                   })
                 ) : (
-                  <p className="admin-empty-copy">검색 결과가 없습니다.</p>
+                  <p className="admin-empty-copy">
+                    {searchQuery ? "검색 결과가 없습니다." : memberTab === "withdrawn" ? "탈퇴 회원이 없습니다." : "회원이 없습니다."}
+                  </p>
                 )}
               </div>
             ) : null}
@@ -673,7 +705,22 @@ export function AdminDashboardPage() {
 
           <section className="dashboard-card admin-lecture-report-panel">
             <div className="admin-members-toolbar">
-              <h2>강의별 수강 리포트</h2>
+              <div className="admin-member-tabs">
+                <button
+                  type="button"
+                  className={`admin-member-tab${lectureTab === "active" ? " active" : ""}`}
+                  onClick={() => setLectureTab("active")}
+                >
+                  활성 강의 ({lectureReports.filter((l) => !l.isHidden).length})
+                </button>
+                <button
+                  type="button"
+                  className={`admin-member-tab${lectureTab === "hidden" ? " active" : ""}`}
+                  onClick={() => setLectureTab("hidden")}
+                >
+                  숨김 강의 ({lectureReports.filter((l) => l.isHidden).length})
+                </button>
+              </div>
               <span className="admin-range-caption">
                 기준: {LEARNING_RANGE_OPTIONS.find((item) => item.value === learningRange)?.label || "전체"}
               </span>
@@ -685,9 +732,13 @@ export function AdminDashboardPage() {
             ) : null}
 
             {!lectureReportsLoading && !lectureReportsError ? (
-              lectureReports.length ? (
+              (() => {
+                const filteredLectures = lectureReports.filter((l) =>
+                  lectureTab === "hidden" ? l.isHidden : !l.isHidden
+                );
+                return filteredLectures.length ? (
                 <div className="admin-lecture-report-list">
-                  {lectureReports.map((lecture) => (
+                  {filteredLectures.map((lecture) => (
                     <details key={lecture.videoId} className="admin-lecture-report-card">
                       <summary>
                         <strong>{lecture.title}</strong>
@@ -740,8 +791,11 @@ export function AdminDashboardPage() {
                   ))}
                 </div>
               ) : (
-                <p className="admin-empty-copy">선택한 기간에 수강 리포트 데이터가 없습니다.</p>
-              )
+                <p className="admin-empty-copy">
+                  {lectureTab === "hidden" ? "숨김 처리된 강의가 없습니다." : "선택한 기간에 수강 리포트 데이터가 없습니다."}
+                </p>
+              );
+              })()
             ) : null}
           </section>
         </section>

@@ -27,13 +27,25 @@
  * admin_page_overrides                              → 관리자 페이지 오버라이드
  * instructors, branches                             → 강사·지점 정보
  *
- * 초기 시드 데이터 (최초 1회):
- * - 강사 3명, 지점 2개 (테이블이 비어 있을 때만 삽입)
+ * 시드 데이터: 없음 (모든 데이터는 관리자 패널로 직접 등록)
  */
 // 파일 역할: MySQL 연결 풀, 스키마 자동 보정, 기본 데이터 시드, 공통 query 헬퍼를 담당합니다.
 import mysql from "mysql2/promise";
 import { env } from "../../config/env.js";
 import { hashPassword } from "../security/password.js";
+import {
+  decryptPii,
+  emailHash,
+  encryptPii,
+  encryptedUserValues,
+  isEncryptedPii,
+  nameHash,
+  normalizeBirthYear,
+  normalizeEmail,
+  normalizeName,
+  normalizePhone,
+  phoneHash,
+} from "../security/pii.js";
 
 // 이 파일은 MySQL 연결, 테이블 보정, 기본 시드 데이터 주입까지 함께 담당한다.
 // 별도 마이그레이션 도구 없이 앱 시작 시 필요한 스키마를 맞추는 구조다.
@@ -399,89 +411,195 @@ async function dropUnusedSchemaObjects() {
   // 운영 데이터 손실 방지를 위해 자동 삭제는 수행하지 않음
 }
 
-
-// 함수 역할: 강사 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
-async function seedInstructorsIfEmpty() {
-  const [rows] = await pool.query("SELECT COUNT(*) AS count FROM instructors");
-  if (Number(rows?.[0]?.count ?? 0) > 0) return;
-
-  const defaults = [
-    {
-      id: "instructor-1",
-      name: "대표 강사 소개",
-      role: "대표원장 · Master Instructor",
-      intro: "움직임의 원리를 회원의 몸에 맞게 적용하는 수업을 지향합니다. 정확한 기본기와 섬세한 큐잉으로 변화의 방향을 설계합니다.",
-      careers: ["이끌림 필라테스 대표원장", "국내외 필라테스 지도자 과정 이수", "재활/체형교정 기반 개인 레슨 운영"],
-      sort_order: 1,
-    },
-    {
-      id: "instructor-2",
-      name: "전문 강사팀",
-      role: "프로페셔널 티칭 팀",
-      intro: "이끌림 강사진은 수업 전후 회원 상태를 꼼꼼히 체크하고, 개인 목표에 맞는 프로그램을 유연하게 조정합니다.",
-      careers: ["기구/매트 통합 수업 운영", "회원별 컨디션 기록 및 단계별 피드백", "정기 티칭 트레이닝 진행"],
-      sort_order: 2,
-    },
-    {
-      id: "instructor-3",
-      name: "케어 & 코칭 팀",
-      role: "멤버 케어 팀",
-      intro: "첫 상담부터 루틴 정착까지 끝까지 동행합니다. 수업 만족도와 지속 관리 품질을 높이는 커뮤니케이션을 담당합니다.",
-      careers: ["상담/예약/수강 관리 프로세스 운영", "회원별 목표 기반 수강 플랜 제안", "수강 후 피드백 및 루틴 코칭"],
-      sort_order: 3,
-    },
+// 함수 역할: 이전에 시드로 삽입된 하드코딩 데이터를 DB에서 일괄 제거합니다.
+async function purgeAllHardcodedSeedData() {
+  const productIds = [
+    "video-1","video-2","video-3","video-4","video-5",
+    "video-6","video-7","video-8","video-9","video-10",
+    "starter","cueing","premium",
   ];
+  const reviewIds = [
+    "review-101","review-100","review-099","review-098","review-097",
+    "review-096","review-095","review-094","review-093","review-092","review-091",
+  ];
+  const eventIds = ["event-1","event-2","event-3","event-4","event-5","event-6"];
+  const inquiryIds = ["inquiry-301","inquiry-300","inquiry-299"];
+  const instructorIds = ["instructor-1","instructor-2","instructor-3"];
+  const branchIds = ["branch-1","branch-2"];
 
-  for (const inst of defaults) {
-    await pool.query(
-      `INSERT INTO instructors (id, name, role, intro, careers, image_path, sort_order, created_at)
-       VALUES (?, ?, ?, ?, ?, NULL, ?, NOW())`,
-      [inst.id, inst.name, inst.role, inst.intro, JSON.stringify(inst.careers), inst.sort_order]
-    );
-  }
+  function ph(arr) { return arr.map(() => "?").join(","); }
+
+  await pool.query(`DELETE FROM products WHERE id IN (${ph(productIds)})`, productIds);
+  await pool.query(`DELETE FROM review_posts WHERE id IN (${ph(reviewIds)})`, reviewIds);
+  await pool.query(`DELETE FROM events WHERE id IN (${ph(eventIds)})`, eventIds);
+  await pool.query(`DELETE FROM inquiry_posts WHERE id IN (${ph(inquiryIds)})`, inquiryIds);
+  await pool.query(`DELETE FROM instructors WHERE id IN (${ph(instructorIds)})`, instructorIds);
+  await pool.query(`DELETE FROM branches WHERE id IN (${ph(branchIds)})`, branchIds);
 }
 
-// 함수 역할: 지점 if 빈값 기본 데이터를 비어 있을 때 주입합니다.
-async function seedBranchesIfEmpty() {
-  const [rows] = await pool.query("SELECT COUNT(*) AS count FROM branches");
-  if (Number(rows?.[0]?.count ?? 0) > 0) return;
-
-  const defaults = [
-    {
-      id: "branch-1",
-      name: "이끌림 필라테스 장덕점",
-      address: "광주광역시 광산구 풍영로 189, 2층",
-      phone: "062-000-0001",
-      parking: "건물 앞 주차 가능 (방문 전 문의)",
-      lat: 35.188459164928,
-      lng: 126.81392571847,
-      map_link: "https://www.google.com/maps/search/?api=1&query=35.188459164928,126.81392571847",
-      sort_order: 1,
-    },
-    {
-      id: "branch-2",
-      name: "이끌림 필라테스 효천점",
-      address: "광주광역시 남구 효천2로가길 5, 201-202호",
-      phone: "062-000-0002",
-      parking: "인근 공영/건물 주차장 이용 가능",
-      lat: 35.102161560951,
-      lng: 126.87396526156,
-      map_link: "https://www.google.com/maps/search/?api=1&query=35.102161560951,126.87396526156",
-      sort_order: 2,
-    },
-  ];
-
-  for (const branch of defaults) {
-    await pool.query(
-      `INSERT INTO branches (id, name, address, phone, parking, lat, lng, map_link, sort_order, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [branch.id, branch.name, branch.address, branch.phone, branch.parking, branch.lat, branch.lng, branch.map_link, branch.sort_order]
-    );
-  }
-}
 
 
 // 함수 역할: 만료된 탈퇴 회원 데이터를 조건에 맞게 영구 정리합니다.
+async function encryptExistingUserPii() {
+  const [rows] = await pool.query(
+    `SELECT id, name, email, phone, birth_year AS birthYear, birth_year_encrypted AS birthYearEncrypted
+     FROM users`
+  );
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const decryptedName = normalizeName(decryptPii(row.name) || row.name);
+    const decryptedEmail = normalizeEmail(decryptPii(row.email) || row.email);
+    const decryptedPhone = normalizePhone(decryptPii(row.phone) || row.phone);
+    const decryptedBirthYear =
+      normalizeBirthYear(decryptPii(row.birthYearEncrypted)) ||
+      normalizeBirthYear(row.birthYear);
+    const encryptedBirthYear =
+      row.birthYearEncrypted && isEncryptedPii(row.birthYearEncrypted)
+        ? row.birthYearEncrypted
+        : decryptedBirthYear
+          ? encryptPii(decryptedBirthYear)
+          : null;
+
+    if (!decryptedEmail) continue;
+
+    await pool.query(
+      `UPDATE users
+       SET name = ?,
+           email = ?,
+           phone = ?,
+           email_hash = ?,
+           phone_hash = ?,
+           name_hash = ?,
+           birth_year_encrypted = ?,
+           birth_year = NULL
+       WHERE id = ?`,
+      [
+        isEncryptedPii(row.name) ? row.name : encryptPii(decryptedName),
+        isEncryptedPii(row.email) ? row.email : encryptPii(decryptedEmail),
+        decryptedPhone ? (isEncryptedPii(row.phone) ? row.phone : encryptPii(decryptedPhone)) : null,
+        emailHash(decryptedEmail),
+        phoneHash(decryptedPhone),
+        nameHash(decryptedName),
+        encryptedBirthYear,
+        row.id,
+      ]
+    );
+  }
+}
+
+async function encryptExistingOrderPii() {
+  const [rows] = await pool.query(`SELECT id, customer_email AS customerEmail, payload FROM orders`);
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const decryptedEmail = normalizeEmail(decryptPii(row.customerEmail) || row.customerEmail);
+    let payload = {};
+    try {
+      payload = typeof row.payload === "object" ? row.payload : JSON.parse(row.payload || "{}");
+    } catch {
+      payload = {};
+    }
+
+    if (payload && typeof payload === "object") {
+      delete payload.customerEmail;
+      delete payload.customerBirthYear;
+      delete payload.birthYear;
+      if (payload.customer && typeof payload.customer === "object") {
+        delete payload.customer.email;
+        delete payload.customer.birthYear;
+      }
+    }
+
+    const encryptedEmail = decryptedEmail
+      ? isEncryptedPii(row.customerEmail)
+        ? row.customerEmail
+        : encryptPii(decryptedEmail)
+      : null;
+
+    await pool.query(
+      `UPDATE orders
+       SET customer_email = ?,
+           customer_email_hash = ?,
+           payload = ?
+       WHERE id = ?`,
+      [
+        encryptedEmail,
+        emailHash(decryptedEmail),
+        JSON.stringify(payload || {}),
+        row.id,
+      ]
+    );
+  }
+}
+
+async function encryptExistingPaymentPii() {
+  const [rows] = await pool.query(
+    `SELECT order_id AS orderId, customer_email AS customerEmail, payment_payload AS paymentPayload
+     FROM payment_confirmations`
+  );
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const decryptedEmail = normalizeEmail(decryptPii(row.customerEmail) || row.customerEmail);
+    const payloadText =
+      typeof row.paymentPayload === "string"
+        ? row.paymentPayload
+        : JSON.stringify(row.paymentPayload || {});
+    const encryptedEmail = decryptedEmail
+      ? isEncryptedPii(row.customerEmail)
+        ? row.customerEmail
+        : encryptPii(decryptedEmail)
+      : null;
+    const encryptedPayload = payloadText
+      ? isEncryptedPii(payloadText)
+        ? payloadText
+        : encryptPii(payloadText)
+      : null;
+    await pool.query(
+      `UPDATE payment_confirmations
+       SET customer_email = ?,
+           customer_email_hash = ?,
+           payment_payload = ?
+       WHERE order_id = ?`,
+      [
+        encryptedEmail,
+        emailHash(decryptedEmail),
+        encryptedPayload,
+        row.orderId,
+      ]
+    );
+  }
+}
+
+async function encryptExistingRefundPii() {
+  const [rows] = await pool.query(`SELECT id, customer_email AS customerEmail FROM refund_requests`);
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const decryptedEmail = normalizeEmail(decryptPii(row.customerEmail) || row.customerEmail);
+    const encryptedEmail = decryptedEmail
+      ? isEncryptedPii(row.customerEmail)
+        ? row.customerEmail
+        : encryptPii(decryptedEmail)
+      : null;
+    await pool.query(
+      `UPDATE refund_requests
+       SET customer_email = ?,
+           customer_email_hash = ?
+       WHERE id = ?`,
+      [
+        encryptedEmail,
+        emailHash(decryptedEmail),
+        row.id,
+      ]
+    );
+  }
+}
+
+async function encryptExistingPiiData() {
+  await encryptExistingUserPii();
+  await encryptExistingOrderPii();
+  await encryptExistingPaymentPii();
+  await encryptExistingRefundPii();
+}
+
 async function purgeExpiredWithdrawnUsers() {
   // 탈퇴 보관 기간 만료 사용자 조회 및 연관 데이터 정리 처리
   const [rows] = await pool.query(
@@ -585,9 +703,10 @@ async function seedDemoAdminIfEnabled() {
   }
 
   const passwordHash = await hashPassword(password);
+  const piiValues = encryptedUserValues({ name, email, phone: "", birthYear: null });
   const [rows] = await pool.execute(
-    `SELECT id FROM users WHERE login_id = ? OR email = ? LIMIT 1`,
-    [loginId, email]
+    `SELECT id FROM users WHERE login_id = ? OR email_hash = ? OR email = ? LIMIT 1`,
+    [loginId, piiValues.emailHash, email]
   );
   const existingId = Array.isArray(rows) && rows[0]?.id ? String(rows[0].id) : "";
 
@@ -597,6 +716,9 @@ async function seedDemoAdminIfEnabled() {
        SET login_id = ?,
            name = ?,
            email = ?,
+           email_hash = ?,
+           phone_hash = ?,
+           name_hash = ?,
            password = ?,
            role = 'admin',
            is_admin = 1,
@@ -605,7 +727,16 @@ async function seedDemoAdminIfEnabled() {
            withdrawn_at = NULL,
            withdrawal_purge_at = NULL
        WHERE id = ?`,
-      [loginId, name, email, passwordHash, existingId]
+      [
+        loginId,
+        piiValues.encryptedName,
+        piiValues.encryptedEmail,
+        piiValues.emailHash,
+        piiValues.phoneHash,
+        piiValues.nameHash,
+        passwordHash,
+        existingId,
+      ]
     );
     return;
   }
@@ -616,6 +747,9 @@ async function seedDemoAdminIfEnabled() {
       login_id,
       name,
       email,
+      email_hash,
+      phone_hash,
+      name_hash,
       password,
       role,
       is_admin,
@@ -623,8 +757,17 @@ async function seedDemoAdminIfEnabled() {
       account_status,
       created_at
     )
-    VALUES (?, ?, ?, ?, ?, 'admin', 1, 'admin0', 'active', NOW())`,
-    ["demo-admin", loginId, name, email, passwordHash]
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'admin', 1, 'admin0', 'active', NOW())`,
+    [
+      "demo-admin",
+      loginId,
+      piiValues.encryptedName,
+      piiValues.encryptedEmail,
+      piiValues.emailHash,
+      piiValues.phoneHash,
+      piiValues.nameHash,
+      passwordHash,
+    ]
   );
 }
 
@@ -635,14 +778,18 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS users (
       id VARCHAR(64) PRIMARY KEY,
       login_id VARCHAR(80) NOT NULL UNIQUE,
-      name VARCHAR(120) NOT NULL,
-      email VARCHAR(190) NOT NULL UNIQUE,
+      name VARCHAR(512) NOT NULL,
+      email VARCHAR(512) NOT NULL,
+      email_hash VARCHAR(80) NULL,
+      phone_hash VARCHAR(80) NULL,
+      name_hash VARCHAR(80) NULL,
       password VARCHAR(255) NOT NULL,
-      phone VARCHAR(40) NULL,
+      phone VARCHAR(512) NULL,
       role VARCHAR(40) NOT NULL DEFAULT 'user',
       is_admin TINYINT(1) NOT NULL DEFAULT 0,
       user_grade VARCHAR(20) NOT NULL DEFAULT 'member',
       birth_year SMALLINT NULL,
+      birth_year_encrypted VARCHAR(512) NULL,
       points INT NOT NULL DEFAULT 0,
       account_status VARCHAR(20) NOT NULL DEFAULT 'active',
       withdrawn_at DATETIME NULL,
@@ -650,7 +797,8 @@ async function initDatabase() {
       restored_at DATETIME NULL,
       marketing_agree TINYINT(1) NOT NULL DEFAULT 0,
       marketing_agreed_at DATETIME NULL,
-      created_at DATETIME NOT NULL
+      created_at DATETIME NOT NULL,
+      UNIQUE KEY ux_users_email_hash (email_hash)
     )
   `);
 
@@ -688,6 +836,28 @@ async function initDatabase() {
   }
 
   await pool.query(`ALTER TABLE users MODIFY login_id VARCHAR(80) NOT NULL`);
+  await pool.query(`ALTER TABLE users MODIFY name VARCHAR(512) NOT NULL`);
+  await pool.query(`ALTER TABLE users MODIFY email VARCHAR(512) NOT NULL`);
+  await pool.query(`ALTER TABLE users MODIFY phone VARCHAR(512) NULL`);
+
+  const piiUserColumns = [
+    ["email_hash", "VARCHAR(80) NULL AFTER email"],
+    ["phone_hash", "VARCHAR(80) NULL AFTER phone"],
+    ["name_hash", "VARCHAR(80) NULL AFTER name"],
+  ];
+  for (const [columnName, definition] of piiUserColumns) {
+    const [columnRows] = await pool.query(
+      `SELECT COUNT(*) AS count
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'users'
+         AND COLUMN_NAME = ?`,
+      [columnName]
+    );
+    if (Number(columnRows?.[0]?.count ?? 0) === 0) {
+      await pool.query(`ALTER TABLE users ADD COLUMN ${escapeSqlId(columnName)} ${definition}`);
+    }
+  }
 
   const [roleColumnRows] = await pool.query(
     `SELECT COUNT(*) AS count
@@ -775,6 +945,17 @@ async function initDatabase() {
 
   await pool.query(`ALTER TABLE users MODIFY birth_year SMALLINT NULL`);
 
+  const [birthYearEncryptedRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'birth_year_encrypted'`
+  );
+  if (Number(birthYearEncryptedRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE users ADD COLUMN birth_year_encrypted VARCHAR(512) NULL AFTER birth_year`);
+  }
+
   // users.points 컬럼 (포인트 잔액)
   const [pointsColRows] = await pool.query(
     `SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS
@@ -861,6 +1042,7 @@ async function initDatabase() {
       token VARCHAR(120) PRIMARY KEY,
       user_id VARCHAR(64) NOT NULL,
       created_at DATETIME NOT NULL,
+      expires_at DATETIME NULL,
       INDEX idx_sessions_user_id (user_id),
       CONSTRAINT fk_sessions_users
         FOREIGN KEY (user_id) REFERENCES users(id)
@@ -868,16 +1050,76 @@ async function initDatabase() {
     )
   `);
 
+  // expires_at 컬럼 없는 기존 테이블 보정
+  const [sessExpiresRows] = await pool.query(
+    `SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sessions' AND COLUMN_NAME = 'expires_at'`
+  );
+  if (Number(sessExpiresRows?.[0]?.cnt ?? 0) === 0) {
+    await pool.query(`ALTER TABLE sessions ADD COLUMN expires_at DATETIME NULL`);
+    await pool.query(
+      `UPDATE sessions SET expires_at = DATE_ADD(created_at, INTERVAL 14 DAY) WHERE expires_at IS NULL`
+    );
+  }
+  await pool.query(`DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < NOW()`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS email_verifications (
-      email VARCHAR(190) PRIMARY KEY,
+      email VARCHAR(512) PRIMARY KEY,
+      email_hash VARCHAR(80) NULL,
       code VARCHAR(10) NOT NULL,
       expires_at DATETIME NOT NULL,
-      verified_at DATETIME NULL
+      verified_at DATETIME NULL,
+      attempts INT NOT NULL DEFAULT 0,
+      send_count INT NOT NULL DEFAULT 1,
+      first_sent_at DATETIME NULL
     )
   `);
 
-  await pool.query(`DELETE FROM email_verifications WHERE expires_at < NOW()`);
+  await pool.query(`ALTER TABLE email_verifications MODIFY email VARCHAR(512) NOT NULL`);
+  const [evEmailHashRows] = await pool.query(
+    `SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'email_verifications' AND COLUMN_NAME = 'email_hash'`
+  );
+  if (Number(evEmailHashRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE email_verifications ADD COLUMN email_hash VARCHAR(80) NULL AFTER email`);
+  }
+
+  const [evAttemptsRows] = await pool.query(
+    `SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'email_verifications' AND COLUMN_NAME = 'attempts'`
+  );
+  if (Number(evAttemptsRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE email_verifications ADD COLUMN attempts INT NOT NULL DEFAULT 0`);
+  }
+
+  const [evSendCountRows] = await pool.query(
+    `SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'email_verifications' AND COLUMN_NAME = 'send_count'`
+  );
+  if (Number(evSendCountRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE email_verifications ADD COLUMN send_count INT NOT NULL DEFAULT 1`);
+    await pool.query(`ALTER TABLE email_verifications ADD COLUMN first_sent_at DATETIME NULL`);
+  }
+
+  await pool.query(`DELETE FROM email_verifications WHERE expires_at < NOW() OR email_hash IS NULL`);
+  await pool.query(`
+    DELETE ev1 FROM email_verifications ev1
+    INNER JOIN email_verifications ev2
+      ON ev1.email_hash = ev2.email_hash
+      AND ev1.email <> ev2.email
+      AND ev1.expires_at <= ev2.expires_at
+  `);
+  const [evEmailHashIndexRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'email_verifications'
+       AND INDEX_NAME = 'ux_email_verifications_email_hash'`
+  );
+  if (Number(evEmailHashIndexRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE email_verifications ADD UNIQUE INDEX ux_email_verifications_email_hash (email_hash)`);
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS products (
@@ -1050,11 +1292,84 @@ async function initDatabase() {
       id VARCHAR(80) PRIMARY KEY,
       order_name VARCHAR(255) NULL,
       amount INT NULL,
-      customer_email VARCHAR(190) NULL,
+      customer_email VARCHAR(512) NULL,
+      customer_email_hash VARCHAR(80) NULL,
       payload JSON NOT NULL,
       created_at DATETIME NOT NULL,
       INDEX idx_orders_created_at (created_at),
-      INDEX idx_orders_customer_email (customer_email)
+      INDEX idx_orders_customer_email_hash (customer_email_hash)
+    )
+  `);
+
+  await pool.query(`ALTER TABLE orders MODIFY customer_email VARCHAR(512) NULL`);
+  const [ordersEmailHashRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'orders'
+       AND COLUMN_NAME = 'customer_email_hash'`
+  );
+  if (Number(ordersEmailHashRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE orders ADD COLUMN customer_email_hash VARCHAR(80) NULL AFTER customer_email`);
+  }
+  const [ordersEmailHashIndexRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'orders'
+       AND INDEX_NAME = 'idx_orders_customer_email_hash'`
+  );
+  if (Number(ordersEmailHashIndexRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE orders ADD INDEX idx_orders_customer_email_hash (customer_email_hash)`);
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payment_confirmations (
+      order_id VARCHAR(80) PRIMARY KEY,
+      payment_id VARCHAR(120) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      customer_email VARCHAR(512) NOT NULL,
+      customer_email_hash VARCHAR(80) NULL,
+      amount INT NOT NULL,
+      status VARCHAR(40) NOT NULL,
+      payment_payload LONGTEXT NULL,
+      confirmed_at DATETIME NOT NULL,
+      consumed_at DATETIME NULL,
+      order_created_at DATETIME NULL,
+      UNIQUE KEY uq_payment_confirmations_payment (payment_id),
+      INDEX idx_payment_confirmations_user (user_id),
+      INDEX idx_payment_confirmations_consumed (consumed_at)
+    )
+  `);
+
+  await pool.query(`ALTER TABLE payment_confirmations MODIFY customer_email VARCHAR(512) NOT NULL`);
+  await pool.query(`ALTER TABLE payment_confirmations MODIFY payment_payload LONGTEXT NULL`);
+  const [paymentEmailHashRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'payment_confirmations'
+       AND COLUMN_NAME = 'customer_email_hash'`
+  );
+  if (Number(paymentEmailHashRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE payment_confirmations ADD COLUMN customer_email_hash VARCHAR(80) NULL AFTER customer_email`);
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payment_webhook_events (
+      webhook_id VARCHAR(160) PRIMARY KEY,
+      event_type VARCHAR(80) NOT NULL,
+      payment_id VARCHAR(120) NULL,
+      payload LONGTEXT NULL,
+      process_status VARCHAR(40) NOT NULL,
+      process_message VARCHAR(500) NULL,
+      received_at DATETIME NOT NULL,
+      processed_at DATETIME NULL,
+      last_seen_at DATETIME NOT NULL,
+      attempts INT NOT NULL DEFAULT 1,
+      INDEX idx_payment_webhook_events_payment (payment_id),
+      INDEX idx_payment_webhook_events_status (process_status),
+      INDEX idx_payment_webhook_events_received (received_at)
     )
   `);
 
@@ -1220,7 +1535,8 @@ async function initDatabase() {
       id VARCHAR(80) PRIMARY KEY,
       order_id VARCHAR(80) NOT NULL,
       user_id VARCHAR(64) NOT NULL,
-      customer_email VARCHAR(190) NOT NULL,
+      customer_email VARCHAR(512) NOT NULL,
+      customer_email_hash VARCHAR(80) NULL,
       selected_product_ids JSON NOT NULL,
       requested_amount INT NOT NULL DEFAULT 0,
       reason TEXT NULL,
@@ -1230,9 +1546,32 @@ async function initDatabase() {
       resolved_at DATETIME NULL,
       INDEX idx_refund_requests_order (order_id),
       INDEX idx_refund_requests_user (user_id),
+      INDEX idx_refund_requests_customer_email_hash (customer_email_hash),
       INDEX idx_refund_requests_status (status)
     )
   `);
+
+  await pool.query(`ALTER TABLE refund_requests MODIFY customer_email VARCHAR(512) NOT NULL`);
+  const [refundEmailHashRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'refund_requests'
+       AND COLUMN_NAME = 'customer_email_hash'`
+  );
+  if (Number(refundEmailHashRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE refund_requests ADD COLUMN customer_email_hash VARCHAR(80) NULL AFTER customer_email`);
+  }
+  const [refundEmailHashIndexRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'refund_requests'
+       AND INDEX_NAME = 'idx_refund_requests_customer_email_hash'`
+  );
+  if (Number(refundEmailHashIndexRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE refund_requests ADD INDEX idx_refund_requests_customer_email_hash (customer_email_hash)`);
+  }
 
   const [cancelledColRows] = await pool.query(
     `SELECT COUNT(*) AS count
@@ -1327,9 +1666,6 @@ async function initDatabase() {
     )
   `);
 
-  await seedInstructorsIfEmpty();
-  await seedBranchesIfEmpty();
-
   await pool.query(`
     CREATE TABLE IF NOT EXISTS academy_reviews (
       id VARCHAR(80) PRIMARY KEY,
@@ -1389,7 +1725,43 @@ async function initDatabase() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS login_rate_limits (
+      ip VARCHAR(64) NOT NULL PRIMARY KEY,
+      fail_count INT NOT NULL DEFAULT 0,
+      blocked_until DATETIME NULL,
+      updated_at DATETIME NOT NULL
+    )
+  `);
+  await pool.query(
+    `DELETE FROM login_rate_limits WHERE blocked_until IS NOT NULL AND blocked_until < DATE_SUB(NOW(), INTERVAL 1 DAY)`
+  );
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS signup_rate_limits (
+      ip VARCHAR(64) NOT NULL PRIMARY KEY,
+      attempt_count INT NOT NULL DEFAULT 0,
+      window_start DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL
+    )
+  `);
+  await pool.query(
+    `DELETE FROM signup_rate_limits WHERE window_start < DATE_SUB(NOW(), INTERVAL 2 HOUR)`
+  );
+
   await dropUnusedSchemaObjects();
+  await purgeAllHardcodedSeedData();
+  await encryptExistingPiiData();
+  const [emailHashIndexRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND INDEX_NAME = 'ux_users_email_hash'`
+  );
+  if (Number(emailHashIndexRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE users ADD UNIQUE INDEX ux_users_email_hash (email_hash)`);
+  }
   await ensureUtf8mb4TableCollation();
   await repairLegacyMojibakeData();
   await applySchemaColumnComments();
@@ -1420,6 +1792,22 @@ export async function query(sql, params = []) {
 export async function queryOne(sql, params = []) {
   const rows = await query(sql, params);
   return rows[0] ?? null;
+}
+
+// 함수 역할: 트랜잭션 안에서 fn을 실행하고, 성공 시 커밋·실패 시 롤백합니다.
+export async function withTransaction(fn) {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+  try {
+    const result = await fn(conn);
+    await conn.commit();
+    return result;
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
 }
 
 // 함수 역할: 서버 상태 확인을 위해 MySQL 연결이 살아 있는지 검사합니다.

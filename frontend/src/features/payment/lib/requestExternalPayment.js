@@ -49,6 +49,7 @@ function mapPaymentMethod(method) {
 async function confirmByBackend({ approvalApiUrl, paymentId, orderId, amount }) {
   const response = await fetch(approvalApiUrl, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -75,7 +76,9 @@ async function confirmByBackend({ approvalApiUrl, paymentId, orderId, amount }) 
 
   return {
     type: "success",
-    paymentId,
+    paymentId: body.paymentId || paymentId,
+    approvedAt: body.approvedAt || "",
+    amount: body.amount || amount,
   };
 }
 

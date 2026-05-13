@@ -10,7 +10,10 @@ export function notFoundHandler(req, res, next) {
 // 함수 역할: 컨트롤러나 서비스에서 전달된 에러를 HTTP 상태 코드와 메시지로 변환합니다.
 export function errorHandler(error, req, res, next) {
   const status = error.status ?? 500;
-  res.status(status).json({
-    message: error.message ?? "Internal server error",
-  });
+  const isInternal = !error.status || error.status >= 500;
+  const message =
+    isInternal && process.env.NODE_ENV === "production"
+      ? "Internal server error"
+      : (error.message ?? "Internal server error");
+  res.status(status).json({ message });
 }

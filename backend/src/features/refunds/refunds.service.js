@@ -1,6 +1,7 @@
 // 파일 역할: 환불 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { randomUUID } from "node:crypto";
-import { query, queryOne } from "../../shared/db/mysql.js";
+import { query, queryOne, withTransaction } from "../../shared/db/mysql.js";
+import { decryptPii, emailHash, encryptPii } from "../../shared/security/pii.js";
 import { cancelPortonePayment } from "../payments/payments.service.js";
 
 // 함수 역할: json 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
@@ -12,6 +13,20 @@ function parseJson(value) {
   } catch {
     return null;
   }
+}
+
+function scrubStoredPii(payload) {
+  if (!payload || typeof payload !== "object") return {};
+  const next = { ...payload };
+  delete next.customerEmail;
+  delete next.customerBirthYear;
+  delete next.birthYear;
+  if (next.customer && typeof next.customer === "object") {
+    next.customer = { ...next.customer };
+    delete next.customer.email;
+    delete next.customer.birthYear;
+  }
+  return next;
 }
 
 // 함수 역할: 안전한 텍스트 값으로 안전하게 변환합니다.
@@ -65,7 +80,7 @@ function parseCancelledIds(value) {
   return new Set(parsed.map(toSafeText).filter(Boolean));
 }
 
-// 함수 역할: 환불 request 데이터를 새로 생성합니다.
+// 함수 역할: 환불 request 데이터를 새로 생성합니다. 동시 중복 요청을 트랜잭션으로 방지합니다.
 export async function createRefundRequest({
   userId,
   customerEmail,
@@ -83,109 +98,118 @@ export async function createRefundRequest({
     throw error;
   }
 
-  const order = await queryOne(
-    `SELECT
-      id,
-      amount,
-      customer_email AS customerEmail,
-      payload,
-      cancelled_product_ids AS cancelledProductIds
-     FROM orders
-     WHERE id = ?
-     LIMIT 1`,
-    [normalizedOrderId]
-  );
+  return withTransaction(async (conn) => {
+    // 주문 행을 FOR UPDATE로 잠가 동시 환불 요청 경쟁 조건을 방지합니다.
+    const [orderRows] = await conn.execute(
+      `SELECT
+        id,
+        amount,
+        customer_email AS customerEmail,
+        payload,
+        cancelled_product_ids AS cancelledProductIds
+       FROM orders
+       WHERE id = ?
+       LIMIT 1 FOR UPDATE`,
+      [normalizedOrderId]
+    );
+    const order = Array.isArray(orderRows) ? orderRows[0] : null;
 
-  if (!order?.id) {
-    const error = new Error("주문 정보를 찾을 수 없습니다.");
-    error.status = 404;
-    throw error;
-  }
+    if (!order?.id) {
+      const error = new Error("주문 정보를 찾을 수 없습니다.");
+      error.status = 404;
+      throw error;
+    }
 
-  const orderEmail = toSafeText(order.customerEmail).toLowerCase();
-  if (orderEmail && orderEmail !== normalizedEmail) {
-    const error = new Error("본인 주문만 환불 신청할 수 있습니다.");
-    error.status = 403;
-    throw error;
-  }
+    const orderEmail = toSafeText(decryptPii(order.customerEmail)).toLowerCase();
+    if (orderEmail && orderEmail !== normalizedEmail) {
+      const error = new Error("본인 주문만 환불 신청할 수 있습니다.");
+      error.status = 403;
+      throw error;
+    }
 
-  const existingPending = await queryOne(
-    `SELECT id FROM refund_requests WHERE order_id = ? AND status = 'pending' LIMIT 1`,
-    [normalizedOrderId]
-  );
-  if (existingPending?.id) {
-    const error = new Error("이미 처리 중인 환불 신청이 있습니다.");
-    error.status = 409;
-    throw error;
-  }
+    const [pendingRows] = await conn.execute(
+      `SELECT id FROM refund_requests WHERE order_id = ? AND status = 'pending' LIMIT 1`,
+      [normalizedOrderId]
+    );
+    const existingPending = Array.isArray(pendingRows) ? pendingRows[0] : null;
+    if (existingPending?.id) {
+      const error = new Error("이미 처리 중인 환불 신청이 있습니다.");
+      error.status = 409;
+      throw error;
+    }
 
-  const grossAmount = toAmount(order.amount);
-  const alreadyRefunded = resolveAlreadyRefundedAmount(order.payload);
-  const refundableAmount = Math.max(0, grossAmount - alreadyRefunded);
-  if (refundableAmount <= 0) {
-    const error = new Error("환불 가능한 금액이 없습니다.");
-    error.status = 400;
-    throw error;
-  }
+    const grossAmount = toAmount(order.amount);
+    const alreadyRefunded = resolveAlreadyRefundedAmount(order.payload);
+    const refundableAmount = Math.max(0, grossAmount - alreadyRefunded);
+    if (refundableAmount <= 0) {
+      const error = new Error("환불 가능한 금액이 없습니다.");
+      error.status = 400;
+      throw error;
+    }
 
-  const cancelledIds = parseCancelledIds(order.cancelledProductIds);
-  const orderProductIds = collectProductIds(order.payload);
-  const activeProductIds = [...orderProductIds].filter((id) => !cancelledIds.has(id));
-  if (!activeProductIds.length) {
-    const error = new Error("이미 전액 환불된 주문입니다.");
-    error.status = 400;
-    throw error;
-  }
+    const cancelledIds = parseCancelledIds(order.cancelledProductIds);
+    const orderProductIds = collectProductIds(order.payload);
+    const activeProductIds = [...orderProductIds].filter((id) => !cancelledIds.has(id));
+    if (!activeProductIds.length) {
+      const error = new Error("이미 전액 환불된 주문입니다.");
+      error.status = 400;
+      throw error;
+    }
 
-  const selectedIds = Array.isArray(selectedProductIds) && selectedProductIds.length
-    ? selectedProductIds.map(toSafeText).filter((id) => activeProductIds.includes(id))
-    : activeProductIds;
+    const selectedIds =
+      Array.isArray(selectedProductIds) && selectedProductIds.length
+        ? selectedProductIds.map(toSafeText).filter((id) => activeProductIds.includes(id))
+        : activeProductIds;
 
-  if (!selectedIds.length) {
-    const error = new Error("환불할 상품을 선택해 주세요.");
-    error.status = 400;
-    throw error;
-  }
+    if (!selectedIds.length) {
+      const error = new Error("환불할 상품을 선택해 주세요.");
+      error.status = 400;
+      throw error;
+    }
 
-  const isFullRefundRequest = selectedIds.length === activeProductIds.length;
-  const requested = toAmount(requestedAmount);
-  const computedRequestedAmount = requested > 0
-    ? Math.min(requested, refundableAmount)
-    : isFullRefundRequest
-      ? refundableAmount
-      : Math.round(refundableAmount * (selectedIds.length / activeProductIds.length));
+    const isFullRefundRequest = selectedIds.length === activeProductIds.length;
+    const requested = toAmount(requestedAmount);
+    const computedRequestedAmount =
+      requested > 0
+        ? Math.min(requested, refundableAmount)
+        : isFullRefundRequest
+        ? refundableAmount
+        : Math.round(refundableAmount * (selectedIds.length / activeProductIds.length));
 
-  const requestId = randomUUID();
-  await query(
-    `INSERT INTO refund_requests (
-      id,
-      order_id,
-      user_id,
-      customer_email,
-      selected_product_ids,
-      requested_amount,
-      reason,
-      status,
-      created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`,
-    [
-      requestId,
-      normalizedOrderId,
-      String(userId),
-      normalizedEmail,
-      JSON.stringify(selectedIds),
-      computedRequestedAmount,
-      toSafeText(reason) || null,
-    ]
-  );
+    const requestId = randomUUID();
+    await conn.execute(
+      `INSERT INTO refund_requests (
+        id,
+        order_id,
+        user_id,
+        customer_email,
+        customer_email_hash,
+        selected_product_ids,
+        requested_amount,
+        reason,
+        status,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`,
+      [
+        requestId,
+        normalizedOrderId,
+        String(userId),
+        encryptPii(normalizedEmail),
+        emailHash(normalizedEmail),
+        JSON.stringify(selectedIds),
+        computedRequestedAmount,
+        toSafeText(reason) || null,
+      ]
+    );
 
-  return {
-    id: requestId,
-    orderId: normalizedOrderId,
-    status: "pending",
-    requestedAmount: computedRequestedAmount,
-    selectedProductIds: selectedIds,
-  };
+    return {
+      id: requestId,
+      orderId: normalizedOrderId,
+      status: "pending",
+      requestedAmount: computedRequestedAmount,
+      selectedProductIds: selectedIds,
+    };
+  });
 }
 
 // 함수 역할: my 환불 requests 목록을 조회해 반환합니다.
@@ -212,6 +236,7 @@ export async function listMyRefundRequests(userId) {
 
   return rows.map((row) => ({
     ...row,
+    customerEmail: toSafeText(decryptPii(row.customerEmail)).toLowerCase(),
     selectedProductIds: parseJson(row.selectedProductIds) || [],
   }));
 }
@@ -286,9 +311,10 @@ export async function approveRefundRequest(requestId, { adminNote = "", approved
 
   const normalizedApprovedAmount = toAmount(approvedAmount);
   const fallbackRequestedAmount = toAmount(refundRequest.requestedAmount);
-  const cancelAmount = normalizedApprovedAmount > 0
-    ? Math.min(normalizedApprovedAmount, refundableAmount)
-    : Math.min(fallbackRequestedAmount, refundableAmount);
+  const cancelAmount =
+    normalizedApprovedAmount > 0
+      ? Math.min(normalizedApprovedAmount, refundableAmount)
+      : Math.min(fallbackRequestedAmount, refundableAmount);
 
   if (cancelAmount <= 0) {
     const error = new Error("환불 가능한 금액이 없습니다.");
@@ -319,7 +345,7 @@ export async function approveRefundRequest(requestId, { adminNote = "", approved
     processedAt: new Date().toISOString(),
   });
 
-  const nextPayload = {
+  const nextPayload = scrubStoredPii({
     ...payload,
     refundAmount: totalRefunded,
     refundedAmount: totalRefunded,
@@ -330,7 +356,7 @@ export async function approveRefundRequest(requestId, { adminNote = "", approved
     },
     refundHistory: history,
     paymentStatus: totalRefunded >= grossAmount ? "refunded" : "partially_refunded",
-  };
+  });
 
   await query(
     `UPDATE orders

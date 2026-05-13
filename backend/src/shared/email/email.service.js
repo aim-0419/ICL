@@ -5,6 +5,14 @@ import { query } from "../db/mysql.js";
 
 let _transporter = null;
 
+function maskEmailAddress(value) {
+  const email = String(value || "").trim().toLowerCase();
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return "";
+  const visible = local.slice(0, 2);
+  return `${visible}${"*".repeat(Math.max(2, local.length - visible.length))}@${domain}`;
+}
+
 function getTransporter() {
   if (_transporter) return _transporter;
   if (!env.smtpHost || !env.smtpUser || !env.smtpPass) return null;
@@ -26,12 +34,12 @@ export async function sendEmail(to, subject, html) {
   if (!to) return;
   const t = getTransporter();
   if (!t) {
-    console.warn("[email] SMTP 미설정 — 발송 건너뜀:", subject, "→", to);
+    console.warn("[email] SMTP 미설정 - 발송 건너뜀:", subject, "->", maskEmailAddress(to));
     return;
   }
   try {
     await t.sendMail({ from: env.smtpFrom, to, subject, html });
-    console.info("[email] 발송 완료:", subject, "→", to);
+    console.info("[email] 발송 완료:", subject, "->", maskEmailAddress(to));
   } catch (err) {
     console.error("[email] 발송 실패:", err.message);
   }

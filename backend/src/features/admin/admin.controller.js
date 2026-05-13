@@ -2,9 +2,12 @@
 import * as authService from "../auth/auth.service.js";
 import * as adminService from "./admin.service.js";
 import * as usersService from "../users/users.service.js";
+import { cancelPortonePayment } from "../payments/payments.service.js";
 import { query } from "../../shared/db/mysql.js";
 import { randomUUID } from "node:crypto";
 import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
+import { env } from "../../config/env.js";
+import { decryptPii } from "../../shared/security/pii.js";
 const DASHBOARD_RANGE_DAYS = {
   all: 0,
   today: 1,
@@ -822,18 +825,40 @@ export async function refundOrder(req, res, next) {
       refundHistory: history,
       paymentStatus: totalRefundAmount >= grossAmount ? "refunded" : "partially_refunded",
     };
+    delete nextPayload.customerEmail;
+    delete nextPayload.customerBirthYear;
+    delete nextPayload.birthYear;
+    if (nextPayload.customer && typeof nextPayload.customer === "object") {
+      nextPayload.customer = { ...nextPayload.customer };
+      delete nextPayload.customer.email;
+      delete nextPayload.customer.birthYear;
+    }
+
+    const isFullRefund = totalRefundAmount >= grossAmount;
+    if (env.portoneApiSecret) {
+      const paymentId = String(payload?.paymentId || orderId).trim();
+      await cancelPortonePayment(
+        paymentId,
+        refundReason || "관리자 환불 처리",
+        isFullRefund ? null : refundAmount
+      );
+    } else if (env.nodeEnv === "production") {
+      const err = new Error("PORTONE_API_SECRET이 설정되지 않아 환불을 진행할 수 없습니다.");
+      err.status = 500;
+      throw err;
+    }
 
     await query(`UPDATE orders SET payload = ? WHERE id = ?`, [JSON.stringify(nextPayload), orderId]);
 
     res.json({
       message:
-        totalRefundAmount >= grossAmount
+        isFullRefund
           ? "주문이 전액 환불 처리되었습니다."
           : "주문이 부분 환불 처리되었습니다.",
       order: {
         orderId: order.id,
         orderName: order.orderName || "",
-        customerEmail: order.customerEmail || "",
+        customerEmail: decryptPii(order.customerEmail) || "",
         grossAmount,
         refundAmount: totalRefundAmount,
         netAmount: Math.max(0, grossAmount - totalRefundAmount),

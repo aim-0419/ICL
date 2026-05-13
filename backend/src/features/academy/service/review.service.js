@@ -1,6 +1,7 @@
 // 파일 역할: 아카데미 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../../shared/db/mysql.js";
+import { decryptUserRow, emailHash } from "../../../shared/security/pii.js";
 
 function parsePayload(raw) {
   if (!raw) return {};
@@ -29,12 +30,12 @@ async function hasUserPurchasedVideo(userId, videoId) {
   );
   if (!video?.productId) return true;
 
-  const user = await queryOne(`SELECT email FROM users WHERE id = ?`, [String(userId)]);
+  const user = decryptUserRow(await queryOne(`SELECT email FROM users WHERE id = ?`, [String(userId)]));
   if (!user?.email) return false;
 
   const orders = await query(
-    `SELECT payload FROM orders WHERE LOWER(customer_email) = LOWER(?)`,
-    [String(user.email)]
+    `SELECT payload FROM orders WHERE customer_email_hash = ?`,
+    [emailHash(user.email)]
   );
 
   const targetId = String(video.productId).trim();
@@ -111,4 +112,3 @@ export async function deleteAcademyReview(reviewId, requestUserId, isAdmin = fal
   }
   await query(`DELETE FROM academy_reviews WHERE id = ?`, [String(reviewId)]);
 }
-

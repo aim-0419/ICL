@@ -201,7 +201,12 @@ export function CartPage() {
           );
         }
 
-        await store.persistOrder(orderPayload);
+        await store.persistOrder({
+          ...orderPayload,
+          paymentId: result.paymentId || orderPayload.orderId,
+          paymentStatus: "paid",
+          paymentApprovedAt: result.approvedAt || new Date().toISOString(),
+        });
         await Promise.all(selectedProductIds.map((productId) => store.removeCartItem(productId)));
 
         navigate(

@@ -1,5 +1,10 @@
 // 파일 역할: 관리자 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { query, queryOne } from "../../shared/db/mysql.js";
+import {
+  decryptOrderRow,
+  decryptUserRow,
+  emailHash,
+} from "../../shared/security/pii.js";
 
 const USER_GRADES = ["admin0", "admin1", "member", "vip", "vvip"];
 const USER_GRADE_SET = new Set(USER_GRADES);
@@ -556,6 +561,8 @@ export async function listDashboardUsers() {
   const productMap = new Map(
     products.map((product) => [String(product.id), { ...product, price: toAmount(product.price) }])
   );
+  const decryptedUsers = users.map(decryptUserRow);
+  const decryptedOrders = orders.map(decryptOrderRow);
   const learningMap = new Map(
     learningRows.map((row) => [
       String(row.userId || ""),
@@ -569,7 +576,7 @@ export async function listDashboardUsers() {
   );
 
   const ordersByEmail = new Map();
-  for (const order of orders) {
+  for (const order of decryptedOrders) {
     const emailKey = String(order.customerEmail || "")
       .trim()
       .toLowerCase();
@@ -579,7 +586,7 @@ export async function listDashboardUsers() {
     ordersByEmail.set(emailKey, current);
   }
 
-  return users.map((user) => {
+  return decryptedUsers.map((user) => {
     const emailKey = String(user.email || "")
       .trim()
       .toLowerCase();
@@ -654,7 +661,7 @@ export async function getUserLearningProgress(userId, rangeValue = "all") {
     throw error;
   }
 
-  const user = await queryOne(
+  const user = decryptUserRow(await queryOne(
     `SELECT
       id,
       login_id AS loginId,
@@ -668,7 +675,7 @@ export async function getUserLearningProgress(userId, rangeValue = "all") {
      WHERE id = ?
      LIMIT 1`,
     [normalizedUserId]
-  );
+  ));
 
   if (!user?.id) {
     const error = new Error("대상 회원을 찾을 수 없습니다.");
@@ -728,9 +735,9 @@ export async function getUserLearningProgress(userId, rangeValue = "all") {
     query(
       `SELECT payload, created_at AS createdAt
        FROM orders
-       WHERE customer_email = ?
+       WHERE customer_email_hash = ?
        ORDER BY created_at DESC`,
-      [String(user.email || "").trim().toLowerCase()]
+      [emailHash(user.email)]
     ),
   ]);
 
@@ -852,7 +859,8 @@ export async function listLectureLearningReports(rangeValue = "all") {
         av.product_id AS productId,
         p.name AS title,
         av.instructor,
-        av.category
+        av.category,
+        av.is_hidden AS isHidden
        FROM academy_videos av
        INNER JOIN products p ON p.id = av.product_id
        ORDER BY av.created_at DESC, av.id DESC`
@@ -906,7 +914,8 @@ export async function listLectureLearningReports(rangeValue = "all") {
   );
 
   const learnersByLecture = new Map();
-  for (const row of learnerRows) {
+  for (const rawRow of learnerRows) {
+    const row = decryptUserRow(rawRow);
     const videoId = String(row.videoId || "");
     if (!videoId) continue;
 
@@ -949,6 +958,7 @@ export async function listLectureLearningReports(rangeValue = "all") {
       title: String(lecture.title || ""),
       instructor: String(lecture.instructor || ""),
       category: String(lecture.category || ""),
+      isHidden: toBoolean(lecture.isHidden),
       chapterCount,
       learnerCount,
       completedLearnerCount,
@@ -990,8 +1000,9 @@ export async function getSalesDashboard(options = {}) {
     ),
     query(
       `SELECT
-        LOWER(email) AS emailKey,
-        birth_year AS birthYear
+        email,
+        birth_year AS birthYear,
+        birth_year_encrypted AS birthYearEncrypted
        FROM users
        WHERE email IS NOT NULL
          AND email <> ''`
@@ -1036,7 +1047,9 @@ export async function getSalesDashboard(options = {}) {
   );
 
   const userBirthYearByEmail = new Map(
-    userRows.map((user) => [normalizeEmail(user.emailKey), normalizeBirthYear(user.birthYear)])
+    userRows
+      .map(decryptUserRow)
+      .map((user) => [normalizeEmail(user.email), normalizeBirthYear(user.birthYear)])
   );
 
   const lifetimeOrderCount = orderRows.length;
@@ -1047,7 +1060,8 @@ export async function getSalesDashboard(options = {}) {
   const videoSalesMap = new Map();
   const ageGroupSalesMap = new Map();
 
-  for (const order of orderRows) {
+  for (const rawOrder of orderRows) {
+    const order = decryptOrderRow(rawOrder);
     const payload = parsePayload(order.payload);
     const createdAtDate = toSafeDate(order.createdAt);
     const grossAmount = Math.max(0, toAmount(order.amount));
@@ -1246,13 +1260,13 @@ export async function updateUserGrade(userId, nextGrade) {
     throw error;
   }
 
-  const target = await queryOne(
+  const target = decryptUserRow(await queryOne(
     `SELECT id, login_id AS loginId, name, email, phone, user_grade AS userGrade
      FROM users
      WHERE id = ?
      LIMIT 1`,
     [userId]
-  );
+  ));
 
   if (!target) {
     const error = new Error("대상 회원을 찾을 수 없습니다.");
@@ -1269,7 +1283,7 @@ export async function updateUserGrade(userId, nextGrade) {
     [normalizedGrade, mapped.role, mapped.isAdmin, userId]
   );
 
-  return queryOne(
+  const updated = await queryOne(
     `SELECT
       id,
       login_id AS loginId,
@@ -1285,6 +1299,7 @@ export async function updateUserGrade(userId, nextGrade) {
      LIMIT 1`,
     [userId]
   );
+  return decryptUserRow(updated);
 }
 
 // 함수 역할: 강의 데이터를 새로 생성합니다.
@@ -1323,8 +1338,3 @@ export async function createLecture(payload) {
     [productId]
   );
 }
-
-
-
-
-

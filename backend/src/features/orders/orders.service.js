@@ -1,5 +1,15 @@
 // 파일 역할: 주문 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
-import { query, queryOne } from "../../shared/db/mysql.js";
+import { query, queryOne, withTransaction } from "../../shared/db/mysql.js";
+import {
+  decryptOrderRow,
+  decryptUserRow,
+  emailHash,
+  encryptPii,
+} from "../../shared/security/pii.js";
+import {
+  markPaymentConfirmationConsumed,
+  validateConfirmedPaymentForOrder,
+} from "../payments/payments.service.js";
 
 // 함수 역할: 요청 데이터 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
 function parsePayload(payload) {
@@ -10,6 +20,30 @@ function parsePayload(payload) {
   } catch {
     return {};
   }
+}
+
+function withoutStoredPii(payload) {
+  if (!payload || typeof payload !== "object") return {};
+  const sanitized = { ...payload };
+  delete sanitized.customerEmail;
+  delete sanitized.customerBirthYear;
+  delete sanitized.birthYear;
+  if (sanitized.customer && typeof sanitized.customer === "object") {
+    sanitized.customer = { ...sanitized.customer };
+    delete sanitized.customer.email;
+    delete sanitized.customer.birthYear;
+  }
+  return sanitized;
+}
+
+function toPublicOrder(row) {
+  const order = decryptOrderRow(row);
+  const publicPayload = withoutStoredPii(parsePayload(order?.payload));
+  return {
+    ...order,
+    ...publicPayload,
+    customerEmail: order?.customerEmail || "",
+  };
 }
 
 // 함수 역할: 이메일 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
@@ -74,42 +108,53 @@ export async function listOrders() {
      ORDER BY created_at DESC`
   );
 
-  return rows.map((row) => ({
-    ...row,
-    ...parsePayload(row.payload),
-  }));
+  return rows.map(toPublicOrder);
 }
 
 // 함수 역할: 주문 by customer 이메일 목록을 조회해 반환합니다.
 export async function listOrdersByCustomerEmail(customerEmail) {
+  const normalizedEmail = normalizeEmail(customerEmail);
   const rows = await query(
     `SELECT id, order_name AS orderName, amount, customer_email AS customerEmail, payload, created_at AS createdAt
      FROM orders
-     WHERE customer_email = ?
+     WHERE customer_email_hash = ?
      ORDER BY created_at DESC`,
-    [customerEmail]
+    [emailHash(normalizedEmail)]
   );
 
-  return rows.map((row) => ({
-    ...row,
-    ...parsePayload(row.payload),
-  }));
+  return rows.map(toPublicOrder);
 }
 
 // 함수 역할: 주문 데이터를 새로 생성합니다.
 export async function createOrder(payload, authUser = null) {
   const normalizedOrderId = String(payload?.orderId || "").trim();
-  const customerEmail = normalizeEmail(payload?.customerEmail || authUser?.email || "");
+  const customerEmail = normalizeEmail(authUser?.email || payload?.customerEmail || "");
+  const paymentId = String(payload?.paymentId || "").trim();
+  const amountValue = Number(payload?.amount ?? 0);
+  const amount = Number.isFinite(amountValue) ? Math.round(amountValue) : 0;
 
-  const customerFromDb = customerEmail
+  if (!customerEmail) {
+    const error = new Error("주문 고객 이메일을 확인할 수 없습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!normalizedOrderId || !paymentId || amount <= 0) {
+    const error = new Error("주문 생성에 필요한 결제 정보가 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  const customerFromDbRow = customerEmail
     ? await queryOne(
-        `SELECT id, email, birth_year AS birthYear
+        `SELECT id, email, birth_year AS birthYear, birth_year_encrypted AS birthYearEncrypted
          FROM users
-         WHERE LOWER(email) = ?
+         WHERE email_hash = ?
          LIMIT 1`,
-        [customerEmail]
+        [emailHash(customerEmail)]
       )
     : null;
+  const customerFromDb = decryptUserRow(customerFromDbRow);
 
   const payloadAgeGroup =
     normalizeAgeGroup(payload?.customerAgeGroup) ||
@@ -125,10 +170,28 @@ export async function createOrder(payload, authUser = null) {
   const resolvedAgeGroup =
     payloadAgeGroup || resolveAgeGroupByBirthYear(resolvedBirthYear) || "미분류";
 
+  const sanitizedItems = Array.isArray(payload?.items)
+    ? payload.items
+        .map((item) => ({
+          productId: String(item?.productId || "").trim(),
+          quantity: Math.max(1, Math.round(Number(item?.quantity ?? 1) || 1)),
+        }))
+        .filter((item) => item.productId)
+    : undefined;
+
+  const sanitizedSelectedProductIds = Array.isArray(payload?.selectedProductIds)
+    ? payload.selectedProductIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : undefined;
+
   const order = {
-    id: normalizedOrderId || `order-${Date.now()}`,
+    id: normalizedOrderId,
     createdAt: new Date().toISOString(),
-    ...payload,
+    orderName: String(payload?.orderName || "").trim() || null,
+    amount,
+    paymentId,
+    paymentMethod: String(payload?.paymentMethod || "").trim() || null,
+    ...(sanitizedItems ? { items: sanitizedItems } : {}),
+    ...(sanitizedSelectedProductIds ? { selectedProductIds: sanitizedSelectedProductIds } : {}),
     customerEmail: customerEmail || null,
     customerAgeGroup: resolvedAgeGroup,
     customerBirthYear: resolvedBirthYear,
@@ -142,23 +205,75 @@ export async function createOrder(payload, authUser = null) {
     },
   };
 
-  await query(
-    `INSERT INTO orders (id, order_name, amount, customer_email, payload, created_at)
-     VALUES (?, ?, ?, ?, ?, NOW())
-     ON DUPLICATE KEY UPDATE
-       order_name = VALUES(order_name),
-       amount = VALUES(amount),
-       customer_email = VALUES(customer_email),
-       payload = VALUES(payload),
-       created_at = NOW()`,
-    [
-      order.id,
-      order.orderName ?? null,
-      Number(order.amount ?? 0),
-      order.customerEmail ?? null,
-      JSON.stringify(order),
-    ]
-  );
+  return withTransaction(async (conn) => {
+    const [existingRows] = await conn.execute(
+      `SELECT
+        id,
+        order_name AS orderName,
+        amount,
+        customer_email AS customerEmail,
+        payload,
+        created_at AS createdAt
+       FROM orders
+       WHERE id = ?
+       LIMIT 1
+       FOR UPDATE`,
+      [order.id]
+    );
+    const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+    const existingOrder = decryptOrderRow(existing);
 
-  return order;
+    if (existingOrder?.customerEmail && normalizeEmail(existingOrder.customerEmail) !== customerEmail) {
+      const error = new Error("이미 다른 회원에게 연결된 주문입니다.");
+      error.status = 409;
+      throw error;
+    }
+
+    const confirmation = await validateConfirmedPaymentForOrder(conn, {
+      orderId: order.id,
+      paymentId: order.paymentId,
+      userId: authUser?.id,
+      customerEmail,
+      amount: order.amount,
+    });
+
+    if (existing?.id) {
+      await markPaymentConfirmationConsumed(conn, existing.id);
+      return toPublicOrder(existing);
+    }
+
+    const confirmedAt =
+      confirmation?.confirmedAt instanceof Date
+        ? confirmation.confirmedAt.toISOString()
+        : new Date(confirmation?.confirmedAt || Date.now()).toISOString();
+    const paidOrder = {
+      ...order,
+      paymentStatus: "paid",
+      paymentConfirmedAt: confirmedAt,
+    };
+
+    await conn.execute(
+      `INSERT INTO orders (id, order_name, amount, customer_email, customer_email_hash, payload, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE
+         order_name = VALUES(order_name),
+         amount = VALUES(amount),
+         customer_email = VALUES(customer_email),
+         customer_email_hash = VALUES(customer_email_hash),
+         payload = VALUES(payload),
+         created_at = NOW()`,
+      [
+        paidOrder.id,
+        paidOrder.orderName ?? null,
+        Number(paidOrder.amount ?? 0),
+        encryptPii(paidOrder.customerEmail ?? null),
+        emailHash(paidOrder.customerEmail),
+        JSON.stringify(withoutStoredPii(paidOrder)),
+      ]
+    );
+
+    await markPaymentConfirmationConsumed(conn, paidOrder.id);
+
+    return paidOrder;
+  });
 }

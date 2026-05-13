@@ -7,6 +7,7 @@
  *
  * 엔드포인트:
  * POST /api/payments/confirm  - 결제 최종 확정 (PortOne 검증 포함)
+ * POST /api/payments/webhook  - PortOne V2 결제 웹훅 수신
  */
 // 파일 역할: 결제 관련 API 경로와 컨트롤러를 Express Router에 연결합니다.
 import { Router } from "express";
@@ -16,3 +17,4 @@ import * as paymentsController from "./payments.controller.js";
 export const paymentsRoutes = Router();
 
 paymentsRoutes.post("/confirm", paymentsController.confirm);
+paymentsRoutes.post("/webhook", paymentsController.webhook);

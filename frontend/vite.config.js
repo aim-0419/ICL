@@ -8,11 +8,11 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       "/api": {
-        target: "https://icl-pilates.com",
+        target: "http://localhost:4000",
         changeOrigin: true,
       },
       "/uploads": {
-        target: "https://icl-pilates.com",
+        target: "http://localhost:4000",
         changeOrigin: true,
       },
     },

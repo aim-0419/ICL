@@ -6402,6 +6402,29 @@ video::-webkit-media-controls-fullscreen-button {
   gap: 12px;
 }
 
+.admin-member-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.admin-member-tab {
+  padding: 6px 18px;
+  border: 1px solid rgba(98, 73, 35, 0.22);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--text);
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+
+.admin-member-tab.active {
+  background: #b8860b;
+  color: #fff;
+  border-color: #b8860b;
+}
+
 .admin-member-card {
   border: 1px solid rgba(98, 73, 35, 0.12);
   border-radius: 14px;

@@ -4,6 +4,11 @@ import { env } from "../../config/env.js";
 import { sendEmailVerificationCode } from "../../shared/email/email.service.js";
 import { randomInt } from "node:crypto";
 import { hashPassword, isPasswordHash, verifyPassword } from "../../shared/security/password.js";
+import {
+  decryptUserRow,
+  emailHash,
+  encryptedUserValues,
+} from "../../shared/security/pii.js";
 
 // 인증 및 탈퇴 보관 정책 상수 정의
 const EMAIL_VERIFICATION_EXPIRES_MS = 1000 * 60 * 5;
@@ -57,6 +62,14 @@ function maskPhone(phone) {
   return `${"*".repeat(normalized.length - 4)}${normalized.slice(-4)}`;
 }
 
+function maskEmail(email) {
+  const normalized = normalizeEmail(email);
+  const [local, domain] = normalized.split("@");
+  if (!local || !domain) return "";
+  const visible = local.slice(0, 2);
+  return `${visible}${"*".repeat(Math.max(2, local.length - visible.length))}@${domain}`;
+}
+
 // 탈퇴 상태 판별 유틸리티
 // 함수 역할: 탈퇴 조건에 해당하는지 참/거짓으로 판별합니다.
 function isWithdrawn(user) {
@@ -67,7 +80,7 @@ function isWithdrawn(user) {
 
 // 함수 역할: selectUserById 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 async function selectUserById(userId) {
-  return queryOne(
+  const row = await queryOne(
     `SELECT
       id,
       login_id AS loginId,
@@ -78,6 +91,7 @@ async function selectUserById(userId) {
       is_admin AS isAdmin,
       user_grade AS userGrade,
       birth_year AS birthYear,
+      birth_year_encrypted AS birthYearEncrypted,
       account_status AS accountStatus,
       withdrawn_at AS withdrawnAt,
       withdrawal_purge_at AS withdrawalPurgeAt,
@@ -90,6 +104,7 @@ async function selectUserById(userId) {
      LIMIT 1`,
     [userId]
   );
+  return decryptUserRow(row);
 }
 
 // 탈퇴 만료 시 연관 데이터 영구 폐기 처리
@@ -125,7 +140,7 @@ function isWithdrawPhoneVerified(userId, phone) {
 
 // 함수 역할: 회원 목록을 조회해 반환합니다.
 export async function listUsers() {
-  return query(
+  const rows = await query(
     `SELECT
       id,
       login_id AS loginId,
@@ -136,6 +151,7 @@ export async function listUsers() {
       is_admin AS isAdmin,
       user_grade AS userGrade,
       birth_year AS birthYear,
+      birth_year_encrypted AS birthYearEncrypted,
       account_status AS accountStatus,
       withdrawn_at AS withdrawnAt,
       withdrawal_purge_at AS withdrawalPurgeAt,
@@ -146,6 +162,7 @@ export async function listUsers() {
      FROM users
      ORDER BY created_at DESC`
   );
+  return Array.isArray(rows) ? rows.map(decryptUserRow) : [];
 }
 
 // 내 정보 수정 처리
@@ -165,7 +182,7 @@ export async function updateMyProfile(userId, payload) {
     throw error;
   }
 
-  const existing = await queryOne(
+  const existingRow = await queryOne(
     `SELECT
       id,
       login_id AS loginId,
@@ -174,12 +191,14 @@ export async function updateMyProfile(userId, payload) {
       phone,
       password,
       birth_year AS birthYear,
+      birth_year_encrypted AS birthYearEncrypted,
       account_status AS accountStatus
      FROM users
      WHERE id = ?
      LIMIT 1`,
     [userId]
   );
+  const existing = decryptUserRow(existingRow);
 
   if (!existing) {
     const error = new Error("회원 정보를 찾을 수 없습니다.");
@@ -232,8 +251,8 @@ export async function updateMyProfile(userId, payload) {
     throw error;
   }
 
-  const duplicatedEmail = await queryOne(`SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1`, [
-    nextEmail,
+  const duplicatedEmail = await queryOne(`SELECT id FROM users WHERE email_hash = ? AND id <> ? LIMIT 1`, [
+    emailHash(nextEmail),
     userId,
   ]);
   if (duplicatedEmail) {
@@ -258,11 +277,34 @@ export async function updateMyProfile(userId, payload) {
     }
   }
 
+  const piiValues = encryptedUserValues({
+    name: existing.name,
+    email: nextEmail,
+    phone: nextPhone,
+    birthYear: nextBirthYear,
+  });
+
   await query(
     `UPDATE users
-     SET login_id = ?, email = ?, phone = ?, password = ?, birth_year = ?
+     SET login_id = ?,
+         email = ?,
+         email_hash = ?,
+         phone = ?,
+         phone_hash = ?,
+         password = ?,
+         birth_year = NULL,
+         birth_year_encrypted = ?
      WHERE id = ?`,
-    [nextLoginId, nextEmail, nextPhone, nextPassword, nextBirthYear, userId]
+    [
+      nextLoginId,
+      piiValues.encryptedEmail,
+      piiValues.emailHash,
+      piiValues.encryptedPhone,
+      piiValues.phoneHash,
+      nextPassword,
+      piiValues.encryptedBirthYear,
+      userId,
+    ]
   );
 
   if (isEmailChanged) {
@@ -283,8 +325,8 @@ export async function requestEmailVerificationCode(userId, email) {
   }
 
   const existingUser = await queryOne(
-    `SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1`,
-    [normalizedEmail, userId]
+    `SELECT id FROM users WHERE email_hash = ? AND id <> ? LIMIT 1`,
+    [emailHash(normalizedEmail), userId]
   );
   if (existingUser) {
     const error = new Error("이미 사용 중인 이메일입니다.");
@@ -305,7 +347,11 @@ export async function requestEmailVerificationCode(userId, email) {
   const expiresMinutes = Math.floor(EMAIL_VERIFICATION_EXPIRES_MS / 60000);
   void sendEmailVerificationCode(normalizedEmail, code, expiresMinutes);
 
-  console.info("[email-verification] code generated", { userId, email: normalizedEmail, expiresAt });
+  console.info("[email-verification] code generated", {
+    userId,
+    email: maskEmail(normalizedEmail),
+    expiresAt: new Date(expiresAt).toISOString(),
+  });
 
   return {
     email: normalizedEmail,
@@ -360,13 +406,14 @@ export async function confirmEmailVerificationCode(userId, email, code) {
 // 탈퇴용 휴대폰 인증번호 발송 처리
 // 함수 역할: requestWithdrawPhoneVerificationCode 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function requestWithdrawPhoneVerificationCode(userId, phone) {
-  const user = await queryOne(
+  const userRow = await queryOne(
     `SELECT id, phone, account_status AS accountStatus
      FROM users
      WHERE id = ?
      LIMIT 1`,
     [userId]
   );
+  const user = decryptUserRow(userRow);
 
   if (!user) {
     const error = new Error("회원 정보를 찾을 수 없습니다.");
@@ -406,8 +453,7 @@ export async function requestWithdrawPhoneVerificationCode(userId, phone) {
 
   console.info("[withdraw-phone-verification] code generated", {
     userId,
-    phone: registeredPhone,
-    code,
+    phone: maskPhone(registeredPhone),
     expiresAt,
   });
 
@@ -428,13 +474,14 @@ export async function confirmWithdrawPhoneVerificationCode(userId, phone, code) 
     throw error;
   }
 
-  const user = await queryOne(
+  const userRow = await queryOne(
     `SELECT id, phone, account_status AS accountStatus
      FROM users
      WHERE id = ?
      LIMIT 1`,
     [userId]
   );
+  const user = decryptUserRow(userRow);
 
   if (!user) {
     const error = new Error("회원 정보를 찾을 수 없습니다.");
@@ -640,9 +687,9 @@ export async function getUserPoints(userId) {
 // 함수 역할: adjustPoints 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function adjustPoints(userId, amount, reason, orderId = null) {
   const { randomUUID } = await import("node:crypto");
-  const currentPoints = await getUserPoints(userId);
-  const newPoints = Math.max(0, currentPoints + amount);
-  await query(`UPDATE users SET points = ? WHERE id = ?`, [newPoints, String(userId)]);
+  await query(`UPDATE users SET points = GREATEST(0, points + ?) WHERE id = ?`, [amount, String(userId)]);
+  const row = await queryOne(`SELECT points FROM users WHERE id = ?`, [String(userId)]);
+  const newPoints = Number(row?.points ?? 0);
   await query(
     `INSERT INTO point_history (id, user_id, amount, reason, order_id, created_at)
      VALUES (?, ?, ?, ?, ?, NOW())`,

@@ -1,6 +1,7 @@
 // 파일 역할: 아카데미 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../../shared/db/mysql.js";
+import { emailHash } from "../../../shared/security/pii.js";
 import { syncChapterVideoNames } from "./asset.service.js";
 
 
@@ -1006,8 +1007,8 @@ export async function hasAcademyVideoAccess(user, videoId) {
   const orderRows = await query(
     `SELECT payload, cancelled_product_ids AS cancelledProductIds
      FROM orders
-     WHERE customer_email = ?`,
-    [email]
+     WHERE customer_email_hash = ?`,
+    [emailHash(email)]
   );
 
   const purchased = orderRows.some((row) => {

@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../../shared/db/mysql.js";
 import { sendQnaReplyNotification } from "../../../shared/email/email.service.js";
+import { decryptUserRow } from "../../../shared/security/pii.js";
 
 // Q&A 목록 및 비밀글 가림 처리 로직
 // 함수 역할: 아카데미 Q&A 목록을 조회해 반환합니다.
@@ -118,7 +119,7 @@ export async function createAcademyQnaReply(userId, userName, postId, content, i
   if (isAdmin && post.authorId && String(post.authorId) !== String(userId)) {
     void (async () => {
       try {
-        const [author, videoRow] = await Promise.all([
+        const [authorRow, videoRow] = await Promise.all([
           queryOne(`SELECT email, name FROM users WHERE id = ?`, [String(post.authorId)]),
           queryOne(
             `SELECT p.name AS videoTitle
@@ -128,6 +129,7 @@ export async function createAcademyQnaReply(userId, userName, postId, content, i
             [String(post.videoId)]
           ),
         ]);
+        const author = decryptUserRow(authorRow);
         if (author?.email) {
           await sendQnaReplyNotification({
             toEmail: author.email,

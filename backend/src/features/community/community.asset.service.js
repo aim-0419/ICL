@@ -44,6 +44,58 @@ function resolveExtension({ kind, fileName, mimeType }) {
   return kind === "video" ? ".mp4" : ".jpg";
 }
 
+// 파일 시그니처(매직 바이트)로 실제 파일 형식을 검증합니다.
+function validateMagicBytes(buffer, extension) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return false;
+
+  switch (extension) {
+    case ".jpg":
+    case ".jpeg":
+      return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    case ".png":
+      return (
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47 &&
+        buffer[4] === 0x0d &&
+        buffer[5] === 0x0a &&
+        buffer[6] === 0x1a &&
+        buffer[7] === 0x0a
+      );
+    case ".gif":
+      return (
+        buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38
+      );
+    case ".webp":
+      // RIFF....WEBP
+      return (
+        buffer[0] === 0x52 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x46 &&
+        buffer[8] === 0x57 &&
+        buffer[9] === 0x45 &&
+        buffer[10] === 0x42 &&
+        buffer[11] === 0x50
+      );
+    case ".mp4":
+    case ".m4v":
+    case ".mov":
+      // ftyp box at byte offset 4
+      return (
+        buffer[4] === 0x66 &&
+        buffer[5] === 0x74 &&
+        buffer[6] === 0x79 &&
+        buffer[7] === 0x70
+      );
+    case ".webm":
+      return buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3;
+    default:
+      return false;
+  }
+}
+
 export async function saveCommunityAsset({ kind, fileName, mimeType, buffer }) {
   if (kind !== "image" && kind !== "video") {
     const error = new Error("업로드 타입이 올바르지 않습니다.");
@@ -58,6 +110,13 @@ export async function saveCommunityAsset({ kind, fileName, mimeType, buffer }) {
   }
 
   const extension = resolveExtension({ kind, fileName, mimeType });
+
+  if (!validateMagicBytes(buffer, extension)) {
+    const error = new Error("파일 형식이 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+
   const subDir = kind === "video" ? "videos" : "images";
   const targetDir = path.resolve(UPLOAD_ROOT, subDir);
   await mkdir(targetDir, { recursive: true });

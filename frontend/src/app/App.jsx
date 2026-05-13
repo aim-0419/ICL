@@ -2,7 +2,7 @@
  * 앱 라우팅(App) 구조
  * - React Router로 전체 페이지 경로를 정의하고 권한에 따라 접근을 제한
  * - 모든 페이지는 lazy()로 지연 로딩해 초기 번들 크기를 최소화
- * - RequireAuth: 로그인한 사용자만 접근 가능 (마이페이지, 플레이어, 수료증)
+ * - RequireAuth: 로그인한 사용자만 접근 가능 (마이페이지, 플레이어)
  * - RequireAdminStaff: 관리자(admin/staff)만 접근 가능 (어드민 페이지 전체)
  * - AdminImageEditor: 모든 페이지에 오버레이로 렌더링, 관리자 편집 모드에서만 활성화
  *
@@ -14,7 +14,6 @@
  * /academy                      → 강의 목록
  * /academy/:videoId             → 강의 상세
  * /academy/player/:videoId      → 강의 플레이어 (로그인 필요)
- * /academy/certificate/:videoId → 수료증 (로그인 필요)
  * /ikleulrim/*                  → 브랜드 소개 5개 서브페이지
  * /community/*                  → 이벤트·후기·문의 커뮤니티
  * /mypage                       → 마이페이지 (로그인 필요)
@@ -45,7 +44,6 @@ const AdminProductPage = lazy(() => import("../features/admin/pages/AdminProduct
 const AcademyPage = lazy(() => import("../features/academy/pages/AcademyPage.jsx").then((m) => ({ default: m.AcademyPage })));
 const AcademyDetailPage = lazy(() => import("../features/academy/pages/AcademyDetailPage.jsx").then((m) => ({ default: m.AcademyDetailPage })));
 const AcademyPlayerPage = lazy(() => import("../features/academy/pages/AcademyPlayerPage.jsx").then((m) => ({ default: m.AcademyPlayerPage })));
-const AcademyCertificatePage = lazy(() => import("../features/academy/pages/AcademyCertificatePage.jsx").then((m) => ({ default: m.AcademyCertificatePage })));
 const SuccessPage = lazy(() => import("../features/payment/pages/SuccessPage.jsx").then((m) => ({ default: m.SuccessPage })));
 const FailPage = lazy(() => import("../features/payment/pages/FailPage.jsx").then((m) => ({ default: m.FailPage })));
 
@@ -99,15 +97,6 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route
-            path="/academy/certificate/:videoId"
-            element={
-              <RequireAuth>
-                <AcademyCertificatePage />
-              </RequireAuth>
-            }
-          />
-
           {/* 브랜드 소개 서브페이지 */}
           <Route path="/ikleulrim/intro" element={<BrandIntroPage />} />
           <Route path="/ikleulrim/instructors" element={<BrandInstructorsPage />} />

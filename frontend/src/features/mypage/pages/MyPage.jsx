@@ -812,9 +812,6 @@ export function MyPage() {
                           ) : null}
                         </div>
                         <div className="mypage-course-actions">
-                          {video.completed ? (
-                            <Link to={`/academy/certificate/${video.id}`} className="pill-button small">수료증 보기</Link>
-                          ) : null}
                           <button type="button" className="ghost-button small-ghost" disabled={isExpired} onClick={() => navigate(`/academy/player/${video.id}`)}>
                             {isExpired ? "만료됨" : video.completed ? "다시보기" : video.progressPercent > 0 ? "이어보기" : "지금 수강"}
                           </button>
@@ -870,9 +867,6 @@ export function MyPage() {
                           )}
                         </div>
                         <div className="mypage-course-actions">
-                          {video.completed && (
-                            <Link to={`/academy/certificate/${video.id}`} className="pill-button small">수료증 보기</Link>
-                          )}
                           <button type="button" className="ghost-button small-ghost" disabled={isExpired} onClick={() => navigate(`/academy/player/${video.id}`)}>
                             {isExpired ? "만료됨" : video.completed ? "다시보기" : video.progressPercent > 0 ? "이어보기" : "지금 수강"}
                           </button>

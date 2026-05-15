@@ -1001,7 +1001,6 @@ export async function getSalesDashboard(options = {}) {
     query(
       `SELECT
         email,
-        birth_year AS birthYear,
         birth_year_encrypted AS birthYearEncrypted
        FROM users
        WHERE email IS NOT NULL

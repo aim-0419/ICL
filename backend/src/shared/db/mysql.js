@@ -10,7 +10,7 @@
  * - repairLegacyMojibakeData(): 과거 latin1 인코딩으로 저장된 한글 깨짐 데이터 복구
  * - purgeWithdrawnUsers(): 탈퇴 후 파기 기한이 지난 회원 데이터 자동 삭제
  *
- * 테이블 목록 (26개):
+ * 테이블 목록 (30개):
  * users, sessions, email_verifications              → 인증·회원
  * products                                          → 상품
  * academy_videos, academy_video_chapters            → 강의·차시
@@ -18,6 +18,7 @@
  * academy_playback_sessions                         → 보안 재생 세션
  * academy_reviews, academy_qna_posts, academy_qna_replies → 수강평·Q&A
  * cart_items, orders, point_history                 → 장바구니·주문·포인트
+ * payment_confirmations, payment_webhook_events     → 결제 검증·웹훅
  * refund_requests                                   → 환불
  * video_grants                                      → 강의 선물 권한
  * social_feed_cache                                 → 소셜 피드 캐시
@@ -25,6 +26,7 @@
  * events                                            → 커뮤니티 이벤트
  * inquiry_posts, inquiry_replies                    → 커뮤니티 문의
  * admin_page_overrides                              → 관리자 페이지 오버라이드
+ * login_rate_limits, signup_rate_limits             → 로그인·회원가입 요청 제한
  * instructors, branches                             → 강사·지점 정보
  *
  * 시드 데이터: 없음 (모든 데이터는 관리자 패널로 직접 등록)
@@ -66,6 +68,40 @@ const pool = mysql.createPool({
 
 let initPromise = null;
 
+// 테이블 역할 설명은 DB 관리 도구에서 바로 확인할 수 있도록 MySQL TABLE COMMENT로 반영합니다.
+const SCHEMA_TABLE_COMMENTS = {
+  users: "회원 계정, 권한, 암호화된 개인정보, 포인트 잔액을 저장합니다.",
+  sessions: "로그인 유지용 서버 세션 토큰과 만료 시각을 저장합니다.",
+  email_verifications: "회원가입과 계정 복구에 쓰는 이메일 인증번호 상태를 저장합니다.",
+  products: "결제 가능한 상품의 가격과 설명 정보를 저장합니다.",
+  academy_videos: "교육 영상 상품의 강의 메타데이터와 공개 상태를 저장합니다.",
+  academy_progress: "회원별 강의 단위 학습 진도 상태를 저장합니다.",
+  academy_video_chapters: "강의에 속한 차시별 영상과 재생 정보를 저장합니다.",
+  academy_chapter_progress: "회원별 차시 단위 학습 진도 상태를 저장합니다.",
+  academy_playback_sessions: "동시 재생 제한과 보안 재생 토큰 검증 상태를 저장합니다.",
+  cart_items: "회원 장바구니에 담긴 상품과 수량을 저장합니다.",
+  orders: "결제 전후 주문 원장과 구매 상품 payload를 저장합니다.",
+  payment_confirmations: "PortOne 결제 검증 결과와 주문 반영 상태를 저장합니다.",
+  payment_webhook_events: "PortOne V2 웹훅 수신 이력과 처리 결과를 저장합니다.",
+  social_feed_cache: "외부 소셜 채널에서 가져온 최신 게시글 캐시를 저장합니다.",
+  review_posts: "커뮤니티 후기 게시글을 저장합니다.",
+  review_comments: "커뮤니티 후기 댓글을 저장합니다.",
+  events: "커뮤니티 이벤트 게시글과 노출 상태를 저장합니다.",
+  inquiry_posts: "커뮤니티 문의 게시글과 비밀글 상태를 저장합니다.",
+  inquiry_replies: "커뮤니티 문의 답변을 저장합니다.",
+  refund_requests: "회원 환불 신청과 관리자 처리 결과를 저장합니다.",
+  point_history: "회원 포인트 적립과 차감 내역을 저장합니다.",
+  admin_page_overrides: "관리자 페이지 편집에서 저장한 위치, 이미지, 문구 오버라이드를 저장합니다.",
+  instructors: "브랜드 소개에 노출할 강사 프로필을 저장합니다.",
+  branches: "브랜드 소개에 노출할 지점 위치와 연락처를 저장합니다.",
+  academy_reviews: "교육 영상 상세의 수강평을 저장합니다.",
+  academy_qna_posts: "교육 영상 Q&A 질문 게시글을 저장합니다.",
+  academy_qna_replies: "교육 영상 Q&A 답변을 저장합니다.",
+  video_grants: "관리자가 회원에게 부여한 영상 수강 권한을 저장합니다.",
+  login_rate_limits: "로그인 실패 횟수와 일시 차단 상태를 IP별로 저장합니다.",
+  signup_rate_limits: "회원가입 요청 빈도 제한 상태를 IP별로 저장합니다.",
+};
+
 // 테이블/컬럼별 상세 용도 설명 코멘트 정의
 const SCHEMA_COLUMN_COMMENTS = {
   users: {
@@ -78,7 +114,7 @@ const SCHEMA_COLUMN_COMMENTS = {
     role: "권한 분기 판단용 역할 코드 값",
     is_admin: "관리자 화면 접근 판단용 플래그 값",
     user_grade: "회원 등급 혜택 계산용 등급 코드 값",
-    birth_year: "연령대 통계 산출용 출생연도 값",
+    birth_year_encrypted: "연령대 통계 산출용 출생연도 암호화 값",
     points: "포인트 적립/차감 계산 기준 잔액 값",
     account_status: "계정 활성/탈퇴 상태 판별 값",
     withdrawn_at: "회원 탈퇴 처리 완료 시각 값",
@@ -301,6 +337,105 @@ const SCHEMA_COLUMN_COMMENTS = {
   },
 };
 
+// 최근 추가되었거나 개인정보 암호화 이후 생긴 컬럼의 DB 코멘트를 보강합니다.
+const EXTRA_SCHEMA_COLUMN_COMMENTS = {
+  users: {
+    email_hash: "암호화된 이메일을 직접 복호화하지 않고 중복/조회하기 위한 검색 해시 값",
+    phone_hash: "암호화된 전화번호를 직접 복호화하지 않고 본인확인 조회에 쓰는 검색 해시 값",
+    name_hash: "암호화된 이름을 직접 복호화하지 않고 아이디 찾기에 쓰는 검색 해시 값",
+    birth_year_encrypted: "연령대 통계 산출을 위해 암호화 저장한 출생연도 값",
+  },
+  sessions: {
+    expires_at: "세션 자동 만료 시각 값",
+  },
+  email_verifications: {
+    email: "인증번호 발송 대상 이메일 암호화 값",
+    email_hash: "인증 대상 이메일을 조회하기 위한 검색 해시 값",
+    code: "사용자에게 발송한 일회성 인증번호 값",
+    expires_at: "인증번호 만료 시각 값",
+    verified_at: "인증 성공 처리 시각 값",
+    attempts: "인증번호 확인 실패 누적 횟수 값",
+    send_count: "제한 시간 안의 인증번호 발송 횟수 값",
+    first_sent_at: "발송 횟수 제한 기준이 되는 최초 발송 시각 값",
+  },
+  orders: {
+    customer_email_hash: "주문자 이메일을 복호화하지 않고 주문을 조회하기 위한 검색 해시 값",
+    cancelled_product_ids: "부분 환불로 접근 권한이 취소된 상품 ID 목록 JSON 값",
+  },
+  payment_confirmations: {
+    order_id: "결제 검증 대상 주문 식별자 값",
+    payment_id: "PortOne 결제 고유 식별자 값",
+    user_id: "결제를 요청한 회원 식별자 값",
+    customer_email: "결제자 이메일 암호화 값",
+    customer_email_hash: "결제자 이메일 조회용 검색 해시 값",
+    amount: "검증된 결제 금액 값",
+    status: "결제 검증 및 반영 상태 값",
+    payment_payload: "PortOne 결제 조회 응답 원문 JSON 값",
+    confirmed_at: "결제 검증 완료 시각 값",
+    consumed_at: "주문/수강권 반영 완료 시각 값",
+    order_created_at: "연결된 주문 생성 시각 값",
+  },
+  payment_webhook_events: {
+    webhook_id: "PortOne이 전달한 웹훅 이벤트 고유 식별자 값",
+    event_type: "웹훅 이벤트 종류 값",
+    payment_id: "웹훅과 연결된 PortOne 결제 식별자 값",
+    payload: "웹훅 요청 본문 원문 JSON 값",
+    process_status: "웹훅 처리 상태 값",
+    process_message: "웹훅 처리 보조 메시지 값",
+    received_at: "웹훅 최초 수신 시각 값",
+    processed_at: "웹훅 처리 완료 시각 값",
+    last_seen_at: "동일 웹훅 마지막 수신 시각 값",
+    attempts: "동일 웹훅 수신 누적 횟수 값",
+  },
+  review_posts: {
+    image_url: "후기 게시글 첨부 이미지 경로 값",
+    video_url: "후기 게시글 첨부 영상 경로 값",
+  },
+  events: {
+    content: "이벤트 상세 본문 내용 값",
+    created_at: "이벤트 게시글 생성 시각 값",
+  },
+  inquiry_posts: {
+    image_url: "문의 게시글 첨부 이미지 경로 값",
+    video_url: "문의 게시글 첨부 영상 경로 값",
+  },
+  refund_requests: {
+    id: "환불 신청 고유 식별자 값",
+    order_id: "환불 신청 대상 주문 식별자 값",
+    user_id: "환불을 신청한 회원 식별자 값",
+    customer_email: "환불 신청자 이메일 암호화 값",
+    customer_email_hash: "환불 신청자 이메일 조회용 검색 해시 값",
+    selected_product_ids: "환불 신청 대상 상품 ID 목록 JSON 값",
+    requested_amount: "환불 요청 금액 값",
+    reason: "회원이 입력한 환불 사유 값",
+    status: "환불 처리 상태 값",
+    admin_note: "관리자 처리 메모 값",
+    created_at: "환불 신청 생성 시각 값",
+    resolved_at: "환불 승인 또는 거절 처리 시각 값",
+  },
+  video_grants: {
+    id: "강의 권한 부여 이력 고유 식별자 값",
+    user_id: "권한을 받은 회원 식별자 값",
+    video_id: "접근 권한을 부여한 교육 영상 식별자 값",
+    granted_by: "권한을 부여한 관리자 회원 식별자 값",
+    duration_type: "권한 유지 기간 유형 값",
+    expires_at: "권한 만료 시각 값",
+    created_at: "권한 부여 시각 값",
+  },
+  login_rate_limits: {
+    ip: "로그인 실패 횟수를 묶는 접속 IP 값",
+    fail_count: "로그인 실패 누적 횟수 값",
+    blocked_until: "로그인 시도가 차단되는 만료 시각 값",
+    updated_at: "제한 상태 마지막 갱신 시각 값",
+  },
+  signup_rate_limits: {
+    ip: "회원가입 시도 횟수를 묶는 접속 IP 값",
+    attempt_count: "제한 시간 안의 회원가입 시도 횟수 값",
+    window_start: "시도 횟수 제한 기준 시작 시각 값",
+    updated_at: "제한 상태 마지막 갱신 시각 값",
+  },
+};
+
 const NUMERIC_DATA_TYPES = new Set([
   "tinyint",
   "smallint",
@@ -322,6 +457,19 @@ function escapeSqlString(value) {
 // 함수 역할: SQL ID 값을 SQL에 안전하게 넣을 수 있도록 이스케이프합니다.
 function escapeSqlId(value) {
   return `\`${String(value || "").replace(/`/g, "``")}\``;
+}
+
+// 함수 역할: 운영 DB에 특정 테이블 컬럼이 존재하는지 안전하게 확인합니다.
+async function databaseColumnExists(tableName, columnName) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = ?
+       AND COLUMN_NAME = ?`,
+    [String(tableName || ""), String(columnName || "")]
+  );
+  return Number(rows?.[0]?.count ?? 0) > 0;
 }
 
 // 함수 역할: 기본값 clause 상황에 맞는 값을 계산하거나 선택합니다.
@@ -368,6 +516,39 @@ function buildCommentModifyDefinition(columnMeta, commentText) {
   return definitionParts.join(" ").replace(/\s+/g, " ").trim();
 }
 
+// 함수 역할: 기본 컬럼 설명과 보강 컬럼 설명을 테이블별로 병합합니다.
+function getMergedSchemaColumnComments() {
+  const merged = {};
+  for (const source of [SCHEMA_COLUMN_COMMENTS, EXTRA_SCHEMA_COLUMN_COMMENTS]) {
+    for (const [tableName, columns] of Object.entries(source || {})) {
+      merged[tableName] = { ...(merged[tableName] || {}), ...(columns || {}) };
+    }
+  }
+  return merged;
+}
+
+// 함수 역할: DB 테이블 코멘트를 실제 운영 스키마에 반영합니다.
+async function applySchemaTableComments() {
+  const [tableRows] = await pool.query(
+    `SELECT TABLE_NAME AS tableName, TABLE_COMMENT AS tableComment
+     FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()`
+  );
+  const tableMap = new Map((Array.isArray(tableRows) ? tableRows : []).map((row) => [row.tableName, row]));
+
+  for (const [tableName, commentText] of Object.entries(SCHEMA_TABLE_COMMENTS)) {
+    const tableMeta = tableMap.get(tableName);
+    if (!tableMeta) continue;
+    if (String(tableMeta.tableComment || "") === String(commentText || "")) continue;
+
+    try {
+      await pool.query(`ALTER TABLE ${escapeSqlId(tableName)} COMMENT = '${escapeSqlString(commentText)}'`);
+    } catch (error) {
+      console.warn(`[db] table comment update skipped: ${tableName}`, error?.message || error);
+    }
+  }
+}
+
 // 함수 역할: 스키마 컬럼 댓글 변경값을 실제 대상에 적용합니다.
 async function applySchemaColumnComments() {
   const [columnRows] = await pool.query(
@@ -386,8 +567,9 @@ async function applySchemaColumnComments() {
 
   const rows = Array.isArray(columnRows) ? columnRows : [];
   const columnMap = new Map(rows.map((row) => [`${row.tableName}.${row.columnName}`, row]));
+  const mergedColumnComments = getMergedSchemaColumnComments();
 
-  for (const [tableName, columns] of Object.entries(SCHEMA_COLUMN_COMMENTS)) {
+  for (const [tableName, columns] of Object.entries(mergedColumnComments)) {
     for (const [columnName, commentText] of Object.entries(columns || {})) {
       const key = `${tableName}.${columnName}`;
       const columnMeta = columnMap.get(key);
@@ -408,8 +590,13 @@ async function applySchemaColumnComments() {
 
 // 함수 역할: unused 스키마 objects에서 더 이상 쓰지 않는 항목을 제거합니다.
 async function dropUnusedSchemaObjects() {
-  // 현재 코드베이스 기준으로 삭제 안전성이 확인된 미사용 테이블/컬럼 없음
-  // 운영 데이터 손실 방지를 위해 자동 삭제는 수행하지 않음
+  // birth_year는 개인정보 암호화 전환 전에 쓰던 평문 출생연도 컬럼입니다.
+  // encryptExistingUserPii()가 birth_year_encrypted로 값을 옮긴 뒤에는 더 이상 코드에서 조회하지 않으므로 제거합니다.
+  const hasPlainBirthYear = await databaseColumnExists("users", "birth_year");
+  const hasEncryptedBirthYear = await databaseColumnExists("users", "birth_year_encrypted");
+  if (hasPlainBirthYear && hasEncryptedBirthYear) {
+    await pool.query(`ALTER TABLE users DROP COLUMN birth_year`);
+  }
 }
 
 // 함수 역할: 이전에 시드로 삽입된 하드코딩 데이터를 DB에서 일괄 제거합니다.
@@ -464,8 +651,10 @@ function resolveEncryptedPiiValue(info, normalizedValue, { nullable = false } = 
 }
 
 async function encryptExistingUserPii() {
+  const hasPlainBirthYear = await databaseColumnExists("users", "birth_year");
+  const birthYearSelect = hasPlainBirthYear ? "birth_year AS birthYear" : "NULL AS birthYear";
   const [rows] = await pool.query(
-    `SELECT id, name, email, phone, birth_year AS birthYear, birth_year_encrypted AS birthYearEncrypted
+    `SELECT id, name, email, phone, ${birthYearSelect}, birth_year_encrypted AS birthYearEncrypted
      FROM users`
   );
 
@@ -491,8 +680,7 @@ async function encryptExistingUserPii() {
            email_hash = ?,
            phone_hash = ?,
            name_hash = ?,
-           birth_year_encrypted = ?,
-           birth_year = NULL
+           birth_year_encrypted = ?
        WHERE id = ?`,
       [
         resolveEncryptedPiiValue(nameValue, decryptedName),
@@ -809,7 +997,6 @@ async function initDatabase() {
       role VARCHAR(40) NOT NULL DEFAULT 'user',
       is_admin TINYINT(1) NOT NULL DEFAULT 0,
       user_grade VARCHAR(20) NOT NULL DEFAULT 'member',
-      birth_year SMALLINT NULL,
       birth_year_encrypted VARCHAR(512) NULL,
       points INT NOT NULL DEFAULT 0,
       account_status VARCHAR(20) NOT NULL DEFAULT 'active',
@@ -951,21 +1138,6 @@ async function initDatabase() {
 
   await pool.query(`ALTER TABLE users MODIFY user_grade VARCHAR(20) NOT NULL DEFAULT 'member'`);
 
-  const [birthYearColumnRows] = await pool.query(
-    `SELECT COUNT(*) AS count
-     FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = 'users'
-       AND COLUMN_NAME = 'birth_year'`
-  );
-  const hasBirthYearColumn = Number(birthYearColumnRows?.[0]?.count ?? 0) > 0;
-
-  if (!hasBirthYearColumn) {
-    await pool.query(`ALTER TABLE users ADD COLUMN birth_year SMALLINT NULL AFTER user_grade`);
-  }
-
-  await pool.query(`ALTER TABLE users MODIFY birth_year SMALLINT NULL`);
-
   const [birthYearEncryptedRows] = await pool.query(
     `SELECT COUNT(*) AS count
      FROM INFORMATION_SCHEMA.COLUMNS
@@ -974,7 +1146,7 @@ async function initDatabase() {
        AND COLUMN_NAME = 'birth_year_encrypted'`
   );
   if (Number(birthYearEncryptedRows?.[0]?.count ?? 0) === 0) {
-    await pool.query(`ALTER TABLE users ADD COLUMN birth_year_encrypted VARCHAR(512) NULL AFTER birth_year`);
+    await pool.query(`ALTER TABLE users ADD COLUMN birth_year_encrypted VARCHAR(512) NULL AFTER user_grade`);
   }
 
   // users.points 컬럼 (포인트 잔액)
@@ -983,7 +1155,7 @@ async function initDatabase() {
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'points'`
   );
   if (Number(pointsColRows?.[0]?.count ?? 0) === 0) {
-    await pool.query(`ALTER TABLE users ADD COLUMN points INT NOT NULL DEFAULT 0 AFTER birth_year`);
+    await pool.query(`ALTER TABLE users ADD COLUMN points INT NOT NULL DEFAULT 0 AFTER birth_year_encrypted`);
   }
 
   const [accountStatusColumnRows] = await pool.query(
@@ -1770,9 +1942,9 @@ async function initDatabase() {
     `DELETE FROM signup_rate_limits WHERE window_start < DATE_SUB(NOW(), INTERVAL 2 HOUR)`
   );
 
-  await dropUnusedSchemaObjects();
   await purgeAllHardcodedSeedData();
   await encryptExistingPiiData();
+  await dropUnusedSchemaObjects();
   const [emailHashIndexRows] = await pool.query(
     `SELECT COUNT(*) AS count
      FROM INFORMATION_SCHEMA.STATISTICS
@@ -1785,6 +1957,7 @@ async function initDatabase() {
   }
   await ensureUtf8mb4TableCollation();
   await repairLegacyMojibakeData();
+  await applySchemaTableComments();
   await applySchemaColumnComments();
   await purgeExpiredWithdrawnUsers();
 }

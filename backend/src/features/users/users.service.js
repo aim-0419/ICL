@@ -90,7 +90,6 @@ async function selectUserById(userId) {
       role,
       is_admin AS isAdmin,
       user_grade AS userGrade,
-      birth_year AS birthYear,
       birth_year_encrypted AS birthYearEncrypted,
       account_status AS accountStatus,
       withdrawn_at AS withdrawnAt,
@@ -150,7 +149,6 @@ export async function listUsers() {
       role,
       is_admin AS isAdmin,
       user_grade AS userGrade,
-      birth_year AS birthYear,
       birth_year_encrypted AS birthYearEncrypted,
       account_status AS accountStatus,
       withdrawn_at AS withdrawnAt,
@@ -190,7 +188,6 @@ export async function updateMyProfile(userId, payload) {
       email,
       phone,
       password,
-      birth_year AS birthYear,
       birth_year_encrypted AS birthYearEncrypted,
       account_status AS accountStatus
      FROM users
@@ -292,7 +289,6 @@ export async function updateMyProfile(userId, payload) {
          phone = ?,
          phone_hash = ?,
          password = ?,
-         birth_year = NULL,
          birth_year_encrypted = ?
      WHERE id = ?`,
     [

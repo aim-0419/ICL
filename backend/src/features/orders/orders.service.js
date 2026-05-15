@@ -147,7 +147,7 @@ export async function createOrder(payload, authUser = null) {
 
   const customerFromDbRow = customerEmail
     ? await queryOne(
-        `SELECT id, email, birth_year AS birthYear, birth_year_encrypted AS birthYearEncrypted
+        `SELECT id, email, birth_year_encrypted AS birthYearEncrypted
          FROM users
          WHERE email_hash = ?
          LIMIT 1`,

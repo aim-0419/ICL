@@ -36,11 +36,15 @@ const ResetPasswordPage = lazy(() => import("../features/auth/pages/ResetPasswor
 const SignupPage = lazy(() => import("../features/auth/pages/SignupPage.jsx").then((m) => ({ default: m.SignupPage })));
 const CartPage = lazy(() => import("../features/cart/pages/CartPage.jsx").then((m) => ({ default: m.CartPage })));
 const MyPage = lazy(() => import("../features/mypage/pages/MyPage.jsx").then((m) => ({ default: m.MyPage })));
+const AdminSchedulePage = lazy(() => import("../features/admin/pages/AdminSchedulePage.jsx").then((m) => ({ default: m.AdminSchedulePage })));
 const AdminDashboardPage = lazy(() => import("../features/admin/pages/AdminDashboardPage.jsx").then((m) => ({ default: m.AdminDashboardPage })));
 const AdminSalesDashboardPage = lazy(() => import("../features/admin/pages/AdminSalesDashboardPage.jsx").then((m) => ({ default: m.AdminSalesDashboardPage })));
 const AdminRefundPage = lazy(() => import("../features/admin/pages/AdminRefundPage.jsx").then((m) => ({ default: m.AdminRefundPage })));
 const AdminVideoGiftPage = lazy(() => import("../features/admin/pages/AdminVideoGiftPage.jsx").then((m) => ({ default: m.AdminVideoGiftPage })));
 const AdminProductPage = lazy(() => import("../features/admin/pages/AdminProductPage.jsx").then((m) => ({ default: m.AdminProductPage })));
+const AdminClassListPage = lazy(() => import("../features/admin/pages/AdminClassListPage.jsx").then((m) => ({ default: m.AdminClassListPage })));
+const AdminMemberListPage = lazy(() => import("../features/admin/pages/AdminMemberListPage.jsx").then((m) => ({ default: m.AdminMemberListPage })));
+const AdminInstructorPage = lazy(() => import("../features/admin/pages/AdminInstructorPage.jsx").then((m) => ({ default: m.AdminInstructorPage })));
 const AcademyPage = lazy(() => import("../features/academy/pages/AcademyPage.jsx").then((m) => ({ default: m.AcademyPage })));
 const AcademyDetailPage = lazy(() => import("../features/academy/pages/AcademyDetailPage.jsx").then((m) => ({ default: m.AcademyDetailPage })));
 const AcademyPlayerPage = lazy(() => import("../features/academy/pages/AcademyPlayerPage.jsx").then((m) => ({ default: m.AcademyPlayerPage })));
@@ -125,6 +129,14 @@ export default function App() {
             path="/admin"
             element={
               <RequireAdminStaff>
+                <AdminSchedulePage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/sales"
+            element={
+              <RequireAdminStaff>
                 <AdminSalesDashboardPage />
               </RequireAdminStaff>
             }
@@ -134,6 +146,30 @@ export default function App() {
             element={
               <RequireAdminStaff>
                 <AdminDashboardPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/classes"
+            element={
+              <RequireAdminStaff>
+                <AdminClassListPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/member-list"
+            element={
+              <RequireAdminStaff>
+                <AdminMemberListPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/instructors"
+            element={
+              <RequireAdminStaff>
+                <AdminInstructorPage />
               </RequireAdminStaff>
             }
           />

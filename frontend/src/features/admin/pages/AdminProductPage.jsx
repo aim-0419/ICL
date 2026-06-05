@@ -121,7 +121,7 @@ export function AdminProductPage() {
         <section className="admin-section">
           <section className="admin-dashboard-switch">
             <Link className="admin-dashboard-switch-link" to="/admin">
-              매출 대시보드
+              일정 관리
             </Link>
             <Link className="admin-dashboard-switch-link" to="/admin/members">
               회원 관리
@@ -131,6 +131,9 @@ export function AdminProductPage() {
             </Link>
             <Link className="admin-dashboard-switch-link" to="/admin/refunds">
               환불 관리
+            </Link>
+            <Link className="admin-dashboard-switch-link" to="/admin/sales">
+              매출 대시보드
             </Link>
           </section>
           <div className="admin-section-header">

@@ -1,9 +1,9 @@
 ﻿// 파일 역할: 메인 홈 화면에서 브랜드 소개, 최신 소식, 추천 강의, 후기를 보여주는 페이지 컴포넌트입니다.
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getDiscountRate } from "../../academy/data/academyVideos.js";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { canEditPage, isAdminStaff } from "../../../shared/auth/userRoles.js";
+import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { apiRequest } from "../../../shared/api/client.js";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 
@@ -24,20 +24,13 @@ function readSectionOrder() {
 
 
 const SOCIAL_SOURCE_NAME_MAP = {
+  event: "진행중 이벤트",
   youtube: "YouTube",
   blog: "Naver Blog",
   instagram: "Instagram",
 };
 
 const DEFAULT_SOCIAL_ITEMS = [
-  {
-    source: "youtube",
-    label: "유튜브 최신 영상",
-    title: "최신 영상을 불러오는 중입니다.",
-    url: "https://www.youtube.com/@ICL-PILATES/videos",
-    publishedAt: "",
-    thumbnail: "",
-  },
   {
     source: "blog",
     label: "네이버 블로그 최신 글",
@@ -56,11 +49,135 @@ const DEFAULT_SOCIAL_ITEMS = [
   },
 ];
 
+const DEFAULT_EVENT_NEWS_ITEM = {
+  source: "event",
+  label: "현재 진행중인 이벤트",
+  title: "진행중인 이벤트를 준비 중입니다.",
+  url: "/community/events",
+  publishedAt: "",
+  thumbnail: "",
+  image: "/assets/images/home/window-equipment.jpg",
+  isInternal: true,
+};
+
+const HOME_IMAGES = {
+  hero: "/assets/images/home/main-hero/이끌림 필라테스 메인 페이지 상단 이미지.png",
+  studio: "/assets/images/home/studio-main.jpg",
+  window: "/assets/images/home/window-equipment.jpg",
+  sun: "/assets/images/home/sun-window.jpg",
+  reformer: "/assets/images/home/reformer-light.jpg",
+  room: "/assets/images/home/training-room.jpg",
+};
+
+const SERVICE_POINTS = [
+  {
+    icon: "01",
+    title: "상담",
+    description: "목표와 불편함을 먼저 듣습니다.",
+  },
+  {
+    icon: "02",
+    title: "체형 분석",
+    description: "움직임 패턴을 확인합니다.",
+  },
+  {
+    icon: "03",
+    title: "개인 맞춤",
+    description: "필요한 루틴을 설계합니다.",
+  },
+  {
+    icon: "04",
+    title: "기구 수업",
+    description: "안전한 난이도로 진행합니다.",
+  },
+  {
+    icon: "05",
+    title: "복습 영상",
+    description: "수업 후에도 이어갑니다.",
+  },
+  {
+    icon: "06",
+    title: "후기 기록",
+    description: "변화를 차분히 남깁니다.",
+  },
+];
+
+const SUNLIT_NAV_ITEMS = [
+  { label: "메인", path: "/" },
+  {
+    label: "스튜디오",
+    path: "/ikleulrim/tour",
+    children: [
+      { label: "소개", path: "/ikleulrim/intro" },
+      { label: "강사진", path: "/ikleulrim/instructors" },
+      { label: "둘러보기", path: "/ikleulrim/tour" },
+      { label: "오시는 길", path: "/ikleulrim/directions" },
+    ],
+  },
+  {
+    label: "프로그램",
+    path: "/ikleulrim/equipment",
+    children: [
+      { label: "수업 소개", path: "/ikleulrim/intro" },
+      { label: "장비 소개", path: "/ikleulrim/equipment" },
+      { label: "수업 문의", path: "/community/inquiry" },
+    ],
+  },
+  {
+    label: "아카데미",
+    path: "/academy",
+    children: [
+      { label: "교육 영상", path: "/academy" },
+      { label: "수강 문의", path: "/community/inquiry" },
+      { label: "마이페이지", path: "/mypage" },
+    ],
+  },
+  {
+    label: "커뮤니티",
+    path: "/community/reviews",
+    children: [
+      { label: "후기", path: "/community/reviews" },
+      { label: "문의하기", path: "/community/inquiry" },
+      { label: "이벤트", path: "/community/events" },
+    ],
+  },
+  { label: "이벤트", path: "/community/events" },
+];
+
+const SUNLIT_SERVICE_CARDS = [
+  { icon: "bag", title: "수업 안내", text: "개인·그룹·듀엣", path: "/ikleulrim/intro" },
+  { icon: "calendar", title: "예약 안내", text: "간편한 예약 시스템", path: "/mypage#member-services" },
+  { icon: "user", title: "강사진 소개", text: "전문 강사진", path: "/ikleulrim/instructors" },
+  { icon: "studio", title: "스튜디오", text: "공간 & 시설 안내", path: "/ikleulrim/tour" },
+  { icon: "thumb", title: "아카데미", text: "전문가 교육 과정", path: "/academy" },
+  { icon: "play", title: "커뮤니티", text: "이벤트 & 소식", path: "/community/reviews" },
+  { icon: "pin", title: "오시는 길", text: "위치 안내", path: "/ikleulrim/directions" },
+];
+
+const SUNLIT_FEATURE_CARDS = [
+  {
+    icon: "balance",
+    title: "움직임 분석\n& 맞춤 설계",
+    text: "체형 분석과 움직임 평가를 통해 개인의 불균형을 정확히 파악하고 올바른 방향으로 이끌어갑니다.",
+  },
+  {
+    icon: "ladder",
+    title: "재활과 기능 회복\n전문 프로그램",
+    text: "단순한 운동이 아닌, 몸의 기능을 회복하고 강화하는 맞춤형 필라테스를 경험하세요.",
+  },
+  {
+    icon: "video",
+    title: "온라인으로 배우는 ICL\n아카데미",
+    text: "언제 어디서든 ICL의 전문적인 교육 콘텐츠를 통해 올바른 움직임을 배워보세요.",
+  },
+];
+
 // 함수 역할: 소셜 썸네일 error 사용자 이벤트를 처리합니다.
 function handleSocialThumbnailError(event) {
   const image = event.currentTarget;
   const wrapper = image.closest(".social-thumb-link");
   if (wrapper) wrapper.style.display = "none";
+  if (!wrapper) image.style.display = "none";
 }
 
 // 함수 역할: 소셜 게시일 날짜 값을 화면에 보여주기 좋은 문구로 변환합니다.
@@ -77,6 +194,15 @@ function formatSocialPublishedDate(value) {
 
 // 컴포넌트 역할: 유튜브, 블로그, 인스타그램 소스별 아이콘을 렌더링합니다.
 function SocialSourceIcon({ source }) {
+  if (source === "event") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="4.5" y="6.5" width="15" height="12" rx="2.3" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <path d="M8 4.5v4M16 4.5v4M5 10.5h14M8.5 14h3.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
   if (source === "youtube") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -117,6 +243,156 @@ function SocialSourceIcon({ source }) {
   );
 }
 
+// 컴포넌트 역할: 햇빛 콘셉트 홈 목업의 라인 아이콘을 렌더링합니다.
+function SunlitLineIcon({ type }) {
+  const commonProps = {
+    viewBox: "0 0 24 24",
+    "aria-hidden": "true",
+  };
+
+  if (type === "calendar") {
+    return (
+      <svg {...commonProps}>
+        <rect x="5" y="6.5" width="14" height="12" rx="2.4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M8 4.5v4M16 4.5v4M5.5 10h13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (type === "user") {
+    return (
+      <svg {...commonProps}>
+        <circle cx="12" cy="8.2" r="3.1" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M6.5 19c.9-3.1 2.8-4.7 5.5-4.7s4.6 1.6 5.5 4.7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (type === "studio") {
+    return (
+      <svg {...commonProps}>
+        <path d="M12 4.5v15M8.4 8.5h7.2M7 19.5h10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="12" cy="7" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+
+  if (type === "thumb") {
+    return (
+      <svg {...commonProps}>
+        <path d="M8.5 10.2 11 5.3c.6-1.1 2.1-.7 2.1.6v3.2h3.4c1.2 0 2.1 1.1 1.8 2.3l-1.1 5.2c-.2.9-1 1.5-1.9 1.5H8.5z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M5 10.2h3.5v7.9H5z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (type === "play" || type === "video") {
+    return (
+      <svg {...commonProps}>
+        <rect x="4.5" y="6" width="15" height="12" rx="2.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="m10.5 9.2 4.2 2.8-4.2 2.8z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (type === "pin") {
+    return (
+      <svg {...commonProps}>
+        <path d="M12 20s5.2-5.1 5.2-9.6A5.2 5.2 0 0 0 6.8 10.4C6.8 14.9 12 20 12 20Z" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="12" cy="10.5" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+
+  if (type === "clock") {
+    return (
+      <svg {...commonProps}>
+        <circle cx="12" cy="12" r="7.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M12 8.2v4.2l3 1.7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (type === "ticket") {
+    return (
+      <svg {...commonProps}>
+        <path d="M5.5 8.2h13v3a1.8 1.8 0 0 0 0 3.6v3h-13v-3a1.8 1.8 0 0 0 0-3.6z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M10 8.6v6.8M13 10.6h2.6M13 13.4h2.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (type === "bell") {
+    return (
+      <svg {...commonProps}>
+        <path d="M7.2 17h9.6l-.9-1.7v-3.8a3.9 3.9 0 0 0-7.8 0v3.8z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M10.2 18.2a2 2 0 0 0 3.6 0M12 5.2v1.4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (type === "users") {
+    return (
+      <svg {...commonProps}>
+        <circle cx="9.5" cy="8.8" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="16" cy="9.8" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M5.2 18.5c.7-3 2.2-4.4 4.3-4.4s3.7 1.4 4.4 4.4M13.8 15.1c1.9.1 3.2 1.2 3.9 3.4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (type === "settings") {
+    return (
+      <svg {...commonProps}>
+        <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M12 5.2v2M12 16.8v2M6.9 6.9l1.4 1.4M15.7 15.7l1.4 1.4M5.2 12h2M16.8 12h2M6.9 17.1l1.4-1.4M15.7 8.3l1.4-1.4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (type === "chart") {
+    return (
+      <svg {...commonProps}>
+        <path d="M5.5 18.5h13M7.2 16v-4.8M12 16V7.5M16.8 16v-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="m7.2 10.6 3.2-3.1 2.8 2.4 3.6-3.8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (type === "message") {
+    return (
+      <svg {...commonProps}>
+        <path d="M5.2 6.8h13.6v9.4H9.4l-4.2 2.5z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M8.5 10.2h7M8.5 13h4.7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (type === "balance") {
+    return (
+      <svg {...commonProps}>
+        <path d="M12 5v12M8 17h8M7 12c.8 1.8 2.1 2.7 5 2.7s4.2-.9 5-2.7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="12" cy="7" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+
+  if (type === "ladder") {
+    return (
+      <svg {...commonProps}>
+        <path d="M8 4.5v15M16 4.5v15M8 8h8M8 12h8M8 16h8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...commonProps}>
+      <path d="M7 9h10v8.5H7zM9 9V7.6a3 3 0 0 1 6 0V9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M10 13h4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // 함수 역할: 소셜 항목 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeSocialItems(apiItems) {
   const sourceMap = new Map(
@@ -141,6 +417,43 @@ function normalizeSocialItems(apiItems) {
   });
 }
 
+function readEventSortTime(eventItem) {
+  const created = new Date(eventItem?.createdAt || "").getTime();
+  if (!Number.isNaN(created)) return created;
+
+  const idTime = Number(String(eventItem?.id || "").match(/^event-(\d+)/)?.[1]);
+  if (Number.isFinite(idTime)) return idTime;
+
+  const start = new Date(eventItem?.startDate || "").getTime();
+  return Number.isNaN(start) ? 0 : start;
+}
+
+function pickLatestActiveEvent(events) {
+  return (Array.isArray(events) ? events : [])
+    .filter((eventItem) => String(eventItem?.status || "").trim() === "진행중")
+    .sort((a, b) => readEventSortTime(b) - readEventSortTime(a))[0] || null;
+}
+
+function toEventNewsItem(eventItem) {
+  if (!eventItem) return DEFAULT_EVENT_NEWS_ITEM;
+
+  const title = String(eventItem.title || "").trim() || DEFAULT_EVENT_NEWS_ITEM.title;
+  const summary = String(eventItem.summary || "").trim();
+  const image = String(eventItem.image || "").trim() || DEFAULT_EVENT_NEWS_ITEM.image;
+
+  return {
+    source: "event",
+    label: "현재 진행중인 이벤트",
+    title,
+    summary,
+    url: `/community/events/${encodeURIComponent(String(eventItem.id || ""))}`,
+    publishedAt: formatSocialPublishedDate(eventItem.createdAt || eventItem.startDate),
+    thumbnail: image,
+    image,
+    isInternal: true,
+  };
+}
+
 // 컴포넌트 역할: 메인 홈 화면에서 브랜드 소개, 최신 소식, 추천 강의, 후기를 보여주는 페이지 컴포넌트입니다.
 export function HomePage() {
   useSeoMeta({
@@ -149,8 +462,12 @@ export function HomePage() {
   });
   const navigate = useNavigate();
   const store = useAppStore();
+  const currentUserDisplayName = getUserDisplayName(store.currentUser);
+  const canOpenAdminDashboard = isAdminStaff(store.currentUser);
+  const canEditHomePage = canEditPage(store.currentUser);
   const [socialItems, setSocialItems] = useState(() => DEFAULT_SOCIAL_ITEMS);
-  const [latestReviews, setLatestReviews] = useState([]);
+  const [latestActiveEvent, setLatestActiveEvent] = useState(null);
+  const [openSunlitNav, setOpenSunlitNav] = useState("");
   const [showRenewalPopup, setShowRenewalPopup] = useState(() => {
     try {
       const hideUntil = localStorage.getItem("renewal_popup_hide_until");
@@ -169,6 +486,15 @@ export function HomePage() {
     } catch {}
     setShowRenewalPopup(false);
   }
+
+  async function handleHomeLogout() {
+    try {
+      await store.logoutUser();
+    } finally {
+      navigate("/");
+    }
+  }
+
   const [sectionOrder, setSectionOrder] = useState(() => readSectionOrder());
 
   useEffect(() => {
@@ -187,16 +513,6 @@ export function HomePage() {
     }
     window.addEventListener("admin-home-section-reorder", onReorder);
     return () => window.removeEventListener("admin-home-section-reorder", onReorder);
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/academy/reviews/latest?limit=3", { credentials: "include" })
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
-        const rows = Array.isArray(data?.reviews) ? data.reviews : [];
-        if (rows.length > 0) setLatestReviews(rows);
-      })
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -223,17 +539,42 @@ export function HomePage() {
     };
   }, []);
 
-  const featuredVideos = useMemo(() => {
-    const videos = Array.isArray(store.academyVideos) ? store.academyVideos : [];
-    const newVideos = videos.filter((video) => (video.badge || "").toLowerCase() === "new").slice(0, 2);
-    const hotVideos = videos.filter((video) => (video.badge || "").toLowerCase() === "hot").slice(0, 2);
-    return [...newVideos, ...hotVideos];
-  }, [store.academyVideos]);
+  useEffect(() => {
+    let mounted = true;
+
+    apiRequest("/community/events")
+      .then((rows) => {
+        if (!mounted) return;
+        setLatestActiveEvent(pickLatestActiveEvent(rows));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setLatestActiveEvent(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const cartQuantity = useMemo(
+    () => (Array.isArray(store.cart) ? store.cart : []).reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+    [store.cart]
+  );
+
+  const eventNewsItem = useMemo(() => toEventNewsItem(latestActiveEvent), [latestActiveEvent]);
+
+  const sunlitNewsItems = [
+    eventNewsItem,
+    ...socialItems.map((item, itemIndex) => ({
+      ...item,
+      image: item.thumbnail || [HOME_IMAGES.sun, HOME_IMAGES.studio][itemIndex % 2],
+      isInternal: false,
+    })),
+  ];
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-
+    <div className="site-shell sunlit-site-shell">
       {showRenewalPopup && (
         <div className="renewal-popup-overlay" onClick={closeRenewalPopup}>
           <div className="renewal-popup" onClick={(e) => e.stopPropagation()}>
@@ -270,277 +611,212 @@ export function HomePage() {
         </div>
       )}
 
-      <main className="home-main">
-        <section className="hero-panel home-section-card" id="hero" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("hero") }}>
-          <div className="hero-center">
-            <div className="hero-star">✶</div>
-            <h1>이끌림 필라테스는 다릅니다.</h1>
-            <p className="hero-text">
-              고급스러운 공간 경험과 실전 중심 교육 콘텐츠를 함께 제안합니다.
-              스튜디오 소개부터 교육 영상 판매까지 한 흐름으로 이어집니다.
-            </p>
-            <button
-              className="pill-button white"
-              type="button"
-              onClick={() => navigate("/community/inquiry")}
-            >
-              상담 문의하기
+      <main className="sunlit-home">
+        <section className="sunlit-hero home-section-card" id="hero" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("hero") }}>
+          <header className="sunlit-header" aria-label="홈 메인 내비게이션">
+            <button className="sunlit-brand" type="button" onClick={() => navigate("/")}>
+              <img src="/assets/images/이끌림로고.png" alt="ICL Pilates" />
             </button>
-          </div>
-          <div className="hero-image">
-            <div className="img-placeholder"><span>비어있는 이미지 1입니다</span></div>
-          </div>
-        </section>
 
-        <section className="intro-panel bright-panel section-block home-section-card" id="story" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("story") }}>
-          <div className="section-intro center">
-            <div className="section-star">✶</div>
-            <p className="section-kicker">이끌림</p>
-            <h2>특별한 시작</h2>
-            <p className="section-text narrow">
-              회원에게는 프리미엄 필라테스 경험을,
-              강사와 예비 창업자에게는 실전형 교육 콘텐츠를 제공합니다.
-              오프라인과 온라인 수익 구조를 동시에 설계할 수 있습니다.
-            </p>
-          </div>
-          <div className="mosaic-grid">
-            <div className="mosaic-card tall">
-              <div className="img-placeholder"><span>비어있는 이미지 2입니다</span></div>
-            </div>
-            <div className="mosaic-card short offset-down">
-              <div className="img-placeholder"><span>비어있는 이미지 3입니다</span></div>
-            </div>
-            <div className="mosaic-card tall">
-              <div className="img-placeholder"><span>비어있는 이미지 4입니다</span></div>
-            </div>
-            <div className="mosaic-card wide offset-up">
-              <div className="img-placeholder"><span>비어있는 이미지 5입니다</span></div>
-            </div>
-          </div>
-        </section>
-
-        <section className="feature-panel dark-panel section-block home-section-card" id="features" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("features") }}>
-          <div className="feature-layout">
-            <div className="feature-image">
-              <div className="img-placeholder"><span>비어있는 이미지 6입니다</span></div>
-            </div>
-            <div className="feature-copy">
-              <h2 className="feature-title">이끌림을 선택하는 3가지 이유</h2>
-              <button className="ghost-button" type="button" onClick={() => navigate("/academy")}>
-                교육 상품 보러가기
-              </button>
-
-              <article className="reason-item">
-                <span>special feature 01.</span>
-                <h3>프리미엄 무드의 브랜딩</h3>
-                <p>
-                  차분한 아이보리와 골드 포인트로 고급스러운 첫인상을 전달합니다.
-                  상담 문의 전환에 유리한 구조를 고려했습니다.
-                </p>
-              </article>
-
-              <article className="reason-item">
-                <span>special feature 02.</span>
-                <h3>오프라인과 온라인의 결합</h3>
-                <p>
-                  스튜디오 소개와 교육 영상 판매가 같은 브랜드 경험 안에서 이어집니다.
-                </p>
-              </article>
-
-              <article className="reason-item">
-                <span>special feature 03.</span>
-                <h3>실결제로 확장 가능한 구조</h3>
-                <p>
-                  실결제 체크아웃 흐름이 포함되어 있어 실제 판매 사이트로 바로 확장할 수 있습니다.
-                </p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section className="status-panel section-block home-section-card" id="status" data-admin-bg-editable data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("status") }}>
-          <div className="section-intro center on-dark">
-            <div className="section-star">✶</div>
-            <p className="section-kicker">브랜드 운영 현황</p>
-            <h2>브랜드 운영 현황</h2>
-          </div>
-          <div className="status-grid">
-            {socialItems.map((item) => (
-              <article className="status-card social-feed-card" key={item.source}>
-                <div className="social-card-source">
-                  <span className={`social-source-badge ${item.source}`}>
-                    <SocialSourceIcon source={item.source} />
-                    <em>{SOCIAL_SOURCE_NAME_MAP[item.source] || item.source}</em>
-                  </span>
+            <nav className="sunlit-nav">
+              {SUNLIT_NAV_ITEMS.map((item) => (
+                <div
+                  className={`sunlit-nav-item${item.children?.length ? " has-menu" : ""}${
+                    openSunlitNav === item.label ? " open" : ""
+                  }`}
+                  key={item.label}
+                  onMouseEnter={() => item.children?.length && setOpenSunlitNav(item.label)}
+                  onMouseLeave={() => item.children?.length && setOpenSunlitNav("")}
+                >
+                  <button
+                    type="button"
+                    aria-expanded={item.children?.length ? openSunlitNav === item.label : undefined}
+                    onClick={() => {
+                      if (item.children?.length) {
+                        setOpenSunlitNav((current) => (current === item.label ? "" : item.label));
+                        return;
+                      }
+                      navigate(item.path);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                  {item.children?.length ? (
+                    <div className="sunlit-nav-menu">
+                      {item.children.map((child) => (
+                        <button
+                          type="button"
+                          key={child.path}
+                          onClick={() => {
+                            setOpenSunlitNav("");
+                            navigate(child.path);
+                          }}
+                        >
+                          {child.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-                {item.source === "youtube" && item.thumbnail ? (
-                  <a
-                    className="social-thumb-link"
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    aria-label={`${item.label} 썸네일`}
-                  >
-                    <img
-                      src={item.thumbnail}
-                      alt={item.title}
-                      loading="lazy"
-                      onError={handleSocialThumbnailError}
-                    />
-                  </a>
-                ) : null}
-                <p>{item.label}</p>
-                <strong>
-                  <a
-                    className="social-title-link"
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                  >
-                    {item.title}
-                  </a>
-                </strong>
+              ))}
+            </nav>
+
+            <div className="sunlit-actions">
+              {store.currentUser ? (
+                <>
+                  <button className="sunlit-user-button" type="button" onClick={() => navigate("/mypage")}>
+                    {currentUserDisplayName}님
+                  </button>
+                  {canOpenAdminDashboard ? (
+                    <button className="sunlit-admin-button" type="button" onClick={() => navigate("/admin")}>
+                      관리자 대시보드
+                    </button>
+                  ) : null}
+                  {canEditHomePage ? (
+                    <button
+                      className={`sunlit-admin-button sunlit-edit-button${
+                        store.adminPageEditMode ? " active" : ""
+                      }`}
+                      type="button"
+                      onClick={() => store.setAdminPageEditMode((current) => !current)}
+                    >
+                      {store.adminPageEditMode ? "페이지 수정 ON" : "페이지 수정"}
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={handleHomeLogout}>
+                    로그아웃
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" onClick={() => navigate("/login")}>
+                    로그인
+                  </button>
+                  <button type="button" onClick={() => navigate("/signup")}>
+                    회원가입
+                  </button>
+                </>
+              )}
+              <button className="sunlit-reserve" type="button" onClick={() => navigate("/mypage#member-services")}>
+                수업 예약하기
+              </button>
+              <button className="sunlit-menu" type="button" onClick={() => navigate("/cart")} aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}>
+                <span />
+                <span />
+                <span />
+              </button>
+            </div>
+          </header>
+
+          <div className="sunlit-hero-copy">
+            <span className="sunlit-plant-mark" aria-hidden="true" />
+            <p className="sunlit-kicker">ICL PILATES · GWANGJU</p>
+            <h1>
+              몸을 읽고,<br />
+              움직임을 설계합니다
+            </h1>
+            <p>
+              이끌림필라테스는 재활과 움직임 교육을 기반으로 개인의 몸을 이해하고,
+              건강한 움직임을 설계합니다.
+            </p>
+            <div className="sunlit-hero-buttons">
+              <button className="sunlit-primary-button" type="button" onClick={() => navigate("/mypage#member-services")}>
+                수업 예약하기
+              </button>
+              <button className="sunlit-outline-button" type="button" onClick={() => navigate("/ikleulrim/tour")}>
+                스튜디오 둘러보기
+              </button>
+            </div>
+          </div>
+
+          <figure className="sunlit-hero-photo">
+            <img src={HOME_IMAGES.hero} alt="자연광이 들어오는 이끌림 필라테스 메인 스튜디오" />
+            <figcaption>
+              <span>프라이빗 레슨 오픈</span>
+              <strong>PRIVATE PILATES CLASS</strong>
+            </figcaption>
+          </figure>
+        </section>
+
+        <section className="sunlit-service-dock home-section-card" aria-label="주요 서비스 바로가기">
+          {SUNLIT_SERVICE_CARDS.map((item) => (
+            <button type="button" className="sunlit-service-card" key={item.title} onClick={() => navigate(item.path)}>
+              <span className="sunlit-service-icon"><SunlitLineIcon type={item.icon} /></span>
+              <strong>{item.title}</strong>
+              <em>{item.text}</em>
+            </button>
+          ))}
+        </section>
+
+        <section className="sunlit-program-section home-section-card" id="story" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("story") }}>
+          <article className="sunlit-studio-feature">
+            <div className="sunlit-studio-copy">
+              <h2>
+                자연과 함께하는<br />
+                이끌림의 움직임 공간
+              </h2>
+              <p>자연 속에서 완성되는 움직임의 순환</p>
+              <button className="sunlit-outline-button" type="button" onClick={() => navigate("/ikleulrim/tour")}>
+                스튜디오 둘러보기 <span>→</span>
+              </button>
+            </div>
+            <img src={HOME_IMAGES.window} alt="창가에 배치된 필라테스 기구" loading="lazy" />
+          </article>
+
+          <div className="sunlit-feature-grid" id="features" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("features") }}>
+            {SUNLIT_FEATURE_CARDS.map((item) => (
+              <article className="sunlit-feature-card" key={item.title}>
+                <span><SunlitLineIcon type={item.icon} /></span>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+                <button type="button" onClick={() => navigate(item.icon === "video" ? "/academy" : "/ikleulrim/intro")}>
+                  자세히 보기 <span>→</span>
+                </button>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="academy-panel bright-panel section-block home-section-card" id="academy" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("academy") }}>
-          <div className="section-intro center">
-            <div className="section-star">✶</div>
-            <p className="section-kicker">아카데미 · 교육 영상</p>
-            <h2>교육 가이드 영상</h2>
-            <p className="section-text narrow">
-              교육 영상 페이지와 동일한 상품 중 NEW 2개, HOT 2개를 먼저 확인할 수 있습니다.
-            </p>
-          </div>
-
-          <div className="home-academy-head-actions">
-            <button className="ghost-button" type="button" onClick={() => navigate("/academy")}>
-              교육 영상 전체보기
+        <section className="sunlit-news-panel home-section-card" id="status" data-admin-bg-editable data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("status") }}>
+          <div className="sunlit-news-intro">
+            <p>ICL NEWS</p>
+            <h2>지금 이끌림의 소식</h2>
+            <span>이끌림의 다양한 소식과 이벤트, 새로운 프로그램을 만나보세요.</span>
+            <button type="button" onClick={() => navigate("/community/events")}>
+              전체 소식 보기 <em>→</em>
             </button>
           </div>
 
-          <div className="academy-catalog-grid home-academy-grid">
-            {featuredVideos.map((video, videoIndex) => {
-              const discountRate = getDiscountRate(video.originalPrice, video.salePrice);
-              const normalizedBadge = (video.badge || "").toLowerCase();
-              const badgeTone =
-                normalizedBadge === "hot" ? "is-hot" : normalizedBadge === "new" ? "is-new" : "";
-              const showBadge = badgeTone !== "";
-
-              return (
-                <article
-                  className="academy-video-card interactive"
-                  key={video.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => navigate(`/academy/${video.id}`)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      navigate(`/academy/${video.id}`);
-                    }
-                  }}
-                >
-                  <div className="academy-video-thumb">
-                    {video.image
-                      ? <img src={video.image} alt={video.title} />
-                      : <div className="img-placeholder"><span>비어있는 이미지 {videoIndex + 1}</span></div>
-                    }
-                  </div>
-                  <div className="academy-video-body">
-                    <h3>{video.title}</h3>
-                    <p className="academy-video-instructor">{video.instructor}</p>
-                    <div className="academy-video-pricing">
-                      <span className="academy-price-old">{store.formatCurrency(video.originalPrice)}</span>
-                      <strong className="academy-price-sale">{store.formatCurrency(video.salePrice)}</strong>
-                      {discountRate > 0 ? <em>얼리버드 {discountRate}%</em> : null}
-                    </div>
-                    <div className="academy-video-meta-row">
-                      <div className="academy-video-meta">
-                        <span>★ {video.rating}</span>
-                        <span>({video.reviews})</span>
-                      </div>
-                      <div className="academy-video-tags">
-                        {showBadge ? (
-                          <span className={`academy-tag academy-badge ${badgeTone}`}>{video.badge}</span>
-                        ) : null}
-                        <span className="academy-tag outline">{video.category}</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="ghost-button small-ghost academy-video-cart-button"
-                        onClick={async (event) => {
-                          event.stopPropagation();
-                          try {
-                            await store.addToCart(video.productId, 1);
-                            alert("장바구니에 담았습니다.");
-                          } catch (error) {
-                            alert(error.message);
-                          }
-                        }}
-                      >
-                        장바구니 담기
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="reviews-panel bright-panel section-block home-section-card" id="reviews" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("reviews") }}>
-          <div className="section-intro center">
-            <div className="section-star">✶</div>
-            <p className="section-kicker">후기</p>
-            <h2>함께하고 있는 회원 후기</h2>
-            <p className="section-text narrow">
-              공간의 무드, 수업의 전문성, 교육 콘텐츠의 실용성이 하나의 브랜드 경험으로 연결됩니다.
-            </p>
-          </div>
-
-          <div className="review-gallery">
-            {latestReviews.length > 0 ? (
-              latestReviews.map((review, reviewIndex) => (
-                <article className="review-card image-first" key={review.id}>
-                  <div className="img-placeholder"><span>비어있는 이미지 {reviewIndex + 1}</span></div>
-                  <div className="review-copy">
-                    <div className="review-stars" aria-label={`${review.rating}점`}>
-                      {"★".repeat(Math.min(5, Math.max(0, Number(review.rating) || 0)))}
-                      {"☆".repeat(5 - Math.min(5, Math.max(0, Number(review.rating) || 0)))}
-                    </div>
-                    <p>{review.content}</p>
-                    <strong>{review.userName}</strong>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <>
-                <article className="review-card image-first">
-                  <div className="img-placeholder"><span>비어있는 이미지 7입니다</span></div>
-                  <div className="review-copy">
-                    <p>시설과 분위기가 명확한 콘셉트로 잡혀 있어 몰입감이 정말 좋았어요.</p>
-                    <strong>개인 레슨 회원</strong>
-                  </div>
-                </article>
-                <article className="review-card image-first">
-                  <div className="img-placeholder"><span>비어있는 이미지 8입니다</span></div>
-                  <div className="review-copy">
-                    <p>교육 영상과 현장 수업이 바로 연결되어 복습 자료로도 활용하기 좋습니다.</p>
-                    <strong>예비 필라테스 강사</strong>
-                  </div>
-                </article>
-                <article className="review-card image-first">
-                  <div className="img-placeholder"><span>비어있는 이미지 9입니다</span></div>
-                  <div className="review-copy">
-                    <p>오프라인 홍보와 온라인 판매가 자연스럽게 이어져 운영 효율이 올라갔어요.</p>
-                    <strong>스튜디오 운영자</strong>
-                  </div>
-                </article>
-              </>
-            )}
+          <div className="sunlit-news-list">
+            {sunlitNewsItems.map((item, itemIndex) => (
+              <article className="sunlit-news-card" key={item.source}>
+                <div>
+                  <span className={`sunlit-source ${item.source}`}>
+                    <SocialSourceIcon source={item.source} />
+                    {SOCIAL_SOURCE_NAME_MAP[item.source] || item.source}
+                  </span>
+                  <h3>
+                    <a
+                      href={item.url}
+                      target={item.isInternal ? undefined : "_blank"}
+                      rel={item.isInternal ? undefined : "noreferrer noopener"}
+                    >
+                      {item.title}
+                    </a>
+                  </h3>
+                  <a
+                    href={item.url}
+                    target={item.isInternal ? undefined : "_blank"}
+                    rel={item.isInternal ? undefined : "noreferrer noopener"}
+                  >
+                    자세히 보기 <span>→</span>
+                  </a>
+                </div>
+                {itemIndex > 0 || item.image ? (
+                  <img src={item.image} alt={item.title} loading="lazy" onError={handleSocialThumbnailError} />
+                ) : null}
+              </article>
+            ))}
           </div>
         </section>
       </main>

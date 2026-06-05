@@ -40,6 +40,13 @@ import * as adminController from "./admin.controller.js";
 // 라우터 역할: 관리자 라우터는 해당 기능의 API 경로와 컨트롤러 함수를 연결합니다.
 export const adminRoutes = Router();
 
+adminRoutes.get("/members", adminController.getMemberList);
+adminRoutes.put("/members/:userId/studio-profile", express.json(), adminController.updateStudioMemberProfile);
+adminRoutes.patch("/members/:userId/studio-status", express.json(), adminController.updateStudioMemberStatus);
+adminRoutes.get("/studio-staff", adminController.getStudioStaffProfiles);
+adminRoutes.post("/studio-staff", express.json(), adminController.createStudioStaffProfile);
+adminRoutes.put("/studio-staff/:staffId", express.json(), adminController.updateStudioStaffProfile);
+adminRoutes.delete("/studio-staff/:staffId", adminController.deleteStudioStaffProfile);
 adminRoutes.get("/dashboard/users", adminController.getDashboardUsers);
 adminRoutes.get("/dashboard/users/:userId/progress", adminController.getDashboardUserLearning);
 adminRoutes.get("/dashboard/lectures/progress", adminController.getDashboardLectureProgress);

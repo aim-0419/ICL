@@ -172,6 +172,8 @@ export function AcademyPlayerPage() {
   const playerWrapRef = useRef(null);
   const watermarkRef = useRef(null);
   const lastSavedTimeRef = useRef(0);
+  const maxWatchedTimeRef = useRef(0);
+  const seekBlockTimerRef = useRef(null);
   const isSavingRef = useRef(false);
   const resumeAppliedRef = useRef(false);
   const resumeChoiceRef = useRef("restart"); // 'resume' | 'restart'
@@ -179,6 +181,7 @@ export function AcademyPlayerPage() {
   const deferredResumeRef = useRef({ videoId: "", checked: false });
 
   const [activeChapterId, setActiveChapterId] = useState("");
+  const [seekBlockMsg, setSeekBlockMsg] = useState("");
   const [resumeDialog, setResumeDialog] = useState(null); // { chapterId, resumeTime }
   const [isProgressLoading, setIsProgressLoading] = useState(true);
   const [progressError, setProgressError] = useState("");
@@ -405,8 +408,9 @@ export function AcademyPlayerPage() {
 
   useEffect(() => {
     lastSavedTimeRef.current = 0;
+    maxWatchedTimeRef.current = Math.max(0, Math.round(Number(activeChapter?.currentTime || 0)));
     resumeAppliedRef.current = false;
-  }, [activeVideo?.id, activeChapter?.id]);
+  }, [activeVideo?.id, activeChapter?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const syncProgress = useCallback(
     async ({ force = false, completed = false } = {}) => {
@@ -1018,6 +1022,21 @@ export function AcademyPlayerPage() {
               {playbackSessionLoading ? (
                 <div className="academy-playback-status">보안 재생 링크를 준비 중입니다.</div>
               ) : null}
+              {seekBlockMsg ? (
+                <div className="academy-seek-block-toast">
+                  <span>{seekBlockMsg}</span>
+                  <button
+                    type="button"
+                    className="academy-seek-block-close"
+                    onClick={() => {
+                      clearTimeout(seekBlockTimerRef.current);
+                      setSeekBlockMsg("");
+                    }}
+                  >
+                    확인
+                  </button>
+                </div>
+              ) : null}
               {playbackSessionError ? (
                 <div className="academy-playback-status is-error">
                   <p>{playbackSessionError}</p>
@@ -1078,7 +1097,25 @@ export function AcademyPlayerPage() {
                   resumeAppliedRef.current = true;
                 }}
                 onTimeUpdate={() => {
+                  const videoEl = videoRef.current;
+                  if (videoEl instanceof HTMLVideoElement) {
+                    const ct = Math.floor(videoEl.currentTime);
+                    if (ct > maxWatchedTimeRef.current) {
+                      maxWatchedTimeRef.current = ct;
+                    }
+                  }
                   void syncProgress();
+                }}
+                onSeeking={() => {
+                  const videoEl = videoRef.current;
+                  if (!(videoEl instanceof HTMLVideoElement)) return;
+                  if (activeChapter?.completed) return;
+                  if (videoEl.currentTime > maxWatchedTimeRef.current + 1) {
+                    videoEl.currentTime = maxWatchedTimeRef.current;
+                    setSeekBlockMsg("시청하지 않은 구간은 건너뛸 수 없습니다.");
+                    clearTimeout(seekBlockTimerRef.current);
+                    seekBlockTimerRef.current = setTimeout(() => setSeekBlockMsg(""), 2500);
+                  }
                 }}
                 onPlay={() => {
                   void syncPlaybackHeartbeat();

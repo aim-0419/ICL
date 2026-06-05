@@ -1,4 +1,10 @@
-// 파일 역할: 회원 비밀번호 재설정 흐름을 처리하는 페이지 컴포넌트입니다.
+/**
+ * [비밀번호 재설정 페이지]
+ * 아이디와 이메일을 입력하면 재설정 링크를 이메일로 전송합니다.
+ * URL에 포함된 토큰(token)이 있으면 새 비밀번호 입력 단계로 전환됩니다.
+ * - 1단계: 아이디·이메일 입력 → 재설정 메일 발송
+ * - 2단계: 새 비밀번호 입력 → 비밀번호 변경 완료
+ */
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";

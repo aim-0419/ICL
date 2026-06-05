@@ -237,6 +237,58 @@ export async function getAcademyProgress(req, res, next) {
 }
 
 // 함수 역할: 이전 단일 강의 진도 API와 호환되도록 차시 진도 저장 후 강의 전체 진도를 반환합니다.
+export async function getMyAcademyCertificates(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    const certificates = await academyService.listAcademyCertificatesByUserId(authUser.id);
+    res.json({ certificates });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getMyAcademyCertificate(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    const certificateId = String(req.params.certificateId || "").trim();
+    const certificate = await academyService.getAcademyCertificateByIdForUser(authUser.id, certificateId);
+    if (!certificate?.id) {
+      res.status(404).json({ message: "수료증을 찾을 수 없습니다." });
+      return;
+    }
+
+    res.json({ certificate });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function issueMyAcademyCertificate(req, res, next) {
+  try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+
+    const videoId = String(req.params.videoId || "").trim();
+    const certificate = await academyService.issueAcademyCertificateForCompletedLecture(authUser.id, videoId);
+    res.status(201).json({ certificate });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function saveAcademyProgress(req, res, next) {
   try {
     const authUser = await getAuthenticatedUser(req);

@@ -329,6 +329,89 @@ function pickRefundReasonEntries(payload, totalRefundAmount) {
 }
 
 // 함수 역할: 대시보드 회원 데이터를 조회해 호출자에게 반환합니다.
+/** 회원 목록 전용 API — 수강권·최근출석일·미수금 포함 */
+export async function getMemberList(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const members = await adminService.listMembersForAdmin();
+    res.json({ members });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateStudioMemberStatus(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+
+    const targetUserId = String(req.params.userId || "").trim();
+    const nextStatus = String(req.body?.memberStatus || req.body?.status || "").trim();
+    const profile = await adminService.updateStudioMemberStatus(targetUserId, nextStatus);
+    res.json({ profile });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateStudioMemberProfile(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+
+    const targetUserId = String(req.params.userId || "").trim();
+    const profile = await adminService.updateStudioMemberProfile(targetUserId, req.body || {});
+    res.json({ profile });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getStudioStaffProfiles(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const staff = await adminService.listStudioStaffProfiles();
+    res.json({ staff });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createStudioStaffProfile(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const staff = await adminService.saveStudioStaffProfile("", req.body || {});
+    res.status(201).json({ staff });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateStudioStaffProfile(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const staff = await adminService.saveStudioStaffProfile(req.params.staffId, req.body || {});
+    res.json({ staff });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteStudioStaffProfile(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const result = await adminService.archiveStudioStaffProfile(req.params.staffId);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getDashboardUsers(req, res, next) {
   try {
     const authUser = await requireAdminDashboardAccess(req, res);

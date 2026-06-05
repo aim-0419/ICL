@@ -1,10 +1,28 @@
-﻿// 파일 역할: 회원의 주문, 강의 수강권, 진도, 포인트, 프로필, 탈퇴 흐름을 보여주는 마이페이지 컴포넌트입니다.
+﻿/**
+ * [마이페이지]
+ *
+ * 로그인한 회원이 자신의 정보를 확인하고 관리하는 화면입니다.
+ * 아래 기능을 하나의 페이지에서 제공합니다:
+ *
+ *  1. 스튜디오 서비스  — 수업 예약·취소, 보유 수강권 조회, 수강권 환불 요청
+ *  2. 강의 아카데미    — 구매한 강의 목록, 진도율, 수료증 발급, Q&A
+ *  3. 주문·결제 내역   — 주문 목록, 환불 신청
+ *  4. 포인트·혜택      — 포인트 잔액, 이용 내역
+ *  5. 내 정보 수정     — 이름·이메일·비밀번호 변경
+ *  6. 회원 탈퇴        — 탈퇴 신청 (90일 데이터 보관)
+ *
+ * ─ 주요 규칙 ─────────────────────────────────────────────────────
+ *  · 날짜·금액 포맷은 shared/utils/format.js 의 공통 함수를 사용합니다
+ *  · 관리자(isAdminStaff)는 강의 편집·삭제 버튼이 추가로 노출됩니다
+ */
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
-import { 
+import {
   deleteAcademyVideo,
+  issueAcademyCertificate,
+  listAcademyCertificates,
   listMyAcademyQna,
   resolveAcademyMediaUrl,
   updateAcademyVideo,
@@ -12,10 +30,180 @@ import {
 } from "../../academy/api/academyApi.js";
 import { countPurchasedVideoItems, getPurchasedVideos } from "../../academy/lib/purchases.js";
 import { apiRequest } from "../../../shared/api/client.js";
+import {
+  bookStudioClass,
+  cancelStudioClass,
+  listMyStudioSummary,
+  listStudioClasses,
+  listStudioNotificationsByUser,
+  requestStudioPassRefund,
+} from "../../studio/api/studioApi.js";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
+import {
+  formatDate,
+  formatDateTime,
+  formatCertificateDate,
+  formatDuration,
+  formatYmd,
+} from "../../../shared/utils/format.js";
 
-// 함수 역할: study 기간 days 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
+const CERTIFICATE_TEMPLATE_IMAGE =
+  "/assets/images/home/certificate-template-a4.png";
+
+const MEMBER_CALENDAR_VIEW_OPTIONS = [
+  { value: "day", label: "일" },
+  { value: "week", label: "주" },
+  { value: "month", label: "월" },
+];
+
+const DEFAULT_MEMBER_CLASSES = [
+  {
+    id: "member-class-reformer",
+    dayOffset: 0,
+    time: "10:00",
+    title: "리포머 그룹",
+    instructor: "은혜T",
+    room: "리포머룸",
+    category: "그룹",
+    capacity: 8,
+    bookedCount: 4,
+    waitlistCount: 0,
+    userStatus: "available",
+  },
+  {
+    id: "member-class-duet",
+    dayOffset: 1,
+    time: "19:30",
+    title: "듀엣 레슨",
+    instructor: "수연T",
+    room: "개인레슨실",
+    category: "듀엣",
+    capacity: 2,
+    bookedCount: 2,
+    waitlistCount: 1,
+    userStatus: "available",
+  },
+  {
+    id: "member-class-barrel",
+    dayOffset: 3,
+    time: "11:00",
+    title: "바렐 밸런스",
+    instructor: "승연T",
+    room: "바렐존",
+    category: "그룹",
+    capacity: 6,
+    bookedCount: 5,
+    waitlistCount: 0,
+    userStatus: "reserved",
+  },
+  {
+    id: "member-class-private",
+    dayOffset: 6,
+    time: "15:00",
+    title: "개인 재활 필라테스",
+    instructor: "원장님",
+    room: "개인레슨실 2",
+    category: "개인",
+    capacity: 1,
+    bookedCount: 1,
+    waitlistCount: 2,
+    userStatus: "waiting",
+  },
+  {
+    id: "member-class-springboard",
+    dayOffset: 12,
+    time: "18:20",
+    title: "스프링보드 코어",
+    instructor: "빛나T",
+    room: "그룹룸",
+    category: "그룹",
+    capacity: 8,
+    bookedCount: 3,
+    waitlistCount: 0,
+    userStatus: "available",
+  },
+];
+
+const MEMBER_STUDIO_INFO = [
+  { title: "강사 정보", text: "수업별 담당 강사와 전문 분야를 예약 전에 확인합니다.", path: "/ikleulrim/instructors" },
+  { title: "시설 정보", text: "리포머룸, 바렐존, 개인레슨실 등 이용 공간을 확인합니다.", path: "/ikleulrim/tour" },
+];
+
+const MEMBER_NOTIFICATIONS = [];
+
+// formatYmd, formatDate, formatDateTime, formatDuration, formatCertificateDate 는
+// shared/utils/format.js 에서 가져옵니다 (파일 상단 import 참고)
+
+/** 수업 시작 날짜를 오늘 기준 ±일수(정수)로 변환합니다. 오늘이면 0, 내일이면 1 */
+function toDayOffsetByDate(value) {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const target = new Date(value);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - start.getTime()) / 86400000);
+}
+
+/**
+ * 서버에서 받은 수업 데이터(studio API 형태)를 마이페이지 캘린더에 표시할 형태로 변환합니다.
+ * - userStatus: "reserved"(예약 완료) / "waiting"(대기) / "available"(예약 가능)
+ */
+function mapStudioClassToMemberClass(item) {
+  const startDate = new Date(item?.startAt || Date.now());
+  return {
+    id: String(item?.id || ""),
+    dayOffset: toDayOffsetByDate(startDate),
+    time: `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`,
+    title: String(item?.title || ""),
+    instructor: String(item?.instructorName || "-"),
+    room: String(item?.roomName || "-"),
+    category: "그룹",
+    capacity: Number(item?.capacity || 0),
+    bookedCount: Number(item?.reservedCount || 0),
+    waitlistCount: Number(item?.waitlistCount || 0),
+    userStatus: item?.myStatus === "reserved" ? "reserved" : item?.myStatus === "waitlisted" ? "waiting" : "available",
+  };
+}
+
+/** 날짜(Date)에 n일을 더한 새 Date를 반환합니다. */
+function addDays(date, days) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+/**
+ * dayOffset(오늘 기준 일수)을 수업 카드 헤더에 표시할 날짜 문자열로 변환합니다.
+ * 0 → "오늘 · 06.02.(월)", 1 → "내일 · 06.03.(화)"
+ */
+function formatRelativeClassDate(dayOffset) {
+  const targetDate = addDays(new Date(), dayOffset);
+  const dateLabel = new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).format(targetDate);
+  if (dayOffset === 0) return `오늘 · ${dateLabel}`;
+  if (dayOffset === 1) return `내일 · ${dateLabel}`;
+  return dateLabel;
+}
+
+/**
+ * 현재 뷰 모드에 따라 보여줄 날짜 오프셋 배열을 반환합니다.
+ * - "day"  → [0] (오늘만)
+ * - "week" → [0,1,2,3,4,5,6] (이번 주 7일)
+ * - "month"→ [0..30] (이번 달 31일)
+ */
+function getMemberCalendarDayOffsets(view) {
+  if (view === "day") return [0];
+  if (view === "week") return Array.from({ length: 7 }, (_, index) => index);
+  return Array.from({ length: 31 }, (_, index) => index);
+}
+
+/**
+ * 강의 수강 기간 문자열("30일", "1년", "무제한" 등)을 일(day) 수 숫자로 변환합니다.
+ * 무제한·평생 수강인 경우 null을 반환합니다.
+ */
 function parseStudyPeriodDays(periodText) {
   if (!periodText) return null;
   const text = String(periodText).trim();
@@ -24,7 +212,12 @@ function parseStudyPeriodDays(periodText) {
   return match ? Number(match[1]) : null;
 }
 
-// 컴포넌트 역할: calcEnrollmentExpiryForMyPage 화면을 렌더링하고 필요한 API 호출과 사용자 입력 상태를 관리합니다.
+/**
+ * 회원의 주문 이력과 강의 수강 기간 정보를 바탕으로 수강 만료일과 남은 일수를 계산합니다.
+ * - 무제한 수강이면 null을 반환합니다.
+ * - 여러 주문이 있을 경우 가장 이른 구매일 기준으로 계산합니다.
+ * @returns {{ daysLeft: number, expiryLabel: string } | null}
+ */
 function calcEnrollmentExpiryForMyPage(orders, videoProductId, periodText) {
   const periodDays = parseStudyPeriodDays(periodText);
   if (periodDays === null) return null;
@@ -59,40 +252,12 @@ function calcEnrollmentExpiryForMyPage(orders, videoProductId, periodText) {
   return { daysLeft, expiryLabel: expiryDate.toLocaleDateString("ko-KR") };
 }
 
-// 함수 역할: 차시 전체 재생 시간 값을 계산합니다.
+/** 강의의 모든 차시(챕터) 재생 시간을 합산해 총 초(second) 수를 반환합니다. */
 function calcChaptersTotalDuration(chapters) {
   if (!Array.isArray(chapters)) return 0;
   return chapters.reduce((s, ch) => s + Math.max(0, Number(ch.durationSec || 0)), 0);
 }
 
-// 함수 역할: 재생 시간 값을 화면에 보여주기 좋은 문구로 변환합니다.
-function formatDuration(sec) {
-  if (!sec || sec < 60) return null;
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  if (h > 0 && m > 0) return `${h}시간 ${m}분`;
-  if (h > 0) return `${h}시간`;
-  return `${m}분`;
-}
-
-// 함수 역할: 날짜 값을 화면에 보여주기 좋은 문구로 변환합니다.
-function formatDate(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("ko-KR");
-}
-
-// 함수 역할: 날짜+시간 값을 분 단위까지 화면용 텍스트로 변환합니다.
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day} ${hours}:${minutes}`;
-}
 
 // 함수 역할: 학습 진도 비율 값으로 안전하게 변환합니다.
 function toProgressPercent(progress) {
@@ -147,13 +312,13 @@ function EyeIcon({ open }) {
   );
 }
 
-// 함수 역할: 안전한 number 값으로 안전하게 변환합니다.
+/** 문자열이나 숫자 형태의 값을 안전한 숫자로 변환합니다. 변환 불가 시 fallback 반환 */
 function toSafeNumber(value, fallback = 0) {
   const parsed = Number(String(value || "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-// 컴포넌트 역할: 회원의 주문, 강의 수강권, 진도, 포인트, 프로필, 탈퇴 흐름을 보여주는 마이페이지 컴포넌트입니다.
+// ─── MyPage 메인 컴포넌트 ─────────────────────────────────────────────────────
 export function MyPage() {
   const navigate = useNavigate();
   const store = useAppStore();
@@ -242,10 +407,20 @@ export function MyPage() {
   );
 
   const [myGrants, setMyGrants] = useState([]);
+  const [myCertificates, setMyCertificates] = useState([]);
+  const [certificateModal, setCertificateModal] = useState(null);
+  const [certificateMessage, setCertificateMessage] = useState({ type: "", text: "" });
+  const [issuingCertificateVideoId, setIssuingCertificateVideoId] = useState("");
   const [activeVideoTab, setActiveVideoTab] = useState("purchased");
   const [myQnaItems, setMyQnaItems] = useState([]);
   const [myQnaLoading, setMyQnaLoading] = useState(false);
   const [myQnaError, setMyQnaError] = useState("");
+  const [memberCalendarView, setMemberCalendarView] = useState("week");
+  const [selectedMemberDayOffset, setSelectedMemberDayOffset] = useState(null);
+  const [memberClasses, setMemberClasses] = useState(() => DEFAULT_MEMBER_CLASSES);
+  const [memberTickets, setMemberTickets] = useState([]);
+  const [memberPassTransactions, setMemberPassTransactions] = useState([]);
+  const [memberNotifications, setMemberNotifications] = useState([]);
 
   const [myRefundRequests, setMyRefundRequests] = useState([]);
   const [refundModal, setRefundModal] = useState(null);
@@ -253,6 +428,114 @@ export function MyPage() {
   const [refundReason, setRefundReason] = useState("");
   const [refundSubmitting, setRefundSubmitting] = useState(false);
   const [refundMessage, setRefundMessage] = useState({ type: "", text: "" });
+
+  const [passRefundModal, setPassRefundModal] = useState(null);
+  const [passRefundReason, setPassRefundReason] = useState("");
+  const [passRefundSubmitting, setPassRefundSubmitting] = useState(false);
+  const [passRefundMessage, setPassRefundMessage] = useState({ type: "", text: "" });
+
+  useEffect(() => {
+    if (window.location.hash !== "#member-services") return;
+    const target = document.getElementById("member-services");
+    if (!target) return;
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    let mounted = true;
+    async function loadStudioData() {
+      try {
+        const from = formatYmd(new Date());
+        const toDate = new Date();
+        toDate.setDate(toDate.getDate() + 40);
+        const to = formatYmd(toDate);
+        const [classes, summary, notifications] = await Promise.all([
+          listStudioClasses({ from, to }),
+          listMyStudioSummary(),
+          listStudioNotificationsByUser(currentUser.id),
+        ]);
+        if (!mounted) return;
+        setMemberClasses(classes.map(mapStudioClassToMemberClass));
+        setMemberTickets(Array.isArray(summary?.passes) ? summary.passes : []);
+        setMemberPassTransactions(Array.isArray(summary?.passTransactions) ? summary.passTransactions : []);
+        setMemberNotifications(Array.isArray(notifications) ? notifications : []);
+      } catch {
+        if (!mounted) return;
+      }
+    }
+    loadStudioData();
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser?.id]);
+
+  const memberVisibleClasses = useMemo(() => {
+    return memberClasses.filter((item) => {
+      if (selectedMemberDayOffset !== null) return item.dayOffset === selectedMemberDayOffset;
+      if (memberCalendarView === "day") return item.dayOffset === 0;
+      if (memberCalendarView === "week") return item.dayOffset <= 6;
+      return item.dayOffset <= 30;
+    });
+  }, [memberCalendarView, memberClasses, selectedMemberDayOffset]);
+  const memberCalendarDays = useMemo(() => {
+    const counts = new Map();
+    memberClasses.forEach((item) => {
+      counts.set(item.dayOffset, (counts.get(item.dayOffset) || 0) + 1);
+    });
+    return getMemberCalendarDayOffsets(memberCalendarView).map((offset) => ({
+      offset,
+      label: formatRelativeClassDate(offset),
+      count: counts.get(offset) || 0,
+    }));
+  }, [memberCalendarView, memberClasses]);
+  const memberReservedCount = useMemo(
+    () => memberClasses.filter((item) => item.userStatus === "reserved").length,
+    [memberClasses]
+  );
+  const memberWaitingCount = useMemo(
+    () => memberClasses.filter((item) => item.userStatus === "waiting").length,
+    [memberClasses]
+  );
+  const memberTicketItems = useMemo(() => {
+    if (memberTickets.length) {
+      return memberTickets.map((item) => ({
+        id: String(item.id),
+        title: String(item.passName || "수강권"),
+        type: String(item.passType || "그룹"),
+        remaining: Number(item.remainingCount || 0),
+        total: Number(item.totalCount || 0),
+        expiresAt: item.expiresAt ? new Date(item.expiresAt).toLocaleDateString("ko-KR") : "무제한",
+      }));
+    }
+    const today = new Date();
+    return [
+      {
+        id: "group-ticket",
+        title: "그룹 20회권",
+        type: "그룹",
+        remaining: 8,
+        total: 20,
+        expiresAt: addDays(today, 33).toLocaleDateString("ko-KR"),
+      },
+    ];
+  }, [memberTickets]);
+  const memberReservationAllowance = Math.max(0, memberTicketItems[0].remaining - memberReservedCount);
+  const nextReservedClass = useMemo(() => {
+    return [...memberClasses]
+      .filter((item) => item.userStatus === "reserved")
+      .sort((a, b) => a.dayOffset - b.dayOffset || a.time.localeCompare(b.time))[0] || null;
+  }, [memberClasses]);
+  const certificateByVideoId = useMemo(() => {
+    const map = new Map();
+    (Array.isArray(myCertificates) ? myCertificates : []).forEach((certificate) => {
+      const videoId = String(certificate?.videoId || "");
+      if (videoId) map.set(videoId, certificate);
+    });
+    return map;
+  }, [myCertificates]);
 
   const allVideos = useMemo(
     () => (Array.isArray(store.academyVideos) ? store.academyVideos : []),
@@ -396,10 +679,44 @@ export function MyPage() {
     apiRequest("/users/me/video-grants")
       .then((result) => setMyGrants(Array.isArray(result?.grants) ? result.grants : []))
       .catch(() => setMyGrants([]));
+    listAcademyCertificates()
+      .then((items) => setMyCertificates(Array.isArray(items) ? items : []))
+      .catch(() => setMyCertificates([]));
     apiRequest("/refunds/me")
       .then((result) => setMyRefundRequests(Array.isArray(result?.requests) ? result.requests : []))
       .catch(() => setMyRefundRequests([]));
   }, [currentUser?.id]);
+
+  async function handleCertificateClick(video) {
+    if (!video?.completed) {
+      setCertificateMessage({ type: "error", text: "완강한 강의만 수료증을 발급할 수 있습니다." });
+      return;
+    }
+
+    const existing = certificateByVideoId.get(String(video.id));
+    if (existing) {
+      setCertificateModal(existing);
+      setCertificateMessage({ type: "", text: "" });
+      return;
+    }
+
+    setIssuingCertificateVideoId(String(video.id));
+    setCertificateMessage({ type: "", text: "" });
+    try {
+      const certificate = await issueAcademyCertificate(video.id);
+      if (certificate?.id) {
+        setMyCertificates((current) => {
+          const rest = current.filter((item) => String(item.id) !== String(certificate.id));
+          return [certificate, ...rest];
+        });
+        setCertificateModal(certificate);
+      }
+    } catch (error) {
+      setCertificateMessage({ type: "error", text: error.message || "수료증 발급에 실패했습니다." });
+    } finally {
+      setIssuingCertificateVideoId("");
+    }
+  }
 
   function openRefundModal(order) {
     const activeIds = Array.isArray(order.activeProductIds) && order.activeProductIds.length
@@ -457,6 +774,29 @@ export function MyPage() {
       setRefundMessage({ type: "error", text: error.message || "환불 신청에 실패했습니다." });
     } finally {
       setRefundSubmitting(false);
+    }
+  }
+
+  async function handleSubmitPassRefund() {
+    if (!passRefundModal) return;
+    if (!passRefundReason.trim()) {
+      setPassRefundMessage({ type: "error", text: "환불 사유를 입력해 주세요." });
+      return;
+    }
+    setPassRefundSubmitting(true);
+    setPassRefundMessage({ type: "", text: "" });
+    try {
+      await requestStudioPassRefund({ passId: passRefundModal.id, reason: passRefundReason.trim() });
+      setPassRefundMessage({ type: "success", text: "환불 요청이 접수되었습니다. 관리자 검토 후 처리됩니다." });
+      setTimeout(() => {
+        setPassRefundModal(null);
+        setPassRefundReason("");
+        setPassRefundMessage({ type: "", text: "" });
+      }, 2000);
+    } catch (error) {
+      setPassRefundMessage({ type: "error", text: error.message || "환불 요청에 실패했습니다." });
+    } finally {
+      setPassRefundSubmitting(false);
     }
   }
 
@@ -740,6 +1080,31 @@ export function MyPage() {
     }
   }
 
+  async function handleMemberClassAction(classId, action) {
+    try {
+      if (action === "cancel") {
+        await cancelStudioClass(classId);
+      } else {
+        await bookStudioClass(classId);
+      }
+      const from = formatYmd(new Date());
+      const toDate = new Date();
+      toDate.setDate(toDate.getDate() + 40);
+      const to = formatYmd(toDate);
+      const [classes, summary, notifications] = await Promise.all([
+        listStudioClasses({ from, to }),
+        listMyStudioSummary(),
+        listStudioNotificationsByUser(currentUser?.id),
+      ]);
+      setMemberClasses(classes.map(mapStudioClassToMemberClass));
+      setMemberTickets(Array.isArray(summary?.passes) ? summary.passes : []);
+      setMemberPassTransactions(Array.isArray(summary?.passTransactions) ? summary.passTransactions : []);
+      setMemberNotifications(Array.isArray(notifications) ? notifications : []);
+    } catch (error) {
+      alert(error?.message || "예약 처리에 실패했습니다.");
+    }
+  }
+
   return (
     <div className="site-shell">
       <SiteHeader />
@@ -753,6 +1118,198 @@ export function MyPage() {
             <span className="mypage-identity-chip">수강 완료 {completedVideoCount}개</span>
             <span className="mypage-identity-chip">주문 {userOrders.length}건</span>
             <span className="mypage-identity-chip">포인트 {store.formatCurrency(store.userPoints ?? 0)}</span>
+          </div>
+        </section>
+
+        <section id="member-services" className="dashboard-card mypage-member-service-card">
+          <div className="member-service-header">
+            <div>
+              <p className="section-kicker">회원 예약 관리</p>
+              <h2>수업 예약과 수강권을 한 화면에서 확인합니다</h2>
+              <p>
+                일/주/월 스케줄을 보면서 예약, 대기, 취소를 직접 처리하고
+                보유 수강권의 잔여 횟수와 만료일을 확인할 수 있습니다.
+              </p>
+            </div>
+            <div className="member-calendar-tabs" role="tablist" aria-label="수업 캘린더 보기 방식">
+              {MEMBER_CALENDAR_VIEW_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={memberCalendarView === option.value ? "active" : ""}
+                  aria-selected={memberCalendarView === option.value}
+                  onClick={() => {
+                    setMemberCalendarView(option.value);
+                    setSelectedMemberDayOffset(null);
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="member-service-summary">
+            <article>
+              <span>예약 가능 횟수</span>
+              <strong>{memberReservationAllowance}회</strong>
+              <p>그룹 수강권 기준</p>
+            </article>
+            <article>
+              <span>예약 확정</span>
+              <strong>{memberReservedCount}건</strong>
+              <p>{nextReservedClass ? `${formatRelativeClassDate(nextReservedClass.dayOffset)} ${nextReservedClass.time}` : "예약된 수업 없음"}</p>
+            </article>
+            <article>
+              <span>예약 대기</span>
+              <strong>{memberWaitingCount}건</strong>
+              <p>대기 순번과 상태 표시</p>
+            </article>
+            <article>
+              <span>보유 수강권</span>
+              <strong>{memberTicketItems.length}개</strong>
+              <p>잔여 횟수와 만료일 표시</p>
+            </article>
+          </div>
+
+          <div className="member-service-layout">
+            <section className="member-schedule-panel">
+              <div className="member-panel-title">
+                <h3>수업 스케줄</h3>
+                <span>
+                  {selectedMemberDayOffset !== null
+                    ? formatRelativeClassDate(selectedMemberDayOffset)
+                    : memberCalendarView === "day" ? "오늘" : memberCalendarView === "week" ? "이번 주" : "이번 달"}
+                </span>
+              </div>
+              <div className="member-calendar-strip" aria-label="날짜별 수업">
+                {memberCalendarDays.map((day) => (
+                  <button
+                    key={day.offset}
+                    type="button"
+                    className={selectedMemberDayOffset === day.offset ? "active" : ""}
+                    onClick={() => setSelectedMemberDayOffset((current) => (current === day.offset ? null : day.offset))}
+                  >
+                    <span>{day.label}</span>
+                    <strong>{day.count}개</strong>
+                  </button>
+                ))}
+              </div>
+              <div className="member-schedule-list">
+                {memberVisibleClasses.length ? memberVisibleClasses.map((item) => {
+                  const isReserved = item.userStatus === "reserved";
+                  const isWaiting = item.userStatus === "waiting";
+                  const isFull = item.bookedCount >= item.capacity;
+                  const action = isReserved || isWaiting ? "cancel" : isFull ? "wait" : "reserve";
+                  const actionLabel = isReserved ? "예약 취소" : isWaiting ? "대기 취소" : isFull ? "예약 대기" : "예약하기";
+
+                  return (
+                    <article key={item.id} className={`member-schedule-item ${item.userStatus}`}>
+                      <time>
+                        <strong>{formatRelativeClassDate(item.dayOffset)}</strong>
+                        <span>{item.time}</span>
+                      </time>
+                      <div className="member-schedule-copy">
+                        <h4>{item.title}</h4>
+                        <p>{item.instructor} · {item.room} · {item.category}</p>
+                        <span>
+                          예약 {item.bookedCount}/{item.capacity}
+                          {item.waitlistCount ? ` · 대기 ${item.waitlistCount}명` : ""}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className={`ghost-button small-ghost ${isReserved ? "danger" : ""}`}
+                        onClick={() => handleMemberClassAction(item.id, action)}
+                      >
+                        {actionLabel}
+                      </button>
+                    </article>
+                  );
+                }) : (
+                  <p className="member-schedule-empty">선택한 날짜에 예약 가능한 수업이 없습니다.</p>
+                )}
+              </div>
+            </section>
+
+            <aside className="member-ticket-panel">
+              <div className="member-panel-title">
+                <h3>보유 수강권</h3>
+                <span>잔여 / 만료</span>
+              </div>
+              <div className="member-ticket-list">
+                {memberTicketItems.map((ticket) => (
+                  <article key={ticket.id}>
+                    <div>
+                      <strong>{ticket.title}</strong>
+                      <span>{ticket.type} 수업</span>
+                    </div>
+                    <p>
+                      <strong>{ticket.remaining}</strong> / {ticket.total}회
+                    </p>
+                    <em>만료일 {ticket.expiresAt}</em>
+                    <button
+                      type="button"
+                      className="ghost-button small-ghost"
+                      onClick={() => {
+                        setPassRefundModal(ticket);
+                        setPassRefundReason("");
+                        setPassRefundMessage({ type: "", text: "" });
+                      }}
+                    >
+                      환불 요청
+                    </button>
+                  </article>
+                ))}
+              </div>
+              <div className="member-payment-mini">
+                <h4>수강권 이용 내역</h4>
+                {memberPassTransactions.length ? (
+                  memberPassTransactions.slice(0, 5).map((item) => (
+                    <p key={item.id}>
+                      <span>{item.classTitle || item.passName || "수강권"}</span>
+                      <strong>{Number(item.deltaCount || 0) > 0 ? "+" : ""}{item.deltaCount}회</strong>
+                    </p>
+                  ))
+                ) : (
+                  <p className="member-payment-empty">이용 내역이 없습니다.</p>
+                )}
+              </div>
+              <div className="member-payment-mini">
+                <h4>최근 결제 내역</h4>
+                {userOrders.length ? (
+                  userOrders.slice(0, 2).map((order, index) => (
+                    <p key={order.orderId || order.id || `${order.createdAt}-${index}`}>
+                      <span>{order.orderName || "주문 상품"}</span>
+                      <strong>{store.formatCurrency(order.amount)}</strong>
+                    </p>
+                  ))
+                ) : (
+                  <p className="member-payment-empty">결제 내역이 없습니다.</p>
+                )}
+              </div>
+            </aside>
+          </div>
+
+          <div className="member-support-grid">
+            {MEMBER_STUDIO_INFO.map((item) => (
+              <article key={item.title}>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+                <button type="button" className="ghost-button small-ghost" onClick={() => navigate(item.path)}>
+                  확인하기
+                </button>
+              </article>
+            ))}
+            <article className="member-notification-card">
+              <h3>알림</h3>
+              {(memberNotifications.length ? memberNotifications : MEMBER_NOTIFICATIONS).map((item, idx) => (
+                <p key={item.id || item.title || idx}>
+                  <strong>{item.title || "알림"}</strong>
+                  <span>{item.message || item.text || "-"}</span>
+                </p>
+              ))}
+            </article>
           </div>
         </section>
 
@@ -777,6 +1334,10 @@ export function MyPage() {
               </button>
             </div>
 
+            {certificateMessage.text ? (
+              <p className={`refund-modal-message ${certificateMessage.type}`}>{certificateMessage.text}</p>
+            ) : null}
+
             {activeVideoTab === "purchased" && (
               <div className="dashboard-card-grid">
                 {learningHistory.length ? (
@@ -785,6 +1346,7 @@ export function MyPage() {
                     const durSec = calcChaptersTotalDuration(video.chapters);
                     const durLabel = formatDuration(durSec);
                     const isExpired = expiry && expiry.daysLeft <= 0;
+                    const certificate = certificateByVideoId.get(String(video.id));
                     return (
                       <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card ${isExpired ? "is-expired" : ""}`}>
                         <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
@@ -815,6 +1377,20 @@ export function MyPage() {
                           <button type="button" className="ghost-button small-ghost" disabled={isExpired} onClick={() => navigate(`/academy/player/${video.id}`)}>
                             {isExpired ? "만료됨" : video.completed ? "다시보기" : video.progressPercent > 0 ? "이어보기" : "지금 수강"}
                           </button>
+                          {video.completed ? (
+                            <button
+                              type="button"
+                              className="ghost-button small-ghost mypage-certificate-button"
+                              disabled={issuingCertificateVideoId === String(video.id)}
+                              onClick={() => handleCertificateClick(video)}
+                            >
+                              {issuingCertificateVideoId === String(video.id)
+                                ? "발급 중..."
+                                : certificate
+                                  ? "수료증 보기"
+                                  : "수료증 발급"}
+                            </button>
+                          ) : null}
                         </div>
                       </article>
                     );
@@ -840,6 +1416,7 @@ export function MyPage() {
                     const expiresAt = video.grant?.expiresAt ? new Date(video.grant.expiresAt) : null;
                     const daysLeft = expiresAt ? Math.ceil((expiresAt - Date.now()) / 86400000) : null;
                     const isExpired = daysLeft !== null && daysLeft <= 0;
+                    const certificate = certificateByVideoId.get(String(video.id));
                     return (
                       <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card mypage-granted-card ${isExpired ? "is-expired" : ""}`}>
                         <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
@@ -870,6 +1447,20 @@ export function MyPage() {
                           <button type="button" className="ghost-button small-ghost" disabled={isExpired} onClick={() => navigate(`/academy/player/${video.id}`)}>
                             {isExpired ? "만료됨" : video.completed ? "다시보기" : video.progressPercent > 0 ? "이어보기" : "지금 수강"}
                           </button>
+                          {video.completed ? (
+                            <button
+                              type="button"
+                              className="ghost-button small-ghost mypage-certificate-button"
+                              disabled={issuingCertificateVideoId === String(video.id)}
+                              onClick={() => handleCertificateClick(video)}
+                            >
+                              {issuingCertificateVideoId === String(video.id)
+                                ? "발급 중..."
+                                : certificate
+                                  ? "수료증 보기"
+                                  : "수료증 발급"}
+                            </button>
+                          ) : null}
                         </div>
                       </article>
                     );
@@ -1309,6 +1900,76 @@ export function MyPage() {
               >
                 {refundSubmitting ? "신청 중..." : "환불 신청하기"}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {passRefundModal ? (
+        <div className="refund-modal-backdrop" onClick={() => { setPassRefundModal(null); setPassRefundReason(""); setPassRefundMessage({ type: "", text: "" }); }}>
+          <div className="refund-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="refund-modal-header">
+              <h2>수강권 환불 요청</h2>
+              <button type="button" className="refund-modal-close" onClick={() => { setPassRefundModal(null); setPassRefundReason(""); setPassRefundMessage({ type: "", text: "" }); }}>×</button>
+            </div>
+            <div className="refund-modal-body">
+              <p className="refund-modal-order-name">{passRefundModal.title}</p>
+              <div className="refund-reason-group">
+                <label className="refund-section-label" htmlFor="pass-refund-reason">환불 사유</label>
+                <textarea
+                  id="pass-refund-reason"
+                  className="refund-reason-input"
+                  rows={4}
+                  placeholder="환불 사유를 입력해 주세요."
+                  value={passRefundReason}
+                  onChange={(e) => setPassRefundReason(e.target.value)}
+                />
+              </div>
+              {passRefundMessage.text ? (
+                <p className={`refund-modal-message ${passRefundMessage.type}`}>{passRefundMessage.text}</p>
+              ) : null}
+            </div>
+            <div className="refund-modal-footer">
+              <button type="button" className="ghost-button" onClick={() => { setPassRefundModal(null); setPassRefundReason(""); setPassRefundMessage({ type: "", text: "" }); }}>취소</button>
+              <button
+                type="button"
+                className="pill-button"
+                disabled={passRefundSubmitting}
+                onClick={handleSubmitPassRefund}
+              >
+                {passRefundSubmitting ? "신청 중..." : "환불 요청하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {certificateModal ? (
+        <div className="refund-modal-backdrop certificate-modal-backdrop" onClick={() => setCertificateModal(null)}>
+          <div className="refund-modal certificate-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="refund-modal-header">
+              <h2>수료증</h2>
+              <button type="button" className="refund-modal-close" onClick={() => setCertificateModal(null)}>×</button>
+            </div>
+            <div className="certificate-paper">
+              <img
+                className="certificate-template-image"
+                src={CERTIFICATE_TEMPLATE_IMAGE}
+                alt="이끌림 필라테스 수료증"
+              />
+              <span className="certificate-field certificate-name-field">
+                {certificateModal.recipientName}
+              </span>
+              <span className="certificate-field certificate-course-field">
+                {certificateModal.courseTitle}
+              </span>
+              <span className="certificate-field certificate-date-field">
+                {formatCertificateDate(certificateModal.issuedAt)}
+              </span>
+            </div>
+            <div className="refund-modal-footer certificate-modal-actions">
+              <button type="button" className="ghost-button" onClick={() => setCertificateModal(null)}>닫기</button>
+              <button type="button" className="pill-button" onClick={() => window.print()}>인쇄하기</button>
             </div>
           </div>
         </div>

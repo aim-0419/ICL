@@ -1,4 +1,11 @@
-﻿// 파일 역할: 신규 회원 가입 입력과 제출을 처리하는 페이지 컴포넌트입니다.
+﻿/**
+ * [회원가입 페이지]
+ *
+ * 새로운 회원이 아이디·이름·이메일·비밀번호를 입력하고 약관에 동의한 뒤 가입하는 화면입니다.
+ * - 이메일 인증 코드를 발송하고 확인하는 단계를 포함합니다
+ * - 이용약관·개인정보 처리방침 전문을 모달로 확인할 수 있습니다
+ * - 가입 완료 후 자동으로 로그인되어 홈 화면으로 이동합니다
+ */
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";

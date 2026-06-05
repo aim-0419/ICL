@@ -1,4 +1,11 @@
-﻿// 파일 역할: 회원 로그인을 처리하고 로그인 후 이동을 담당하는 페이지 컴포넌트입니다.
+﻿/**
+ * [로그인 페이지]
+ *
+ * 아이디(loginId)와 비밀번호를 입력받아 로그인을 처리합니다.
+ * - 로그인 성공 시 이전 페이지 또는 홈으로 이동합니다
+ * - 이미 로그인된 상태라면 홈으로 리다이렉트합니다
+ * - 아이디 찾기(/auth/find-id), 비밀번호 재설정(/auth/reset-password) 링크도 제공합니다
+ */
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";

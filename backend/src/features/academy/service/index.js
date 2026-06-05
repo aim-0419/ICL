@@ -14,6 +14,9 @@ export {
   setAcademyVideoHidden,
   listAcademyProgressByUserId,
   listAcademyChapterProgressByUserId,
+  listAcademyCertificatesByUserId,
+  getAcademyCertificateByIdForUser,
+  issueAcademyCertificateForCompletedLecture,
   saveAcademyChapterProgress,
   saveAcademyProgress,
 } from "./video-progress.service.js";

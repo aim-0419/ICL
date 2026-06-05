@@ -1,4 +1,9 @@
-// 파일 역할: 결제 실패 사유를 정리해 사용자에게 안내하는 페이지 컴포넌트입니다.
+/**
+ * [결제 실패 페이지]
+ * PG사(포트원)로부터 결제 실패 응답을 받았을 때 보여주는 화면입니다.
+ * URL 쿼리 파라미터(message, code)로 전달된 실패 사유를 한글로 변환해 표시합니다.
+ * 다시 시도하거나 장바구니·홈으로 이동할 수 있는 버튼을 제공합니다.
+ */
 import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";

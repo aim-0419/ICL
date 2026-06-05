@@ -1,7 +1,7 @@
 // 파일 역할: 아카데미 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../../shared/db/mysql.js";
-import { emailHash } from "../../../shared/security/pii.js";
+import { decryptUserRow, emailHash } from "../../../shared/security/pii.js";
 import { syncChapterVideoNames } from "./asset.service.js";
 
 
@@ -110,6 +110,190 @@ function normalizeVideoRow(row, chapters = []) {
     chapterCount: normalizedChapters.length,
     chapters: normalizedChapters,
   };
+}
+
+function normalizeCertificateRow(row) {
+  if (!row) return null;
+  const user = decryptUserRow(row) || {};
+  return {
+    id: String(row.id || ""),
+    certificateNo: String(row.certificateNo || row.certificate_no || ""),
+    userId: String(row.userId || row.user_id || ""),
+    videoId: String(row.videoId || row.video_id || ""),
+    recipientName: String(user.name || row.recipientName || row.loginId || "회원"),
+    courseTitle: String(row.courseTitle || row.course_title || row.title || ""),
+    instructor: String(row.instructor || ""),
+    category: normalizeCategory(row.category),
+    issuedAt: row.issuedAt ? String(row.issuedAt) : row.issued_at ? String(row.issued_at) : "",
+    revokedAt: row.revokedAt ? String(row.revokedAt) : row.revoked_at ? String(row.revoked_at) : "",
+  };
+}
+
+function createCertificateNo() {
+  const year = new Date().getFullYear();
+  return `ICL-${year}-${randomUUID().slice(0, 8).toUpperCase()}`;
+}
+
+async function fetchCertificateRowById(certificateId, userId = "") {
+  const where = [toSafeText(certificateId)];
+  const userClause = userId ? "AND c.user_id = ?" : "";
+  if (userId) where.push(toSafeText(userId));
+
+  return queryOne(
+    `SELECT
+      c.id,
+      c.certificate_no AS certificateNo,
+      c.user_id AS userId,
+      c.video_id AS videoId,
+      c.issued_at AS issuedAt,
+      c.revoked_at AS revokedAt,
+      u.name,
+      u.login_id AS loginId,
+      u.email,
+      p.name AS courseTitle,
+      av.instructor,
+      av.category
+     FROM academy_certificates c
+     INNER JOIN users u ON u.id = c.user_id
+     INNER JOIN academy_videos av ON av.id = c.video_id
+     INNER JOIN products p ON p.id = av.product_id
+     WHERE c.id = ?
+       ${userClause}
+     LIMIT 1`,
+    where
+  );
+}
+
+async function fetchCertificateRowByUserAndVideo(userId, videoId) {
+  return queryOne(
+    `SELECT
+      c.id,
+      c.certificate_no AS certificateNo,
+      c.user_id AS userId,
+      c.video_id AS videoId,
+      c.issued_at AS issuedAt,
+      c.revoked_at AS revokedAt,
+      u.name,
+      u.login_id AS loginId,
+      u.email,
+      p.name AS courseTitle,
+      av.instructor,
+      av.category
+     FROM academy_certificates c
+     INNER JOIN users u ON u.id = c.user_id
+     INNER JOIN academy_videos av ON av.id = c.video_id
+     INNER JOIN products p ON p.id = av.product_id
+     WHERE c.user_id = ?
+       AND c.video_id = ?
+     LIMIT 1`,
+    [toSafeText(userId), toSafeText(videoId)]
+  );
+}
+
+async function createOrGetAcademyCertificate(userId, videoId) {
+  const normalizedUserId = toSafeText(userId);
+  const normalizedVideoId = toSafeText(videoId);
+  if (!normalizedUserId || !normalizedVideoId) return null;
+
+  const existing = await fetchCertificateRowByUserAndVideo(normalizedUserId, normalizedVideoId);
+  if (existing?.id) return normalizeCertificateRow(existing);
+
+  const targetVideo = await queryOne(
+    `SELECT id FROM academy_videos WHERE id = ? LIMIT 1`,
+    [normalizedVideoId]
+  );
+  if (!targetVideo?.id) return null;
+
+  const certificateId = `cert-${Date.now()}-${randomUUID().slice(0, 8)}`;
+  const certificateNo = createCertificateNo();
+  await query(
+    `INSERT INTO academy_certificates (
+      id,
+      user_id,
+      video_id,
+      certificate_no,
+      issued_at,
+      created_at
+    ) VALUES (?, ?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+    ON DUPLICATE KEY UPDATE id = id`,
+    [certificateId, normalizedUserId, normalizedVideoId, certificateNo]
+  );
+
+  return normalizeCertificateRow(
+    await fetchCertificateRowByUserAndVideo(normalizedUserId, normalizedVideoId)
+  );
+}
+
+export async function listAcademyCertificatesByUserId(userId) {
+  const normalizedUserId = toSafeText(userId);
+  if (!normalizedUserId) return [];
+
+  const rows = await query(
+    `SELECT
+      c.id,
+      c.certificate_no AS certificateNo,
+      c.user_id AS userId,
+      c.video_id AS videoId,
+      c.issued_at AS issuedAt,
+      c.revoked_at AS revokedAt,
+      u.name,
+      u.login_id AS loginId,
+      u.email,
+      p.name AS courseTitle,
+      av.instructor,
+      av.category
+     FROM academy_certificates c
+     INNER JOIN users u ON u.id = c.user_id
+     INNER JOIN academy_videos av ON av.id = c.video_id
+     INNER JOIN products p ON p.id = av.product_id
+     WHERE c.user_id = ?
+     ORDER BY c.issued_at DESC`,
+    [normalizedUserId]
+  );
+
+  return rows.map(normalizeCertificateRow).filter(Boolean);
+}
+
+export async function getAcademyCertificateByIdForUser(userId, certificateId) {
+  const normalizedUserId = toSafeText(userId);
+  const normalizedCertificateId = toSafeText(certificateId);
+  if (!normalizedUserId || !normalizedCertificateId) return null;
+
+  return normalizeCertificateRow(
+    await fetchCertificateRowById(normalizedCertificateId, normalizedUserId)
+  );
+}
+
+export async function issueAcademyCertificateForCompletedLecture(userId, videoId) {
+  const normalizedUserId = toSafeText(userId);
+  const normalizedVideoId = toSafeText(videoId);
+  if (!normalizedUserId || !normalizedVideoId) {
+    const error = new Error("수료증 발급 정보가 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  const progress = await queryOne(
+    `SELECT completed, progress_percent AS progressPercent
+     FROM academy_progress
+     WHERE user_id = ?
+       AND video_id = ?
+     LIMIT 1`,
+    [normalizedUserId, normalizedVideoId]
+  );
+  const completed =
+    progress?.completed === true ||
+    progress?.completed === 1 ||
+    progress?.completed === "1" ||
+    Math.max(0, Math.round(toNumber(progress?.progressPercent))) >= 100;
+
+  if (!completed) {
+    const error = new Error("완강한 강의만 수료증을 발급할 수 있습니다.");
+    error.status = 409;
+    throw error;
+  }
+
+  return createOrGetAcademyCertificate(normalizedUserId, normalizedVideoId);
 }
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -711,6 +895,10 @@ async function upsertLectureProgressFromChapterRows(userId, videoId) {
       aggregate?.lastWatchedAt || null,
     ]
   );
+
+  if (completed) {
+    await createOrGetAcademyCertificate(normalizedUserId, normalizedVideoId);
+  }
 
   const lectureRow = await queryOne(
     `SELECT

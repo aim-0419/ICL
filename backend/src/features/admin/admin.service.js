@@ -1,13 +1,20 @@
 // 파일 역할: 관리자 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { query, queryOne } from "../../shared/db/mysql.js";
+import { randomUUID } from "node:crypto";
 import {
   decryptOrderRow,
   decryptUserRow,
   emailHash,
+  encryptPii,
+  nameHash,
+  normalizeName,
+  normalizePhone,
+  phoneHash,
 } from "../../shared/security/pii.js";
 
 const USER_GRADES = ["admin0", "admin1", "member", "vip", "vvip"];
 const USER_GRADE_SET = new Set(USER_GRADES);
+const STUDIO_MEMBER_STATUSES = new Set(["active", "inactive", "expired", "archived"]);
 const DASHBOARD_RANGE_DAYS = {
   all: 0,
   today: 1,
@@ -416,28 +423,67 @@ function normalizeProductId(value) {
   return String(value || "").trim();
 }
 
+function getOrderPayloadSources(orderRow) {
+  const direct = orderRow && typeof orderRow === "object" ? orderRow : {};
+  const payload = parsePayload(direct.payload);
+  const nestedPayload = parsePayload(payload?.payload);
+  return [direct, payload, nestedPayload].filter(
+    (source) => source && typeof source === "object" && Object.keys(source).length > 0
+  );
+}
+
+function aggregateOrderItems(items) {
+  const quantityByProductId = new Map();
+
+  function addItem(productId, quantity = 1, price = 0) {
+    const normalized = normalizeProductId(productId);
+    if (!normalized) return;
+    const safeQuantity = Math.max(1, Math.round(toAmount(quantity) || 1));
+    const current =
+      quantityByProductId.get(normalized) || {
+        productId: normalized,
+        quantity: 0,
+        price: 0,
+      };
+    current.quantity += safeQuantity;
+    current.price = Math.max(current.price, Math.max(0, toAmount(price)));
+    quantityByProductId.set(normalized, current);
+  }
+
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    addItem(
+      item?.productId || item?.id,
+      item?.quantity,
+      item?.price || item?.salePrice || item?.amount
+    );
+  });
+
+  return [...quantityByProductId.values()];
+}
+
 // 함수 역할: 상품 ids에서 필요한 항목만 골라냅니다.
 function pickProductIds(orderRow) {
-  const payload = parsePayload(orderRow.payload);
   const ids = new Set();
 
-  if (Array.isArray(payload.selectedProductIds)) {
-    payload.selectedProductIds.forEach((value) => {
-      const productId = normalizeProductId(value);
-      if (productId) ids.add(productId);
-    });
-  }
+  for (const source of getOrderPayloadSources(orderRow)) {
+    if (Array.isArray(source.selectedProductIds)) {
+      source.selectedProductIds.forEach((value) => {
+        const productId = normalizeProductId(value);
+        if (productId) ids.add(productId);
+      });
+    }
 
-  if (Array.isArray(payload.items)) {
-    payload.items.forEach((item) => {
-      const productId = normalizeProductId(item?.productId);
-      if (productId) ids.add(productId);
-    });
-  }
+    if (Array.isArray(source.items)) {
+      source.items.forEach((item) => {
+        const productId = normalizeProductId(item?.productId || item?.id);
+        if (productId) ids.add(productId);
+      });
+    }
 
-  const singleProductId = normalizeProductId(payload.productId);
-  if (singleProductId) {
-    ids.add(singleProductId);
+    const singleProductId = normalizeProductId(source.productId);
+    if (singleProductId) {
+      ids.add(singleProductId);
+    }
   }
 
   return [...ids];
@@ -445,32 +491,41 @@ function pickProductIds(orderRow) {
 
 // 함수 역할: 주문 항목에서 필요한 항목만 골라냅니다.
 function pickOrderItems(orderRow) {
-  const payload = parsePayload(orderRow.payload);
-  const quantityByProductId = new Map();
+  const sources = getOrderPayloadSources(orderRow);
 
-  function addItem(productId, quantity = 1) {
-    const normalized = normalizeProductId(productId);
-    if (!normalized) return;
-    const safeQuantity = Math.max(1, Math.round(toAmount(quantity) || 1));
-    quantityByProductId.set(normalized, (quantityByProductId.get(normalized) || 0) + safeQuantity);
+  for (const source of sources) {
+    if (Array.isArray(source.items) && source.items.length > 0) {
+      const items = aggregateOrderItems(source.items);
+      if (items.length) return items;
+    }
   }
 
-  if (Array.isArray(payload.items)) {
-    payload.items.forEach((item) => addItem(item?.productId, item?.quantity));
+  for (const source of sources) {
+    if (Array.isArray(source.selectedProductIds) && source.selectedProductIds.length > 0) {
+      const items = aggregateOrderItems(
+        source.selectedProductIds.map((productId) => ({
+          productId,
+          quantity: 1,
+        }))
+      );
+      if (items.length) return items;
+    }
   }
 
-  if (Array.isArray(payload.selectedProductIds)) {
-    payload.selectedProductIds.forEach((productId) => addItem(productId, 1));
+  for (const source of sources) {
+    const productId = normalizeProductId(source.productId);
+    if (productId) {
+      return aggregateOrderItems([
+        {
+          productId,
+          quantity: source.quantity,
+          price: source.price || source.salePrice || source.amount,
+        },
+      ]);
+    }
   }
 
-  if (quantityByProductId.size === 0) {
-    addItem(payload.productId, 1);
-  }
-
-  return [...quantityByProductId.entries()].map(([productId, quantity]) => ({
-    productId,
-    quantity,
-  }));
+  return [];
 }
 
 // 함수 역할: 등급 to 권한 값을 다른 표현 형식으로 매핑합니다.
@@ -1044,6 +1099,11 @@ export async function getSalesDashboard(options = {}) {
       },
     ])
   );
+  const videoByLookupId = new Map();
+  for (const video of videoByProductId.values()) {
+    if (video.productId) videoByLookupId.set(video.productId, video);
+    if (video.videoId) videoByLookupId.set(video.videoId, video);
+  }
 
   const userBirthYearByEmail = new Map(
     userRows
@@ -1106,13 +1166,21 @@ export async function getSalesDashboard(options = {}) {
     const pricedItems = orderItems
       .map((item) => {
         const product = productMap.get(item.productId);
+        const video = videoByLookupId.get(item.productId);
+        const price = Math.max(0, toAmount(product?.price), toAmount(item.price));
+        const quantity = Math.max(1, Math.round(toAmount(item.quantity) || 1));
         return {
           ...item,
-          price: Math.max(0, toAmount(product?.price)),
-          weight: Math.max(0, toAmount(product?.price)) * Math.max(1, Math.round(toAmount(item.quantity))),
+          productId: video?.productId || item.productId,
+          videoId: video?.videoId || "",
+          title: video?.title || product?.name || String(payload?.orderName || item.productId || ""),
+          instructor: video?.instructor || "",
+          price,
+          quantity,
+          weight: price * quantity,
         };
       })
-      .filter((item) => videoByProductId.has(item.productId));
+      .filter((item) => item.productId);
 
     if (!pricedItems.length) continue;
 
@@ -1121,12 +1189,18 @@ export async function getSalesDashboard(options = {}) {
       totalWeight > 0
         ? pricedItems.map((item) => ({
             productId: item.productId,
+            videoId: item.videoId,
+            title: item.title,
+            instructor: item.instructor,
             quantity: item.quantity,
             grossRevenue: grossAmount * (item.weight / totalWeight),
             netRevenue: netAmount * (item.weight / totalWeight),
           }))
         : pricedItems.map((item) => ({
             productId: item.productId,
+            videoId: item.videoId,
+            title: item.title,
+            instructor: item.instructor,
             quantity: item.quantity,
             grossRevenue: grossAmount / pricedItems.length,
             netRevenue: netAmount / pricedItems.length,
@@ -1134,14 +1208,11 @@ export async function getSalesDashboard(options = {}) {
 
     const visitedInOrder = new Set();
     for (const item of revenuePerItem) {
-      const video = videoByProductId.get(item.productId);
-      if (!video) continue;
-
       const current = videoSalesMap.get(item.productId) || {
-        videoId: video.videoId,
-        productId: video.productId,
-        title: video.title,
-        instructor: video.instructor,
+        videoId: item.videoId || "",
+        productId: item.productId,
+        title: item.title || item.productId,
+        instructor: item.instructor || "",
         saleCount: 0,
         orderCount: 0,
         grossRevenue: 0,
@@ -1248,6 +1319,478 @@ export async function getSalesDashboard(options = {}) {
     ageGroupSales,
     generatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * 회원 목록 전용 조회 — 수강권·최근출석일·미수금을 함께 반환합니다.
+ * AdminMemberListPage 에서 사용합니다.
+ */
+export async function listMembersForAdmin() {
+  const [users, profiles, passes, passPayments, checkins, arrears, orders, memos] = await Promise.all([
+    // 회원 기본 정보
+    query(
+      `SELECT id, login_id AS loginId, name, email, phone,
+              user_grade AS userGrade, account_status AS accountStatus,
+              points,
+              DATE_FORMAT(created_at, '%Y-%m-%d') AS createdAt
+       FROM users
+       WHERE account_status = 'active'
+       ORDER BY created_at DESC`
+    ),
+    query(
+      `SELECT user_id AS userId,
+              app_connection_status AS appConnectionStatus,
+              member_status AS studioMemberStatus,
+              gender,
+              DATE_FORMAT(birth_date, '%Y-%m-%d') AS birthDate,
+              address,
+              address_detail AS addressDetail,
+              primary_instructor AS primaryInstructor,
+              DATE_FORMAT(registered_at, '%Y-%m-%d') AS studioRegisteredAt
+       FROM studio_member_profiles`
+    ),
+    // 활성 수강권 (회원별 최신 1개씩)
+    query(
+      `SELECT sp.id, sp.user_id AS userId, sp.pass_name AS passName,
+              sp.pass_type AS passType, sp.remaining_count AS remainingCount,
+              sp.reservable_count AS reservableCount,
+              sp.cancellable_count AS cancellableCount,
+              sp.total_count AS totalCount,
+              sp.is_family_pass AS isFamilyPass,
+              DATE_FORMAT(sp.created_at, '%Y-%m-%d') AS startDate,
+              DATE_FORMAT(sp.expires_at, '%Y-%m-%d') AS expiresAt,
+              DATEDIFF(sp.expires_at, NOW()) AS daysLeft,
+              sp.status,
+              DATE_FORMAT(sp.created_at, '%Y-%m-%d') AS issuedAt,
+              DATE_FORMAT(sp.updated_at, '%Y-%m-%d') AS updatedAt
+       FROM studio_passes sp
+       ORDER BY sp.created_at DESC`
+    ),
+    query(
+      `SELECT spp.pass_id AS passId,
+              spp.payment_type AS paymentType,
+              spp.amount,
+              DATE_FORMAT(spp.paid_at, '%Y-%m-%d') AS paidAt,
+              spp.payment_method AS paymentMethod,
+              spp.installment_months AS installmentMonths
+       FROM studio_pass_payments spp
+       INNER JOIN (
+         SELECT pass_id, MAX(COALESCE(paid_at, created_at)) AS latestPaidAt
+         FROM studio_pass_payments
+         GROUP BY pass_id
+       ) latest
+         ON latest.pass_id = spp.pass_id
+        AND latest.latestPaidAt = COALESCE(spp.paid_at, spp.created_at)`
+    ),
+    // 최근 출석일 (마지막 체크인)
+    query(
+      `SELECT user_id AS userId, MAX(DATE_FORMAT(checked_in_at, '%Y-%m-%d')) AS lastVisitAt
+       FROM studio_checkins
+       GROUP BY user_id`
+    ),
+    // 미수금 합계
+    query(
+      `SELECT user_id AS userId, SUM(amount) AS totalArrears
+       FROM studio_arrears
+       WHERE status = 'open'
+       GROUP BY user_id`
+    ),
+    query(
+      `SELECT user_id AS userId, COUNT(*) AS orderCount
+       FROM payment_confirmations
+       WHERE status <> 'refunded'
+       GROUP BY user_id`
+    ),
+    query(
+      `SELECT smm.user_id AS userId, smm.memo, smm.created_at AS createdAt
+       FROM studio_member_memos smm
+       INNER JOIN (
+         SELECT user_id, MAX(created_at) AS latestCreatedAt
+         FROM studio_member_memos
+         GROUP BY user_id
+       ) latest
+         ON latest.user_id = smm.user_id
+        AND latest.latestCreatedAt = smm.created_at
+       ORDER BY smm.created_at DESC`
+    ),
+  ]);
+
+  // 회원ID별 맵으로 변환
+  const passMap = new Map(); // userId → [passes]
+  const profileMap = new Map(profiles.map((profile) => [profile.userId, profile]));
+  const paymentMap = new Map(passPayments.map((payment) => [payment.passId, payment]));
+  for (const p of passes) {
+    const list = passMap.get(p.userId) || [];
+    list.push({
+      ...p,
+      isFamilyPass: Boolean(Number(p.isFamilyPass || 0)),
+      reservableCount: p.reservableCount == null ? null : Number(p.reservableCount),
+      cancellableCount: p.cancellableCount == null ? null : Number(p.cancellableCount),
+      payment: paymentMap.get(p.id) || null,
+    });
+    passMap.set(p.userId, list);
+  }
+  const checkinMap = new Map(checkins.map((c) => [c.userId, c.lastVisitAt]));
+  const arrearsMap = new Map(arrears.map((a) => [a.userId, Number(a.totalArrears || 0)]));
+  const orderMap = new Map(orders.map((o) => [o.userId, Number(o.orderCount || 0)]));
+  const memoMap = new Map(memos.map((m) => [m.userId, { memo: m.memo || "", createdAt: m.createdAt || null }]));
+
+  return users.map(decryptUserRow).map((user) => {
+    const profile = profileMap.get(user.id) || {};
+    return {
+    id: user.id,
+    name: user.name,
+    loginId: user.loginId,
+    phone: user.phone,
+    email: user.email,
+    userGrade: user.userGrade,
+    accountStatus: user.accountStatus,
+    points: Number(user.points || 0),
+    createdAt: user.createdAt,
+    appConnectionStatus: profile.appConnectionStatus || "not_connected",
+    studioMemberStatus: profile.studioMemberStatus || null,
+    gender: profile.gender || null,
+    birthDate: profile.birthDate || null,
+    address: profile.address || null,
+    addressDetail: profile.addressDetail || null,
+    primaryInstructor: profile.primaryInstructor || null,
+    studioRegisteredAt: profile.studioRegisteredAt || null,
+    lastVisitAt: checkinMap.get(user.id) || null,
+    passes: passMap.get(user.id) || [],
+    totalArrears: arrearsMap.get(user.id) || 0,
+    orderCount: orderMap.get(user.id) || 0,
+    latestMemo: memoMap.get(user.id) || null,
+    };
+  });
+}
+
+export async function updateStudioMemberStatus(userId, nextStatus) {
+  const normalizedUserId = String(userId || "").trim();
+  const normalizedStatus = String(nextStatus || "").trim().toLowerCase();
+
+  if (!normalizedUserId) {
+    const error = new Error("회원 정보가 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!STUDIO_MEMBER_STATUSES.has(normalizedStatus)) {
+    const error = new Error("스튜디오 회원 상태 값이 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  const user = await queryOne(
+    `SELECT id FROM users WHERE id = ? AND account_status = 'active' LIMIT 1`,
+    [normalizedUserId]
+  );
+  if (!user) {
+    const error = new Error("대상 회원을 찾을 수 없습니다.");
+    error.status = 404;
+    throw error;
+  }
+
+  await query(
+    `INSERT INTO studio_member_profiles
+       (user_id, app_connection_status, member_status, registered_at, created_at, updated_at)
+     VALUES (?, 'not_connected', ?, NOW(), NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       member_status = VALUES(member_status),
+       registered_at = COALESCE(registered_at, VALUES(registered_at)),
+       updated_at = NOW()`,
+    [normalizedUserId, normalizedStatus]
+  );
+
+  return queryOne(
+    `SELECT user_id AS userId,
+            app_connection_status AS appConnectionStatus,
+            member_status AS studioMemberStatus,
+            DATE_FORMAT(registered_at, '%Y-%m-%d') AS studioRegisteredAt
+     FROM studio_member_profiles
+     WHERE user_id = ?
+     LIMIT 1`,
+    [normalizedUserId]
+  );
+}
+
+export async function updateStudioMemberProfile(userId, payload = {}) {
+  const normalizedUserId = String(userId || "").trim();
+  const name = normalizeName(payload.name);
+  const phone = normalizePhone(payload.phone);
+  const memberStatus = String(payload.memberStatus || payload.studioMemberStatus || "active").trim().toLowerCase();
+  const appConnectionStatus = String(payload.appConnectionStatus || "not_connected").trim().toLowerCase();
+  const gender = String(payload.gender || "").trim() || null;
+  const birthDate = String(payload.birthDate || "").trim() || null;
+  const address = String(payload.address || "").trim() || null;
+  const addressDetail = String(payload.addressDetail || "").trim() || null;
+  const primaryInstructor = String(payload.primaryInstructor || "").trim() || null;
+
+  if (!normalizedUserId) {
+    const error = new Error("회원 정보가 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+  if (!name) {
+    const error = new Error("회원 이름을 입력해 주세요.");
+    error.status = 400;
+    throw error;
+  }
+  if (!STUDIO_MEMBER_STATUSES.has(memberStatus)) {
+    const error = new Error("스튜디오 회원 상태 값이 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+  if (!["connected", "not_connected"].includes(appConnectionStatus)) {
+    const error = new Error("앱 연결 상태 값이 올바르지 않습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  const target = await queryOne(
+    `SELECT id FROM users WHERE id = ? AND account_status = 'active' LIMIT 1`,
+    [normalizedUserId]
+  );
+  if (!target) {
+    const error = new Error("대상 회원을 찾을 수 없습니다.");
+    error.status = 404;
+    throw error;
+  }
+
+  await query(
+    `UPDATE users
+     SET name = ?, name_hash = ?, phone = ?, phone_hash = ?
+     WHERE id = ?`,
+    [
+      encryptPii(name),
+      nameHash(name),
+      phone ? encryptPii(phone) : null,
+      phoneHash(phone),
+      normalizedUserId,
+    ]
+  );
+
+  await query(
+    `INSERT INTO studio_member_profiles
+       (user_id, app_connection_status, member_status, gender, birth_date, address, address_detail, primary_instructor, registered_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       app_connection_status = VALUES(app_connection_status),
+       member_status = VALUES(member_status),
+       gender = VALUES(gender),
+       birth_date = VALUES(birth_date),
+       address = VALUES(address),
+       address_detail = VALUES(address_detail),
+       primary_instructor = VALUES(primary_instructor),
+       registered_at = COALESCE(registered_at, VALUES(registered_at)),
+       updated_at = NOW()`,
+    [
+      normalizedUserId,
+      appConnectionStatus,
+      memberStatus,
+      gender,
+      birthDate,
+      address,
+      addressDetail,
+      primaryInstructor,
+    ]
+  );
+
+  return {
+    userId: normalizedUserId,
+    name,
+    phone,
+    appConnectionStatus,
+    studioMemberStatus: memberStatus,
+    gender,
+    birthDate,
+    address,
+    addressDetail,
+    primaryInstructor,
+  };
+}
+
+const STAFF_ROLES = new Set(["owner", "manager", "instructor"]);
+const STAFF_EMPLOYMENT_TYPES = new Set(["full_time", "part_time", "freelance"]);
+const STAFF_APP_STATUSES = new Set(["connected", "not_connected"]);
+const STAFF_STATUSES = new Set(["active", "inactive", "archived"]);
+const STAFF_SALARY_TYPES = new Set(["fixed", "hourly", "commission"]);
+
+function normalizeStaffPayload(payload = {}) {
+  const name = String(payload.name || "").trim();
+  if (!name) {
+    const error = new Error("강사 이름을 입력해 주세요.");
+    error.status = 400;
+    throw error;
+  }
+  const roleCode = STAFF_ROLES.has(String(payload.roleCode || "").toLowerCase())
+    ? String(payload.roleCode).toLowerCase()
+    : "instructor";
+  const employmentType = STAFF_EMPLOYMENT_TYPES.has(String(payload.employmentType || "").toLowerCase())
+    ? String(payload.employmentType).toLowerCase()
+    : "full_time";
+  const appConnectionStatus = STAFF_APP_STATUSES.has(String(payload.appConnectionStatus || "").toLowerCase())
+    ? String(payload.appConnectionStatus).toLowerCase()
+    : "not_connected";
+  const status = STAFF_STATUSES.has(String(payload.status || "").toLowerCase())
+    ? String(payload.status).toLowerCase()
+    : "active";
+  const salaryType = STAFF_SALARY_TYPES.has(String(payload.salaryType || "").toLowerCase())
+    ? String(payload.salaryType).toLowerCase()
+    : "fixed";
+  return {
+    name,
+    roleCode,
+    employmentType,
+    phone: String(payload.phone || "").trim(),
+    appConnectionStatus,
+    color: String(payload.color || "#4aa3ff").trim() || "#4aa3ff",
+    status,
+    canManageSchedule: payload.canManageSchedule ? 1 : 0,
+    canViewMembers: payload.canViewMembers ? 1 : 0,
+    canManagePasses: payload.canManagePasses ? 1 : 0,
+    canViewSales: payload.canViewSales ? 1 : 0,
+    salaryType,
+    basePay: Math.max(0, Math.round(toAmount(payload.basePay))),
+    hourlyWage: Math.max(0, Math.round(toAmount(payload.hourlyWage))),
+    commissionRate: Math.max(0, Number(payload.commissionRate || 0)),
+    memo: String(payload.memo || "").trim(),
+  };
+}
+
+function mapStaffRow(row = {}) {
+  return {
+    id: String(row.id || ""),
+    name: String(row.name || ""),
+    roleCode: String(row.roleCode || row.role_code || "instructor"),
+    employmentType: String(row.employmentType || row.employment_type || "full_time"),
+    phone: String(row.phone || ""),
+    appConnectionStatus: String(row.appConnectionStatus || row.app_connection_status || "not_connected"),
+    color: String(row.color || "#4aa3ff"),
+    status: String(row.status || "active"),
+    canManageSchedule: Boolean(row.canManageSchedule ?? row.can_manage_schedule),
+    canViewMembers: Boolean(row.canViewMembers ?? row.can_view_members),
+    canManagePasses: Boolean(row.canManagePasses ?? row.can_manage_passes),
+    canViewSales: Boolean(row.canViewSales ?? row.can_view_sales),
+    salaryType: String(row.salaryType || row.salary_type || "fixed"),
+    basePay: toAmount(row.basePay ?? row.base_pay),
+    hourlyWage: toAmount(row.hourlyWage ?? row.hourly_wage),
+    commissionRate: Number(row.commissionRate ?? row.commission_rate ?? 0),
+    memo: String(row.memo || ""),
+    createdAt: row.createdAt || row.created_at || null,
+    updatedAt: row.updatedAt || row.updated_at || null,
+    source: row.source || "profile",
+  };
+}
+
+export async function listStudioStaffProfiles() {
+  const rows = await query(
+    `SELECT
+       id, name, role_code AS roleCode, employment_type AS employmentType, phone,
+       app_connection_status AS appConnectionStatus, color, status,
+       can_manage_schedule AS canManageSchedule, can_view_members AS canViewMembers,
+       can_manage_passes AS canManagePasses, can_view_sales AS canViewSales,
+       salary_type AS salaryType, base_pay AS basePay, hourly_wage AS hourlyWage,
+       commission_rate AS commissionRate, memo, created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_staff_profiles
+     WHERE status <> 'archived'
+     ORDER BY FIELD(role_code, 'owner','manager','instructor'), name ASC`
+  );
+  const staff = (Array.isArray(rows) ? rows : []).map(mapStaffRow);
+  const knownNames = new Set(staff.map((item) => item.name.trim()).filter(Boolean));
+  const classRows = await query(
+    `SELECT DISTINCT instructor_name AS name
+     FROM studio_classes
+     WHERE instructor_name IS NOT NULL AND TRIM(instructor_name) <> ''
+     ORDER BY instructor_name ASC`
+  );
+  for (const row of Array.isArray(classRows) ? classRows : []) {
+    const name = String(row.name || "").trim();
+    if (!name || knownNames.has(name)) continue;
+    staff.push(mapStaffRow({
+      id: `class-${name}`,
+      name,
+      roleCode: "instructor",
+      employmentType: "full_time",
+      color: "#9aa7ff",
+      canManageSchedule: 1,
+      canViewMembers: 1,
+      source: "class",
+    }));
+  }
+  return staff;
+}
+
+export async function saveStudioStaffProfile(staffId, payload = {}) {
+  const staff = normalizeStaffPayload(payload);
+  const id = staffId ? String(staffId) : `staff-${randomUUID()}`;
+  await query(
+    `INSERT INTO studio_staff_profiles
+       (id, name, role_code, employment_type, phone, app_connection_status, color, status,
+        can_manage_schedule, can_view_members, can_manage_passes, can_view_sales,
+        salary_type, base_pay, hourly_wage, commission_rate, memo, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       name = VALUES(name),
+       role_code = VALUES(role_code),
+       employment_type = VALUES(employment_type),
+       phone = VALUES(phone),
+       app_connection_status = VALUES(app_connection_status),
+       color = VALUES(color),
+       status = VALUES(status),
+       can_manage_schedule = VALUES(can_manage_schedule),
+       can_view_members = VALUES(can_view_members),
+       can_manage_passes = VALUES(can_manage_passes),
+       can_view_sales = VALUES(can_view_sales),
+       salary_type = VALUES(salary_type),
+       base_pay = VALUES(base_pay),
+       hourly_wage = VALUES(hourly_wage),
+       commission_rate = VALUES(commission_rate),
+       memo = VALUES(memo),
+       updated_at = NOW()`,
+    [
+      id,
+      staff.name,
+      staff.roleCode,
+      staff.employmentType,
+      staff.phone || null,
+      staff.appConnectionStatus,
+      staff.color,
+      staff.status,
+      staff.canManageSchedule,
+      staff.canViewMembers,
+      staff.canManagePasses,
+      staff.canViewSales,
+      staff.salaryType,
+      staff.basePay,
+      staff.hourlyWage,
+      staff.commissionRate,
+      staff.memo || null,
+    ]
+  );
+  const row = await queryOne(
+    `SELECT
+       id, name, role_code AS roleCode, employment_type AS employmentType, phone,
+       app_connection_status AS appConnectionStatus, color, status,
+       can_manage_schedule AS canManageSchedule, can_view_members AS canViewMembers,
+       can_manage_passes AS canManagePasses, can_view_sales AS canViewSales,
+       salary_type AS salaryType, base_pay AS basePay, hourly_wage AS hourlyWage,
+       commission_rate AS commissionRate, memo, created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_staff_profiles
+     WHERE id = ? OR name = ?
+     LIMIT 1`,
+    [id, staff.name]
+  );
+  return mapStaffRow(row);
+}
+
+export async function archiveStudioStaffProfile(staffId) {
+  await query(
+    `UPDATE studio_staff_profiles
+     SET status = 'archived', updated_at = NOW()
+     WHERE id = ?`,
+    [staffId]
+  );
+  return { id: staffId, status: "archived" };
 }
 
 // 함수 역할: 회원 등급 데이터를 수정합니다.

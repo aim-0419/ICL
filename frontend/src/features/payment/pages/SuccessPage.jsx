@@ -1,6 +1,9 @@
-// 파일 역할: 결제 성공 후 주문 정보를 확인하고 완료 안내를 보여주는 페이지 컴포넌트입니다.
-// 결제 성공 페이지:
-// 쿼리스트링(orderId/orderName/amount)으로 전달된 결제 결과를 표시합니다.
+/**
+ * [결제 성공 페이지]
+ * PG사(포트원)에서 결제를 완료한 뒤 리다이렉트되는 화면입니다.
+ * URL 쿼리 파라미터(orderId, orderName, amount)로 전달된 결제 정보를 표시합니다.
+ * 강의 목록이나 마이페이지로 이동할 수 있는 버튼을 제공합니다.
+ */
 import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";

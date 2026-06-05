@@ -1,4 +1,15 @@
-﻿// 파일 역할: 사이트 상단 내비게이션, 로그인 상태 메뉴, 장바구니 진입 버튼을 렌더링합니다.
+﻿/**
+ * [사이트 헤더 컴포넌트]
+ *
+ * 모든 페이지 상단에 표시되는 공통 내비게이션 바입니다.
+ * - 로고 클릭 시 홈으로 이동합니다
+ * - 로그인 상태에 따라 메뉴가 달라집니다:
+ *   · 비로그인: 로그인·회원가입 버튼
+ *   · 일반 회원: 마이페이지·로그아웃 버튼
+ *   · 관리자(admin0/admin1): 관리자 대시보드 링크 추가
+ * - 장바구니 아이콘에 담긴 상품 수를 뱃지로 표시합니다
+ * - 관리자 편집 모드(adminPageEditMode)가 켜져 있으면 편집 버튼이 노출됩니다
+ */
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { canEditPage, isAdminStaff } from "../auth/userRoles.js";
@@ -105,37 +116,55 @@ export function SiteHeader({ subpage = false }) {
         <Link to="/" className="brand brand-logo" aria-label="메인 페이지로 이동" onClick={handleBrandClick}>
           <img src="/assets/images/이끌림로고.png" alt="ICL Pilates" />
         </Link>
-        {!subpage ? (
-          <nav className="nav">
-            <div className="nav-dropdown">
-              <button className="nav-trigger" type="button">
-                이끌림
-              </button>
-              <div className="nav-menu">
-                <Link to="/ikleulrim/intro">소개</Link>
-                <Link to="/ikleulrim/instructors">강사</Link>
-                <Link to="/ikleulrim/tour">둘러보기</Link>
-                <Link to="/ikleulrim/equipment">장비소개</Link>
-                <Link to="/ikleulrim/directions">오시는 길</Link>
-              </div>
+        <nav className="nav">
+          <Link className="nav-link" to="/">
+            메인
+          </Link>
+          <div className="nav-dropdown">
+            <button className="nav-trigger" type="button">
+              스튜디오
+            </button>
+            <div className="nav-menu">
+              <Link to="/ikleulrim/intro">소개</Link>
+              <Link to="/ikleulrim/instructors">강사진</Link>
+              <Link to="/ikleulrim/tour">둘러보기</Link>
+              <Link to="/ikleulrim/directions">오시는 길</Link>
             </div>
-            <Link className="nav-link" to="/academy">
-              교육 영상
-            </Link>
-            <div className="nav-dropdown">
-              <button className="nav-trigger" type="button">
-                커뮤니티
-              </button>
-              <div className="nav-menu">
-                <Link to="/community/reviews">후기</Link>
-                <Link to="/community/inquiry">문의하기</Link>
-              </div>
+          </div>
+          <div className="nav-dropdown">
+            <button className="nav-trigger" type="button">
+              프로그램
+            </button>
+            <div className="nav-menu">
+              <Link to="/ikleulrim/intro">수업 소개</Link>
+              <Link to="/ikleulrim/equipment">장비 소개</Link>
+              <Link to="/community/inquiry">수업 문의</Link>
             </div>
-            <Link className="nav-link" to="/community/events">
-              이벤트
-            </Link>
-          </nav>
-        ) : null}
+          </div>
+          <div className="nav-dropdown">
+            <button className="nav-trigger" type="button">
+              아카데미
+            </button>
+            <div className="nav-menu">
+              <Link to="/academy">교육 영상</Link>
+              <Link to="/community/inquiry">수강 문의</Link>
+              <Link to="/mypage">마이페이지</Link>
+            </div>
+          </div>
+          <div className="nav-dropdown">
+            <button className="nav-trigger" type="button">
+              커뮤니티
+            </button>
+            <div className="nav-menu">
+              <Link to="/community/reviews">후기</Link>
+              <Link to="/community/inquiry">문의하기</Link>
+              <Link to="/community/events">이벤트</Link>
+            </div>
+          </div>
+          <Link className="nav-link" to="/community/events">
+            이벤트
+          </Link>
+        </nav>
         <div className="header-actions">
           {currentUser ? (
             <>

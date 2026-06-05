@@ -143,7 +143,7 @@ export function AdminVideoGiftPage() {
       <main className="dashboard-page admin-dashboard-page">
         <section className="admin-dashboard-switch">
           <Link className="admin-dashboard-switch-link" to="/admin">
-            매출 대시보드
+            일정 관리
           </Link>
           <Link className="admin-dashboard-switch-link active" to="/admin/members">
             회원 관리
@@ -153,6 +153,9 @@ export function AdminVideoGiftPage() {
           </Link>
           <Link className="admin-dashboard-switch-link" to="/admin/refunds">
             환불 관리
+          </Link>
+          <Link className="admin-dashboard-switch-link" to="/admin/sales">
+            매출 대시보드
           </Link>
         </section>
 

@@ -70,370 +70,643 @@ let initPromise = null;
 
 // 테이블 역할 설명은 DB 관리 도구에서 바로 확인할 수 있도록 MySQL TABLE COMMENT로 반영합니다.
 const SCHEMA_TABLE_COMMENTS = {
-  users: "회원 계정, 권한, 암호화된 개인정보, 포인트 잔액을 저장합니다.",
-  sessions: "로그인 유지용 서버 세션 토큰과 만료 시각을 저장합니다.",
-  email_verifications: "회원가입과 계정 복구에 쓰는 이메일 인증번호 상태를 저장합니다.",
-  products: "결제 가능한 상품의 가격과 설명 정보를 저장합니다.",
-  academy_videos: "교육 영상 상품의 강의 메타데이터와 공개 상태를 저장합니다.",
-  academy_progress: "회원별 강의 단위 학습 진도 상태를 저장합니다.",
-  academy_video_chapters: "강의에 속한 차시별 영상과 재생 정보를 저장합니다.",
-  academy_chapter_progress: "회원별 차시 단위 학습 진도 상태를 저장합니다.",
-  academy_playback_sessions: "동시 재생 제한과 보안 재생 토큰 검증 상태를 저장합니다.",
-  cart_items: "회원 장바구니에 담긴 상품과 수량을 저장합니다.",
-  orders: "결제 전후 주문 원장과 구매 상품 payload를 저장합니다.",
-  payment_confirmations: "PortOne 결제 검증 결과와 주문 반영 상태를 저장합니다.",
-  payment_webhook_events: "PortOne V2 웹훅 수신 이력과 처리 결과를 저장합니다.",
-  social_feed_cache: "외부 소셜 채널에서 가져온 최신 게시글 캐시를 저장합니다.",
-  review_posts: "커뮤니티 후기 게시글을 저장합니다.",
-  review_comments: "커뮤니티 후기 댓글을 저장합니다.",
-  events: "커뮤니티 이벤트 게시글과 노출 상태를 저장합니다.",
-  inquiry_posts: "커뮤니티 문의 게시글과 비밀글 상태를 저장합니다.",
-  inquiry_replies: "커뮤니티 문의 답변을 저장합니다.",
-  refund_requests: "회원 환불 신청과 관리자 처리 결과를 저장합니다.",
-  point_history: "회원 포인트 적립과 차감 내역을 저장합니다.",
-  admin_page_overrides: "관리자 페이지 편집에서 저장한 위치, 이미지, 문구 오버라이드를 저장합니다.",
-  instructors: "브랜드 소개에 노출할 강사 프로필을 저장합니다.",
-  branches: "브랜드 소개에 노출할 지점 위치와 연락처를 저장합니다.",
-  academy_reviews: "교육 영상 상세의 수강평을 저장합니다.",
-  academy_qna_posts: "교육 영상 Q&A 질문 게시글을 저장합니다.",
-  academy_qna_replies: "교육 영상 Q&A 답변을 저장합니다.",
-  video_grants: "관리자가 회원에게 부여한 영상 수강 권한을 저장합니다.",
-  login_rate_limits: "로그인 실패 횟수와 일시 차단 상태를 IP별로 저장합니다.",
-  signup_rate_limits: "회원가입 요청 빈도 제한 상태를 IP별로 저장합니다.",
+  // ── 회원·인증 ───────────────────────────────────────────────────────────────
+  users: "회원 정보(이름·이메일·비밀번호·등급·포인트)를 보관합니다. 개인정보는 암호화해서 저장합니다.",
+  sessions: "로그인 상태를 유지하기 위한 인증 토큰을 보관합니다. 만료되면 자동 삭제됩니다.",
+  email_verifications: "회원가입·비밀번호 찾기 시 발송한 이메일 인증번호와 유효 여부를 보관합니다.",
+  login_rate_limits: "같은 IP에서 로그인을 여러 번 실패하면 일정 시간 차단하기 위한 기록입니다.",
+  signup_rate_limits: "같은 IP에서 회원가입을 짧은 시간에 너무 많이 시도하지 못하도록 막는 기록입니다.",
+
+  // ── 상품·결제·주문 ─────────────────────────────────────────────────────────
+  products: "판매 중인 강의 상품의 이름·가격·수강 기간을 보관합니다.",
+  cart_items: "회원이 장바구니에 담아 둔 상품 목록을 보관합니다.",
+  orders: "결제가 완료된 주문 내역(상품·금액·구매자)을 보관합니다.",
+  payment_confirmations: "결제 시스템(포트원)에서 결제 완료를 확인한 기록입니다. 금액 위변조 방지에 사용합니다.",
+  payment_webhook_events: "결제 시스템(포트원)이 보내온 자동 알림(웹훅)의 수신·처리 이력을 보관합니다.",
+  refund_requests: "회원이 신청한 환불 요청과 관리자의 처리 결과(승인·거절)를 보관합니다.",
+  point_history: "회원 포인트가 적립되거나 차감될 때마다 그 이유와 금액을 기록합니다.",
+
+  // ── 강의 아카데미 ───────────────────────────────────────────────────────────
+  academy_videos: "온라인 강의의 제목·강사·가격·썸네일 등 기본 정보를 보관합니다.",
+  academy_video_chapters: "강의를 구성하는 차시별 영상 파일과 재생 시간을 보관합니다.",
+  academy_progress: "회원별로 각 강의를 얼마나 들었는지(진도율·완강 여부)를 기록합니다.",
+  academy_chapter_progress: "회원별로 각 차시를 얼마나 들었는지(진도율·이어보기 위치)를 기록합니다.",
+  academy_playback_sessions: "강의 영상을 한 계정으로 여러 기기에서 동시에 재생하지 못하도록 관리합니다.",
+  academy_reviews: "강의 수강 후 회원이 남긴 별점과 후기를 보관합니다.",
+  academy_qna_posts: "강의 수강 중 회원이 남긴 질문을 보관합니다.",
+  academy_qna_replies: "강의 Q&A 질문에 달린 답변을 보관합니다.",
+  academy_certificates: "강의를 완강한 회원에게 발급된 수료증 정보를 보관합니다.",
+  video_grants: "관리자가 특정 회원에게 강의를 무료로 선물했을 때 그 권한 내역을 보관합니다.",
+
+  // ── 스튜디오 운영 ───────────────────────────────────────────────────────────
+  studio_classes: "필라테스 수업 일정(날짜·시간·강사·정원·반복 여부)을 보관합니다.",
+  studio_passes: "회원이 보유한 수강권(종류·잔여 횟수·만료일·상태)을 보관합니다.",
+  studio_bookings: "회원의 수업 예약 내역과 상태(예약 완료·대기·취소)를 보관합니다.",
+  studio_pass_transactions: "수강권 횟수가 늘거나 줄 때마다 그 이유와 변동량을 기록합니다.",
+  studio_checkins: "수업 당일 관리자가 처리한 회원 체크인 기록을 보관합니다.",
+  studio_arrears: "회원의 미수금(아직 결제하지 않은 금액) 내역과 정리 여부를 보관합니다.",
+  studio_business_hours: "스튜디오 요일별 영업 시작·종료 시간을 보관합니다.",
+  studio_holidays: "스튜디오 휴무일을 보관합니다. 등록된 날은 예약이 불가능합니다.",
+  studio_booking_policies: "예약 마감 시간, 취소 마감 시간, 당일 변경 허용 여부 등 운영 정책을 보관합니다.",
+  studio_lockers: "스튜디오에 등록된 락커 번호·위치·상태(사용 가능·점검 중·사용 중)를 보관합니다.",
+  studio_locker_assignments: "회원에게 배정된 락커와 이용 기간을 보관합니다.",
+  studio_notifications: "회원에게 발송하거나 예약해 둔 알림(제목·내용·발송 상태)을 보관합니다.",
+  studio_notification_logs: "알림이 실제로 발송된 이력을 기록합니다. (발송 성공·실패 추적용)",
+  studio_instructor_hours: "강사별 요일별 근무 가능 시간을 보관합니다.",
+  studio_role_permissions: "직책(오너·매니저·강사)별로 어떤 기능을 쓸 수 있는지 권한을 보관합니다.",
+  studio_staff_profiles: "스튜디오 운영자가 관리하는 강사·매니저 프로필과 앱연결, 권한, 급여 기준을 보관합니다.",
+  studio_member_memos: "관리자가 특정 회원에 대해 남긴 내부 메모를 보관합니다.",
+  studio_class_recurrences: "반복 수업으로 묶인 수업들의 그룹 정보를 보관합니다. (반복 수업 일괄 관리용)",
+  studio_pass_pauses: "수강권 일시정지 처리 이력을 보관합니다. (언제 누가 정지했는지 추적용)",
+  studio_pass_transfers: "수강권 양도 처리 이력을 보관합니다. (누구에게 넘겼는지 추적용)",
+  studio_pass_refunds: "수강권 환불 요청과 관리자의 처리 결과(승인·거절)를 보관합니다.",
+
+  // ── 커뮤니티 ───────────────────────────────────────────────────────────────
+  review_posts: "커뮤니티 후기 게시판의 글을 보관합니다.",
+  review_comments: "후기 게시글에 달린 댓글을 보관합니다.",
+  events: "센터 이벤트·프로모션 공지글을 보관합니다.",
+  inquiry_posts: "회원이 남긴 1:1 문의 글을 보관합니다. 비밀글 설정도 지원합니다.",
+  inquiry_replies: "1:1 문의에 달린 관리자 답변을 보관합니다.",
+
+  // ── 브랜드·콘텐츠 ──────────────────────────────────────────────────────────
+  instructors: "홈페이지 강사 소개 페이지에 표시할 강사 프로필을 보관합니다.",
+  branches: "홈페이지 지점 안내 페이지에 표시할 지점 정보(주소·연락처·지도)를 보관합니다.",
+  social_feed_cache: "유튜브·블로그·인스타그램 최신 게시물을 홈페이지에 빠르게 보여주기 위한 임시 저장소입니다.",
+  admin_page_overrides: "관리자가 홈페이지 편집 모드에서 바꾼 이미지·문구·위치 설정을 보관합니다.",
 };
 
-// 테이블/컬럼별 상세 용도 설명 코멘트 정의
+// 테이블 컬럼별 용도 설명 (Workbench에서 해당 컬럼에 마우스를 올리면 표시됩니다)
 const SCHEMA_COLUMN_COMMENTS = {
   users: {
-    id: "회원 레코드 고유 식별자 값",
-    login_id: "로그인 인증에 사용하는 계정 아이디 값",
-    name: "회원 화면 표시에 사용하는 이름 값",
-    email: "이메일 인증 및 알림 발송용 이메일 주소 값",
-    password: "해시 처리된 비밀번호 저장 값",
-    phone: "본인확인 및 연락용 휴대폰 번호 값",
-    role: "권한 분기 판단용 역할 코드 값",
-    is_admin: "관리자 화면 접근 판단용 플래그 값",
-    user_grade: "회원 등급 혜택 계산용 등급 코드 값",
-    birth_year_encrypted: "연령대 통계 산출용 출생연도 암호화 값",
-    points: "포인트 적립/차감 계산 기준 잔액 값",
-    account_status: "계정 활성/탈퇴 상태 판별 값",
-    withdrawn_at: "회원 탈퇴 처리 완료 시각 값",
-    withdrawal_purge_at: "탈퇴 회원 데이터 파기 예정 시각 값",
-    restored_at: "탈퇴 계정 복구 처리 시각 값",
-    marketing_agree: "마케팅 정보 수신 동의 여부 값",
-    marketing_agreed_at: "마케팅 동의 처리 시각 값",
-    created_at: "회원 가입 생성 시각 값",
+    id: "회원 한 명에게 부여되는 고유 번호",
+    login_id: "로그인할 때 입력하는 아이디",
+    name: "화면에 표시되는 회원 이름 (암호화 저장)",
+    email: "이메일 인증과 알림 발송에 사용하는 이메일 주소 (암호화 저장)",
+    password: "비밀번호 (해킹에 대비해 암호화된 형태로 저장)",
+    phone: "연락처 휴대폰 번호 (암호화 저장)",
+    role: "회원 역할 구분 (user=일반, admin=관리자)",
+    is_admin: "관리자 여부 (1=관리자, 0=일반 회원)",
+    user_grade: "회원 등급 (member=일반, vip, vvip, admin0, admin1)",
+    birth_year_encrypted: "연령대 통계 분석을 위해 암호화 저장한 출생연도",
+    points: "현재 보유 포인트 잔액",
+    account_status: "계정 상태 (active=정상, withdrawn=탈퇴)",
+    withdrawn_at: "탈퇴 처리된 날짜와 시간",
+    withdrawal_purge_at: "개인정보 보호법에 따라 데이터를 완전 삭제할 예정 날짜",
+    restored_at: "탈퇴 후 계정을 복구한 날짜와 시간",
+    marketing_agree: "마케팅 정보 수신 동의 여부 (1=동의, 0=미동의)",
+    marketing_agreed_at: "마케팅 수신에 동의한 날짜와 시간",
+    created_at: "회원 가입 날짜와 시간",
   },
   sessions: {
-    token: "로그인 유지 인증용 세션 토큰 값",
-    user_id: "세션 소유 회원 식별자 값",
-    created_at: "세션 발급 시각 값",
+    token: "로그인 상태를 유지하기 위해 발급된 인증 토큰",
+    user_id: "이 토큰을 가진 회원 번호",
+    created_at: "토큰이 발급된 날짜와 시간",
   },
   products: {
-    id: "상품 고유 식별자 값",
-    name: "상품 목록/결제창 표시용 이름 값",
-    price: "결제 금액 계산 기준 판매가 값",
-    description: "상품 상세 설명 본문 값",
-    period: "수강 기간 정책 문자열 값",
+    id: "상품 고유 번호",
+    name: "결제창과 목록에 표시되는 상품 이름",
+    price: "판매 가격 (원)",
+    description: "상품 상세 설명",
+    period: "수강 가능 기간 (예: 30일, 무제한 수강)",
   },
   academy_videos: {
-    id: "강의 고유 식별자 값",
-    product_id: "연결 결제 상품 식별자 값",
-    instructor: "강의 카드 표기 강사명 값",
-    category: "강의 필터링용 카테고리 값",
-    badge: "강의 강조 표기용 배지 텍스트 값",
-    original_price: "정가 표시/할인율 계산 기준 값",
-    sale_price: "실 결제 판매가 기준 값",
-    rating: "강의 평균 평점 표시 값",
-    reviews: "강의 리뷰 개수 표시 값",
-    image_path: "강의 대표 썸네일 파일 경로 값",
-    video_path: "강의 기본 영상 파일 경로 값",
-    publish_at: "강의 공개 시작 시각 제어 값",
-    is_hidden: "강의 목록 노출/숨김 제어 플래그 값",
-    created_at: "강의 데이터 생성 시각 값",
+    id: "강의 고유 번호",
+    product_id: "이 강의와 연결된 결제 상품 번호",
+    instructor: "담당 강사 이름",
+    category: "강의 분류 (입문, 초급, 중급, 고급 등)",
+    badge: "강의 카드에 표시되는 강조 배지 문구 (예: NEW, BEST)",
+    original_price: "정가 (할인 전 가격)",
+    sale_price: "실제 판매 가격",
+    rating: "수강생들이 남긴 평균 별점",
+    reviews: "수강평 개수",
+    image_path: "강의 대표 이미지 파일 경로",
+    video_path: "강의 기본 영상 파일 경로",
+    publish_at: "강의가 수강생에게 공개되는 날짜와 시간",
+    is_hidden: "강의 목록에서 숨김 처리 여부 (1=숨김, 0=공개)",
+    created_at: "강의가 등록된 날짜와 시간",
   },
   academy_progress: {
-    user_id: "강의 진도 소유 회원 식별자 값",
-    video_id: "진도 대상 강의 식별자 값",
-    current_time: "이어보기 시작용 마지막 시청 위치 초 값",
-    duration: "강의 전체 재생 길이 초 값",
-    progress_percent: "강의 진도율 표시 퍼센트 값",
-    completed: "강의 완강 여부 표시 플래그 값",
-    last_watched_at: "강의 최근 시청 시각 값",
-    created_at: "강의 진도 최초 생성 시각 값",
+    user_id: "진도 기록의 주인인 회원 번호",
+    video_id: "진도를 기록 중인 강의 번호",
+    current_time: "마지막으로 시청한 위치 (초 단위, 이어보기에 사용)",
+    duration: "강의 전체 길이 (초 단위)",
+    progress_percent: "현재까지 들은 진도율 (%)",
+    completed: "완강 여부 (1=완강, 0=미완강)",
+    last_watched_at: "마지막으로 강의를 본 날짜와 시간",
+    created_at: "처음 강의를 시작한 날짜와 시간",
   },
   academy_video_chapters: {
-    id: "강의 차시 고유 식별자 값",
-    video_id: "소속 강의 식별자 값",
-    chapter_order: "강의 내 차시 정렬 순서 값",
-    title: "차시 목록 표기 제목 값",
-    description: "차시 설명 문구 값",
-    video_path: "차시 영상 파일 경로 값",
-    duration_sec: "차시 재생 길이 초 값",
-    is_preview: "비구매 사용자 미리보기 허용 플래그 값",
-    created_at: "차시 데이터 생성 시각 값",
+    id: "차시 고유 번호",
+    video_id: "이 차시가 속한 강의 번호",
+    chapter_order: "강의 내 차시 순서 번호 (1부터 시작)",
+    title: "차시 제목",
+    description: "차시 설명",
+    video_path: "차시 영상 파일 경로",
+    duration_sec: "차시 영상 길이 (초 단위)",
+    is_preview: "비구매자도 무료로 미리볼 수 있는지 여부 (1=가능, 0=불가)",
+    created_at: "차시가 등록된 날짜와 시간",
   },
   academy_chapter_progress: {
-    user_id: "차시 진도 소유 회원 식별자 값",
-    video_id: "차시가 속한 강의 식별자 값",
-    chapter_id: "진도 대상 차시 식별자 값",
-    current_time: "차시 이어보기 시작용 마지막 시청 초 값",
-    duration: "차시 전체 재생 길이 초 값",
-    progress_percent: "차시 진도율 표시 퍼센트 값",
-    completed: "차시 완강 여부 표시 플래그 값",
-    last_watched_at: "차시 최근 시청 시각 값",
-    created_at: "차시 진도 최초 생성 시각 값",
+    user_id: "차시 진도 기록의 주인인 회원 번호",
+    video_id: "이 차시가 속한 강의 번호",
+    chapter_id: "진도를 기록 중인 차시 번호",
+    current_time: "마지막으로 시청한 위치 (초 단위, 이어보기에 사용)",
+    duration: "차시 전체 길이 (초 단위)",
+    progress_percent: "현재까지 들은 진도율 (%)",
+    completed: "차시 완료 여부 (1=완료, 0=미완료)",
+    last_watched_at: "마지막으로 차시를 본 날짜와 시간",
+    created_at: "처음 차시를 시작한 날짜와 시간",
   },
   academy_playback_sessions: {
-    id: "보안 재생 세션 고유 식별자 값",
-    user_id: "재생 세션 소유 회원 식별자 값",
-    video_id: "재생 대상 강의 식별자 값",
-    chapter_id: "재생 대상 차시 식별자 값",
-    session_key: "재생 토큰 검증용 세션 키 값",
-    status: "세션 활성/만료/해제 상태 값",
-    ip_address: "동시 접속 판별용 접속 IP 값",
-    user_agent: "접속 기기 판별용 에이전트 문자열 값",
-    created_at: "재생 세션 생성 시각 값",
-    last_seen_at: "heartbeat 기준 최근 활동 시각 값",
-    expires_at: "재생 세션 만료 시각 값",
-    revoked_at: "재생 세션 강제 해제 시각 값",
-    revoke_reason: "세션 해제 사유 코드/문구 값",
+    id: "재생 세션 고유 번호",
+    user_id: "영상을 재생 중인 회원 번호",
+    video_id: "재생 중인 강의 번호",
+    chapter_id: "재생 중인 차시 번호",
+    session_key: "한 기기에서만 재생 중임을 확인하는 인증 키",
+    status: "재생 세션 상태 (active=재생 중, expired=만료, revoked=강제 종료)",
+    ip_address: "영상을 재생 중인 기기의 인터넷 주소",
+    user_agent: "영상을 재생 중인 기기·브라우저 정보",
+    created_at: "재생 세션이 시작된 날짜와 시간",
+    last_seen_at: "마지막으로 재생 중임을 확인한 시간 (30초마다 갱신)",
+    expires_at: "재생 세션이 자동으로 만료되는 날짜와 시간",
+    revoked_at: "재생 세션이 강제로 종료된 날짜와 시간",
+    revoke_reason: "강제 종료 사유 (예: 다른 기기에서 재생 시작)",
   },
   cart_items: {
-    user_id: "장바구니 소유 회원 식별자 값",
-    product_id: "장바구니 상품 식별자 값",
-    quantity: "장바구니 담기 수량 값",
-    updated_at: "장바구니 마지막 수정 시각 값",
+    user_id: "장바구니 주인인 회원 번호",
+    product_id: "장바구니에 담긴 상품 번호",
+    quantity: "장바구니에 담은 수량",
+    updated_at: "장바구니가 마지막으로 변경된 날짜와 시간",
   },
   orders: {
-    id: "주문 고유 식별자 값",
-    order_name: "결제창/관리자 표시용 주문명 값",
-    amount: "승인된 결제 금액 값",
-    customer_email: "구매자 식별/조회용 이메일 값",
-    payload: "주문 상세 데이터 JSON 저장 값",
-    created_at: "주문 생성 시각 값",
+    id: "주문 고유 번호",
+    order_name: "결제창과 관리자 화면에 표시되는 주문 이름",
+    amount: "실제 결제된 금액 (원)",
+    customer_email: "주문자 이메일 (암호화 저장)",
+    payload: "주문한 상품 상세 정보 (JSON 형식으로 저장)",
+    created_at: "주문이 생성된 날짜와 시간",
   },
   social_feed_cache: {
-    source: "외부 피드 소스 구분 키 값",
-    label: "피드 소스 표시 라벨 값",
-    title: "피드 항목 제목 값",
-    url: "피드 원문 이동 URL 값",
-    published_at: "피드 원문 게시 시각 값",
-    excerpt: "피드 요약 미리보기 문구 값",
-    thumbnail: "피드 썸네일 이미지 URL 값",
-    is_live: "라이브 콘텐츠 여부 플래그 값",
-    updated_at: "피드 캐시 갱신 시각 값",
+    source: "소셜 채널 구분 (youtube, blog, instagram 등)",
+    label: "화면에 표시할 소셜 채널 이름",
+    title: "게시물 제목",
+    url: "원본 게시물 링크 주소",
+    published_at: "원본 게시물이 올라간 날짜와 시간",
+    excerpt: "게시물 미리보기 내용",
+    thumbnail: "게시물 대표 이미지 주소",
+    is_live: "현재 라이브 방송 중인지 여부 (1=라이브, 0=일반)",
+    updated_at: "이 캐시가 마지막으로 새로고침된 날짜와 시간",
   },
   review_posts: {
-    id: "후기 게시글 고유 식별자 값",
-    title: "후기 게시글 제목 값",
-    content: "후기 게시글 본문 값",
-    author: "작성자 표시 이름 값",
-    author_id: "작성자 회원 식별자 값",
-    date: "게시판 표시용 날짜 문자열 값",
-    views: "후기 게시글 조회수 누적 값",
-    created_at: "후기 게시글 생성 시각 값",
+    id: "후기 글 고유 번호",
+    title: "후기 글 제목",
+    content: "후기 글 본문",
+    author: "작성자 이름",
+    author_id: "작성자 회원 번호",
+    date: "게시판에 표시되는 작성 날짜",
+    views: "글 조회수",
+    created_at: "글이 작성된 날짜와 시간",
   },
   review_comments: {
-    id: "후기 댓글 고유 식별자 값",
-    review_id: "댓글 대상 후기 게시글 식별자 값",
-    author: "댓글 작성자 표시 이름 값",
-    content: "댓글 본문 내용 값",
-    created_at: "댓글 생성 시각 문자열 값",
+    id: "댓글 고유 번호",
+    review_id: "댓글이 달린 후기 글 번호",
+    author: "댓글 작성자 이름",
+    content: "댓글 내용",
+    created_at: "댓글이 작성된 날짜와 시간",
   },
   events: {
-    id: "이벤트 고유 식별자 값",
-    title: "이벤트 제목 표시 값",
-    status: "이벤트 진행 상태 표시 값",
-    start_date: "이벤트 시작일 문자열 값",
-    end_date: "이벤트 종료일 문자열 값",
-    likes: "이벤트 좋아요 누적 값",
-    image: "이벤트 대표 이미지 경로 값",
-    summary: "이벤트 요약 설명 문구 값",
+    id: "이벤트 글 고유 번호",
+    title: "이벤트 제목",
+    status: "이벤트 진행 상태 (진행중, 종료 등)",
+    start_date: "이벤트 시작일",
+    end_date: "이벤트 종료일",
+    likes: "좋아요 수",
+    image: "이벤트 대표 이미지 파일 경로",
+    summary: "이벤트 요약 설명",
   },
   inquiry_posts: {
-    id: "문의 게시글 고유 식별자 값",
-    title: "문의 게시글 제목 값",
-    content: "문의 게시글 본문 값",
-    author: "문의 작성자 표시 이름 값",
-    author_id: "문의 작성자 회원 식별자 값",
-    date: "문의 게시판 표시용 날짜 문자열 값",
-    views: "문의 게시글 조회수 누적 값",
-    is_secret: "비밀글 노출 제어 플래그 값",
-    created_at: "문의 게시글 생성 시각 값",
+    id: "문의 글 고유 번호",
+    title: "문의 글 제목",
+    content: "문의 글 본문",
+    author: "문의 작성자 이름",
+    author_id: "문의 작성자 회원 번호",
+    date: "게시판에 표시되는 작성 날짜",
+    views: "글 조회수",
+    is_secret: "비밀글 여부 (1=비밀글, 0=공개)",
+    created_at: "문의가 작성된 날짜와 시간",
   },
   inquiry_replies: {
-    id: "문의 답변 고유 식별자 값",
-    inquiry_id: "답변 대상 문의 게시글 식별자 값",
-    author_id: "답변 작성자 회원 식별자 값",
-    author_name: "답변 작성자 표시 이름 값",
-    content: "답변 본문 내용 값",
-    created_at: "답변 생성 시각 값",
+    id: "답변 고유 번호",
+    inquiry_id: "이 답변이 달린 문의 글 번호",
+    author_id: "답변 작성자(관리자) 회원 번호",
+    author_name: "답변 작성자 이름",
+    content: "답변 내용",
+    created_at: "답변이 작성된 날짜와 시간",
   },
   point_history: {
-    id: "포인트 이력 고유 식별자 값",
-    user_id: "포인트 이력 소유 회원 식별자 값",
-    amount: "포인트 증감 수치 값",
-    reason: "포인트 증감 사유 문구 값",
-    order_id: "연결 주문 식별자 값",
-    created_at: "포인트 이력 생성 시각 값",
+    id: "포인트 이력 고유 번호",
+    user_id: "포인트 변동이 발생한 회원 번호",
+    amount: "포인트 변동량 (양수=적립, 음수=사용)",
+    reason: "포인트 변동 사유 (예: 강의 구매 적립, 포인트 사용)",
+    order_id: "포인트 변동과 연결된 주문 번호",
+    created_at: "포인트 변동이 발생한 날짜와 시간",
   },
   admin_page_overrides: {
-    id: "관리자 커스터마이징 이력 식별자 값",
-    override_type: "오버라이드 데이터 유형 구분 값",
-    override_key: "적용 대상 요소 식별 키 값",
-    override_value: "적용 설정 JSON 데이터 값",
-    updated_at: "오버라이드 최종 수정 시각 값",
+    id: "편집 이력 고유 번호",
+    override_type: "편집 종류 (image=이미지, text=문구, position=위치 등)",
+    override_key: "편집 대상 요소를 구분하는 키",
+    override_value: "저장된 편집 내용 (JSON 형식)",
+    updated_at: "마지막으로 편집한 날짜와 시간",
   },
   instructors: {
-    id: "강사 고유 식별자 값",
-    name: "강사명 표시 값",
-    role: "강사 직책/타이틀 값",
-    intro: "강사 소개 본문 값",
-    careers: "강사 경력 목록 JSON 값",
-    image_path: "강사 프로필 이미지 경로 값",
-    sort_order: "강사 목록 정렬 순서 값",
-    created_at: "강사 데이터 생성 시각 값",
+    id: "강사 고유 번호",
+    name: "강사 이름",
+    role: "직책 또는 타이틀 (예: 원장, 강사)",
+    intro: "강사 소개 내용",
+    careers: "강사 경력 목록",
+    image_path: "강사 프로필 사진 파일 경로",
+    sort_order: "강사 목록에서 표시되는 순서",
+    created_at: "강사 정보가 등록된 날짜와 시간",
   },
   branches: {
-    id: "지점 고유 식별자 값",
-    name: "지점명 표시 값",
-    address: "지점 주소 값",
-    phone: "지점 연락처 값",
-    parking: "지점 주차 안내 문구 값",
-    lat: "지점 지도 위도 좌표 값",
-    lng: "지점 지도 경도 좌표 값",
-    map_link: "지점 외부 지도 링크 URL 값",
-    sort_order: "지점 목록 정렬 순서 값",
-    created_at: "지점 데이터 생성 시각 값",
+    id: "지점 고유 번호",
+    name: "지점 이름",
+    address: "지점 주소",
+    phone: "지점 대표 전화번호",
+    parking: "주차 안내 설명",
+    lat: "지도 표시를 위한 위도 좌표",
+    lng: "지도 표시를 위한 경도 좌표",
+    map_link: "카카오맵·네이버지도 등 외부 지도 링크",
+    sort_order: "지점 목록에서 표시되는 순서",
+    created_at: "지점 정보가 등록된 날짜와 시간",
   },
   academy_reviews: {
-    id: "강의 리뷰 고유 식별자 값",
-    video_id: "리뷰 대상 강의 식별자 값",
-    user_id: "리뷰 작성 회원 식별자 값",
-    user_name: "리뷰 작성자 표시 이름 값",
-    rating: "리뷰 평점 값",
-    content: "리뷰 본문 내용 값",
-    created_at: "리뷰 생성 시각 값",
+    id: "수강평 고유 번호",
+    video_id: "수강평이 달린 강의 번호",
+    user_id: "수강평을 작성한 회원 번호",
+    user_name: "수강평 작성자 이름",
+    rating: "별점 (1~5)",
+    content: "수강평 내용",
+    created_at: "수강평이 작성된 날짜와 시간",
   },
   academy_qna_posts: {
-    id: "강의 Q&A 질문 고유 식별자 값",
-    video_id: "질문 대상 강의 식별자 값",
-    user_id: "질문 작성 회원 식별자 값",
-    user_name: "질문 작성자 표시 이름 값",
-    title: "질문 제목 값",
-    content: "질문 본문 내용 값",
-    is_secret: "질문 비밀글 여부 플래그 값",
-    created_at: "질문 생성 시각 값",
+    id: "Q&A 질문 고유 번호",
+    video_id: "질문이 달린 강의 번호",
+    user_id: "질문을 작성한 회원 번호",
+    user_name: "질문 작성자 이름",
+    title: "질문 제목",
+    content: "질문 내용",
+    is_secret: "비밀 질문 여부 (1=비밀, 0=공개)",
+    created_at: "질문이 작성된 날짜와 시간",
   },
   academy_qna_replies: {
-    id: "강의 Q&A 답변 고유 식별자 값",
-    post_id: "답변 대상 질문 식별자 값",
-    user_id: "답변 작성 회원 식별자 값",
-    user_name: "답변 작성자 표시 이름 값",
-    content: "답변 본문 내용 값",
-    is_admin: "관리자 작성 답변 여부 플래그 값",
-    created_at: "답변 생성 시각 값",
+    id: "Q&A 답변 고유 번호",
+    post_id: "이 답변이 달린 질문 번호",
+    user_id: "답변 작성자 회원 번호",
+    user_name: "답변 작성자 이름",
+    content: "답변 내용",
+    is_admin: "관리자가 작성한 공식 답변인지 여부 (1=공식, 0=일반)",
+    created_at: "답변이 작성된 날짜와 시간",
   },
 };
 
-// 최근 추가되었거나 개인정보 암호화 이후 생긴 컬럼의 DB 코멘트를 보강합니다.
+// 이후 추가된 컬럼 또는 스튜디오 테이블 컬럼 설명
 const EXTRA_SCHEMA_COLUMN_COMMENTS = {
   users: {
-    email_hash: "암호화된 이메일을 직접 복호화하지 않고 중복/조회하기 위한 검색 해시 값",
-    phone_hash: "암호화된 전화번호를 직접 복호화하지 않고 본인확인 조회에 쓰는 검색 해시 값",
-    name_hash: "암호화된 이름을 직접 복호화하지 않고 아이디 찾기에 쓰는 검색 해시 값",
-    birth_year_encrypted: "연령대 통계 산출을 위해 암호화 저장한 출생연도 값",
+    email_hash: "이메일을 복호화하지 않고 빠르게 조회하기 위한 검색용 값 (개인정보 보호 목적)",
+    phone_hash: "전화번호를 복호화하지 않고 빠르게 조회하기 위한 검색용 값 (개인정보 보호 목적)",
+    name_hash: "이름을 복호화하지 않고 빠르게 조회하기 위한 검색용 값 (아이디 찾기 등에 사용)",
+    birth_year_encrypted: "연령대 통계 분석을 위해 암호화 저장한 출생연도",
   },
   sessions: {
-    expires_at: "세션 자동 만료 시각 값",
+    expires_at: "이 로그인 토큰이 자동으로 만료되는 날짜와 시간",
   },
   email_verifications: {
-    email: "인증번호 발송 대상 이메일 암호화 값",
-    email_hash: "인증 대상 이메일을 조회하기 위한 검색 해시 값",
-    code: "사용자에게 발송한 일회성 인증번호 값",
-    expires_at: "인증번호 만료 시각 값",
-    verified_at: "인증 성공 처리 시각 값",
-    attempts: "인증번호 확인 실패 누적 횟수 값",
-    send_count: "제한 시간 안의 인증번호 발송 횟수 값",
-    first_sent_at: "발송 횟수 제한 기준이 되는 최초 발송 시각 값",
+    email: "인증번호를 발송한 이메일 주소 (암호화 저장)",
+    email_hash: "이메일을 복호화하지 않고 빠르게 조회하기 위한 검색용 값",
+    code: "이메일로 발송된 6자리 인증번호",
+    expires_at: "인증번호가 만료되는 날짜와 시간 (보통 10분)",
+    verified_at: "인증이 성공적으로 완료된 날짜와 시간",
+    attempts: "인증번호를 틀린 횟수 (5회 초과 시 차단)",
+    send_count: "같은 이메일로 인증번호를 발송한 횟수",
+    first_sent_at: "처음 인증번호를 발송한 날짜와 시간 (발송 횟수 제한 기준)",
   },
   orders: {
-    customer_email_hash: "주문자 이메일을 복호화하지 않고 주문을 조회하기 위한 검색 해시 값",
-    cancelled_product_ids: "부분 환불로 접근 권한이 취소된 상품 ID 목록 JSON 값",
+    customer_email_hash: "주문자 이메일을 복호화하지 않고 주문 조회를 위한 검색용 값",
+    cancelled_product_ids: "환불 처리로 수강 권한이 취소된 강의 번호 목록",
   },
   payment_confirmations: {
-    order_id: "결제 검증 대상 주문 식별자 값",
-    payment_id: "PortOne 결제 고유 식별자 값",
-    user_id: "결제를 요청한 회원 식별자 값",
-    customer_email: "결제자 이메일 암호화 값",
-    customer_email_hash: "결제자 이메일 조회용 검색 해시 값",
-    amount: "검증된 결제 금액 값",
-    status: "결제 검증 및 반영 상태 값",
-    payment_payload: "PortOne 결제 조회 응답 원문 JSON 값",
-    confirmed_at: "결제 검증 완료 시각 값",
-    consumed_at: "주문/수강권 반영 완료 시각 값",
-    order_created_at: "연결된 주문 생성 시각 값",
+    order_id: "결제 확인 대상 주문 번호",
+    payment_id: "결제 시스템(포트원)에서 부여한 결제 고유 번호",
+    user_id: "결제를 요청한 회원 번호",
+    customer_email: "결제자 이메일 (암호화 저장)",
+    customer_email_hash: "결제자 이메일 조회용 검색 값",
+    amount: "결제 시스템에서 확인된 실제 결제 금액 (원)",
+    status: "결제 처리 단계 (confirmed=확인 완료, consumed=수강권 반영 완료)",
+    payment_payload: "결제 시스템(포트원)에서 받은 결제 상세 원본 데이터",
+    confirmed_at: "결제 금액 위변조 검증이 완료된 날짜와 시간",
+    consumed_at: "결제 완료 후 수강권·강의 권한이 실제로 부여된 날짜와 시간",
+    order_created_at: "이 결제와 연결된 주문이 생성된 날짜와 시간",
   },
   payment_webhook_events: {
-    webhook_id: "PortOne이 전달한 웹훅 이벤트 고유 식별자 값",
-    event_type: "웹훅 이벤트 종류 값",
-    payment_id: "웹훅과 연결된 PortOne 결제 식별자 값",
-    payload: "웹훅 요청 본문 원문 JSON 값",
-    process_status: "웹훅 처리 상태 값",
-    process_message: "웹훅 처리 보조 메시지 값",
-    received_at: "웹훅 최초 수신 시각 값",
-    processed_at: "웹훅 처리 완료 시각 값",
-    last_seen_at: "동일 웹훅 마지막 수신 시각 값",
-    attempts: "동일 웹훅 수신 누적 횟수 값",
+    webhook_id: "결제 시스템(포트원)이 보내온 알림 고유 번호",
+    event_type: "알림 종류 (예: 결제 완료, 결제 취소)",
+    payment_id: "이 알림과 연결된 결제 고유 번호",
+    payload: "결제 시스템이 보내온 알림 원본 내용",
+    process_status: "알림 처리 결과 (처리 완료, 처리 실패 등)",
+    process_message: "알림 처리 중 발생한 메시지 또는 오류 내용",
+    received_at: "알림을 처음 받은 날짜와 시간",
+    processed_at: "알림 처리가 완료된 날짜와 시간",
+    last_seen_at: "같은 알림을 마지막으로 받은 날짜와 시간 (중복 수신 감지용)",
+    attempts: "같은 알림을 받은 총 횟수",
   },
   review_posts: {
-    image_url: "후기 게시글 첨부 이미지 경로 값",
-    video_url: "후기 게시글 첨부 영상 경로 값",
+    image_url: "후기 글에 첨부된 이미지 파일 경로",
+    video_url: "후기 글에 첨부된 영상 파일 경로",
   },
   events: {
-    content: "이벤트 상세 본문 내용 값",
-    created_at: "이벤트 게시글 생성 시각 값",
+    content: "이벤트 상세 내용",
+    created_at: "이벤트 글이 등록된 날짜와 시간",
   },
   inquiry_posts: {
-    image_url: "문의 게시글 첨부 이미지 경로 값",
-    video_url: "문의 게시글 첨부 영상 경로 값",
+    image_url: "문의 글에 첨부된 이미지 파일 경로",
+    video_url: "문의 글에 첨부된 영상 파일 경로",
   },
   refund_requests: {
-    id: "환불 신청 고유 식별자 값",
-    order_id: "환불 신청 대상 주문 식별자 값",
-    user_id: "환불을 신청한 회원 식별자 값",
-    customer_email: "환불 신청자 이메일 암호화 값",
-    customer_email_hash: "환불 신청자 이메일 조회용 검색 해시 값",
-    selected_product_ids: "환불 신청 대상 상품 ID 목록 JSON 값",
-    requested_amount: "환불 요청 금액 값",
-    reason: "회원이 입력한 환불 사유 값",
-    status: "환불 처리 상태 값",
-    admin_note: "관리자 처리 메모 값",
-    created_at: "환불 신청 생성 시각 값",
-    resolved_at: "환불 승인 또는 거절 처리 시각 값",
+    id: "환불 신청 고유 번호",
+    order_id: "환불을 신청한 주문 번호",
+    user_id: "환불을 신청한 회원 번호",
+    customer_email: "환불 신청자 이메일 (암호화 저장)",
+    customer_email_hash: "환불 신청자 이메일 조회용 검색 값",
+    selected_product_ids: "환불을 신청한 강의 번호 목록 (여러 개일 경우 모두 포함)",
+    requested_amount: "회원이 요청한 환불 금액 (원)",
+    reason: "회원이 입력한 환불 사유",
+    status: "환불 처리 상태 (pending=검토 중, approved=완료, rejected=거절)",
+    admin_note: "관리자가 남긴 처리 메모 (회원에게도 표시됨)",
+    created_at: "환불을 신청한 날짜와 시간",
+    resolved_at: "환불 승인 또는 거절이 처리된 날짜와 시간",
   },
   video_grants: {
-    id: "강의 권한 부여 이력 고유 식별자 값",
-    user_id: "권한을 받은 회원 식별자 값",
-    video_id: "접근 권한을 부여한 교육 영상 식별자 값",
-    granted_by: "권한을 부여한 관리자 회원 식별자 값",
-    duration_type: "권한 유지 기간 유형 값",
-    expires_at: "권한 만료 시각 값",
-    created_at: "권한 부여 시각 값",
+    id: "강의 선물 고유 번호",
+    user_id: "강의를 선물받은 회원 번호",
+    video_id: "선물한 강의 번호",
+    granted_by: "강의를 선물한 관리자 회원 번호",
+    duration_type: "수강 권한 유효 기간 종류 (예: 30일, 무제한)",
+    expires_at: "수강 권한이 만료되는 날짜와 시간 (무제한이면 비워둠)",
+    created_at: "강의를 선물한 날짜와 시간",
   },
   login_rate_limits: {
-    ip: "로그인 실패 횟수를 묶는 접속 IP 값",
-    fail_count: "로그인 실패 누적 횟수 값",
-    blocked_until: "로그인 시도가 차단되는 만료 시각 값",
-    updated_at: "제한 상태 마지막 갱신 시각 값",
+    ip: "로그인 실패를 기록 중인 접속 IP 주소",
+    fail_count: "현재까지 로그인에 실패한 횟수",
+    blocked_until: "로그인 차단이 풀리는 날짜와 시간",
+    updated_at: "이 기록이 마지막으로 갱신된 날짜와 시간",
   },
   signup_rate_limits: {
-    ip: "회원가입 시도 횟수를 묶는 접속 IP 값",
-    attempt_count: "제한 시간 안의 회원가입 시도 횟수 값",
-    window_start: "시도 횟수 제한 기준 시작 시각 값",
-    updated_at: "제한 상태 마지막 갱신 시각 값",
+    ip: "회원가입 시도를 기록 중인 접속 IP 주소",
+    attempt_count: "일정 시간 안에 회원가입을 시도한 횟수",
+    window_start: "시도 횟수 제한을 시작한 날짜와 시간",
+    updated_at: "이 기록이 마지막으로 갱신된 날짜와 시간",
   },
+
+  // ── 스튜디오 테이블 컬럼 설명 ──────────────────────────────────────────────
+  studio_classes: {
+    id: "수업 고유 번호",
+    title: "수업 이름 (예: 그룹 리포머, 개인 레슨)",
+    instructor_name: "담당 강사 이름",
+    room_name: "진행 공간 또는 수업 종류 (예: 개인, 듀엣, 그룹)",
+    start_at: "수업 시작 날짜와 시간",
+    end_at: "수업 종료 날짜와 시간",
+    capacity: "수업 최대 정원 수",
+    reserved_count: "현재 예약 확정된 인원 수",
+    waitlist_count: "현재 대기 중인 인원 수",
+    status: "수업 상태 (active=운영 중, cancelled=폐강, deleted=삭제)",
+    repeat_group_id: "반복 수업으로 묶인 그룹 번호 (반복 수업이면 같은 값을 공유)",
+    created_by: "수업을 등록한 관리자 회원 번호",
+    created_at: "수업이 등록된 날짜와 시간",
+  },
+  studio_passes: {
+    id: "수강권 고유 번호",
+    user_id: "이 수강권을 보유한 회원 번호",
+    pass_name: "수강권 이름 (예: 그룹 20회권, 개인 10회권)",
+    pass_type: "수강권 종류 (personal=개인, duet=듀엣, group=그룹)",
+    remaining_count: "현재 사용 가능한 잔여 횟수",
+    total_count: "처음 발급 시 총 횟수",
+    expires_at: "수강권 만료 날짜와 시간 (없으면 무기한)",
+    status: "수강권 상태 (active=사용 중, paused=정지, transferred=양도됨, refunded=환불됨)",
+    created_at: "수강권이 발급된 날짜와 시간",
+    updated_at: "수강권 정보가 마지막으로 변경된 날짜와 시간",
+  },
+  studio_bookings: {
+    id: "예약 고유 번호",
+    class_id: "예약한 수업 번호",
+    user_id: "예약한 회원 번호",
+    pass_id: "예약 시 사용된 수강권 번호",
+    status: "예약 상태 (reserved=예약 완료, waitlisted=대기 중, cancelled=취소)",
+    booked_at: "예약이 접수된 날짜와 시간",
+  },
+  studio_pass_transactions: {
+    id: "수강권 이용 내역 고유 번호",
+    pass_id: "내역이 발생한 수강권 번호",
+    user_id: "수강권 보유 회원 번호",
+    class_id: "관련 수업 번호 (수업과 연관된 내역일 경우)",
+    delta_count: "횟수 변동량 (음수=차감, 양수=복구)",
+    reason: "변동 사유 (예: 예약 확정, 예약 취소, 수업 폐강)",
+    created_at: "이 내역이 발생한 날짜와 시간",
+  },
+  studio_checkins: {
+    id: "체크인 기록 고유 번호",
+    class_id: "체크인한 수업 번호",
+    user_id: "체크인한 회원 번호",
+    booking_id: "체크인과 연결된 예약 번호",
+    status: "체크인 상태 (checked_in=출석 완료)",
+    checked_in_at: "체크인이 처리된 날짜와 시간",
+    checked_in_by: "체크인을 처리한 관리자 회원 번호",
+  },
+  studio_arrears: {
+    id: "미수금 기록 고유 번호",
+    user_id: "미수금이 발생한 회원 번호",
+    amount: "미수금 금액 (원)",
+    reason: "미수금 발생 사유",
+    status: "처리 상태 (open=미처리, resolved=정리 완료)",
+    created_at: "미수금이 등록된 날짜와 시간",
+    resolved_at: "미수금이 정리된 날짜와 시간",
+  },
+  studio_business_hours: {
+    id: "영업시간 설정 고유 번호",
+    weekday: "요일 번호 (0=일요일, 1=월요일 ... 6=토요일)",
+    open_time: "영업 시작 시간 (예: 09:00:00)",
+    close_time: "영업 종료 시간 (예: 21:00:00)",
+    is_closed: "해당 요일 휴무 여부 (1=휴무, 0=영업)",
+  },
+  studio_holidays: {
+    id: "휴무일 고유 번호",
+    holiday_date: "휴무일 날짜 (이 날은 예약 불가)",
+    description: "휴무 사유 (예: 명절, 시설 점검)",
+    created_at: "휴무일이 등록된 날짜와 시간",
+  },
+  studio_booking_policies: {
+    id: "예약 정책 고유 번호",
+    booking_limit_hours: "수업 시작 몇 시간 전까지 예약 가능한지 (예: 2=2시간 전까지)",
+    cancel_limit_hours: "수업 시작 몇 시간 전까지 취소 가능한지 (예: 2=2시간 전까지)",
+    same_day_change_allowed: "당일 예약 변경 허용 여부 (1=허용, 0=불가)",
+    updated_at: "정책이 마지막으로 수정된 날짜와 시간",
+  },
+  studio_lockers: {
+    id: "락커 고유 번호",
+    locker_no: "락커 번호 (예: A-01, B-03)",
+    location: "락커 위치 설명 (예: 여성 탈의실 1번 줄)",
+    status: "락커 상태 (available=사용 가능, occupied=사용 중, maintenance=점검 중)",
+    created_at: "락커가 등록된 날짜와 시간",
+  },
+  studio_locker_assignments: {
+    id: "락커 배정 고유 번호",
+    locker_id: "배정된 락커 번호",
+    user_id: "락커를 배정받은 회원 번호",
+    start_date: "락커 이용 시작일",
+    end_date: "락커 이용 종료일 (없으면 무기한)",
+    status: "배정 상태 (active=이용 중, ended=종료)",
+    created_at: "배정이 처리된 날짜와 시간",
+  },
+  studio_notifications: {
+    id: "알림 고유 번호",
+    user_id: "알림을 받을 회원 번호",
+    type: "알림 종류 (manual=직접 발송, auto=자동 발송)",
+    title: "알림 제목",
+    message: "알림 내용",
+    status: "발송 상태 (pending=대기, sent=발송 완료, failed=실패)",
+    scheduled_at: "예약 발송 날짜와 시간 (즉시 발송이면 비워둠)",
+    sent_at: "실제 발송된 날짜와 시간",
+    created_at: "알림이 등록된 날짜와 시간",
+  },
+  studio_instructor_hours: {
+    id: "강사 근무시간 고유 번호",
+    instructor_name: "강사 이름",
+    weekday: "근무 요일 번호 (0=일요일, 1=월요일 ... 6=토요일)",
+    start_time: "근무 시작 시간",
+    end_time: "근무 종료 시간",
+    is_off: "해당 요일 휴무 여부 (1=휴무, 0=근무)",
+  },
+  studio_role_permissions: {
+    id: "권한 설정 고유 번호",
+    role_code: "직책 코드 (owner=오너, manager=매니저, instructor=강사)",
+    permission_code: "기능 권한 코드 (예: class.write=수업 등록, member.read=회원 조회)",
+    is_allowed: "해당 권한 허용 여부 (1=허용, 0=차단)",
+  },
+  studio_staff_profiles: {
+    id: "강사/스태프 고유 번호",
+    name: "강사 또는 스태프 이름",
+    role_code: "역할 코드 (owner=오너, manager=매니저, instructor=강사)",
+    employment_type: "근무형태 (full_time=정규, part_time=파트타임, freelance=프리랜서)",
+    phone: "휴대폰 번호",
+    app_connection_status: "앱 연결 상태 (connected=연결, not_connected=미연결)",
+    color: "목록과 캘린더에서 구분할 색상",
+    status: "재직 상태 (active=재직, inactive=휴직/비활성, archived=삭제)",
+    can_manage_schedule: "일정 관리 권한",
+    can_view_members: "회원 조회 권한",
+    can_manage_passes: "수강권 관리 권한",
+    can_view_sales: "매출 조회 권한",
+    salary_type: "급여 기준 (fixed=고정급, hourly=시급, commission=수업/매출 비율)",
+    base_pay: "고정급 금액",
+    hourly_wage: "시급 금액",
+    commission_rate: "수업/매출 비율",
+    memo: "운영자가 남기는 강사 특이사항",
+    created_at: "프로필이 생성된 날짜와 시간",
+    updated_at: "프로필을 마지막으로 수정한 날짜와 시간",
+  },
+  studio_member_memos: {
+    id: "메모 고유 번호",
+    user_id: "메모 대상 회원 번호",
+    memo: "관리자가 남긴 내부 메모 내용",
+    created_by: "메모를 작성한 관리자 회원 번호",
+    created_at: "메모가 작성된 날짜와 시간",
+  },
+  studio_pass_refunds: {
+    id: "수강권 환불 신청 고유 번호",
+    pass_id: "환불을 신청한 수강권 번호",
+    user_id: "환불을 신청한 회원 번호",
+    refund_amount: "환불 신청 금액 (원)",
+    reason: "환불 신청 사유",
+    status: "처리 상태 (requested=검토 중, approved=승인 완료, rejected=거절)",
+    requested_at: "환불을 신청한 날짜와 시간",
+    resolved_at: "환불 승인 또는 거절이 처리된 날짜와 시간",
+  },
+  studio_pass_pauses: {
+    id: "정지 이력 고유 번호",
+    pass_id: "정지된 수강권 번호",
+    reason: "정지 사유",
+    created_at: "정지가 처리된 날짜와 시간",
+  },
+  studio_pass_transfers: {
+    id: "양도 이력 고유 번호",
+    pass_id: "양도된 수강권 번호",
+    from_user_id: "수강권을 넘긴 회원 번호",
+    to_user_id: "수강권을 받은 회원 번호",
+    transfer_count: "양도된 횟수",
+    reason: "양도 사유",
+    created_at: "양도가 처리된 날짜와 시간",
+  },
+  studio_class_recurrences: {
+    id: "반복 수업 그룹 고유 번호",
+    repeat_group_id: "같은 반복 수업으로 묶인 그룹 번호",
+    class_id: "이 그룹에 속한 수업 번호",
+    created_at: "등록된 날짜와 시간",
+  },
+  studio_notification_logs: {
+    id: "발송 이력 고유 번호",
+    notification_id: "발송된 알림 번호",
+    channel: "발송 채널 (예: sms, push, email)",
+    status: "발송 결과 (sent=성공, failed=실패)",
+    sent_at: "실제 발송된 날짜와 시간",
+  },
+  academy_certificates: {
+    id: "수료증 고유 번호",
+    user_id: "수료증을 받은 회원 번호",
+    video_id: "수료한 강의 번호",
+    certificate_no: "수료증 고유 인증 번호",
+    issued_at: "수료증이 발급된 날짜와 시간",
+    created_at: "수료증 정보가 생성된 날짜와 시간",
+    revoked_at: "수료증이 취소된 날짜와 시간 (정상 발급이면 비워둠)",
+  },
+};
+
+SCHEMA_TABLE_COMMENTS.studio_member_profiles =
+  "필라테스 운영에 필요한 회원 상세 정보를 보관합니다. 로그인 계정(users)과 분리해 성별, 생년월일, 주소, 앱 연결 여부, 담당강사 같은 센터 운영 정보를 관리합니다.";
+SCHEMA_TABLE_COMMENTS.studio_pass_payments =
+  "필라테스 수강권별 결제 정보를 보관합니다. 한 회원이 여러 수강권을 결제할 수 있으므로 수강권(studio_passes)과 연결해 결제구분, 금액, 결제일, 결제방법, 할부개월수를 관리합니다.";
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_member_profiles = {
+  user_id: "회원 로그인 계정(users.id)과 연결되는 값입니다. 한 회원당 스튜디오 운영 프로필은 하나만 가집니다.",
+  app_connection_status: "스튜디오 앱 연결 상태입니다. connected=연결, not_connected=미연결입니다.",
+  member_status: "스튜디오 회원관리 상태입니다. active=관리 대상, inactive=수강권 없음/휴면, expired=수강권 만료, archived=관리 제외입니다.",
+  gender: "회원 성별입니다. 운영 상담과 통계 확인에 사용합니다.",
+  birth_date: "회원 생년월일입니다. 생일 안내나 연령대 확인에 사용합니다.",
+  address: "회원 기본 주소입니다.",
+  address_detail: "동, 호수 등 상세 주소입니다.",
+  primary_instructor: "회원의 주 담당강사 이름입니다.",
+  registered_at: "스튜디오 회원으로 처음 등록된 날짜입니다. 없으면 통합회원 가입일을 참고합니다.",
+  created_at: "스튜디오 운영 프로필이 생성된 날짜와 시간입니다.",
+  updated_at: "스튜디오 운영 프로필이 마지막으로 수정된 날짜와 시간입니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_passes = {
+  ...(EXTRA_SCHEMA_COLUMN_COMMENTS.studio_passes || {}),
+  is_family_pass: "패밀리 수강권 여부입니다. 1이면 가족과 함께 쓰는 수강권, 0이면 개인 수강권입니다.",
+  reservable_count: "현재 예약 가능한 횟수입니다. 보통 잔여횟수와 같지만 운영 정책에 따라 다르게 관리할 수 있습니다.",
+  cancellable_count: "현재 취소 가능한 횟수입니다. 취소 제한 정책이 있을 때 별도로 관리합니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_pass_payments = {
+  id: "수강권 결제 기록의 고유 번호입니다.",
+  pass_id: "결제된 수강권(studio_passes.id)과 연결되는 값입니다.",
+  user_id: "결제한 회원(users.id)과 연결되는 값입니다.",
+  payment_type: "결제구분입니다. 신규결제, 재결제, 환불, 조정처럼 운영자가 구분해서 기록합니다.",
+  amount: "수강권 결제금액입니다.",
+  paid_at: "결제가 이루어진 날짜와 시간입니다.",
+  payment_method: "결제방법입니다. 카드, 계좌이체, 현금 등으로 기록합니다.",
+  installment_months: "카드 할부개월수입니다. 일시불이면 0 또는 1로 기록할 수 있습니다.",
+  note: "결제와 관련해 관리자가 남기는 참고 메모입니다.",
+  created_at: "결제 기록이 생성된 날짜와 시간입니다.",
+  updated_at: "결제 기록이 마지막으로 수정된 날짜와 시간입니다.",
 };
 
 const NUMERIC_DATA_TYPES = new Set([
@@ -1446,6 +1719,28 @@ async function initDatabase() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS academy_certificates (
+      id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      video_id VARCHAR(80) NOT NULL,
+      certificate_no VARCHAR(80) NOT NULL,
+      issued_at DATETIME NOT NULL,
+      created_at DATETIME NOT NULL,
+      revoked_at DATETIME NULL,
+      UNIQUE KEY ux_academy_certificates_user_video (user_id, video_id),
+      UNIQUE KEY ux_academy_certificates_no (certificate_no),
+      INDEX idx_academy_certificates_user (user_id, issued_at),
+      INDEX idx_academy_certificates_video (video_id),
+      CONSTRAINT fk_academy_certificates_users
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+      CONSTRAINT fk_academy_certificates_videos
+        FOREIGN KEY (video_id) REFERENCES academy_videos(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS academy_playback_sessions (
       id VARCHAR(80) PRIMARY KEY,
       user_id VARCHAR(64) NULL,
@@ -1941,6 +2236,381 @@ async function initDatabase() {
   await pool.query(
     `DELETE FROM signup_rate_limits WHERE window_start < DATE_SUB(NOW(), INTERVAL 2 HOUR)`
   );
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_classes (
+      id VARCHAR(80) PRIMARY KEY,
+      title VARCHAR(160) NOT NULL,
+      instructor_name VARCHAR(120) NOT NULL,
+      room_name VARCHAR(120) NOT NULL,
+      start_at DATETIME NOT NULL,
+      end_at DATETIME NOT NULL,
+      capacity INT NOT NULL DEFAULT 1,
+      status ENUM('active','cancelled','deleted') NOT NULL DEFAULT 'active',
+      repeat_group_id VARCHAR(80) NULL,
+      created_by VARCHAR(64) NULL,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      INDEX idx_studio_classes_start (start_at),
+      INDEX idx_studio_classes_status (status)
+    )
+  `);
+  await pool.query(`ALTER TABLE studio_classes MODIFY status ENUM('active','cancelled','deleted') NOT NULL DEFAULT 'active'`);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_member_profiles (
+      user_id VARCHAR(64) PRIMARY KEY COMMENT '회원 로그인 계정(users.id)과 연결되는 값입니다. 한 회원당 스튜디오 운영 프로필은 하나만 가집니다.',
+      app_connection_status ENUM('connected','not_connected') NOT NULL DEFAULT 'not_connected' COMMENT '스튜디오 앱 연결 상태입니다. connected=연결, not_connected=미연결입니다.',
+      member_status ENUM('active','inactive','expired','archived') NOT NULL DEFAULT 'active' COMMENT '스튜디오 회원관리 상태입니다. active=관리 대상, inactive=수강권 없음/휴면, expired=수강권 만료, archived=관리 제외입니다.',
+      gender VARCHAR(20) NULL COMMENT '회원 성별입니다. 운영 상담과 통계 확인에 사용합니다.',
+      birth_date DATE NULL COMMENT '회원 생년월일입니다. 생일 안내나 연령대 확인에 사용합니다.',
+      address VARCHAR(255) NULL COMMENT '회원 기본 주소입니다.',
+      address_detail VARCHAR(255) NULL COMMENT '동, 호수 등 상세 주소입니다.',
+      primary_instructor VARCHAR(120) NULL COMMENT '회원의 주 담당강사 이름입니다.',
+      registered_at DATETIME NULL COMMENT '스튜디오 회원으로 처음 등록된 날짜입니다. 없으면 통합회원 가입일을 참고합니다.',
+      created_at DATETIME NOT NULL COMMENT '스튜디오 운영 프로필이 생성된 날짜와 시간입니다.',
+      updated_at DATETIME NOT NULL COMMENT '스튜디오 운영 프로필이 마지막으로 수정된 날짜와 시간입니다.',
+      CONSTRAINT fk_studio_member_profiles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) COMMENT='필라테스 운영에 필요한 회원 상세 정보를 보관합니다. 로그인 계정(users)과 분리해 성별, 생년월일, 주소, 앱 연결 여부, 담당강사 같은 센터 운영 정보를 관리합니다.'
+  `);
+  if (!(await databaseColumnExists("studio_member_profiles", "member_status"))) {
+    await pool.query(`
+      ALTER TABLE studio_member_profiles
+      ADD COLUMN member_status ENUM('active','inactive','expired','archived') NOT NULL DEFAULT 'active'
+      COMMENT '스튜디오 회원관리 상태입니다. active=관리 대상, inactive=수강권 없음/휴면, expired=수강권 만료, archived=관리 제외입니다.'
+      AFTER app_connection_status
+    `);
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_passes (
+      id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      pass_name VARCHAR(160) NOT NULL,
+      pass_type ENUM('personal','duet','group') NOT NULL DEFAULT 'group',
+      remaining_count INT NOT NULL DEFAULT 0,
+      total_count INT NOT NULL DEFAULT 0,
+      expires_at DATETIME NULL,
+      status ENUM('active','paused','transferred','refunded') NOT NULL DEFAULT 'active',
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      INDEX idx_studio_passes_user (user_id),
+      INDEX idx_studio_passes_status (status)
+    )
+  `);
+  if (!(await databaseColumnExists("studio_passes", "is_family_pass"))) {
+    await pool.query(`
+      ALTER TABLE studio_passes
+      ADD COLUMN is_family_pass TINYINT(1) NOT NULL DEFAULT 0 COMMENT '패밀리 수강권 여부입니다. 1이면 가족과 함께 쓰는 수강권, 0이면 개인 수강권입니다.'
+      AFTER expires_at
+    `);
+  }
+  if (!(await databaseColumnExists("studio_passes", "reservable_count"))) {
+    await pool.query(`
+      ALTER TABLE studio_passes
+      ADD COLUMN reservable_count INT NULL COMMENT '현재 예약 가능한 횟수입니다. 보통 잔여횟수와 같지만 운영 정책에 따라 다르게 관리할 수 있습니다.'
+      AFTER remaining_count
+    `);
+  }
+  if (!(await databaseColumnExists("studio_passes", "cancellable_count"))) {
+    await pool.query(`
+      ALTER TABLE studio_passes
+      ADD COLUMN cancellable_count INT NULL COMMENT '현재 취소 가능한 횟수입니다. 취소 제한 정책이 있을 때 별도로 관리합니다.'
+      AFTER reservable_count
+    `);
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_pass_payments (
+      id VARCHAR(80) PRIMARY KEY COMMENT '수강권 결제 기록의 고유 번호입니다.',
+      pass_id VARCHAR(80) NOT NULL COMMENT '결제된 수강권(studio_passes.id)과 연결되는 값입니다.',
+      user_id VARCHAR(64) NOT NULL COMMENT '결제한 회원(users.id)과 연결되는 값입니다.',
+      payment_type VARCHAR(40) NULL COMMENT '결제구분입니다. 신규결제, 재결제, 환불, 조정처럼 운영자가 구분해서 기록합니다.',
+      amount INT NOT NULL DEFAULT 0 COMMENT '수강권 결제금액입니다.',
+      paid_at DATETIME NULL COMMENT '결제가 이루어진 날짜와 시간입니다.',
+      payment_method VARCHAR(40) NULL COMMENT '결제방법입니다. 카드, 계좌이체, 현금 등으로 기록합니다.',
+      installment_months VARCHAR(20) NULL COMMENT '카드 할부개월수입니다. 일시불이면 0 또는 1로 기록할 수 있습니다.',
+      note VARCHAR(255) NULL COMMENT '결제와 관련해 관리자가 남기는 참고 메모입니다.',
+      created_at DATETIME NOT NULL COMMENT '결제 기록이 생성된 날짜와 시간입니다.',
+      updated_at DATETIME NOT NULL COMMENT '결제 기록이 마지막으로 수정된 날짜와 시간입니다.',
+      INDEX idx_studio_pass_payments_pass (pass_id, paid_at),
+      INDEX idx_studio_pass_payments_user (user_id, paid_at),
+      CONSTRAINT fk_studio_pass_payments_pass FOREIGN KEY (pass_id) REFERENCES studio_passes(id) ON DELETE CASCADE,
+      CONSTRAINT fk_studio_pass_payments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) COMMENT='필라테스 수강권별 결제 정보를 보관합니다. 한 회원이 여러 수강권을 결제할 수 있으므로 수강권(studio_passes)과 연결해 결제구분, 금액, 결제일, 결제방법, 할부개월수를 관리합니다.'
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_bookings (
+      id VARCHAR(80) PRIMARY KEY,
+      class_id VARCHAR(80) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      pass_id VARCHAR(80) NULL,
+      status ENUM('reserved','waitlisted','cancelled') NOT NULL DEFAULT 'reserved',
+      booked_at DATETIME NOT NULL,
+      cancelled_at DATETIME NULL,
+      UNIQUE KEY uq_studio_booking_user_class (class_id, user_id),
+      INDEX idx_studio_bookings_class_status (class_id, status, booked_at),
+      INDEX idx_studio_bookings_user (user_id),
+      CONSTRAINT fk_studio_bookings_class FOREIGN KEY (class_id) REFERENCES studio_classes(id) ON DELETE CASCADE,
+      CONSTRAINT fk_studio_bookings_pass FOREIGN KEY (pass_id) REFERENCES studio_passes(id) ON DELETE SET NULL
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_pass_transactions (
+      id VARCHAR(80) PRIMARY KEY,
+      pass_id VARCHAR(80) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      class_id VARCHAR(80) NULL,
+      delta_count INT NOT NULL,
+      reason VARCHAR(80) NOT NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_studio_pass_tx_pass (pass_id, created_at),
+      INDEX idx_studio_pass_tx_user (user_id, created_at),
+      CONSTRAINT fk_studio_pass_tx_pass FOREIGN KEY (pass_id) REFERENCES studio_passes(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_class_recurrences (
+      id VARCHAR(80) PRIMARY KEY,
+      repeat_group_id VARCHAR(80) NOT NULL,
+      weekday TINYINT NOT NULL,
+      start_time TIME NOT NULL,
+      end_time TIME NOT NULL,
+      weeks INT NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL,
+      INDEX idx_studio_recur_group (repeat_group_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_business_hours (
+      id VARCHAR(80) PRIMARY KEY,
+      weekday TINYINT NOT NULL,
+      open_time TIME NOT NULL,
+      close_time TIME NOT NULL,
+      is_closed TINYINT(1) NOT NULL DEFAULT 0,
+      updated_at DATETIME NOT NULL,
+      UNIQUE KEY uq_studio_business_hours_weekday (weekday)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_holidays (
+      id VARCHAR(80) PRIMARY KEY,
+      holiday_date DATE NOT NULL,
+      title VARCHAR(160) NOT NULL,
+      note VARCHAR(255) NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_studio_holidays_date (holiday_date)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_booking_policies (
+      id VARCHAR(80) PRIMARY KEY,
+      reserve_limit_hours INT NOT NULL DEFAULT 24,
+      cancel_limit_hours INT NOT NULL DEFAULT 6,
+      same_day_change_allowed TINYINT(1) NOT NULL DEFAULT 0,
+      updated_at DATETIME NOT NULL
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_checkins (
+      id VARCHAR(80) PRIMARY KEY,
+      class_id VARCHAR(80) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      booking_id VARCHAR(80) NULL,
+      status ENUM('checked_in','no_show','cancelled') NOT NULL DEFAULT 'checked_in',
+      checked_in_at DATETIME NOT NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_studio_checkins_class (class_id),
+      INDEX idx_studio_checkins_user (user_id),
+      CONSTRAINT fk_studio_checkins_class FOREIGN KEY (class_id) REFERENCES studio_classes(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_arrears (
+      id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      amount INT NOT NULL DEFAULT 0,
+      reason VARCHAR(255) NOT NULL,
+      status ENUM('open','resolved') NOT NULL DEFAULT 'open',
+      due_date DATE NULL,
+      created_at DATETIME NOT NULL,
+      resolved_at DATETIME NULL,
+      INDEX idx_studio_arrears_user (user_id, status),
+      INDEX idx_studio_arrears_status (status)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_lockers (
+      id VARCHAR(80) PRIMARY KEY,
+      locker_no VARCHAR(40) NOT NULL,
+      location VARCHAR(120) NULL,
+      status ENUM('available','occupied','maintenance') NOT NULL DEFAULT 'available',
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      UNIQUE KEY uq_studio_locker_no (locker_no)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_locker_assignments (
+      id VARCHAR(80) PRIMARY KEY,
+      locker_id VARCHAR(80) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      start_date DATE NOT NULL,
+      end_date DATE NULL,
+      status ENUM('active','ended') NOT NULL DEFAULT 'active',
+      created_at DATETIME NOT NULL,
+      ended_at DATETIME NULL,
+      INDEX idx_studio_locker_assign_user (user_id, status),
+      INDEX idx_studio_locker_assign_locker (locker_id, status),
+      CONSTRAINT fk_studio_locker_assign_locker FOREIGN KEY (locker_id) REFERENCES studio_lockers(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_notifications (
+      id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      type VARCHAR(60) NOT NULL,
+      title VARCHAR(160) NOT NULL,
+      message TEXT NOT NULL,
+      status ENUM('pending','sent','failed') NOT NULL DEFAULT 'pending',
+      scheduled_at DATETIME NULL,
+      sent_at DATETIME NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_studio_notifications_user (user_id, created_at),
+      INDEX idx_studio_notifications_status (status, scheduled_at)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_notification_logs (
+      id VARCHAR(80) PRIMARY KEY,
+      notification_id VARCHAR(80) NOT NULL,
+      channel ENUM('sms','push','email') NOT NULL,
+      result_status ENUM('sent','failed') NOT NULL,
+      provider_message_id VARCHAR(120) NULL,
+      error_message VARCHAR(255) NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_studio_notification_logs_notification (notification_id),
+      CONSTRAINT fk_studio_notification_logs_notification
+        FOREIGN KEY (notification_id) REFERENCES studio_notifications(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_instructor_hours (
+      id VARCHAR(80) PRIMARY KEY,
+      instructor_name VARCHAR(120) NOT NULL,
+      weekday TINYINT NOT NULL,
+      start_time TIME NOT NULL,
+      end_time TIME NOT NULL,
+      is_off TINYINT(1) NOT NULL DEFAULT 0,
+      updated_at DATETIME NOT NULL,
+      UNIQUE KEY uq_studio_instructor_hours (instructor_name, weekday)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_role_permissions (
+      id VARCHAR(80) PRIMARY KEY,
+      role_code VARCHAR(40) NOT NULL,
+      permission_code VARCHAR(80) NOT NULL,
+      is_allowed TINYINT(1) NOT NULL DEFAULT 1,
+      updated_at DATETIME NOT NULL,
+      UNIQUE KEY uq_studio_role_permission (role_code, permission_code)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_staff_profiles (
+      id VARCHAR(80) PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      role_code ENUM('owner','manager','instructor') NOT NULL DEFAULT 'instructor',
+      employment_type ENUM('full_time','part_time','freelance') NOT NULL DEFAULT 'full_time',
+      phone VARCHAR(80) NULL,
+      app_connection_status ENUM('connected','not_connected') NOT NULL DEFAULT 'not_connected',
+      color VARCHAR(20) NOT NULL DEFAULT '#4aa3ff',
+      status ENUM('active','inactive','archived') NOT NULL DEFAULT 'active',
+      can_manage_schedule TINYINT(1) NOT NULL DEFAULT 1,
+      can_view_members TINYINT(1) NOT NULL DEFAULT 1,
+      can_manage_passes TINYINT(1) NOT NULL DEFAULT 0,
+      can_view_sales TINYINT(1) NOT NULL DEFAULT 0,
+      salary_type ENUM('fixed','hourly','commission') NOT NULL DEFAULT 'fixed',
+      base_pay INT NOT NULL DEFAULT 0,
+      hourly_wage INT NOT NULL DEFAULT 0,
+      commission_rate DECIMAL(5,2) NOT NULL DEFAULT 0,
+      memo TEXT NULL,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      INDEX idx_studio_staff_profiles_status (status, role_code),
+      UNIQUE KEY uq_studio_staff_profiles_name (name)
+    ) COMMENT='스튜디오 운영자가 관리하는 강사·매니저 프로필과 앱연결, 권한, 급여 기준을 보관합니다.'
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_member_memos (
+      id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      author_id VARCHAR(64) NOT NULL,
+      memo TEXT NOT NULL,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      INDEX idx_studio_member_memos_user (user_id, created_at)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_pass_pauses (
+      id VARCHAR(80) PRIMARY KEY,
+      pass_id VARCHAR(80) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      reason VARCHAR(255) NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_studio_pass_pauses_pass (pass_id),
+      CONSTRAINT fk_studio_pass_pauses_pass FOREIGN KEY (pass_id) REFERENCES studio_passes(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_pass_transfers (
+      id VARCHAR(80) PRIMARY KEY,
+      pass_id VARCHAR(80) NOT NULL,
+      from_user_id VARCHAR(64) NOT NULL,
+      to_user_id VARCHAR(64) NOT NULL,
+      transfer_count INT NOT NULL DEFAULT 0,
+      reason VARCHAR(255) NULL,
+      created_at DATETIME NOT NULL,
+      INDEX idx_studio_pass_transfers_pass (pass_id),
+      CONSTRAINT fk_studio_pass_transfers_pass FOREIGN KEY (pass_id) REFERENCES studio_passes(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_pass_refunds (
+      id VARCHAR(80) PRIMARY KEY,
+      pass_id VARCHAR(80) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      refund_amount INT NOT NULL DEFAULT 0,
+      reason VARCHAR(255) NULL,
+      status ENUM('requested','approved','rejected') NOT NULL DEFAULT 'requested',
+      requested_at DATETIME NOT NULL,
+      resolved_at DATETIME NULL,
+      INDEX idx_studio_pass_refunds_pass (pass_id, status),
+      CONSTRAINT fk_studio_pass_refunds_pass FOREIGN KEY (pass_id) REFERENCES studio_passes(id) ON DELETE CASCADE
+    )
+  `);
 
   await purgeAllHardcodedSeedData();
   await encryptExistingPiiData();

@@ -1,23 +1,23 @@
-﻿// 파일 역할: 관리자가 환불 요청을 조회하고 승인 또는 거절하는 페이지 컴포넌트입니다.
+﻿/**
+ * [관리자 환불 관리 페이지]
+ *
+ * 관리자가 회원들의 환불 요청을 확인하고 승인·거절하는 화면입니다.
+ * 두 가지 유형의 환불을 탭으로 구분해서 관리합니다:
+ *
+ *  1. 결제 환불  — 강의·상품 구매 건에 대한 환불 요청 (상태: pending / approved / rejected)
+ *  2. 수강권 환불 — 스튜디오 수강권에 대한 환불 요청 (상태: requested / approved / rejected)
+ *
+ * ─ 사용 방법 ──────────────────────────────────────────────────────
+ *  · 상단 탭에서 "결제 환불" 또는 "수강권 환불"을 선택합니다
+ *  · 상태 필터 탭(전체 / 검토 중 / 완료 / 거절)으로 목록을 좁혀 볼 수 있습니다
+ *  · 각 항목의 [환불 승인] 또는 [거절] 버튼을 눌러 처리합니다
+ */
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
-
-// 함수 역할: 날짜 시간 값을 화면에 보여주기 좋은 문구로 변환합니다.
-function formatDateTime(value) {
-  if (!value) return "-";
-  const date = new Date(String(value).replace(" ", "T"));
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("ko-KR");
-}
-
-// 함수 역할: 통화 값을 화면에 보여주기 좋은 문구로 변환합니다.
-function formatCurrency(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "-";
-  return `₩${num.toLocaleString("ko-KR")}`;
-}
+import { listAdminPassRefunds, resolveStudioPassRefund } from "../../studio/api/studioApi.js";
+import { formatDateTime, formatCurrency } from "../../../shared/utils/format.js";
 
 const STATUS_TABS = [
   { value: "", label: "전체" },
@@ -38,8 +38,23 @@ const STATUS_CLASSES = {
   rejected: "refund-status rejected",
 };
 
+const PASS_STATUS_TABS = [
+  { value: "", label: "전체" },
+  { value: "requested", label: "검토 중" },
+  { value: "approved", label: "환불 완료" },
+  { value: "rejected", label: "거절됨" },
+];
+
+const PASS_STATUS_LABELS = {
+  requested: "검토 중",
+  approved: "환불 완료",
+  rejected: "거절됨",
+};
+
 // 컴포넌트 역할: 관리자가 환불 요청을 조회하고 승인 또는 거절하는 페이지 컴포넌트입니다.
 export function AdminRefundPage() {
+  const [activeTab, setActiveTab] = useState("order");
+
   const [statusFilter, setStatusFilter] = useState("pending");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +65,13 @@ export function AdminRefundPage() {
   const [adminNote, setAdminNote] = useState("");
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [actionMessage, setActionMessage] = useState({ type: "", text: "" });
+
+  const [passStatusFilter, setPassStatusFilter] = useState("requested");
+  const [passRefunds, setPassRefunds] = useState([]);
+  const [passLoading, setPassLoading] = useState(true);
+  const [passLoadError, setPassLoadError] = useState("");
+  const [passActionSubmitting, setPassActionSubmitting] = useState(false);
+  const [passActionMessage, setPassActionMessage] = useState({ type: "", text: "" });
 
   async function loadRequests(status) {
     setLoading(true);
@@ -69,6 +91,41 @@ export function AdminRefundPage() {
   useEffect(() => {
     loadRequests(statusFilter);
   }, [statusFilter]);
+
+  async function loadPassRefunds(status) {
+    setPassLoading(true);
+    setPassLoadError("");
+    try {
+      const items = await listAdminPassRefunds(status || undefined);
+      setPassRefunds(items);
+    } catch (error) {
+      setPassRefunds([]);
+      setPassLoadError(error?.message || "수강권 환불 목록을 불러오지 못했습니다.");
+    } finally {
+      setPassLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadPassRefunds(passStatusFilter);
+  }, [passStatusFilter]);
+
+  async function handlePassResolve(refundId, status) {
+    setPassActionSubmitting(true);
+    setPassActionMessage({ type: "", text: "" });
+    try {
+      await resolveStudioPassRefund(refundId, status);
+      setPassActionMessage({
+        type: "success",
+        text: status === "approved" ? "수강권 환불이 승인되었습니다." : "수강권 환불이 거절되었습니다.",
+      });
+      await loadPassRefunds(passStatusFilter);
+    } catch (error) {
+      setPassActionMessage({ type: "error", text: error?.message || "처리 중 오류가 발생했습니다." });
+    } finally {
+      setPassActionSubmitting(false);
+    }
+  }
 
   function openApproveModal(request) {
     setActionModal({ request, action: "approve" });
@@ -140,7 +197,7 @@ export function AdminRefundPage() {
       <main className="dashboard-page admin-dashboard-page">
         <section className="admin-dashboard-switch">
           <Link className="admin-dashboard-switch-link" to="/admin">
-            매출 대시보드
+            일정 관리
           </Link>
           <Link className="admin-dashboard-switch-link" to="/admin/members">
             회원 관리
@@ -151,6 +208,9 @@ export function AdminRefundPage() {
           <Link className="admin-dashboard-switch-link active" to="/admin/refunds">
             환불 관리
           </Link>
+          <Link className="admin-dashboard-switch-link" to="/admin/sales">
+            매출 대시보드
+          </Link>
         </section>
 
         <section className="dashboard-hero mypage-hero-card">
@@ -158,92 +218,195 @@ export function AdminRefundPage() {
           <h1>환불 관리</h1>
         </section>
 
+        <div className="refund-filter-tabs" style={{ marginBottom: "1rem" }}>
+          <button
+            type="button"
+            className={`refund-filter-tab ${activeTab === "order" ? "active" : ""}`}
+            onClick={() => setActiveTab("order")}
+          >
+            결제 환불
+          </button>
+          <button
+            type="button"
+            className={`refund-filter-tab ${activeTab === "pass" ? "active" : ""}`}
+            onClick={() => setActiveTab("pass")}
+          >
+            수강권 환불
+          </button>
+        </div>
+
         <section className="admin-dashboard-grid admin-refund-grid">
           <section className="dashboard-card admin-members-panel">
-            <div className="admin-members-toolbar">
-              <h2>환불 신청 목록</h2>
-              <span className="admin-range-caption">
-                {loading ? "불러오는 중..." : `${requests.length}건`}
-              </span>
-            </div>
 
-            <div className="refund-filter-tabs">
-              {STATUS_TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  className={`refund-filter-tab ${statusFilter === tab.value ? "active" : ""}`}
-                  onClick={() => setStatusFilter(tab.value)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            {activeTab === "order" ? (
+              <>
+                <div className="admin-members-toolbar">
+                  <h2>환불 신청 목록</h2>
+                  <span className="admin-range-caption">
+                    {loading ? "불러오는 중..." : `${requests.length}건`}
+                  </span>
+                </div>
 
-            {loadError ? <p className="admin-empty-copy error">{loadError}</p> : null}
-            {!loadError && !loading && requests.length === 0 ? (
-              <p className="admin-empty-copy">환불 신청이 없습니다.</p>
-            ) : null}
+                <div className="refund-filter-tabs">
+                  {STATUS_TABS.map((tab) => (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      className={`refund-filter-tab ${statusFilter === tab.value ? "active" : ""}`}
+                      onClick={() => setStatusFilter(tab.value)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
 
-            {!loadError && requests.length > 0 ? (
-              <div className="refund-request-list">
-                {requests.map((request) => {
-                  const selectedCount = Array.isArray(request.selectedProductIds)
-                    ? request.selectedProductIds.length
-                    : 0;
+                {loadError ? <p className="admin-empty-copy error">{loadError}</p> : null}
+                {!loadError && !loading && requests.length === 0 ? (
+                  <p className="admin-empty-copy">환불 신청이 없습니다.</p>
+                ) : null}
 
-                  return (
-                    <article key={request.id} className="refund-request-card">
-                      <div className="refund-request-head">
-                        <div className="refund-request-title-wrap">
-                          <strong className="refund-request-order">{request.orderName || request.orderId}</strong>
-                          <span className={STATUS_CLASSES[request.status] || "refund-status pending"}>
-                            {STATUS_LABELS[request.status] || request.status}
-                          </span>
+                {!loadError && requests.length > 0 ? (
+                  <div className="refund-request-list">
+                    {requests.map((request) => {
+                      const selectedCount = Array.isArray(request.selectedProductIds)
+                        ? request.selectedProductIds.length
+                        : 0;
+
+                      return (
+                        <article key={request.id} className="refund-request-card">
+                          <div className="refund-request-head">
+                            <div className="refund-request-title-wrap">
+                              <strong className="refund-request-order">{request.orderName || request.orderId}</strong>
+                              <span className={STATUS_CLASSES[request.status] || "refund-status pending"}>
+                                {STATUS_LABELS[request.status] || request.status}
+                              </span>
+                            </div>
+                            <span className="refund-request-amount">{formatCurrency(request.requestedAmount)}</span>
+                          </div>
+
+                          <div className="refund-request-meta">
+                            <span>주문ID: {request.orderId}</span>
+                            <span>신청자: {request.customerEmail || "-"}</span>
+                            <span>신청일: {formatDateTime(request.createdAt)}</span>
+                            {request.resolvedAt ? <span>처리일: {formatDateTime(request.resolvedAt)}</span> : null}
+                            <span>주문 금액: {formatCurrency(request.orderAmount)}</span>
+                            <span>환불 상품: {selectedCount}개</span>
+                          </div>
+
+                          {request.reason ? (
+                            <p className="refund-request-reason">신청 사유: {request.reason}</p>
+                          ) : null}
+
+                          {request.adminNote ? (
+                            <p className="refund-request-admin-note">관리자 메모: {request.adminNote}</p>
+                          ) : null}
+
+                          {request.status === "pending" ? (
+                            <div className="refund-request-actions">
+                              <button
+                                type="button"
+                                className="pill-button small-pill"
+                                onClick={() => openApproveModal(request)}
+                              >
+                                환불 승인
+                              </button>
+                              <button
+                                type="button"
+                                className="ghost-button small-ghost"
+                                onClick={() => openRejectModal(request)}
+                              >
+                                거절
+                              </button>
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <div className="admin-members-toolbar">
+                  <h2>수강권 환불 요청 목록</h2>
+                  <span className="admin-range-caption">
+                    {passLoading ? "불러오는 중..." : `${passRefunds.length}건`}
+                  </span>
+                </div>
+
+                <div className="refund-filter-tabs">
+                  {PASS_STATUS_TABS.map((tab) => (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      className={`refund-filter-tab ${passStatusFilter === tab.value ? "active" : ""}`}
+                      onClick={() => setPassStatusFilter(tab.value)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {passActionMessage.text ? (
+                  <p className={`refund-modal-message ${passActionMessage.type}`}>{passActionMessage.text}</p>
+                ) : null}
+
+                {passLoadError ? <p className="admin-empty-copy error">{passLoadError}</p> : null}
+                {!passLoadError && !passLoading && passRefunds.length === 0 ? (
+                  <p className="admin-empty-copy">수강권 환불 요청이 없습니다.</p>
+                ) : null}
+
+                {!passLoadError && passRefunds.length > 0 ? (
+                  <div className="refund-request-list">
+                    {passRefunds.map((refund) => (
+                      <article key={refund.id} className="refund-request-card">
+                        <div className="refund-request-head">
+                          <div className="refund-request-title-wrap">
+                            <strong className="refund-request-order">{refund.passName || refund.passId}</strong>
+                            <span className={STATUS_CLASSES[refund.status] || "refund-status pending"}>
+                              {PASS_STATUS_LABELS[refund.status] || refund.status}
+                            </span>
+                          </div>
+                          <span className="refund-request-amount">{formatCurrency(refund.refundAmount)}</span>
                         </div>
-                        <span className="refund-request-amount">{formatCurrency(request.requestedAmount)}</span>
-                      </div>
 
-                      <div className="refund-request-meta">
-                        <span>주문ID: {request.orderId}</span>
-                        <span>신청자: {request.customerEmail || "-"}</span>
-                        <span>신청일: {formatDateTime(request.createdAt)}</span>
-                        {request.resolvedAt ? <span>처리일: {formatDateTime(request.resolvedAt)}</span> : null}
-                        <span>주문 금액: {formatCurrency(request.orderAmount)}</span>
-                        <span>환불 상품: {selectedCount}개</span>
-                      </div>
-
-                      {request.reason ? (
-                        <p className="refund-request-reason">신청 사유: {request.reason}</p>
-                      ) : null}
-
-                      {request.adminNote ? (
-                        <p className="refund-request-admin-note">관리자 메모: {request.adminNote}</p>
-                      ) : null}
-
-                      {request.status === "pending" ? (
-                        <div className="refund-request-actions">
-                          <button
-                            type="button"
-                            className="pill-button small-pill"
-                            onClick={() => openApproveModal(request)}
-                          >
-                            환불 승인
-                          </button>
-                          <button
-                            type="button"
-                            className="ghost-button small-ghost"
-                            onClick={() => openRejectModal(request)}
-                          >
-                            거절
-                          </button>
+                        <div className="refund-request-meta">
+                          <span>신청자: {refund.customerEmail || refund.customerName || "-"}</span>
+                          <span>신청일: {formatDateTime(refund.requestedAt)}</span>
+                          {refund.resolvedAt ? <span>처리일: {formatDateTime(refund.resolvedAt)}</span> : null}
                         </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
-              </div>
-            ) : null}
+
+                        {refund.reason ? (
+                          <p className="refund-request-reason">신청 사유: {refund.reason}</p>
+                        ) : null}
+
+                        {refund.status === "requested" ? (
+                          <div className="refund-request-actions">
+                            <button
+                              type="button"
+                              className="pill-button small-pill"
+                              disabled={passActionSubmitting}
+                              onClick={() => handlePassResolve(refund.id, "approved")}
+                            >
+                              환불 승인
+                            </button>
+                            <button
+                              type="button"
+                              className="ghost-button small-ghost"
+                              disabled={passActionSubmitting}
+                              onClick={() => handlePassResolve(refund.id, "rejected")}
+                            >
+                              거절
+                            </button>
+                          </div>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+
           </section>
         </section>
       </main>

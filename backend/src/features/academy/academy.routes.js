@@ -56,6 +56,9 @@ academyRoutes.post("/playback/heartbeat", express.json(), academyController.hear
 academyRoutes.get("/playback/stream/:chapterId", academyController.streamAcademyPlayback);
 academyRoutes.get("/instructors", academyController.getAcademyInstructors);
 academyRoutes.get("/progress", academyController.getAcademyProgress);
+academyRoutes.get("/certificates", academyController.getMyAcademyCertificates);
+academyRoutes.get("/certificates/:certificateId", academyController.getMyAcademyCertificate);
+academyRoutes.post("/certificates/:videoId", express.json(), academyController.issueMyAcademyCertificate);
 academyRoutes.put("/progress/:videoId", express.json(), academyController.saveAcademyProgress);
 academyRoutes.put(
   "/progress/:videoId/chapters/:chapterId",

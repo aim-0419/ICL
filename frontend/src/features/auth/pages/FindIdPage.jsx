@@ -1,4 +1,8 @@
-﻿// 파일 역할: 휴대폰 정보로 가입 아이디를 찾는 페이지 컴포넌트입니다.
+﻿/**
+ * [아이디 찾기 페이지]
+ * 가입 시 등록한 이름과 이메일로 아이디(loginId)를 조회합니다.
+ * 찾은 아이디는 화면에 표시되며, 로그인 페이지로 바로 이동할 수 있습니다.
+ */
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";

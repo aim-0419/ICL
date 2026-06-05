@@ -42,6 +42,19 @@ export async function listAcademyProgress() {
   };
 }
 
+export async function listAcademyCertificates() {
+  const result = await apiRequest("/academy/certificates");
+  return Array.isArray(result?.certificates) ? result.certificates : [];
+}
+
+export async function issueAcademyCertificate(videoId) {
+  const result = await apiRequest(`/academy/certificates/${encodeURIComponent(String(videoId || "").trim())}`, {
+    method: "POST",
+    body: {},
+  });
+  return result?.certificate || null;
+}
+
 // 함수 역할: 이전 단일 강의 진도 API와 호환되도록 차시 진도 저장 후 강의 전체 진도를 반환합니다.
 export async function saveAcademyProgress(videoId, payload) {
   return apiRequest(`/academy/progress/${encodeURIComponent(String(videoId || "").trim())}`, {

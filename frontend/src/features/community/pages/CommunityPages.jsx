@@ -1,4 +1,22 @@
-﻿// 파일 역할: CommunityPages 화면의 UI, 상태, API 연동 흐름을 담당합니다.
+﻿/**
+ * [커뮤니티 페이지]
+ *
+ * 이 파일은 이끌림 커뮤니티의 세 가지 게시판을 하나의 파일에서 관리합니다:
+ *
+ *  1. 후기 게시판  (/community/reviews)   — 회원들의 수업·강의 후기
+ *  2. 이벤트 게시판(/community/events)   — 센터 이벤트·프로모션 공지
+ *  3. 문의 게시판  (/community/inquiries) — 1:1 문의 및 답변
+ *
+ * ─ 페이지 구조 ────────────────────────────────────────────────────
+ *  · URL 파라미터(type)로 어떤 게시판인지 구분합니다
+ *  · 목록(List) → 상세(Detail) 전환은 selectedPostId 상태로 관리합니다
+ *  · 글쓰기·수정 폼은 showWriteForm 상태로 열고 닫습니다
+ *
+ * ─ 권한 규칙 ──────────────────────────────────────────────────────
+ *  · 이벤트 게시판은 관리자(isAdminStaff)만 글을 쓸 수 있습니다
+ *  · 자기 글은 본인이, 관리자는 모든 글을 수정·삭제할 수 있습니다
+ *  · 문의 게시판 답변은 관리자만 작성 가능합니다
+ */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
@@ -9,7 +27,7 @@ import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
-// 커뮤니티 페이지 파일은 후기 / 문의 / 이벤트 목록과 상세 화면을 함께 담고 있다.
+// 한 페이지에 표시할 최대 게시글 수
 const POSTS_PER_PAGE = 10;
 const REVIEW_IMAGES = [
   "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1600&q=80",
@@ -21,13 +39,16 @@ const EVENT_CATEGORIES = ["전체", "진행중", "종료"];
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80";
 
-// 함수 역할: number 값으로 안전하게 변환합니다.
+/** 숫자로 변환합니다. null·undefined·비숫자는 0을 반환합니다. */
 function toNumber(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
 
-// 함수 역할: 기간 값을 화면에 보여주기 좋은 문구로 변환합니다.
+/**
+ * 이벤트 기간을 "2025-06-01 ~ 2025-06-30" 형식으로 변환합니다.
+ * 시작일만 있으면 시작일만, 둘 다 없으면 "일정 미정"을 반환합니다.
+ */
 function formatPeriod(startDate, endDate) {
   const start = String(startDate || "").trim();
   const end = String(endDate || "").trim();
@@ -37,19 +58,27 @@ function formatPeriod(startDate, endDate) {
   return `${start} ~ ${end}`;
 }
 
-// 함수 역할: ID 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
+/** ID 값의 앞뒤 공백을 제거하고 문자열로 통일합니다. 비교 시 사용합니다. */
 function normalizeId(value) {
   return String(value || "").trim();
 }
 
-// 함수 역할: 게시글 작성자 조건에 해당하는지 참/거짓으로 판별합니다.
+/**
+ * 현재 로그인 사용자가 게시글 작성자인지 확인합니다.
+ * 글 수정·삭제 버튼 노출 여부를 판단하는 데 사용합니다.
+ */
 function isPostOwner(currentUser, authorId) {
   const currentUserId = normalizeId(currentUser?.id);
   const normalizedAuthorId = normalizeId(authorId);
   return Boolean(currentUserId && normalizedAuthorId && currentUserId === normalizedAuthorId);
 }
 
-// 함수 역할: 페이징 상태나 계산값을 재사용하기 위한 React 훅입니다.
+/**
+ * 게시글 목록의 페이지네이션(페이지 나누기)을 계산하는 커스텀 훅입니다.
+ * - totalPages: 전체 페이지 수
+ * - safePage  : 유효 범위로 조정된 현재 페이지 번호
+ * - currentItems: 현재 페이지에 표시할 게시글 배열
+ */
 function usePaging(items, page, pageSize = POSTS_PER_PAGE) {
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const safePage = Math.min(page, totalPages);

@@ -20402,6 +20402,25 @@ body,
   font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
 }
 
+.admin-instructor-app .admin-schedule-search {
+  display: flex;
+  align-items: center;
+  min-width: 280px;
+  max-width: 420px;
+  overflow: hidden;
+}
+
+.admin-instructor-app .admin-schedule-search span {
+  display: none;
+}
+
+.admin-instructor-app .admin-schedule-search input {
+  width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .admin-instructor-body {
   padding: 34px 32px 80px;
 }
@@ -20909,11 +20928,24 @@ body,
 
 .admin-instructor-permission-tabs {
   display: flex;
-  gap: 24px;
-  min-height: 54px;
   align-items: flex-end;
+  justify-content: space-between;
+  min-height: 54px;
   border-bottom: 1px solid #dfe3e8;
+}
+
+.admin-instructor-permission-tab-list {
+  display: flex;
+  gap: 24px;
   overflow-x: auto;
+}
+
+.admin-instructor-permission-tabs .admin-instructor-permission-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+  padding-bottom: 6px;
 }
 
 .admin-instructor-permission-tabs button {

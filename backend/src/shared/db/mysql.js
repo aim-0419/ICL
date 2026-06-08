@@ -63,7 +63,7 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   waitForConnections: true,
   namedPlaceholders: true,
-  timezone: "Z",
+  timezone: "+09:00",
 });
 
 let initPromise = null;
@@ -471,6 +471,7 @@ const EXTRA_SCHEMA_COLUMN_COMMENTS = {
   // ── 스튜디오 테이블 컬럼 설명 ──────────────────────────────────────────────
   studio_classes: {
     id: "수업 고유 번호",
+    class_type: "수업 유형 (private=개인, group=그룹, consulting=상담, etc=기타)",
     title: "수업 이름 (예: 그룹 리포머, 개인 레슨)",
     instructor_name: "담당 강사 이름",
     room_name: "진행 공간 또는 수업 종류 (예: 개인, 듀엣, 그룹)",
@@ -2240,6 +2241,7 @@ async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_classes (
       id VARCHAR(80) PRIMARY KEY,
+      class_type ENUM('private','group','consulting','etc') NOT NULL DEFAULT 'group',
       title VARCHAR(160) NOT NULL,
       instructor_name VARCHAR(120) NOT NULL,
       room_name VARCHAR(120) NOT NULL,
@@ -2256,6 +2258,7 @@ async function initDatabase() {
     )
   `);
   await pool.query(`ALTER TABLE studio_classes MODIFY status ENUM('active','cancelled','deleted') NOT NULL DEFAULT 'active'`);
+  await pool.query(`ALTER TABLE studio_classes ADD COLUMN class_type ENUM('private','group','consulting','etc') NOT NULL DEFAULT 'group'`).catch((e) => { if (e.errno !== 1060) throw e; });
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_member_profiles (

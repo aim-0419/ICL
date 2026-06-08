@@ -165,6 +165,8 @@ function toClassForm(item) {
 }
 
 function inferCategory(item) {
+  if (item?.classType && ["private", "group", "consulting", "etc"].includes(item.classType)) return item.classType;
+  // 기존 데이터(class_type 미설정) 호환용 키워드 추론
   const title = String(item?.title || "");
   if (title.includes("개인") || title.includes("듀엣")) return "private";
   if (title.includes("상담")) return "consulting";
@@ -373,6 +375,7 @@ export function AdminSchedulePage() {
       const start = new Date(`${classForm.date}T${classForm.time}:00`);
       const end = new Date(start.getTime() + durationMin * 60000);
       const payload = {
+        classType,
         title,
         instructorName: classForm.instructorName.trim(),
         roomName: classForm.roomName.trim(),

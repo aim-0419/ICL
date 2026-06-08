@@ -521,15 +521,19 @@ export async function cancelMyBooking({ userId, classId }) {
   });
 }
 
+const VALID_CLASS_TYPES = ["private", "group", "consulting", "etc"];
+
 export async function createClass(payload, userId) {
   await assertStudioOpenForClass({ startAt: payload?.startAt, endAt: payload?.endAt });
   const id = randomUUID();
+  const classType = VALID_CLASS_TYPES.includes(payload?.classType) ? payload.classType : "group";
   await query(
     `INSERT INTO studio_classes
-      (id, title, instructor_name, room_name, start_at, end_at, capacity, status, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW(), NOW())`,
+      (id, class_type, title, instructor_name, room_name, start_at, end_at, capacity, status, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW(), NOW())`,
     [
       id,
+      classType,
       String(payload?.title || "").trim(),
       String(payload?.instructorName || "").trim(),
       String(payload?.roomName || "").trim(),
@@ -559,12 +563,14 @@ export async function createClassesWithRepeat(payload, userId) {
     const end = new Date(endBase.getTime() + i * 7 * 86400000);
     await assertStudioOpenForClass({ startAt: start, endAt: end });
     const id = randomUUID();
+    const classType = VALID_CLASS_TYPES.includes(payload?.classType) ? payload.classType : "group";
     await query(
       `INSERT INTO studio_classes
-        (id, title, instructor_name, room_name, start_at, end_at, capacity, status, repeat_group_id, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, NOW(), NOW())`,
+        (id, class_type, title, instructor_name, room_name, start_at, end_at, capacity, status, repeat_group_id, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, NOW(), NOW())`,
       [
         id,
+        classType,
         String(payload?.title || "").trim(),
         String(payload?.instructorName || "").trim(),
         String(payload?.roomName || "").trim(),
@@ -600,11 +606,13 @@ export async function createClassesWithRepeat(payload, userId) {
 
 export async function updateClass(classId, payload) {
   await assertStudioOpenForClass({ startAt: payload?.startAt, endAt: payload?.endAt });
+  const classType = VALID_CLASS_TYPES.includes(payload?.classType) ? payload.classType : "group";
   await query(
     `UPDATE studio_classes
-     SET title = ?, instructor_name = ?, room_name = ?, start_at = ?, end_at = ?, capacity = ?, updated_at = NOW()
+     SET class_type = ?, title = ?, instructor_name = ?, room_name = ?, start_at = ?, end_at = ?, capacity = ?, updated_at = NOW()
      WHERE id = ?`,
     [
+      classType,
       String(payload?.title || "").trim(),
       String(payload?.instructorName || "").trim(),
       String(payload?.roomName || "").trim(),

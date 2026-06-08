@@ -69,10 +69,9 @@ const PERMISSION_GROUPS = [
     permissions: [
       {
         code: "member.read",
-        label: "회원 조회",
-        description: "회원 관리에 관한 접근 권한입니다.",
+        label: "회원 목록 조회",
+        description: "전체 회원 목록을 조회할 수 있습니다.",
         children: [
-          { code: "member.list.read", label: "회원 목록 조회", description: "전체 회원 목록을 조회할 수 있습니다." },
           { code: "member.export", label: "회원 목록 엑셀 다운로드", description: "회원 목록을 엑셀 파일로 다운로드할 수 있습니다." },
           { code: "member.create", label: "회원 등록", description: "회원을 등록 할 수 있습니다." },
           { code: "member.write", label: "회원 정보 수정", description: "회원 정보를 수정할 수 있습니다." },
@@ -82,16 +81,37 @@ const PERMISSION_GROUPS = [
           { code: "pass.detail.write", label: "회원의 수강권 상세정보 조회 및 수정", description: "회원에게 발급된 수강권 상세정보를 조회, 수정할 수 있습니다. 포인트 및 결제내역을 조회할 수 있습니다." },
         ],
       },
-      { code: "checkin.write", label: "체크인 관리", description: "수업 출석과 체크인을 처리할 수 있습니다." },
+      {
+        code: "member.memo.read",
+        label: "회원 메모 조회",
+        description: "회원에게 등록된 메모를 조회할 수 있습니다.",
+        children: [
+          { code: "member.memo.create", label: "회원 메모 등록", description: "회원에게 메모를 등록할 수 있습니다." },
+          { code: "member.memo.write", label: "회원 메모 수정", description: "본인이 작성한 메모를 수정할 수 있습니다.\n(단, 스튜디오 오너는 모든 메모를 수정할 수 있습니다.)" },
+          { code: "member.memo.delete", label: "회원 메모 삭제", description: "본인이 작성한 메모를 삭제할 수 있습니다.\n(단, 스튜디오 오너는 모든 메모를 삭제할 수 있습니다.)" },
+        ],
+      },
+      {
+        code: "consulting.read",
+        label: "상담 고객 조회",
+        description: "상담 기록, 방문 일정 등을 조회할 수 있습니다.",
+        children: [
+          { code: "consulting.create", label: "상담 고객 등록", description: "상담 기록, 방문 일정 등을 등록할 수 있습니다." },
+          { code: "consulting.write", label: "상담 고객 수정", description: "상담 기록, 방문 일정을 수정할 수 있습니다." },
+          { code: "consulting.delete", label: "상담 고객 삭제", description: "상담 기록, 방문 일정을 삭제할 수 있습니다." },
+        ],
+      },
     ],
   },
   {
     value: "pass",
     label: "수강권",
-    description: "수강권 판매와 변경 처리 권한입니다.",
+    description: "수강권에 관한 접근 권한입니다.",
     permissions: [
-      { code: "pass.read", label: "수강권 조회", description: "회원의 수강권과 잔여 횟수를 조회할 수 있습니다." },
-      { code: "pass.write", label: "수강권 처리", description: "수강권 생성, 정지, 양도, 환불을 처리할 수 있습니다." },
+      { code: "sales.read", label: "매출 열람", description: "매출 페이지를 열람할 수 있습니다." },
+      { code: "pass.create", label: "수강권 등록", description: "새로운 수강권을 만들 수 있습니다." },
+      { code: "pass.write", label: "수강권 수정", description: "수강권 정보를 수정할 수 있습니다." },
+      { code: "pass.status", label: "수강권 판매 정지 및 판매 재개", description: "수강권 판매정지를 설정 할 수 있고 판매를 재개할 수 있습니다." },
     ],
   },
   {
@@ -99,36 +119,152 @@ const PERMISSION_GROUPS = [
     label: "일정",
     description: "수업 일정 등록과 예약자 관리 권한입니다.",
     permissions: [
-      { code: "class.read", label: "수업 조회", description: "일/주/월 수업 일정을 조회할 수 있습니다." },
-      { code: "class.write", label: "수업 관리", description: "수업 등록, 수정, 폐강, 삭제를 처리할 수 있습니다." },
-      { code: "booking.write", label: "예약 관리", description: "회원 예약, 대기, 취소를 처리할 수 있습니다." },
+      {
+        code: "own.etc.read",
+        label: "본인의 기타 일정",
+        description: "본인의 기타 일정을 조회할 수 있습니다.",
+        children: [
+          { code: "own.etc.create", label: "본인의 기타 일정 등록", description: "기타 일정을 등록할 수 있습니다." },
+          { code: "own.etc.write", label: "본인의 기타 일정 수정", description: "기타 일정을 수정할 수 있습니다." },
+          { code: "own.etc.delete", label: "본인의 기타 일정 삭제", description: "기타 일정을 삭제할 수 있습니다." },
+        ],
+      },
+      {
+        code: "own.group.read",
+        label: "본인의 그룹 수업",
+        description: "본인의 그룹 수업을 조회할 수 있습니다.",
+        children: [
+          { code: "own.group.past.create", label: "본인의 과거 그룹 수업 등록", description: "과거 날짜에 그룹 수업을 등록할 수 있습니다." },
+          { code: "own.group.past.write", label: "본인의 과거 그룹 수업 수정", description: "과거 그룹 수업의 담당 강사를 수정할 수 있습니다." },
+          { code: "own.group.past.booking.write", label: "본인의 과거 그룹 수업 예약 변경", description: "과거 그룹 수업의 회원 예약, 출결 상태를 변경할 수 있습니다." },
+          { code: "own.group.past.booking.cancel", label: "본인의 과거 그룹 수업 예약 취소", description: "과거 그룹 수업의 회원 예약을 취소할 수 있습니다." },
+          { code: "own.group.past.delete", label: "본인의 과거 그룹 수업 삭제", description: "과거 그룹 수업을 삭제할 수 있습니다." },
+          { code: "own.group.create", label: "본인의 그룹 수업 등록", description: "그룹 수업을 등록할 수 있습니다." },
+          { code: "own.group.write", label: "본인의 그룹 수업 수정", description: "그룹 수업의 담당 강사, 수업 시간, 최소 수강 인원을 수정할 수 있습니다." },
+          { code: "own.group.booking.write", label: "본인의 그룹 수업 예약 변경", description: "그룹 수업의 회원 예약, 출결 상태를 변경할 수 있습니다." },
+          { code: "own.group.booking.cancel", label: "본인의 그룹 수업 예약 취소", description: "그룹 수업의 회원 예약을 취소할 수 있습니다." },
+          { code: "own.group.delete", label: "본인의 그룹 수업 삭제", description: "그룹 수업을 삭제할 수 있습니다." },
+        ],
+      },
+      {
+        code: "own.private.read",
+        label: "본인의 프라이빗 수업",
+        description: "본인의 프라이빗 수업을 조회할 수 있습니다.",
+        children: [
+          { code: "own.private.past.create", label: "본인의 과거 프라이빗 수업 등록", description: "과거 날짜에 프라이빗 수업을 등록할 수 있습니다." },
+          { code: "own.private.past.write", label: "본인의 과거 프라이빗 수업 수정", description: "과거 프라이빗 수업의 담당 강사, 수업 시간을 수정할 수 있습니다." },
+          { code: "own.private.past.booking.write", label: "본인의 과거 프라이빗 수업 예약 변경", description: "과거 프라이빗 수업의 회원 예약, 출결 상태를 변경할 수 있습니다." },
+          { code: "own.private.past.booking.cancel", label: "본인의 과거 프라이빗 수업 예약 취소", description: "과거 프라이빗 수업의 회원 예약을 취소할 수 있습니다." },
+          { code: "own.private.past.delete", label: "본인의 과거 프라이빗 수업 삭제", description: "과거 프라이빗 수업을 삭제할 수 있습니다." },
+          { code: "own.private.create", label: "본인의 프라이빗 수업 등록", description: "프라이빗 수업을 등록할 수 있습니다." },
+          { code: "own.private.write", label: "본인의 프라이빗 수업 수정", description: "프라이빗 수업의 담당 강사, 수업 시간을 수정할 수 있습니다." },
+          { code: "own.private.booking.write", label: "본인의 프라이빗 수업 예약 변경", description: "프라이빗 수업의 회원 예약, 출결 상태를 변경할 수 있습니다." },
+          { code: "own.private.booking.cancel", label: "본인의 프라이빗 수업 예약 취소", description: "프라이빗 수업의 회원 예약을 취소할 수 있습니다." },
+          { code: "own.private.delete", label: "본인의 프라이빗 수업 삭제", description: "프라이빗 수업을 삭제할 수 있습니다." },
+        ],
+      },
+      {
+        code: "other.group.read",
+        label: "다른 스태프의 그룹 수업",
+        description: "다른 스태프의 그룹 수업을 조회할 수 있습니다.",
+        children: [
+          { code: "other.group.view", label: "다른 스태프의 그룹 수업 조회", description: "그룹 수업을 조회할 수 있습니다." },
+        ],
+      },
+      {
+        code: "other.private.read",
+        label: "다른 스태프의 프라이빗 수업",
+        description: "다른 스태프의 프라이빗 수업을 조회할 수 있습니다.",
+        children: [
+          { code: "other.private.view", label: "다른 스태프의 프라이빗 수업 조회", description: "프라이빗 수업을 조회할 수 있습니다." },
+        ],
+      },
+      {
+        code: "schedule.memo.create",
+        label: "메모 등록",
+        description: "일정 상세페이지에 메모를 등록할 수 있습니다.",
+        children: [
+          { code: "schedule.memo.write", label: "메모 수정", description: "본인이 작성한 메모를 수정할 수 있습니다.\n(단, 스튜디오 오너는 모든 메모를 수정할 수 있습니다.)" },
+          { code: "schedule.memo.delete", label: "메모 삭제", description: "본인이 작성한 메모를 삭제할 수 있습니다.\n(단, 스튜디오 오너는 모든 메모를 삭제할 수 있습니다.)" },
+        ],
+      },
     ],
   },
   {
     value: "board",
     label: "게시판",
-    description: "게시판과 공지 관리 권한입니다.",
+    description: "게시판에 관한 접근 권한입니다.",
     permissions: [
-      { code: "board.read", label: "게시글 조회", description: "게시판 글을 조회할 수 있습니다." },
-      { code: "board.write", label: "게시글 관리", description: "게시글 작성, 수정, 삭제를 처리할 수 있습니다." },
+      {
+        code: "notice.read",
+        label: "공지사항 조회",
+        description: "공지사항을 조회할 수 있습니다.",
+        children: [
+          { code: "notice.write", label: "공지사항 등록, 수정", description: "공지사항을 등록, 수정할 수 있습니다." },
+          { code: "notice.delete", label: "공지사항 삭제", description: "공지사항을 삭제할 수 있습니다." },
+        ],
+      },
+      {
+        code: "inquiry.read",
+        label: "문의사항 조회",
+        description: "문의 게시판을 조회할 수 있습니다.",
+        children: [
+          { code: "inquiry.comment.write", label: "문의 게시판에 댓글 등록, 수정, 삭제", description: "문의 게시판에 댓글을 등록, 수정, 삭제 할 수 있습니다." },
+          { code: "inquiry.comment.other.delete", label: "문의 게시판의 다른 스태프 댓글 삭제", description: "문의 게시판에 다른 스태프가 등록한 댓글을 삭제할 수 있습니다." },
+        ],
+      },
     ],
   },
   {
     value: "message",
     label: "메시지",
-    description: "문자/푸시 발송 권한입니다.",
+    description: "메시지에 관한 접근 권한입니다.",
     permissions: [
-      { code: "communication.read", label: "메시지 조회", description: "발송 내역과 알림 기록을 조회할 수 있습니다." },
-      { code: "communication.write", label: "메시지 발송", description: "회원과 강사에게 메시지 기록을 남길 수 있습니다." },
+      {
+        code: "sms.read",
+        label: "문자 메시지 조회",
+        description: "문자 메시지를 조회할 수 있습니다.",
+        children: [
+          { code: "sms.send", label: "문자 메시지 보내기", description: "문자 메시지를 보낼 수 있습니다." },
+          { code: "sms.write", label: "문자 메시지 수정 및 예약 취소", description: "문자 메시지를 수정하거나 예약된 메시지를 취소 할 수 있습니다." },
+          { code: "sms.delete", label: "문자 메시지 삭제", description: "문자 메시지를 삭제 할 수 있습니다." },
+        ],
+      },
+      {
+        code: "push.read",
+        label: "앱 푸시 메시지 조회",
+        description: "앱 푸시 메시지를 조회할 수 있습니다.",
+        children: [
+          { code: "push.send", label: "앱 푸시 메시지 보내기", description: "앱 푸시 메시지를 보낼 수 있습니다." },
+          { code: "push.write", label: "앱 푸시 메시지 수정 및 예약 취소", description: "앱 푸시 메시지를 수정하거나, 예약된 메시지를 취소할 수 있습니다." },
+          { code: "push.delete", label: "앱 푸시 메시지 삭제", description: "앱 푸시 메시지를 삭제할 수 있습니다." },
+        ],
+      },
     ],
   },
   {
     value: "contract",
     label: "전자계약서",
-    description: "전자계약서 관리 권한입니다.",
+    description: "전자계약서에 관한 접근 권한입니다.",
     permissions: [
-      { code: "contract.read", label: "계약서 조회", description: "전자계약서를 조회할 수 있습니다." },
-      { code: "contract.write", label: "계약서 관리", description: "전자계약서 작성과 상태 변경을 처리할 수 있습니다." },
+      {
+        code: "contract.list.read",
+        label: "계약서 목록 조회",
+        description: "계약서 목록을 조회 할 수 있습니다.",
+        children: [
+          { code: "contract.detail.read", label: "계약서 상세 조회", description: "계약서 상세 내용을 조회 할 수 있습니다." },
+        ],
+      },
+      {
+        code: "contract.template.read",
+        label: "템플릿 조회",
+        description: "템플릿을 조회할 수 있습니다.",
+        children: [
+          { code: "contract.template.write", label: "템플릿 등록/수정", description: "템플릿을 등록 및 수정 할 수 있습니다." },
+          { code: "contract.template.delete", label: "템플릿 삭제", description: "템플릿을 삭제 할 수 있습니다." },
+          { code: "contract.terms.write", label: "약관관리", description: "약관을 등록/수정/삭제할 수 있습니다." },
+        ],
+      },
     ],
   },
 ];
@@ -464,6 +600,22 @@ export function AdminInstructorPage() {
     });
   }
 
+  function handleSelectAllPermissions() {
+    if (permissionRoleIsOwner) return;
+    const allCodes = activePermissionGroup.permissions.flatMap(getPermissionCodes);
+    const allAllowed = allCodes.every((code) => isPermissionAllowed(code));
+    const nextAllowed = !allAllowed;
+    setRolePermissions((previous) => {
+      const without = previous.filter((item) =>
+        !((item.roleCode || item.role_code) === permissionRole && allCodes.includes(item.permissionCode || item.permission_code))
+      );
+      return [
+        ...without,
+        ...allCodes.map((code) => ({ roleCode: permissionRole, permissionCode: code, isAllowed: nextAllowed ? 1 : 0 })),
+      ];
+    });
+  }
+
   async function handleSavePermissions() {
     setSavingPermissions(true);
     try {
@@ -657,39 +809,42 @@ export function AdminInstructorPage() {
           </div>
         </section>
 
-        <section className="admin-instructor-toolbar">
-          <div>
-            <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
-              <option value="">역할 전체</option>
-              <option value="owner">스튜디오 오너</option>
-              <option value="manager">매니저</option>
-              <option value="instructor">강사</option>
-            </select>
-            <select value={employmentFilter} onChange={(event) => setEmploymentFilter(event.target.value)}>
-              <option value="">근무형태 전체</option>
-              <option value="full_time">정규</option>
-              <option value="part_time">파트타임</option>
-              <option value="freelance">프리랜서</option>
-            </select>
-            <button type="button" className="admin-memberlist-reset-btn" onClick={loadStaff}>↻</button>
-          </div>
-          <div>
-            <select className="admin-instructor-view-select" defaultValue="list">
-              <option value="list">목록형 보기</option>
-            </select>
-            <button type="button" className="admin-classlist-btn" disabled={!selectedIds.size} onClick={() => openNotification(staff.filter((item) => selectedIds.has(item.id)))}>
-              메시지 보내기
-            </button>
-            <button type="button" className="admin-classlist-btn danger" disabled={!selectedIds.size} onClick={handleDeleteSelected}>
-              삭제
-            </button>
-          </div>
-        </section>
-
-        <div className="admin-instructor-count-row">
-          <strong>총 {filteredStaff.length}명</strong>
-          <span>선택 {selectedIds.size}명</span>
-        </div>
+        {activeTab === "list" ? (
+          <>
+            <section className="admin-instructor-toolbar">
+              <div>
+                <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                  <option value="">역할 전체</option>
+                  <option value="owner">스튜디오 오너</option>
+                  <option value="manager">매니저</option>
+                  <option value="instructor">강사</option>
+                </select>
+                <select value={employmentFilter} onChange={(event) => setEmploymentFilter(event.target.value)}>
+                  <option value="">근무형태 전체</option>
+                  <option value="full_time">정규</option>
+                  <option value="part_time">파트타임</option>
+                  <option value="freelance">프리랜서</option>
+                </select>
+                <button type="button" className="admin-memberlist-reset-btn" onClick={loadStaff}>↻</button>
+              </div>
+              <div>
+                <select className="admin-instructor-view-select" defaultValue="list">
+                  <option value="list">목록형 보기</option>
+                </select>
+                <button type="button" className="admin-classlist-btn" disabled={!selectedIds.size} onClick={() => openNotification(staff.filter((item) => selectedIds.has(item.id)))}>
+                  메시지 보내기
+                </button>
+                <button type="button" className="admin-classlist-btn danger" disabled={!selectedIds.size} onClick={handleDeleteSelected}>
+                  삭제
+                </button>
+              </div>
+            </section>
+            <div className="admin-instructor-count-row">
+              <strong>총 {filteredStaff.length}명</strong>
+              <span>선택 {selectedIds.size}명</span>
+            </div>
+          </>
+        ) : null}
 
         {message.text ? <p className={`admin-classlist-message ${message.type}`}>{message.text}</p> : null}
 
@@ -762,16 +917,26 @@ export function AdminInstructorPage() {
                 {permissionRoleIsOwner ? <em>스튜디오 오너는 모든 권한을 가집니다.</em> : null}
               </div>
               <div className="admin-instructor-permission-tabs">
-                {PERMISSION_GROUPS.map((group) => (
-                  <button
-                    key={group.value}
-                    type="button"
-                    className={permissionGroup === group.value ? "active" : ""}
-                    onClick={() => setPermissionGroup(group.value)}
-                  >
-                    {group.label}
+                <div className="admin-instructor-permission-tab-list">
+                  {PERMISSION_GROUPS.map((group) => (
+                    <button
+                      key={group.value}
+                      type="button"
+                      className={permissionGroup === group.value ? "active" : ""}
+                      onClick={() => setPermissionGroup(group.value)}
+                    >
+                      {group.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="admin-instructor-permission-actions">
+                  <button type="button" className="admin-classlist-btn" disabled={permissionRoleIsOwner} onClick={handleSelectAllPermissions}>
+                    모두 선택
                   </button>
-                ))}
+                  <button type="button" className="admin-classlist-btn primary" disabled={savingPermissions || permissionRoleIsOwner} onClick={handleSavePermissions}>
+                    {savingPermissions ? "저장 중" : "저장"}
+                  </button>
+                </div>
               </div>
               <div className="admin-instructor-permission-scroll">
                 <p className="admin-instructor-permission-desc">{activePermissionGroup.description}</p>
@@ -818,14 +983,6 @@ export function AdminInstructorPage() {
                     ) : null}
                   </div>
                 ))}
-              </div>
-              <div className="admin-instructor-permission-actions">
-                <button type="button" className="admin-classlist-btn" onClick={() => listAdminRolePermissions().then(setRolePermissions).catch(() => {})}>
-                  되돌리기
-                </button>
-                <button type="button" className="admin-classlist-btn primary" disabled={savingPermissions || permissionRoleIsOwner} onClick={handleSavePermissions}>
-                  {savingPermissions ? "저장 중" : "권한 저장"}
-                </button>
               </div>
             </section>
           </section>

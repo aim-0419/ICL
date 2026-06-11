@@ -64,14 +64,14 @@ async function getBookingPolicyWithConn(conn) {
 
 async function assertBookingPolicyAllows(conn, classStartAt, action) {
   const start = normalizeDate(classStartAt);
-  if (!start) throw createHttpError("?섏뾽 ?쒓컙???щ컮瑜댁? ?딆뒿?덈떎.", 400);
+  if (!start) throw createHttpError("수업 시작 시간을 확인할 수 없습니다.", 400);
   const policy = await getBookingPolicyWithConn(conn);
   const limitHours = action === "cancel" ? Number(policy.cancelLimitHours || 0) : Number(policy.reserveLimitHours || 0);
   if (limitHours > 0 && start.getTime() - Date.now() < limitHours * 60 * 60 * 1000) {
-    throw createHttpError(action === "cancel" ? "痍⑥냼 媛???쒓컙??吏?ъ뒿?덈떎." : "?덉빟 媛???쒓컙??吏?ъ뒿?덈떎.", 400);
+    throw createHttpError(action === "cancel" ? "취소 가능 시간이 지났습니다." : "예약 가능 시간이 지났습니다.", 400);
   }
   if (!policy.sameDayChangeAllowed && isSameDate(start, new Date())) {
-    throw createHttpError("?뱀씪 ?덉빟/蹂寃쎌씠 ?쒗븳?섏뼱 ?덉뒿?덈떎.", 400);
+    throw createHttpError("당일 예약/변경이 제한되어 있습니다.", 400);
   }
 }
 
@@ -79,14 +79,14 @@ async function assertStudioOpenForClass({ startAt, endAt, conn = null }) {
   const start = normalizeDate(startAt);
   const end = normalizeDate(endAt);
   if (!start || !end || end <= start) {
-    throw createHttpError("?섏뾽 ?쒓컙 ?뺣낫媛 ?щ컮瑜댁? ?딆뒿?덈떎.", 400);
+    throw createHttpError("수업 시간 정보가 올바르지 않습니다.", 400);
   }
 
   const holidayDate = toDateOnlyKey(start);
   const holidaySql = `SELECT id FROM studio_holidays WHERE holiday_date = ? LIMIT 1`;
   const holidayRows = conn ? await conn.execute(holidaySql, [holidayDate]) : [await query(holidaySql, [holidayDate])];
   if (holidayRows?.[0]?.length) {
-    throw createHttpError("怨듯쑕???밸퀎 ?대Т?쇱뿉???섏뾽???깅줉?섍굅???덉빟?????놁뒿?덈떎.", 400);
+    throw createHttpError("휴일에는 수업을 등록하거나 예약할 수 없습니다.", 400);
   }
 
   const weekday = start.getDay();
@@ -98,7 +98,7 @@ async function assertStudioOpenForClass({ startAt, endAt, conn = null }) {
   const hours = hoursRows?.[0]?.[0] || null;
   if (!hours) return;
   if (Number(hours.isClosed || 0) === 1) {
-    throw createHttpError("?곸뾽?섏? ?딅뒗 ?붿씪?낅땲??", 400);
+    throw createHttpError("영업하지 않는 날입니다.", 400);
   }
 
   const startTime = toTimeValue(start);
@@ -106,7 +106,7 @@ async function assertStudioOpenForClass({ startAt, endAt, conn = null }) {
   const openTime = normalizeTimeText(hours.openTime || "00:00:00");
   const closeTime = normalizeTimeText(hours.closeTime || "23:59:59");
   if (startTime < openTime || endTime > closeTime) {
-    throw createHttpError("?곸뾽?쒓컙 諛뽰뿉???섏뾽???깅줉?섍굅???덉빟?????놁뒿?덈떎.", 400);
+    throw createHttpError("영업시간 외에는 수업을 등록하거나 예약할 수 없습니다.", 400);
   }
 }
 
@@ -132,7 +132,7 @@ async function createNotificationWithConn(conn, payload) {
 function assertFutureClass(startAt) {
   const d = new Date(startAt);
   if (Number.isNaN(d.getTime()) || d.getTime() <= Date.now()) {
-    const err = new Error("吏???섏뾽?먮뒗 ?덉빟?????놁뒿?덈떎.");
+    const err = new Error("과거 수업에는 예약할 수 없습니다.");
     err.status = 400;
     throw err;
   }
@@ -551,7 +551,7 @@ export async function createClassesWithRepeat(payload, userId) {
   const startBase = new Date(payload?.startAt);
   const endBase = new Date(payload?.endAt);
   if (Number.isNaN(startBase.getTime()) || Number.isNaN(endBase.getTime()) || endBase <= startBase) {
-    const err = new Error("?섏뾽 ?쒓컙 ?뺣낫媛 ?щ컮瑜댁? ?딆뒿?덈떎.");
+    const err = new Error("수업 시간 정보가 올바르지 않습니다.");
     err.status = 400;
     throw err;
   }
@@ -1043,15 +1043,23 @@ export async function getStudioSettings() {
     queryOne(
       `SELECT reserve_limit_hours AS reserveLimitHours,
               cancel_limit_hours AS cancelLimitHours,
-              same_day_change_allowed AS sameDayChangeAllowed
+              same_day_change_allowed AS sameDayChangeAllowed,
+              operation_json AS operationJson
        FROM studio_booking_policies
        LIMIT 1`
     ),
   ]);
+  let operationSettings = {};
+  if (policy?.operationJson) {
+    try {
+      operationSettings = typeof policy.operationJson === "string" ? JSON.parse(policy.operationJson) : policy.operationJson;
+    } catch (_) {}
+  }
   return {
     businessHours: Array.isArray(businessHours) ? businessHours : [],
     holidays: Array.isArray(holidays) ? holidays : [],
-    policy: policy || { reserveLimitHours: 24, cancelLimitHours: 6, sameDayChangeAllowed: 0 },
+    policy: policy ? { reserveLimitHours: policy.reserveLimitHours, cancelLimitHours: policy.cancelLimitHours, sameDayChangeAllowed: policy.sameDayChangeAllowed } : { reserveLimitHours: 24, cancelLimitHours: 6, sameDayChangeAllowed: 0 },
+    operationSettings,
   };
 }
 
@@ -1069,17 +1077,241 @@ export async function saveBusinessHours(rows) {
 }
 
 export async function saveBookingPolicy(policy) {
+  const { operationSettings, ...basicPolicy } = policy || {};
   await query(`DELETE FROM studio_booking_policies`);
   await query(
     `INSERT INTO studio_booking_policies
-      (id, reserve_limit_hours, cancel_limit_hours, same_day_change_allowed, updated_at)
-     VALUES (?, ?, ?, ?, NOW())`,
+      (id, reserve_limit_hours, cancel_limit_hours, same_day_change_allowed, operation_json, updated_at)
+     VALUES (?, ?, ?, ?, ?, NOW())`,
     [
       randomUUID(),
-      Math.max(0, Number(policy?.reserveLimitHours || 24)),
-      Math.max(0, Number(policy?.cancelLimitHours || 6)),
-      policy?.sameDayChangeAllowed ? 1 : 0,
+      Math.max(0, Number(basicPolicy?.reserveLimitHours || 24)),
+      Math.max(0, Number(basicPolicy?.cancelLimitHours || 6)),
+      basicPolicy?.sameDayChangeAllowed ? 1 : 0,
+      operationSettings ? JSON.stringify(operationSettings) : null,
     ]
+  );
+}
+
+export async function getStudioInfo() {
+  const row = await queryOne(`SELECT studio_name AS studioName, address, address_detail AS addressDetail, phones, sms_sender AS smsSender, updated_at AS updatedAt FROM studio_info WHERE id = 'main' LIMIT 1`);
+  if (!row) return { studioName: "", address: "", addressDetail: "", phones: [], smsSender: "", updatedAt: null };
+  return { ...row, phones: Array.isArray(row.phones) ? row.phones : (typeof row.phones === "string" ? JSON.parse(row.phones) : []) };
+}
+
+export async function saveStudioInfo(payload) {
+  const studioName = String(payload?.studioName || "").trim();
+  const address = String(payload?.address || "").trim();
+  const addressDetail = String(payload?.addressDetail || "").trim();
+  const phones = JSON.stringify(Array.isArray(payload?.phones) ? payload.phones : []);
+  const smsSender = String(payload?.smsSender || "").trim();
+  await query(
+    `INSERT INTO studio_info (id, studio_name, address, address_detail, phones, sms_sender, updated_at)
+     VALUES ('main', ?, ?, ?, ?, ?, NOW())
+     ON DUPLICATE KEY UPDATE
+       studio_name = VALUES(studio_name),
+       address = VALUES(address),
+       address_detail = VALUES(address_detail),
+       phones = VALUES(phones),
+       sms_sender = VALUES(sms_sender),
+       updated_at = NOW()`,
+    [studioName, address, addressDetail, phones, smsSender]
+  );
+  return getStudioInfo();
+}
+
+export async function getSalesPin() {
+  const row = await queryOne(`SELECT sales_pin AS salesPin FROM studio_info WHERE id = 'main' LIMIT 1`);
+  const pin = row?.salesPin || "";
+  return { hasPin: Boolean(pin), masked: pin ? "****" : "" };
+}
+
+export async function saveSalesPin(pin) {
+  const pinValue = pin ? String(pin).trim().slice(0, 20) : "";
+  await query(
+    `INSERT INTO studio_info (id, sales_pin) VALUES ('main', ?)
+     ON DUPLICATE KEY UPDATE sales_pin = VALUES(sales_pin)`,
+    [pinValue]
+  );
+  return { ok: true };
+}
+
+export async function getRoomSettings() {
+  const [row, rooms] = await Promise.all([
+    queryOne(`SELECT rooms_enabled AS roomsEnabled FROM studio_info WHERE id = 'main' LIMIT 1`),
+    query(`SELECT id, name, is_active AS isActive, sort_order AS sortOrder FROM studio_rooms ORDER BY sort_order ASC, created_at ASC`),
+  ]);
+  return {
+    roomsEnabled: row?.roomsEnabled ? true : false,
+    rooms: Array.isArray(rooms) ? rooms : [],
+  };
+}
+
+export async function saveRoomEnabled(enabled) {
+  await query(
+    `INSERT INTO studio_info (id, rooms_enabled, updated_at)
+     VALUES ('main', ?, NOW())
+     ON DUPLICATE KEY UPDATE rooms_enabled = VALUES(rooms_enabled), updated_at = NOW()`,
+    [enabled ? 1 : 0]
+  );
+}
+
+export async function createRoom(name) {
+  const id = randomUUID();
+  const [countRow] = await query(`SELECT COUNT(*) AS cnt FROM studio_rooms`);
+  const sortOrder = (countRow?.cnt || 0);
+  await query(
+    `INSERT INTO studio_rooms (id, name, is_active, sort_order, created_at) VALUES (?, ?, 1, ?, NOW())`,
+    [id, String(name || "").trim(), sortOrder]
+  );
+  return { id, name: String(name || "").trim(), isActive: true, sortOrder };
+}
+
+export async function deleteRoom(id) {
+  await query(`DELETE FROM studio_rooms WHERE id = ?`, [id]);
+}
+
+export async function updateRoom(id, name) {
+  await query(`UPDATE studio_rooms SET name = ? WHERE id = ?`, [String(name || "").trim(), id]);
+}
+
+export async function getRoleSettings() {
+  const [row, roles] = await Promise.all([
+    queryOne(`SELECT roles_enabled AS rolesEnabled FROM studio_info WHERE id = 'main' LIMIT 1`),
+    query(`SELECT id, name, sort_order AS sortOrder FROM studio_roles ORDER BY sort_order ASC, created_at ASC`),
+  ]);
+  return {
+    rolesEnabled: row?.rolesEnabled ? true : false,
+    roles: Array.isArray(roles) ? roles : [],
+  };
+}
+
+export async function saveRoleEnabled(enabled) {
+  await query(
+    `INSERT INTO studio_info (id, roles_enabled, updated_at)
+     VALUES ('main', ?, NOW())
+     ON DUPLICATE KEY UPDATE roles_enabled = VALUES(roles_enabled), updated_at = NOW()`,
+    [enabled ? 1 : 0]
+  );
+}
+
+export async function createRole(name) {
+  const id = randomUUID();
+  const [countRow] = await query(`SELECT COUNT(*) AS cnt FROM studio_roles`);
+  const sortOrder = (countRow?.cnt || 0);
+  await query(
+    `INSERT INTO studio_roles (id, name, sort_order, created_at) VALUES (?, ?, ?, NOW())`,
+    [id, String(name || "").trim(), sortOrder]
+  );
+  return { id, name: String(name || "").trim(), sortOrder };
+}
+
+export async function deleteRole(id) {
+  await query(`DELETE FROM studio_roles WHERE id = ?`, [id]);
+}
+
+export async function updateRole(id, name) {
+  await query(`UPDATE studio_roles SET name = ? WHERE id = ?`, [String(name || "").trim(), id]);
+}
+
+export async function getMemberGradeSettings() {
+  const [row, grades] = await Promise.all([
+    queryOne(`SELECT member_grades_enabled AS memberGradesEnabled FROM studio_info WHERE id = 'main' LIMIT 1`),
+    query(`SELECT id, name, color, sort_order AS sortOrder FROM studio_member_grades ORDER BY sort_order ASC, created_at ASC`),
+  ]);
+  return {
+    memberGradesEnabled: row?.memberGradesEnabled ? true : false,
+    grades: Array.isArray(grades) ? grades : [],
+  };
+}
+
+export async function saveMemberGradeEnabled(enabled) {
+  await query(
+    `INSERT INTO studio_info (id, member_grades_enabled, updated_at)
+     VALUES ('main', ?, NOW())
+     ON DUPLICATE KEY UPDATE member_grades_enabled = VALUES(member_grades_enabled), updated_at = NOW()`,
+    [enabled ? 1 : 0]
+  );
+}
+
+export async function createMemberGrade(name, color) {
+  const id = randomUUID();
+  const [countRow] = await query(`SELECT COUNT(*) AS cnt FROM studio_member_grades`);
+  await query(
+    `INSERT INTO studio_member_grades (id, name, color, sort_order, created_at) VALUES (?, ?, ?, ?, NOW())`,
+    [id, String(name || "").trim(), String(color || "#f06292"), (countRow?.cnt || 0)]
+  );
+  return { id, name: String(name || "").trim(), color: String(color || "#f06292") };
+}
+
+export async function deleteMemberGrade(id) {
+  await query(`DELETE FROM studio_member_grades WHERE id = ?`, [id]);
+}
+
+export async function updateMemberGrade(id, name, color) {
+  await query(`UPDATE studio_member_grades SET name = ?, color = ? WHERE id = ?`, [String(name || "").trim(), String(color || "#f06292"), id]);
+}
+
+export async function listClassCategories() {
+  const rows = await query(`SELECT id, name, sort_order AS sortOrder FROM studio_class_categories ORDER BY sort_order ASC, created_at ASC`);
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function createClassCategory(name) {
+  const id = randomUUID();
+  const [countRow] = await query(`SELECT COUNT(*) AS cnt FROM studio_class_categories`);
+  const sortOrder = (countRow?.cnt || 0);
+  await query(`INSERT INTO studio_class_categories (id, name, sort_order, created_at) VALUES (?, ?, ?, NOW())`, [id, String(name || "").trim(), sortOrder]);
+  return { id, name: String(name || "").trim(), sortOrder };
+}
+
+export async function deleteClassCategory(id) {
+  await query(`DELETE FROM studio_class_categories WHERE id = ?`, [id]);
+}
+
+export async function updateClassCategory(id, name) {
+  await query(`UPDATE studio_class_categories SET name = ? WHERE id = ?`, [String(name || "").trim(), id]);
+}
+
+const NOTIFICATION_DEFAULTS = {
+  pass_expire:       { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! [[수강권명]]의 잔여일이 [[수강권 잔여일]]일 남았습니다.",                                param1: 5,    param2: null, skipExpired: false },
+  pass_count_expire: { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! [[수강권명]]의 잔여횟수가 [[수강권 잔여횟수]]회 남았습니다.",                           param1: 5,    param2: null, skipExpired: false },
+  pass_pause_expire: { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! [[수강권명]]의 정지기간이 [[수강권 정지만료일]]일 남았습니다.",                          param1: 3,    param2: null, skipExpired: false },
+  class_waitlist:    { pushEnabled: true,  smsEnabled: false, message: "[[수업 시작시간]] [[수업명]] [[강사명]] 강사 예약대기 수업이 예약되었습니다.",                         param1: null, param2: null, skipExpired: false },
+  class_cancelled:   { pushEnabled: true,  smsEnabled: false, message: "최소 수강인원 미달로 [[수업 시작시간]] [[수업명]] [[강사명]] 강사 수업이 취소되었습니다.",              param1: null, param2: null, skipExpired: false },
+  class_reminder:    { pushEnabled: true,  smsEnabled: false, message: "[[수업 시작시간]] [[수업명]] 수업 일정이 있습니다.",                                                   param1: 3,    param2: 3,    skipExpired: false },
+  member_birthday:   { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! 생일을 축하드립니다. 행복한 하루 되세요!",                                               param1: null, param2: null, skipExpired: false },
+  locker_expire:     { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! [[락커 번호]]번 락커 만료일이 [[락커 종료일]]일 남았습니다.",                             param1: 3,    param2: null, skipExpired: false },
+};
+
+export async function getNotificationTemplates() {
+  const rows = await query("SELECT * FROM studio_notification_templates");
+  const byId = {};
+  for (const row of rows) byId[row.template_id] = row;
+  return Object.fromEntries(
+    Object.entries(NOTIFICATION_DEFAULTS).map(([id, def]) => {
+      const row = byId[id];
+      return [id, {
+        pushEnabled: row ? Boolean(row.push_enabled) : def.pushEnabled,
+        smsEnabled:  row ? Boolean(row.sms_enabled)  : def.smsEnabled,
+        message:     row ? row.message               : def.message,
+        param1:      row ? row.param1                : def.param1,
+        param2:      row ? row.param2                : def.param2,
+        skipExpired: row ? Boolean(row.skip_expired) : def.skipExpired,
+      }];
+    })
+  );
+}
+
+export async function saveNotificationTemplate(templateId, { pushEnabled, smsEnabled, message, param1, param2, skipExpired }) {
+  if (!NOTIFICATION_DEFAULTS[templateId]) throw createHttpError("알 수 없는 템플릿 ID입니다.", 400);
+  await query(
+    `INSERT INTO studio_notification_templates (template_id, push_enabled, sms_enabled, message, param1, param2, skip_expired, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+     ON DUPLICATE KEY UPDATE push_enabled=VALUES(push_enabled), sms_enabled=VALUES(sms_enabled),
+       message=VALUES(message), param1=VALUES(param1), param2=VALUES(param2),
+       skip_expired=VALUES(skip_expired), updated_at=NOW()`,
+    [templateId, pushEnabled ? 1 : 0, smsEnabled ? 1 : 0, String(message || ""), param1 ?? null, param2 ?? null, skipExpired ? 1 : 0]
   );
 }
 
@@ -1638,4 +1870,134 @@ export async function resolvePassRefund(refundId, status) {
       await conn.execute(`UPDATE studio_passes SET status = 'refunded', updated_at = NOW() WHERE id = ?`, [row.passId]);
     }
   });
+}
+
+// ── 게시판 (공지사항) ──────────────────────────────────────────────
+
+function toSqlTs(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
+function mapNoticeRow(row) {
+  let images = [];
+  try { images = row.images ? (typeof row.images === "string" ? JSON.parse(row.images) : row.images) : []; } catch (_) {}
+  return {
+    id: String(row.id || ""),
+    title: String(row.title || ""),
+    content: String(row.content || ""),
+    images: Array.isArray(images) ? images : [],
+    popupEnabled: Boolean(row.popupEnabled),
+    pinned: Boolean(row.pinned),
+    target: String(row.target || "active"),
+    postTiming: String(row.postTiming || "now"),
+    startAt: row.startAt ? new Date(row.startAt).toISOString() : null,
+    endAt: row.endAt ? new Date(row.endAt).toISOString() : null,
+    createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+    authorId: String(row.authorId || ""),
+    authorName: row.authorName ? decryptPii(row.authorName) : "",
+    authorRole: String(row.authorRole || ""),
+  };
+}
+
+export async function listAdminNotices({ search, page = 1, pageSize = 20 } = {}) {
+  const conditions = [];
+  const params = [];
+  if (search && search.trim()) {
+    conditions.push(`(n.title LIKE ?)`);
+    params.push(`%${search.trim()}%`);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const offset = (Math.max(1, page) - 1) * pageSize;
+
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(pageSize) || 20)));
+  const safeOffset = Math.max(0, Math.floor(offset));
+
+  const [countRow, rows] = await Promise.all([
+    queryOne(`SELECT COUNT(*) AS total FROM studio_notices n ${where}`, params),
+    query(
+      `SELECT n.id, n.title, n.popup_enabled AS popupEnabled, n.pinned,
+              n.target, n.post_timing AS postTiming,
+              n.start_at AS startAt, n.end_at AS endAt,
+              n.created_at AS createdAt,
+              u.id AS authorId, u.name AS authorName, u.role AS authorRole
+       FROM studio_notices n
+       LEFT JOIN users u ON u.id = n.author_id
+       ${where}
+       ORDER BY n.pinned DESC, n.created_at DESC
+       LIMIT ${safeLimit} OFFSET ${safeOffset}`,
+      params
+    ),
+  ]);
+
+  return {
+    notices: (Array.isArray(rows) ? rows : []).map(mapNoticeRow),
+    total: Number(countRow?.total ?? 0),
+  };
+}
+
+export async function getAdminNotice(noticeId) {
+  const row = await queryOne(
+    `SELECT n.id, n.title, n.content, n.images, n.popup_enabled AS popupEnabled, n.pinned,
+            n.target, n.post_timing AS postTiming,
+            n.start_at AS startAt, n.end_at AS endAt,
+            n.created_at AS createdAt, n.updated_at AS updatedAt,
+            u.id AS authorId, u.name AS authorName, u.role AS authorRole
+     FROM studio_notices n
+     LEFT JOIN users u ON u.id = n.author_id
+     WHERE n.id = ? LIMIT 1`,
+    [noticeId]
+  );
+  if (!row) { const e = new Error("게시글을 찾을 수 없습니다."); e.status = 404; throw e; }
+  return mapNoticeRow(row);
+}
+
+function normalizeNoticePayload(payload) {
+  const title = String(payload.title || "").trim();
+  if (!title) { const e = new Error("제목을 입력해 주세요."); e.status = 400; throw e; }
+  const content = String(payload.content || "").trim();
+  const images = JSON.stringify(
+    Array.isArray(payload.images)
+      ? payload.images.filter((u) => typeof u === "string" && u.startsWith("/uploads/notices/")).slice(0, 3)
+      : []
+  );
+  const popupEnabled = payload.popupEnabled ? 1 : 0;
+  const pinned = payload.pinned ? 1 : 0;
+  const target = ["active", "expired", "both"].includes(payload.target) ? payload.target : "active";
+  const postTiming = ["now", "scheduled", "none", "unlimited"].includes(payload.postTiming) ? payload.postTiming : "now";
+  const startAt = postTiming === "scheduled" ? toSqlTs(payload.startAt) : postTiming === "now" ? toSqlTs(new Date()) : null;
+  const endAt = (postTiming === "now" || postTiming === "scheduled") ? toSqlTs(payload.endAt) : null;
+  return { title, content, images, popupEnabled, pinned, target, postTiming, startAt, endAt };
+}
+
+export async function createAdminNotice(authorId, payload) {
+  const id = randomUUID();
+  const { title, content, images, popupEnabled, pinned, target, postTiming, startAt, endAt } = normalizeNoticePayload(payload);
+  await query(
+    `INSERT INTO studio_notices (id, title, content, images, author_id, popup_enabled, pinned, target, post_timing, start_at, end_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    [id, title, content, images, authorId, popupEnabled, pinned, target, postTiming, startAt, endAt]
+  );
+  return getAdminNotice(id);
+}
+
+export async function updateAdminNotice(noticeId, payload) {
+  const { title, content, images, popupEnabled, pinned, target, postTiming, startAt, endAt } = normalizeNoticePayload(payload);
+  const result = await query(
+    `UPDATE studio_notices SET title=?, content=?, images=?, popup_enabled=?, pinned=?, target=?, post_timing=?, start_at=?, end_at=?, updated_at=NOW()
+     WHERE id=?`,
+    [title, content, images, popupEnabled, pinned, target, postTiming, startAt, endAt, noticeId]
+  );
+  if (!result?.affectedRows) { const e = new Error("게시글을 찾을 수 없습니다."); e.status = 404; throw e; }
+  return getAdminNotice(noticeId);
+}
+
+export async function deleteAdminNotices(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return { deletedCount: 0 };
+  const placeholders = ids.map(() => "?").join(",");
+  const result = await query(`DELETE FROM studio_notices WHERE id IN (${placeholders})`, ids);
+  return { deletedCount: result?.affectedRows ?? 0 };
 }

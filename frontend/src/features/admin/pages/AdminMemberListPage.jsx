@@ -1,4 +1,4 @@
-/**
+﻿/**
  * [관리자 회원 목록 페이지]
  *
  * 스튜디오메이트 목록형 UI에 맞춰 통합 회원을 간결하게 표시합니다.
@@ -13,7 +13,6 @@ import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import {
   createAdminMemberMemo,
   createAdminPass,
-  createStudioNotification,
   listAdminMemberMemos,
   listAdminPassesByUser,
   pauseAdminPass,
@@ -21,14 +20,17 @@ import {
   transferAdminPass,
   updateAdminPassStatus,
 } from "../../studio/api/studioApi.js";
+import { SmsSendModal } from "../components/SmsSendModal.jsx";
 
 const NAV_ITEMS = [
-  { label: "일정", path: "/admin" },
+  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
   { label: "수업", path: "/admin/classes" },
   { label: "회원", path: "/admin/member-list", active: true },
   { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/products" },
-  { label: "설정", path: "/admin/members" },
+  { label: "수강권", path: "/admin/passes" },
+  { label: "메시지", path: "/admin/messages" },
+  { label: "게시판", path: "/admin/board" },
+  { label: "설정", path: "/admin/settings" },
   { label: "매출", path: "/admin/sales" },
 ];
 
@@ -331,13 +333,8 @@ export function AdminMemberListPage() {
   const [savingMemoUserId, setSavingMemoUserId] = useState("");
   const [memoMessage, setMemoMessage] = useState("");
   const [memberSettingsOpen, setMemberSettingsOpen] = useState(false);
-  const [notificationDraft, setNotificationDraft] = useState({
-    open: false,
-    title: "이끌림 필라테스 안내",
-    message: "",
-    targetMembers: [],
-  });
-  const [sendingNotification, setSendingNotification] = useState(false);
+  const [smsOpen, setSmsOpen] = useState(false);
+  const [smsReceivers, setSmsReceivers] = useState([]);
   const [detailMemberId, setDetailMemberId] = useState("");
   const [detailPasses, setDetailPasses] = useState([]);
   const [detailMemos, setDetailMemos] = useState([]);
@@ -642,52 +639,14 @@ function resetFilters() {
     }
   }
 
-  function sendManualNotification(targetMembers, defaultTitle = "이끌림 필라테스 안내") {
+  function sendManualNotification(targetMembers) {
     const targets = Array.isArray(targetMembers) ? targetMembers.filter(Boolean) : [];
     if (!targets.length) {
       setMemoMessage("알림을 보낼 회원이 없습니다.");
       return;
     }
-    setNotificationDraft({
-      open: true,
-      title: defaultTitle,
-      message: "",
-      targetMembers: targets,
-    });
-  }
-
-  async function submitManualNotification(event) {
-    event.preventDefault();
-    const targets = notificationDraft.targetMembers.filter(Boolean);
-    const message = notificationDraft.message.trim();
-    if (!targets.length) {
-      setMemoMessage("알림을 보낼 회원이 없습니다.");
-      return;
-    }
-    if (!message) {
-      setMemoMessage("알림 내용을 입력해 주세요.");
-      return;
-    }
-    try {
-      setSendingNotification(true);
-      await Promise.all(
-        targets.map((member) =>
-          createStudioNotification({
-            userId: member.id,
-            type: "manual",
-            title: notificationDraft.title.trim() || "이끌림 필라테스 안내",
-            message,
-            status: "pending",
-          })
-        )
-      );
-      setMemoMessage(`${targets.length}명에게 알림 기록을 저장했습니다. 문자 API 발송은 외부 연동 시 연결됩니다.`);
-      setNotificationDraft({ open: false, title: "이끌림 필라테스 안내", message: "", targetMembers: [] });
-    } catch (error) {
-      setMemoMessage(error.message || "알림 저장에 실패했습니다.");
-    } finally {
-      setSendingNotification(false);
-    }
+    setSmsReceivers(targets.map((m) => ({ phone: m.phone, name: m.name, userId: m.id })));
+    setSmsOpen(true);
   }
 
   function handleBulkBooking(member) {
@@ -1006,7 +965,7 @@ function resetFilters() {
             onKeyDown={handleTopSearchKeyDown}
           />
         </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin/members")}>
+        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
           {currentUserName}
         </button>
       </header>
@@ -1639,7 +1598,7 @@ function resetFilters() {
                     <p>이끌림 교육 사이트 구매 이력</p>
                   </article>
                 ) : (
-                  <button type="button" className="admin-member-detail-create-card" onClick={() => navigate("/admin/products")}>
+                  <button type="button" className="admin-member-detail-create-card" onClick={() => navigate("/admin/passes")}>
                     <span>＋</span>
                     <small>새로운 상품 만들기</small>
                   </button>
@@ -1751,56 +1710,11 @@ function resetFilters() {
         </div>
       </div>
 
-      <button className="admin-memberlist-floating-add" type="button" onClick={() => navigate("/admin/members")} title="회원 상세 관리">
+      <button className="admin-memberlist-floating-add" type="button" onClick={() => navigate("/admin")} title="회원 상세 관리">
         +
       </button>
 
-      {notificationDraft.open ? (
-        <div className="admin-member-modal-backdrop" role="presentation">
-          <form className="admin-member-notification-modal" onSubmit={submitManualNotification}>
-            <div>
-              <strong>회원 알림 기록</strong>
-              <p>
-                대상 {notificationDraft.targetMembers.length}명 · 문자 API 발송은 보류 상태라 현재는 알림 기록만 저장합니다.
-              </p>
-            </div>
-            <label>
-              <span>제목</span>
-              <input
-                type="text"
-                value={notificationDraft.title}
-                onChange={(event) => setNotificationDraft((previous) => ({ ...previous, title: event.target.value }))}
-              />
-            </label>
-            <label>
-              <span>내용</span>
-              <textarea
-                rows={6}
-                value={notificationDraft.message}
-                placeholder="회원에게 남길 안내 내용을 입력해 주세요."
-                onChange={(event) => setNotificationDraft((previous) => ({ ...previous, message: event.target.value }))}
-              />
-            </label>
-            <div className="admin-member-notification-targets">
-              {notificationDraft.targetMembers.slice(0, 8).map((member) => (
-                <span key={member.id}>{member.name || member.phone || member.id}</span>
-              ))}
-              {notificationDraft.targetMembers.length > 8 ? <span>+{notificationDraft.targetMembers.length - 8}</span> : null}
-            </div>
-            <div className="admin-member-notification-actions">
-              <button
-                type="button"
-                onClick={() => setNotificationDraft({ open: false, title: "이끌림 필라테스 안내", message: "", targetMembers: [] })}
-              >
-                취소
-              </button>
-              <button type="submit" className="primary" disabled={sendingNotification}>
-                {sendingNotification ? "저장 중" : "알림 저장"}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
+      <SmsSendModal open={smsOpen} onClose={() => setSmsOpen(false)} receivers={smsReceivers} />
     </div>
   );
 }

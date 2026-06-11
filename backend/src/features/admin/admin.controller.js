@@ -412,6 +412,120 @@ export async function deleteStudioStaffProfile(req, res, next) {
   }
 }
 
+export async function getStudioStaffWorkHours(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const hours = await adminService.getStaffWorkHours(req.params.staffId);
+    res.json({ hours });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function saveStudioStaffWorkHours(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const hours = await adminService.saveStaffWorkHours(req.params.staffId, req.body?.hours || []);
+    res.json({ hours });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getStudioPassProducts(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const products = await adminService.listStudioPassProducts();
+    res.json({ products });
+  } catch (error) { next(error); }
+}
+
+export async function createStudioPassProduct(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const product = await adminService.saveStudioPassProduct("", req.body || {});
+    res.status(201).json({ product });
+  } catch (error) { next(error); }
+}
+
+export async function updateStudioPassProduct(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const product = await adminService.saveStudioPassProduct(req.params.productId, req.body || {});
+    res.json({ product });
+  } catch (error) { next(error); }
+}
+
+export async function deleteStudioPassProduct(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const result = await adminService.deleteStudioPassProduct(req.params.productId);
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
+export async function getIssuedPassesByProduct(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const passes = await adminService.listIssuedPassesByProduct(req.params.productId);
+    res.json({ passes });
+  } catch (error) { next(error); }
+}
+
+export async function extendIssuedPassesByProduct(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const extendDays = Number(req.body?.extendDays);
+    if (!extendDays || extendDays < 1) return res.status(400).json({ message: "연장 일수를 입력해 주세요." });
+    const result = await adminService.extendIssuedPassesByProduct(req.params.productId, extendDays);
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
+export async function getStudioGoods(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const goods = await adminService.listStudioGoods();
+    res.json({ goods });
+  } catch (error) { next(error); }
+}
+
+export async function createStudioGoods(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const item = await adminService.saveStudioGoods("", req.body || {});
+    res.status(201).json({ goods: item });
+  } catch (error) { next(error); }
+}
+
+export async function updateStudioGoods(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const item = await adminService.saveStudioGoods(req.params.goodsId, req.body || {});
+    res.json({ goods: item });
+  } catch (error) { next(error); }
+}
+
+export async function deleteStudioGoods(req, res, next) {
+  try {
+    const authUser = await requireAdminDashboardAccess(req, res);
+    if (!authUser) return;
+    const result = await adminService.deleteStudioGoods(req.params.goodsId);
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
 export async function getDashboardUsers(req, res, next) {
   try {
     const authUser = await requireAdminDashboardAccess(req, res);

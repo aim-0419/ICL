@@ -42,6 +42,7 @@ import { academyRoutes } from "./features/academy/academy.routes.js";
 import { brandRoutes } from "./features/brand/brand.routes.js";
 import { refundsRoutes } from "./features/refunds/refunds.routes.js";
 import { studioRoutes } from "./features/studio/studio.routes.js";
+import { smsRoutes } from "./features/sms/sms.routes.js";
 import { pingDatabase } from "./shared/db/mysql.js";
 import { errorHandler, notFoundHandler } from "./shared/middlewares/error-handler.js";
 
@@ -138,6 +139,7 @@ export function createApp() {
   app.use("/api/brand", brandRoutes);
   app.use("/api/refunds", refundsRoutes);
   app.use("/api/studio", studioRoutes);
+  app.use("/api/sms", smsRoutes);
   app.use("/uploads/academy/videos", (req, res) => {
     res.status(403).json({ message: "직접 영상 접근이 차단되었습니다. 보안 재생 링크를 사용해 주세요." });
   });

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * [관리자 수업 일정 관리 페이지]
  *
  * 관리자가 수업 일정을 등록·수정·삭제하고 예약 현황을 확인하는 화면입니다.
@@ -35,14 +35,15 @@ import {
 const WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
 const ADMIN_NAV_ITEMS = [
-  { label: "일정", path: "/admin", active: true },
+  { label: "← 교육관리", path: "/admin" },
+  { label: "일정", path: "/admin/studio", active: true },
   { label: "수업", path: "/admin/classes" },
   { label: "회원", path: "/admin/member-list" },
   { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/products" },
-  { label: "메시지", path: "/community/inquiry" },
-  { label: "게시판", path: "/community/reviews", badge: "N" },
-  { label: "설정", path: "/admin/members" },
+  { label: "수강권", path: "/admin/passes" },
+  { label: "메시지", path: "/admin/messages" },
+  { label: "게시판", path: "/admin/board" },
+  { label: "설정", path: "/admin/settings" },
   { label: "매출", path: "/admin/sales" },
 ];
 
@@ -549,7 +550,7 @@ export function AdminSchedulePage() {
   return (
     <div className="admin-schedule-app">
       <aside className="admin-schedule-rail" aria-label="admin quick menu">
-        <button type="button" aria-label="notifications">알림</button>
+        <button type="button" aria-label="notifications" onClick={() => navigate("/admin/board")}>알림</button>
       </aside>
       <main className="admin-schedule-main">
         <header className="admin-schedule-topbar">
@@ -573,8 +574,8 @@ export function AdminSchedulePage() {
               onChange={(event) => setSearchKeyword(event.target.value)}
             />
           </div>
-          <button className="admin-schedule-add-member" type="button" aria-label="add member">+</button>
-          <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin/members")}>
+          <button className="admin-schedule-add-member" type="button" aria-label="add member" onClick={() => navigate("/admin/member-list")}>+</button>
+          <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
             {currentUserName}
           </button>
         </header>

@@ -15,6 +15,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { canEditPage, isAdminStaff } from "../auth/userRoles.js";
 import { getUserDisplayName } from "../auth/userDisplay.js";
 import { useAppStore } from "../store/AppContext.jsx";
+import { SmsSendModal } from "../../features/admin/components/SmsSendModal.jsx";
 
 // 컴포넌트 역할: 공통 상단 헤더와 메뉴, 로그인/로그아웃, 장바구니 이동 버튼을 렌더링합니다.
 export function SiteHeader({ subpage = false }) {
@@ -22,6 +23,7 @@ export function SiteHeader({ subpage = false }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [smsOpen, setSmsOpen] = useState(false);
   const currentUserDisplayName = getUserDisplayName(currentUser);
 
   const cartQuantity = useMemo(
@@ -172,9 +174,19 @@ export function SiteHeader({ subpage = false }) {
                 {currentUserDisplayName}님
               </Link>
               {isAdminStaff(currentUser) ? (
-                <Link className="text-link-button header-pill-button" to="/admin">
-                  관리자 대시보드
-                </Link>
+                <>
+                  <Link className="text-link-button header-pill-button" to="/admin">
+                    관리자 대시보드
+                  </Link>
+                  <button
+                    className="text-link-button header-pill-button"
+                    type="button"
+                    onClick={() => setSmsOpen(true)}
+                    title="문자 발송"
+                  >
+                    💬 문자
+                  </button>
+                </>
               ) : null}
               {canEditPage(currentUser) ? (
                 <div className="admin-page-edit-stack">
@@ -243,6 +255,8 @@ export function SiteHeader({ subpage = false }) {
       >
         ↑
       </button>
+
+      <SmsSendModal open={smsOpen} onClose={() => setSmsOpen(false)} />
     </>
   );
 }

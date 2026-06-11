@@ -79,13 +79,13 @@ export function AdminProductPage() {
       if (editingId) {
         await apiRequest(`/products/${editingId}`, {
           method: "PATCH",
-          body: JSON.stringify({ name, price, description, period }),
+          body: { name, price, description, period },
         });
         setMessage({ type: "success", text: "상품이 수정되었습니다." });
       } else {
         await apiRequest("/products", {
           method: "POST",
-          body: JSON.stringify({ name, price, description, period }),
+          body: { name, price, description, period },
         });
         setMessage({ type: "success", text: "상품이 등록되었습니다." });
       }
@@ -121,9 +121,6 @@ export function AdminProductPage() {
         <section className="admin-section">
           <section className="admin-dashboard-switch">
             <Link className="admin-dashboard-switch-link" to="/admin">
-              일정 관리
-            </Link>
-            <Link className="admin-dashboard-switch-link" to="/admin/members">
               회원 관리
             </Link>
             <Link className="admin-dashboard-switch-link active" to="/admin/products">
@@ -134,6 +131,9 @@ export function AdminProductPage() {
             </Link>
             <Link className="admin-dashboard-switch-link" to="/admin/sales">
               매출 대시보드
+            </Link>
+            <Link className="admin-dashboard-switch-link admin-dashboard-switch-studio" to="/admin/studio">
+              🏃 필라테스 관리
             </Link>
           </section>
           <div className="admin-section-header">

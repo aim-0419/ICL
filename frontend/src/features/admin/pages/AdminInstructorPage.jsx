@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import {
   createAdminStudioStaff,
-  createStudioNotification,
   deleteAdminStudioStaff,
   listAdminStudioStaff,
   listAdminStudioClasses,
@@ -12,14 +11,17 @@ import {
   saveAdminRolePermissions,
   updateAdminStudioStaff,
 } from "../../studio/api/studioApi.js";
+import { SmsSendModal } from "../components/SmsSendModal.jsx";
 
 const NAV_ITEMS = [
-  { label: "일정", path: "/admin" },
+  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
   { label: "수업", path: "/admin/classes" },
   { label: "회원", path: "/admin/member-list" },
   { label: "강사", path: "/admin/instructors", active: true },
-  { label: "수강권", path: "/admin/products" },
-  { label: "설정", path: "/admin/members" },
+  { label: "수강권", path: "/admin/passes" },
+  { label: "메시지", path: "/admin/messages" },
+  { label: "게시판", path: "/admin/board" },
+  { label: "설정", path: "/admin/settings" },
   { label: "매출", path: "/admin/sales" },
 ];
 
@@ -218,7 +220,7 @@ const PERMISSION_GROUPS = [
   {
     value: "message",
     label: "메시지",
-    description: "메시지에 관한 접근 권한입니다.",
+    description: "문자와 앱 푸시 메시지에 관한 접근 권한입니다.",
     permissions: [
       {
         code: "sms.read",
@@ -238,6 +240,42 @@ const PERMISSION_GROUPS = [
           { code: "push.send", label: "앱 푸시 메시지 보내기", description: "앱 푸시 메시지를 보낼 수 있습니다." },
           { code: "push.write", label: "앱 푸시 메시지 수정 및 예약 취소", description: "앱 푸시 메시지를 수정하거나, 예약된 메시지를 취소할 수 있습니다." },
           { code: "push.delete", label: "앱 푸시 메시지 삭제", description: "앱 푸시 메시지를 삭제할 수 있습니다." },
+        ],
+      },
+      {
+        code: "message.target.read",
+        label: "발송 대상 조회",
+        description: "회원, 상담고객, 강사 등 메시지 발송 대상을 조회할 수 있습니다.",
+        children: [
+          { code: "message.target.filter", label: "발송 대상 필터 사용", description: "수강권, 출석일, 회원등급 등 조건별로 발송 대상을 필터링할 수 있습니다." },
+          { code: "message.target.bulk", label: "단체 발송 대상 선택", description: "여러 회원 또는 강사를 선택해 단체 메시지 대상으로 지정할 수 있습니다." },
+        ],
+      },
+      {
+        code: "message.template.read",
+        label: "메시지 템플릿 조회",
+        description: "자주 쓰는 메시지 템플릿을 조회할 수 있습니다.",
+        children: [
+          { code: "message.template.write", label: "메시지 템플릿 등록/수정", description: "예약 확정, 취소, 만료 안내 등 메시지 템플릿을 등록하거나 수정할 수 있습니다." },
+          { code: "message.template.delete", label: "메시지 템플릿 삭제", description: "등록된 메시지 템플릿을 삭제할 수 있습니다." },
+        ],
+      },
+      {
+        code: "message.auto.read",
+        label: "자동 알림 조회",
+        description: "예약 확정, 취소, 수강권 만료 등 자동 알림 설정을 조회할 수 있습니다.",
+        children: [
+          { code: "message.auto.write", label: "자동 알림 설정", description: "예약 확정, 취소, 수강권 종료일, 잔여 횟수 안내 발송 조건을 설정할 수 있습니다." },
+          { code: "message.reserve.write", label: "예약 발송 설정", description: "메시지를 특정 날짜와 시간에 발송되도록 예약할 수 있습니다." },
+        ],
+      },
+      {
+        code: "message.history.read",
+        label: "발송내역 조회",
+        description: "문자와 앱 푸시 발송 내역 및 성공/실패 결과를 조회할 수 있습니다.",
+        children: [
+          { code: "message.history.export", label: "발송내역 엑셀 다운로드", description: "메시지 발송내역을 엑셀 파일로 다운로드할 수 있습니다." },
+          { code: "message.point.read", label: "문자 포인트 조회", description: "문자 발송에 사용되는 포인트 또는 잔여 발송량을 조회할 수 있습니다." },
         ],
       },
     ],
@@ -362,9 +400,8 @@ export function AdminInstructorPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [saving, setSaving] = useState(false);
-  const [notificationOpen, setNotificationOpen] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState("");
-  const [notificationTargets, setNotificationTargets] = useState([]);
+  const [smsOpen, setSmsOpen] = useState(false);
+  const [smsReceivers, setSmsReceivers] = useState([]);
   const [savingPermissions, setSavingPermissions] = useState(false);
 
   async function loadStaff() {
@@ -482,10 +519,10 @@ export function AdminInstructorPage() {
     setDetailTab("basic");
   }
 
-  function openNotification(targets) {
+  function openSms(targets) {
     const list = Array.isArray(targets) ? targets.filter(Boolean) : [];
-    setNotificationTargets(list);
-    setNotificationOpen(true);
+    setSmsReceivers(list.map((s) => ({ phone: s.phone, name: s.name, userId: s.id })));
+    setSmsOpen(true);
   }
 
   async function handleSave(event) {
@@ -540,36 +577,7 @@ export function AdminInstructorPage() {
     }
   }
 
-  async function handleSendNotification(event) {
-    event.preventDefault();
-    const targets = (notificationTargets.length ? notificationTargets : staff.filter((item) => selectedIds.has(item.id)))
-      .filter((item) => !String(item.id).startsWith("class-"));
-    if (!targets.length) {
-      setMessage({ type: "error", text: "알림을 보낼 저장된 강사를 선택해 주세요." });
-      return;
-    }
-    if (!notificationMessage.trim()) {
-      setMessage({ type: "error", text: "메시지 내용을 입력해 주세요." });
-      return;
-    }
-    try {
-      await Promise.all(targets.map((item) =>
-        createStudioNotification({
-          userId: item.id,
-          type: "manual",
-          title: "이끌림 필라테스 안내",
-          message: notificationMessage.trim(),
-          status: "pending",
-        }).catch(() => null)
-      ));
-      setNotificationOpen(false);
-      setNotificationMessage("");
-      setNotificationTargets([]);
-      setMessage({ type: "success", text: "강사 알림 기록을 저장했습니다. 실제 문자 API는 외부 연동 시 연결됩니다." });
-    } catch (error) {
-      setMessage({ type: "error", text: error.message || "알림 저장에 실패했습니다." });
-    }
-  }
+
 
   function handleTogglePermission(permissionCode) {
     if (permissionRoleIsOwner) return;
@@ -650,7 +658,7 @@ export function AdminInstructorPage() {
             onChange={(event) => setSearchQuery(event.target.value)}
           />
         </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin/members")}>
+        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
           {currentUserName}
         </button>
       </header>
@@ -686,7 +694,7 @@ export function AdminInstructorPage() {
             <div className="admin-instructor-detail-side">
               <span className="admin-instructor-detail-avatar" style={{ "--staff-color": selectedStaff.color }} />
               <div>
-                <button type="button" onClick={() => openNotification([selectedStaff])}>메시지 보내기</button>
+                <button type="button" onClick={() => openSms([selectedStaff])}>메시지 보내기</button>
                 <button type="button" onClick={() => openEditForm(selectedStaff)}>강사 정보 수정</button>
               </div>
             </div>
@@ -831,7 +839,7 @@ export function AdminInstructorPage() {
                 <select className="admin-instructor-view-select" defaultValue="list">
                   <option value="list">목록형 보기</option>
                 </select>
-                <button type="button" className="admin-classlist-btn" disabled={!selectedIds.size} onClick={() => openNotification(staff.filter((item) => selectedIds.has(item.id)))}>
+                <button type="button" className="admin-classlist-btn" disabled={!selectedIds.size} onClick={() => openSms(staff.filter((item) => selectedIds.has(item.id)))}>
                   메시지 보내기
                 </button>
                 <button type="button" className="admin-classlist-btn danger" disabled={!selectedIds.size} onClick={handleDeleteSelected}>
@@ -909,7 +917,7 @@ export function AdminInstructorPage() {
                   {permissionRole === role.value ? <span /> : null}
                 </button>
               ))}
-              <button type="button" className="admin-instructor-add-role">+ 새로운 역할 추가</button>
+              <button type="button" className="admin-instructor-add-role" onClick={() => navigate("/admin/settings/roles")}>+ 새로운 역할 추가</button>
             </aside>
             <section className="admin-instructor-permission-main">
               <div className="admin-instructor-permission-head">
@@ -939,6 +947,21 @@ export function AdminInstructorPage() {
                 </div>
               </div>
               <div className="admin-instructor-permission-scroll">
+                {activePermissionGroup.value === "message" ? (
+                  <div className="admin-instructor-message-summary">
+                    {[
+                      ["문자", "문자 발송과 예약, 발송내역 관리"],
+                      ["앱 푸시", "앱 연결 회원에게 푸시 알림 발송"],
+                      ["자동 알림", "예약 확정, 취소, 만료 안내 자동화"],
+                      ["템플릿", "반복 안내 문구 저장 및 재사용"],
+                    ].map(([title, desc]) => (
+                      <article key={title}>
+                        <strong>{title}</strong>
+                        <span>{desc}</span>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
                 <p className="admin-instructor-permission-desc">{activePermissionGroup.description}</p>
                 {activePermissionGroup.permissions.map((permission) => (
                   <div key={permission.code} className="admin-instructor-permission-branch">
@@ -1050,24 +1073,7 @@ export function AdminInstructorPage() {
         </div>
       ) : null}
 
-      {notificationOpen ? (
-        <div className="admin-member-modal-backdrop" role="presentation">
-          <form className="admin-member-notification-modal" onSubmit={handleSendNotification}>
-            <div>
-              <strong>강사 메시지</strong>
-              <p>선택한 강사에게 남길 알림 기록을 저장합니다. 문자 API는 외부 연동 시 연결됩니다.</p>
-            </div>
-            <label>
-              <span>내용</span>
-              <textarea rows={5} value={notificationMessage} onChange={(e) => setNotificationMessage(e.target.value)} />
-            </label>
-            <div className="admin-member-notification-actions">
-              <button type="button" onClick={() => setNotificationOpen(false)}>취소</button>
-              <button type="submit" className="primary">알림 저장</button>
-            </div>
-          </form>
-        </div>
-      ) : null}
+      <SmsSendModal open={smsOpen} onClose={() => setSmsOpen(false)} receivers={smsReceivers} />
     </div>
   );
 }

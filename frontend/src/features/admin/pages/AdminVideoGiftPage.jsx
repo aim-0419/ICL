@@ -142,10 +142,7 @@ export function AdminVideoGiftPage() {
       <SiteHeader />
       <main className="dashboard-page admin-dashboard-page">
         <section className="admin-dashboard-switch">
-          <Link className="admin-dashboard-switch-link" to="/admin">
-            일정 관리
-          </Link>
-          <Link className="admin-dashboard-switch-link active" to="/admin/members">
+          <Link className="admin-dashboard-switch-link active" to="/admin">
             회원 관리
           </Link>
           <Link className="admin-dashboard-switch-link" to="/admin/products">
@@ -156,6 +153,9 @@ export function AdminVideoGiftPage() {
           </Link>
           <Link className="admin-dashboard-switch-link" to="/admin/sales">
             매출 대시보드
+          </Link>
+          <Link className="admin-dashboard-switch-link admin-dashboard-switch-studio" to="/admin/studio">
+            🏃 필라테스 관리
           </Link>
         </section>
 

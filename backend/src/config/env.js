@@ -43,6 +43,13 @@ export const env = {
   demoAdminPassword: process.env.DEMO_ADMIN_PASSWORD ?? "",
   demoAdminEmail: process.env.DEMO_ADMIN_EMAIL ?? "demo-admin@icl.local",
   demoAdminName: process.env.DEMO_ADMIN_NAME ?? "Demo Admin",
+  // SMS (알리고)
+  aligoApiKey: process.env.ALIGO_API_KEY ?? "",
+  aligoUserId: process.env.ALIGO_USER_ID ?? "",
+  aligoSender: process.env.ALIGO_SENDER ?? "",
+  // 카카오 알림톡 (알리고 연동)
+  kakaoSenderKey: process.env.KAKAO_SENDER_KEY ?? "",
+  kakaoDefaultTemplate: process.env.KAKAO_DEFAULT_TEMPLATE ?? "",
 };
 
 if (env.nodeEnv === "production") {

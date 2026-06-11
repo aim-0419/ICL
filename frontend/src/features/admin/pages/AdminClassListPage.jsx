@@ -1,4 +1,4 @@
-/**
+﻿/**
  * [관리자 수업 목록 페이지]
  *
  * 등록된 수업 전체를 표 형태로 보여주고 필터·삭제·일괄 수정을 처리합니다.
@@ -41,12 +41,14 @@ const WEEKDAY_OPTIONS = [
 ];
 
 const NAV_ITEMS = [
-  { label: "일정", path: "/admin" },
+  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
   { label: "수업", path: "/admin/classes", active: true },
   { label: "회원", path: "/admin/member-list" },
   { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/products" },
-  { label: "설정", path: "/admin/members" },
+  { label: "수강권", path: "/admin/passes" },
+  { label: "메시지", path: "/admin/messages" },
+  { label: "게시판", path: "/admin/board" },
+  { label: "설정", path: "/admin/settings" },
   { label: "매출", path: "/admin/sales" },
 ];
 
@@ -404,7 +406,7 @@ export function AdminClassListPage() {
             }}
           />
         </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin/members")}>
+        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
           {currentUserName}
         </button>
       </header>

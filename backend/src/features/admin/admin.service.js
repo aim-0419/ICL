@@ -1637,6 +1637,8 @@ function normalizeStaffPayload(payload = {}) {
   const salaryType = STAFF_SALARY_TYPES.has(String(payload.salaryType || "").toLowerCase())
     ? String(payload.salaryType).toLowerCase()
     : "fixed";
+  const VALID_GENDERS = new Set(["male", "female"]);
+  const VALID_UNITS = new Set(["30min", "hour"]);
   return {
     name,
     roleCode,
@@ -1654,6 +1656,13 @@ function normalizeStaffPayload(payload = {}) {
     hourlyWage: Math.max(0, Math.round(toAmount(payload.hourlyWage))),
     commissionRate: Math.max(0, Number(payload.commissionRate || 0)),
     memo: String(payload.memo || "").trim(),
+    birthDate: payload.birthDate ? String(payload.birthDate).trim() || null : null,
+    gender: VALID_GENDERS.has(String(payload.gender || "").toLowerCase()) ? String(payload.gender).toLowerCase() : null,
+    bio: String(payload.bio || "").trim() || null,
+    career: String(payload.career || "").trim() || null,
+    receiveAllNotifications: payload.receiveAllNotifications ? 1 : 0,
+    privateAmUnit: VALID_UNITS.has(String(payload.privateAmUnit || "")) ? String(payload.privateAmUnit) : "30min",
+    privatePmUnit: VALID_UNITS.has(String(payload.privatePmUnit || "")) ? String(payload.privatePmUnit) : "30min",
   };
 }
 
@@ -1676,6 +1685,13 @@ function mapStaffRow(row = {}) {
     hourlyWage: toAmount(row.hourlyWage ?? row.hourly_wage),
     commissionRate: Number(row.commissionRate ?? row.commission_rate ?? 0),
     memo: String(row.memo || ""),
+    birthDate: row.birthDate || row.birth_date || null,
+    gender: row.gender || null,
+    bio: row.bio || null,
+    career: row.career || null,
+    receiveAllNotifications: Boolean(row.receiveAllNotifications ?? row.receive_all_notifications),
+    privateAmUnit: String(row.privateAmUnit || row.private_am_unit || "30min"),
+    privatePmUnit: String(row.privatePmUnit || row.private_pm_unit || "30min"),
     createdAt: row.createdAt || row.created_at || null,
     updatedAt: row.updatedAt || row.updated_at || null,
     source: row.source || "profile",
@@ -1690,7 +1706,11 @@ export async function listStudioStaffProfiles() {
        can_manage_schedule AS canManageSchedule, can_view_members AS canViewMembers,
        can_manage_passes AS canManagePasses, can_view_sales AS canViewSales,
        salary_type AS salaryType, base_pay AS basePay, hourly_wage AS hourlyWage,
-       commission_rate AS commissionRate, memo, created_at AS createdAt, updated_at AS updatedAt
+       commission_rate AS commissionRate, memo,
+       birth_date AS birthDate, gender, bio, career,
+       receive_all_notifications AS receiveAllNotifications,
+       private_am_unit AS privateAmUnit, private_pm_unit AS privatePmUnit,
+       created_at AS createdAt, updated_at AS updatedAt
      FROM studio_staff_profiles
      WHERE status <> 'archived'
      ORDER BY FIELD(role_code, 'owner','manager','instructor'), name ASC`
@@ -1727,8 +1747,10 @@ export async function saveStudioStaffProfile(staffId, payload = {}) {
     `INSERT INTO studio_staff_profiles
        (id, name, role_code, employment_type, phone, app_connection_status, color, status,
         can_manage_schedule, can_view_members, can_manage_passes, can_view_sales,
-        salary_type, base_pay, hourly_wage, commission_rate, memo, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        salary_type, base_pay, hourly_wage, commission_rate, memo,
+        birth_date, gender, bio, career, receive_all_notifications,
+        private_am_unit, private_pm_unit, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
      ON DUPLICATE KEY UPDATE
        name = VALUES(name),
        role_code = VALUES(role_code),
@@ -1746,6 +1768,13 @@ export async function saveStudioStaffProfile(staffId, payload = {}) {
        hourly_wage = VALUES(hourly_wage),
        commission_rate = VALUES(commission_rate),
        memo = VALUES(memo),
+       birth_date = VALUES(birth_date),
+       gender = VALUES(gender),
+       bio = VALUES(bio),
+       career = VALUES(career),
+       receive_all_notifications = VALUES(receive_all_notifications),
+       private_am_unit = VALUES(private_am_unit),
+       private_pm_unit = VALUES(private_pm_unit),
        updated_at = NOW()`,
     [
       id,
@@ -1765,6 +1794,13 @@ export async function saveStudioStaffProfile(staffId, payload = {}) {
       staff.hourlyWage,
       staff.commissionRate,
       staff.memo || null,
+      staff.birthDate || null,
+      staff.gender || null,
+      staff.bio || null,
+      staff.career || null,
+      staff.receiveAllNotifications,
+      staff.privateAmUnit,
+      staff.privatePmUnit,
     ]
   );
   const row = await queryOne(
@@ -1774,7 +1810,11 @@ export async function saveStudioStaffProfile(staffId, payload = {}) {
        can_manage_schedule AS canManageSchedule, can_view_members AS canViewMembers,
        can_manage_passes AS canManagePasses, can_view_sales AS canViewSales,
        salary_type AS salaryType, base_pay AS basePay, hourly_wage AS hourlyWage,
-       commission_rate AS commissionRate, memo, created_at AS createdAt, updated_at AS updatedAt
+       commission_rate AS commissionRate, memo,
+       birth_date AS birthDate, gender, bio, career,
+       receive_all_notifications AS receiveAllNotifications,
+       private_am_unit AS privateAmUnit, private_pm_unit AS privatePmUnit,
+       created_at AS createdAt, updated_at AS updatedAt
      FROM studio_staff_profiles
      WHERE id = ? OR name = ?
      LIMIT 1`,
@@ -1791,6 +1831,292 @@ export async function archiveStudioStaffProfile(staffId) {
     [staffId]
   );
   return { id: staffId, status: "archived" };
+}
+
+export async function getStaffWorkHours(staffId) {
+  const rows = await query(
+    `SELECT weekday, start_time AS startTime, end_time AS endTime,
+            is_day_off AS isDayOff, break_start_time AS breakStartTime, break_end_time AS breakEndTime
+     FROM studio_staff_work_hours
+     WHERE staff_id = ?
+     ORDER BY weekday ASC`,
+    [staffId]
+  );
+  return Array.isArray(rows) ? rows.map((row) => ({
+    weekday: Number(row.weekday),
+    startTime: row.startTime || "",
+    endTime: row.endTime || "",
+    isDayOff: Boolean(row.isDayOff),
+    breakStartTime: row.breakStartTime || "",
+    breakEndTime: row.breakEndTime || "",
+  })) : [];
+}
+
+export async function saveStaffWorkHours(staffId, hoursArray) {
+  if (!Array.isArray(hoursArray) || !hoursArray.length) return [];
+  const validWeekdays = new Set([0, 1, 2, 3, 4, 5, 6]);
+  for (const entry of hoursArray) {
+    const weekday = Number(entry.weekday);
+    if (!validWeekdays.has(weekday)) continue;
+    const entryId = `wh-${staffId}-${weekday}`;
+    await query(
+      `INSERT INTO studio_staff_work_hours
+         (id, staff_id, weekday, start_time, end_time, is_day_off, break_start_time, break_end_time, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE
+         start_time = VALUES(start_time),
+         end_time = VALUES(end_time),
+         is_day_off = VALUES(is_day_off),
+         break_start_time = VALUES(break_start_time),
+         break_end_time = VALUES(break_end_time),
+         updated_at = NOW()`,
+      [
+        entryId,
+        staffId,
+        weekday,
+        entry.startTime || null,
+        entry.endTime || null,
+        entry.isDayOff ? 1 : 0,
+        entry.breakStartTime || null,
+        entry.breakEndTime || null,
+      ]
+    );
+  }
+  return getStaffWorkHours(staffId);
+}
+
+// ── 수강권 상품 ──────────────────────────────────────────────────────────────
+
+const VALID_PASS_TYPES = new Set(["count", "period"]);
+const VALID_CLASS_TYPES_PASS = new Set(["private", "group"]);
+
+function normalizePassProduct(payload = {}) {
+  const name = String(payload.name || "").trim();
+  if (!name) { const e = new Error("수강권 이름을 입력해 주세요."); e.status = 400; throw e; }
+  return {
+    name,
+    passType: VALID_PASS_TYPES.has(String(payload.passType || "")) ? String(payload.passType) : "count",
+    classType: VALID_CLASS_TYPES_PASS.has(String(payload.classType || "")) ? String(payload.classType) : "group",
+    capacity: Math.max(1, Math.round(Number(payload.capacity || 1))),
+    totalCount: Math.max(0, Math.round(Number(payload.totalCount || 0))),
+    validDays: Math.max(1, Math.round(Number(payload.validDays || 30))),
+    price: Math.max(0, Math.round(Number(payload.price || 0))),
+    color: String(payload.color || "#4aa3ff").trim() || "#4aa3ff",
+    isFeatured: payload.isFeatured ? 1 : 0,
+    status: String(payload.status || "") === "inactive" ? "inactive" : "active",
+    description: String(payload.description || "").trim() || null,
+    isTrial: payload.isTrial ? 1 : 0,
+    cancelCount: Math.max(0, Math.round(Number(payload.cancelCount || 0))),
+    points: Math.max(0, Math.round(Number(payload.points || 0))),
+    usageLimitType: String(payload.usageLimitType || "") === "month" ? "month" : "week",
+    usageLimit: Math.max(0, Math.round(Number(payload.usageLimit || 0))),
+    autoDeduct: payload.autoDeduct ? 1 : 0,
+    classCategory: String(payload.classCategory || "").trim(),
+    sameDayChange: payload.sameDay ? 1 : 0,
+    sameDayChangeCount: Math.max(0, Math.round(Number(payload.sameDayCount || 0))),
+    bookingStartTime: String(payload.bookingStartTime || "").trim() || null,
+    bookingEndTime: String(payload.bookingEndTime || "").trim() || null,
+  };
+}
+
+function mapPassProductRow(row = {}) {
+  const price = Number(row.price || 0);
+  const totalCount = Number(row.totalCount ?? row.total_count ?? 0);
+  return {
+    id: String(row.id || ""),
+    name: String(row.name || ""),
+    passType: String(row.passType || row.pass_type || "count"),
+    classType: String(row.classType || row.class_type || "group"),
+    capacity: Number(row.capacity || 1),
+    totalCount,
+    validDays: Number(row.validDays ?? row.valid_days ?? 30),
+    price,
+    pricePerSession: totalCount > 0 ? Math.round(price / totalCount) : 0,
+    color: String(row.color || "#4aa3ff"),
+    isFeatured: Boolean(row.isFeatured ?? row.is_featured),
+    status: String(row.status || "active"),
+    description: row.description || null,
+    isTrial: Boolean(row.isTrial ?? row.is_trial),
+    cancelCount: Number(row.cancelCount ?? row.cancel_count ?? 0),
+    points: Number(row.points ?? 0),
+    usageLimitType: String(row.usageLimitType || row.usage_limit_type || "week"),
+    usageLimit: Number(row.usageLimit ?? row.usage_limit ?? 0),
+    autoDeduct: Boolean(row.autoDeduct ?? row.auto_deduct),
+    classCategory: String(row.classCategory || row.class_category || ""),
+    sameDay: Boolean(row.sameDayChange ?? row.same_day_change),
+    sameDayCount: Number(row.sameDayChangeCount ?? row.same_day_change_count ?? 0),
+    bookingStartTime: row.bookingStartTime || row.booking_start_time || null,
+    bookingEndTime: row.bookingEndTime || row.booking_end_time || null,
+    createdAt: row.createdAt || row.created_at || null,
+    updatedAt: row.updatedAt || row.updated_at || null,
+  };
+}
+
+export async function listStudioPassProducts() {
+  const rows = await query(
+    `SELECT id, name, pass_type AS passType, class_type AS classType, capacity,
+            total_count AS totalCount, valid_days AS validDays, price,
+            color, is_featured AS isFeatured, status, description,
+            is_trial AS isTrial, cancel_count AS cancelCount, points,
+            usage_limit_type AS usageLimitType, usage_limit AS usageLimit,
+            auto_deduct AS autoDeduct, class_category AS classCategory,
+            same_day_change AS sameDayChange, same_day_change_count AS sameDayChangeCount,
+            booking_start_time AS bookingStartTime, booking_end_time AS bookingEndTime,
+            created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_pass_products
+     ORDER BY is_featured DESC, created_at DESC`
+  );
+  return (Array.isArray(rows) ? rows : []).map(mapPassProductRow);
+}
+
+export async function saveStudioPassProduct(productId, payload = {}) {
+  const product = normalizePassProduct(payload);
+  const id = productId ? String(productId) : `pp-${randomUUID()}`;
+  await query(
+    `INSERT INTO studio_pass_products
+       (id, name, pass_type, class_type, capacity, total_count, valid_days,
+        price, color, is_featured, status, description,
+        is_trial, cancel_count, points, usage_limit_type, usage_limit,
+        auto_deduct, class_category, same_day_change, same_day_change_count,
+        booking_start_time, booking_end_time,
+        created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       name = VALUES(name), pass_type = VALUES(pass_type), class_type = VALUES(class_type),
+       capacity = VALUES(capacity), total_count = VALUES(total_count), valid_days = VALUES(valid_days),
+       price = VALUES(price), color = VALUES(color), is_featured = VALUES(is_featured),
+       status = VALUES(status), description = VALUES(description),
+       is_trial = VALUES(is_trial), cancel_count = VALUES(cancel_count), points = VALUES(points),
+       usage_limit_type = VALUES(usage_limit_type), usage_limit = VALUES(usage_limit),
+       auto_deduct = VALUES(auto_deduct), class_category = VALUES(class_category),
+       same_day_change = VALUES(same_day_change), same_day_change_count = VALUES(same_day_change_count),
+       booking_start_time = VALUES(booking_start_time), booking_end_time = VALUES(booking_end_time),
+       updated_at = NOW()`,
+    [id, product.name, product.passType, product.classType, product.capacity,
+     product.totalCount, product.validDays, product.price, product.color,
+     product.isFeatured, product.status, product.description,
+     product.isTrial, product.cancelCount, product.points,
+     product.usageLimitType, product.usageLimit,
+     product.autoDeduct, product.classCategory,
+     product.sameDayChange, product.sameDayChangeCount,
+     product.bookingStartTime, product.bookingEndTime]
+  );
+  const row = await queryOne(
+    `SELECT id, name, pass_type AS passType, class_type AS classType, capacity,
+            total_count AS totalCount, valid_days AS validDays, price,
+            color, is_featured AS isFeatured, status, description,
+            is_trial AS isTrial, cancel_count AS cancelCount, points,
+            usage_limit_type AS usageLimitType, usage_limit AS usageLimit,
+            auto_deduct AS autoDeduct, class_category AS classCategory,
+            same_day_change AS sameDayChange, same_day_change_count AS sameDayChangeCount,
+            booking_start_time AS bookingStartTime, booking_end_time AS bookingEndTime,
+            created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_pass_products WHERE id = ? LIMIT 1`, [id]
+  );
+  return mapPassProductRow(row);
+}
+
+export async function deleteStudioPassProduct(productId) {
+  await query(`DELETE FROM studio_pass_products WHERE id = ?`, [productId]);
+  return { id: productId };
+}
+
+export async function listIssuedPassesByProduct(productId) {
+  const rows = await query(
+    `SELECT sp.id, sp.user_id AS userId,
+            u.name AS userName, u.phone AS userPhone,
+            sp.pass_name AS passName, sp.pass_type AS passType,
+            sp.total_count AS totalCount, sp.remaining_count AS remainingCount,
+            DATE_FORMAT(sp.created_at, '%Y-%m-%d') AS issuedAt,
+            DATE_FORMAT(sp.expires_at, '%Y-%m-%d') AS expiresAt,
+            sp.status,
+            spp.amount, spp.payment_method AS paymentMethod,
+            DATE_FORMAT(spp.paid_at, '%Y-%m-%d') AS paidAt
+     FROM studio_passes sp
+     LEFT JOIN users u ON u.id = sp.user_id
+     LEFT JOIN studio_pass_payments spp ON spp.pass_id = sp.id
+     WHERE sp.pass_product_id = ?
+     ORDER BY sp.created_at DESC`,
+    [productId]
+  );
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function extendIssuedPassesByProduct(productId, extendDays) {
+  const days = Math.max(1, Math.round(Number(extendDays) || 1));
+  const result = await query(
+    `UPDATE studio_passes
+     SET expires_at = DATE_ADD(COALESCE(expires_at, NOW()), INTERVAL ${days} DAY),
+         updated_at = NOW()
+     WHERE pass_product_id = ? AND status IN ('active', 'paused')`,
+    [productId]
+  );
+  return { extendedCount: result?.affectedRows ?? 0 };
+}
+
+// ── 스튜디오 상품 (판매/대여) ──────────────────────────────────
+
+function normalizeGoods(payload = {}) {
+  const name = String(payload.name || "").trim();
+  if (!name) { const e = new Error("상품명을 입력해 주세요."); e.status = 400; throw e; }
+  return {
+    name,
+    goodsType: String(payload.goodsType || "") === "rental" ? "rental" : "sale",
+    color: String(payload.color || "#4aa3ff").trim() || "#4aa3ff",
+    price: Math.max(0, Math.round(Number(payload.price || 0))),
+    points: Math.max(0, Math.round(Number(payload.points || 0))),
+    status: String(payload.status || "") === "inactive" ? "inactive" : "active",
+    description: String(payload.description || "").trim() || null,
+  };
+}
+
+function mapGoodsRow(row = {}) {
+  return {
+    id: String(row.id || ""),
+    name: String(row.name || ""),
+    goodsType: String(row.goodsType || row.goods_type || "sale"),
+    color: String(row.color || "#4aa3ff"),
+    price: Number(row.price || 0),
+    points: Number(row.points || 0),
+    status: String(row.status || "active"),
+    description: row.description || null,
+    createdAt: row.createdAt || row.created_at || null,
+    updatedAt: row.updatedAt || row.updated_at || null,
+  };
+}
+
+export async function listStudioGoods() {
+  const rows = await query(
+    `SELECT id, name, goods_type AS goodsType, color, price, points, status, description,
+            created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_goods ORDER BY created_at DESC`
+  );
+  return (Array.isArray(rows) ? rows : []).map(mapGoodsRow);
+}
+
+export async function saveStudioGoods(goodsId, payload = {}) {
+  const goods = normalizeGoods(payload);
+  const id = goodsId ? String(goodsId) : `gd-${randomUUID()}`;
+  await query(
+    `INSERT INTO studio_goods (id, name, goods_type, color, price, points, status, description, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       name=VALUES(name), goods_type=VALUES(goods_type), color=VALUES(color),
+       price=VALUES(price), points=VALUES(points), status=VALUES(status),
+       description=VALUES(description), updated_at=NOW()`,
+    [id, goods.name, goods.goodsType, goods.color, goods.price, goods.points, goods.status, goods.description]
+  );
+  const row = await queryOne(
+    `SELECT id, name, goods_type AS goodsType, color, price, points, status, description,
+            created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_goods WHERE id = ? LIMIT 1`, [id]
+  );
+  return mapGoodsRow(row);
+}
+
+export async function deleteStudioGoods(goodsId) {
+  await query(`DELETE FROM studio_goods WHERE id = ?`, [goodsId]);
+  return { id: goodsId };
 }
 
 // 함수 역할: 회원 등급 데이터를 수정합니다.

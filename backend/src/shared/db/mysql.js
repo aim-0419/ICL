@@ -2401,6 +2401,19 @@ async function initDatabase() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_info (
+      id VARCHAR(20) PRIMARY KEY DEFAULT 'main',
+      studio_name VARCHAR(160) NOT NULL DEFAULT '',
+      address VARCHAR(255) NOT NULL DEFAULT '',
+      address_detail VARCHAR(160) NOT NULL DEFAULT '',
+      phones JSON NOT NULL DEFAULT ('[]'),
+      sms_sender VARCHAR(20) NOT NULL DEFAULT '',
+      sales_pin VARCHAR(255) NOT NULL DEFAULT '',
+      updated_at DATETIME NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_holidays (
       id VARCHAR(80) PRIMARY KEY,
       holiday_date DATE NOT NULL,
@@ -2420,6 +2433,86 @@ async function initDatabase() {
       updated_at DATETIME NOT NULL
     )
   `);
+  await pool.query(`ALTER TABLE studio_booking_policies ADD COLUMN operation_json JSON NULL`).catch((e) => { if (e.errno !== 1060) throw e; });
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_rooms (
+      id VARCHAR(80) PRIMARY KEY,
+      name VARCHAR(160) NOT NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`ALTER TABLE studio_info ADD COLUMN rooms_enabled TINYINT(1) NOT NULL DEFAULT 0`).catch((e) => { if (e.errno !== 1060) throw e; });
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_roles (
+      id VARCHAR(80) PRIMARY KEY,
+      name VARCHAR(160) NOT NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`ALTER TABLE studio_info ADD COLUMN roles_enabled TINYINT(1) NOT NULL DEFAULT 0`).catch((e) => { if (e.errno !== 1060) throw e; });
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_member_grades (
+      id VARCHAR(80) PRIMARY KEY,
+      name VARCHAR(160) NOT NULL,
+      color VARCHAR(20) NOT NULL DEFAULT '#f06292',
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`ALTER TABLE studio_info ADD COLUMN member_grades_enabled TINYINT(1) NOT NULL DEFAULT 0`).catch((e) => { if (e.errno !== 1060) throw e; });
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_class_categories (
+      id VARCHAR(80) PRIMARY KEY,
+      name VARCHAR(160) NOT NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_notification_templates (
+      template_id VARCHAR(80) PRIMARY KEY,
+      push_enabled TINYINT(1) NOT NULL DEFAULT 1,
+      sms_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      message TEXT NOT NULL,
+      param1 INT,
+      param2 INT,
+      skip_expired TINYINT(1) NOT NULL DEFAULT 0,
+      updated_at DATETIME NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_notices (
+      id VARCHAR(80) PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      content TEXT NOT NULL,
+      author_id VARCHAR(64) NOT NULL,
+      popup_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      pinned TINYINT(1) NOT NULL DEFAULT 0,
+      target ENUM('active','expired','both') NOT NULL DEFAULT 'active',
+      post_timing ENUM('now','scheduled','none','unlimited') NOT NULL DEFAULT 'now',
+      start_at DATETIME NULL,
+      end_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT NOW(),
+      updated_at DATETIME NOT NULL DEFAULT NOW(),
+      INDEX idx_studio_notices_created (created_at)
+    )
+  `);
+
+  // studio_notices.images 컬럼 — 테이블 생성 이후 추가된 컬럼
+  try {
+    await pool.query(`ALTER TABLE studio_notices ADD COLUMN images JSON NULL`);
+  } catch (e) {
+    if (e.code !== "ER_DUP_FIELDNAME") throw e;
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_checkins (
@@ -2558,6 +2651,81 @@ async function initDatabase() {
       INDEX idx_studio_staff_profiles_status (status, role_code),
       UNIQUE KEY uq_studio_staff_profiles_name (name)
     ) COMMENT='스튜디오 운영자가 관리하는 강사·매니저 프로필과 앱연결, 권한, 급여 기준을 보관합니다.'
+  `);
+  await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN birth_date DATE NULL`).catch((e) => { if (e.errno !== 1060) throw e; });
+  await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN gender ENUM('male','female') NULL`).catch((e) => { if (e.errno !== 1060) throw e; });
+  await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN bio TEXT NULL`).catch((e) => { if (e.errno !== 1060) throw e; });
+  await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN career TEXT NULL`).catch((e) => { if (e.errno !== 1060) throw e; });
+  await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN receive_all_notifications TINYINT(1) NOT NULL DEFAULT 0`).catch((e) => { if (e.errno !== 1060) throw e; });
+  await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN private_am_unit ENUM('30min','hour') NOT NULL DEFAULT '30min'`).catch((e) => { if (e.errno !== 1060) throw e; });
+  await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN private_pm_unit ENUM('30min','hour') NOT NULL DEFAULT '30min'`).catch((e) => { if (e.errno !== 1060) throw e; });
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_staff_work_hours (
+      id VARCHAR(80) PRIMARY KEY,
+      staff_id VARCHAR(80) NOT NULL,
+      weekday TINYINT NOT NULL COMMENT '0=일,1=월,2=화,3=수,4=목,5=금,6=토',
+      start_time VARCHAR(5) NULL COMMENT 'HH:MM',
+      end_time VARCHAR(5) NULL COMMENT 'HH:MM',
+      is_day_off TINYINT(1) NOT NULL DEFAULT 0,
+      break_start_time VARCHAR(5) NULL COMMENT 'HH:MM',
+      break_end_time VARCHAR(5) NULL COMMENT 'HH:MM',
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      UNIQUE KEY uq_staff_weekday (staff_id, weekday)
+    ) COMMENT='강사별 요일별 근무 시간 설정을 보관합니다.'
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_pass_products (
+      id VARCHAR(80) PRIMARY KEY,
+      name VARCHAR(160) NOT NULL COMMENT '수강권 상품명 (예: Vvip 1:1 10회)',
+      pass_type ENUM('count','period') NOT NULL DEFAULT 'count' COMMENT '횟수제/기간제',
+      class_type ENUM('private','group') NOT NULL DEFAULT 'private' COMMENT '프라이빗/그룹형',
+      capacity INT NOT NULL DEFAULT 1 COMMENT '수업 정원 (1:1=1, 2:1=2, 6:1=6)',
+      total_count INT NOT NULL DEFAULT 0 COMMENT '총 이용 횟수 (횟수제)',
+      valid_days INT NOT NULL DEFAULT 60 COMMENT '유효기간(일)',
+      price INT NOT NULL DEFAULT 0 COMMENT '판매 금액(원)',
+      color VARCHAR(20) NOT NULL DEFAULT '#4aa3ff' COMMENT '카드 배경색',
+      is_featured TINYINT(1) NOT NULL DEFAULT 0 COMMENT '즐겨찾기(별) 표시 여부',
+      status ENUM('active','inactive') NOT NULL DEFAULT 'active' COMMENT '판매중/판매정지',
+      description TEXT NULL COMMENT '수강권 설명',
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      INDEX idx_studio_pass_products_status (status)
+    ) COMMENT='스튜디오 수강권 상품 템플릿을 보관합니다.'
+  `);
+
+  // studio_pass_products 확장 컬럼
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN is_trial TINYINT(1) NOT NULL DEFAULT 0`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN cancel_count INT NOT NULL DEFAULT 0`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN points INT NOT NULL DEFAULT 0`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN usage_limit_type VARCHAR(10) NOT NULL DEFAULT 'week'`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN usage_limit INT NOT NULL DEFAULT 0`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN auto_deduct TINYINT(1) NOT NULL DEFAULT 0`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN class_category VARCHAR(255) NOT NULL DEFAULT ''`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN same_day_change TINYINT(1) NOT NULL DEFAULT 0`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN same_day_change_count INT NOT NULL DEFAULT 0`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN booking_start_time VARCHAR(5) DEFAULT NULL`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN booking_end_time VARCHAR(5) DEFAULT NULL`).catch(e => { if (e.errno !== 1060) throw e; });
+
+  // studio_passes 에 pass_product_id 연결 컬럼 추가
+  pool.query(`ALTER TABLE studio_passes ADD COLUMN pass_product_id VARCHAR(80) NULL`).catch(e => { if (e.errno !== 1060) throw e; });
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_goods (
+      id VARCHAR(80) PRIMARY KEY,
+      name VARCHAR(160) NOT NULL COMMENT '상품명',
+      goods_type ENUM('sale','rental') NOT NULL DEFAULT 'sale' COMMENT '판매/대여',
+      color VARCHAR(20) NOT NULL DEFAULT '#4aa3ff' COMMENT '카드 배경색',
+      price INT NOT NULL DEFAULT 0 COMMENT '판매가(원)',
+      points INT NOT NULL DEFAULT 0 COMMENT '적립 포인트',
+      status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+      description TEXT NULL,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      INDEX idx_studio_goods_status (status)
+    ) COMMENT='스튜디오 판매/대여 상품'
   `);
 
   await pool.query(`

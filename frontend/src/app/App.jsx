@@ -42,9 +42,20 @@ const AdminSalesDashboardPage = lazy(() => import("../features/admin/pages/Admin
 const AdminRefundPage = lazy(() => import("../features/admin/pages/AdminRefundPage.jsx").then((m) => ({ default: m.AdminRefundPage })));
 const AdminVideoGiftPage = lazy(() => import("../features/admin/pages/AdminVideoGiftPage.jsx").then((m) => ({ default: m.AdminVideoGiftPage })));
 const AdminProductPage = lazy(() => import("../features/admin/pages/AdminProductPage.jsx").then((m) => ({ default: m.AdminProductPage })));
+const AdminStudioPassPage = lazy(() => import("../features/admin/pages/AdminStudioPassPage.jsx").then((m) => ({ default: m.AdminStudioPassPage })));
 const AdminClassListPage = lazy(() => import("../features/admin/pages/AdminClassListPage.jsx").then((m) => ({ default: m.AdminClassListPage })));
 const AdminMemberListPage = lazy(() => import("../features/admin/pages/AdminMemberListPage.jsx").then((m) => ({ default: m.AdminMemberListPage })));
 const AdminInstructorPage = lazy(() => import("../features/admin/pages/AdminInstructorPage.jsx").then((m) => ({ default: m.AdminInstructorPage })));
+const AdminSettingsPage = lazy(() => import("../features/admin/pages/AdminSettingsPage.jsx").then((m) => ({ default: m.AdminSettingsPage })));
+const AdminSettingsBasicPage = lazy(() => import("../features/admin/pages/AdminSettingsBasicPage.jsx").then((m) => ({ default: m.AdminSettingsBasicPage })));
+const AdminSettingsOperationPage = lazy(() => import("../features/admin/pages/AdminSettingsOperationPage.jsx").then((m) => ({ default: m.AdminSettingsOperationPage })));
+const AdminSettingsRolePage = lazy(() => import("../features/admin/pages/AdminSettingsRolePage.jsx").then((m) => ({ default: m.AdminSettingsRolePage })));
+const AdminSettingsClassCategoryPage = lazy(() => import("../features/admin/pages/AdminSettingsClassCategoryPage.jsx").then((m) => ({ default: m.AdminSettingsClassCategoryPage })));
+const AdminSettingsMemberGradePage = lazy(() => import("../features/admin/pages/AdminSettingsMemberGradePage.jsx").then((m) => ({ default: m.AdminSettingsMemberGradePage })));
+const AdminSettingsNotificationsPage = lazy(() => import("../features/admin/pages/AdminSettingsNotificationsPage.jsx").then((m) => ({ default: m.AdminSettingsNotificationsPage })));
+const AdminSettingsRoomPage = lazy(() => import("../features/admin/pages/AdminSettingsRoomPage.jsx").then((m) => ({ default: m.AdminSettingsRoomPage })));
+const AdminNoticePage = lazy(() => import("../features/admin/pages/AdminNoticePage.jsx").then((m) => ({ default: m.AdminNoticePage })));
+const AdminMessagesPage = lazy(() => import("../features/admin/pages/AdminMessagesPage.jsx").then((m) => ({ default: m.AdminMessagesPage })));
 const AcademyPage = lazy(() => import("../features/academy/pages/AcademyPage.jsx").then((m) => ({ default: m.AcademyPage })));
 const AcademyDetailPage = lazy(() => import("../features/academy/pages/AcademyDetailPage.jsx").then((m) => ({ default: m.AcademyDetailPage })));
 const AcademyPlayerPage = lazy(() => import("../features/academy/pages/AcademyPlayerPage.jsx").then((m) => ({ default: m.AcademyPlayerPage })));
@@ -129,6 +140,18 @@ export default function App() {
             path="/admin"
             element={
               <RequireAdminStaff>
+                <AdminDashboardPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/members"
+            element={<Navigate to="/admin" replace />}
+          />
+          <Route
+            path="/admin/studio"
+            element={
+              <RequireAdminStaff>
                 <AdminSchedulePage />
               </RequireAdminStaff>
             }
@@ -138,14 +161,6 @@ export default function App() {
             element={
               <RequireAdminStaff>
                 <AdminSalesDashboardPage />
-              </RequireAdminStaff>
-            }
-          />
-          <Route
-            path="/admin/members"
-            element={
-              <RequireAdminStaff>
-                <AdminDashboardPage />
               </RequireAdminStaff>
             }
           />
@@ -178,6 +193,94 @@ export default function App() {
             element={
               <RequireAdminStaff>
                 <AdminProductPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/passes"
+            element={
+              <RequireAdminStaff>
+                <AdminStudioPassPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <RequireAdminStaff>
+                <AdminSettingsPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/settings/basic"
+            element={
+              <RequireAdminStaff>
+                <AdminSettingsBasicPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/settings/operation"
+            element={
+              <RequireAdminStaff>
+                <AdminSettingsOperationPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/settings/roles"
+            element={
+              <RequireAdminStaff>
+                <AdminSettingsRolePage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/settings/class-categories"
+            element={
+              <RequireAdminStaff>
+                <AdminSettingsClassCategoryPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/settings/member-grades"
+            element={
+              <RequireAdminStaff>
+                <AdminSettingsMemberGradePage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/settings/notifications"
+            element={
+              <RequireAdminStaff>
+                <AdminSettingsNotificationsPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/settings/rooms"
+            element={
+              <RequireAdminStaff>
+                <AdminSettingsRoomPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/messages"
+            element={
+              <RequireAdminStaff>
+                <AdminMessagesPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/board"
+            element={
+              <RequireAdminStaff>
+                <AdminNoticePage />
               </RequireAdminStaff>
             }
           />

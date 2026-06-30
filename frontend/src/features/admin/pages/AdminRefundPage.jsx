@@ -196,7 +196,7 @@ export function AdminRefundPage() {
     <>
       <PageLayout mainClass="dashboard-page admin-dashboard-page">
         <AdminDashboardNav active="refunds" />
-        </section>
+        
 
         <section className="dashboard-hero mypage-hero-card">
           <p className="section-kicker">관리자 대시보드</p>

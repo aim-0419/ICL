@@ -406,7 +406,7 @@ export function AdminNoticePage() {
               +
             </button>
         </div>
-      </div>
+      
       </AdminLayout>
     );
   }

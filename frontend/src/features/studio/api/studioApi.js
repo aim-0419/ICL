@@ -4,13 +4,17 @@ export async function listStudioClasses(params = {}) {
   const query = new URLSearchParams();
   if (params.from) query.set("from", params.from);
   if (params.to) query.set("to", params.to);
+  if (params.branchId) query.set("branchId", params.branchId);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   const result = await apiRequest(`/studio/classes${suffix}`);
   return Array.isArray(result?.classes) ? result.classes : [];
 }
 
-export async function listMyStudioSummary() {
-  const result = await apiRequest("/studio/me/summary");
+export async function listMyStudioSummary(params = {}) {
+  const query = new URLSearchParams();
+  if (params.branchId) query.set("branchId", params.branchId);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const result = await apiRequest(`/studio/me/summary${suffix}`);
   return {
     passes: Array.isArray(result?.passes) ? result.passes : [],
     bookings: Array.isArray(result?.bookings) ? result.bookings : [],
@@ -31,6 +35,7 @@ export async function listAdminStudioClasses(params = {}) {
   if (params.from) query.set("from", params.from);
   if (params.to) query.set("to", params.to);
   if (params.status) query.set("status", params.status);
+  if (params.branchId) query.set("branchId", params.branchId);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   const result = await apiRequest(`/studio/admin/classes${suffix}`);
   return Array.isArray(result?.classes) ? result.classes : [];
@@ -104,6 +109,10 @@ export async function checkInStudioMember(payload) {
   return apiRequest("/studio/admin/checkins", { method: "POST", body: payload });
 }
 
+export async function cancelStudioCheckIn(checkinId) {
+  return apiRequest(`/studio/admin/checkins/${encodeURIComponent(String(checkinId))}/cancel`, { method: "PATCH" });
+}
+
 export async function listStudioClassCheckins(classId) {
   const result = await apiRequest(`/studio/admin/classes/${encodeURIComponent(String(classId))}/checkins`);
   return Array.isArray(result?.checkins) ? result.checkins : [];
@@ -119,6 +128,15 @@ export async function resolveStudioArrears(arrearsId) {
 
 export async function listStudioArrearsByUser(userId) {
   const result = await apiRequest(`/studio/admin/users/${encodeURIComponent(String(userId))}/arrears`);
+  return Array.isArray(result?.arrears) ? result.arrears : [];
+}
+
+export async function listAdminStudioArrears(params = {}) {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.userId) query.set("userId", params.userId);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const result = await apiRequest(`/studio/admin/arrears${suffix}`);
   return Array.isArray(result?.arrears) ? result.arrears : [];
 }
 
@@ -190,6 +208,14 @@ export async function listStudioNotificationsByUser(userId) {
   return Array.isArray(result?.notifications) ? result.notifications : [];
 }
 
+export async function markMyStudioNotificationRead(notificationId) {
+  return apiRequest(`/studio/me/notifications/${encodeURIComponent(String(notificationId))}/read`, { method: "PATCH" });
+}
+
+export async function markMyStudioNotificationsRead() {
+  return apiRequest("/studio/me/notifications/read", { method: "PATCH" });
+}
+
 export async function listAdminInstructorHours() {
   const result = await apiRequest("/studio/admin/instructor-hours");
   return Array.isArray(result?.items) ? result.items : [];
@@ -230,8 +256,11 @@ export async function deleteAdminStudioStaff(staffId) {
   return apiRequest(`/admin/studio-staff/${encodeURIComponent(String(staffId))}`, { method: "DELETE" });
 }
 
-export async function listAdminPassProducts() {
-  const result = await apiRequest("/admin/pass-products");
+export async function listAdminPassProducts(params = {}) {
+  const query = new URLSearchParams();
+  if (params.branchId) query.set("branchId", params.branchId);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const result = await apiRequest(`/admin/pass-products${suffix}`);
   return Array.isArray(result?.products) ? result.products : [];
 }
 
@@ -304,11 +333,12 @@ export async function transferAdminPass(payload) {
 }
 
 /** 전체 예약 내역을 조회합니다. from/to: "YYYY-MM-DD HH:MM:SS", status: reserved|waitlisted|cancelled */
-export async function listAdminAllBookings({ from, to, status } = {}) {
+export async function listAdminAllBookings({ from, to, status, branchId } = {}) {
   const query = new URLSearchParams();
   if (from) query.set("from", from);
   if (to) query.set("to", to);
   if (status) query.set("status", status);
+  if (branchId) query.set("branchId", branchId);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   const result = await apiRequest(`/studio/admin/bookings${suffix}`);
   return Array.isArray(result?.bookings) ? result.bookings : [];
@@ -474,6 +504,24 @@ export async function saveAdminSalesPin(pin) {
   return apiRequest("/studio/admin/settings/sales-pin", { method: "PUT", body: { pin } });
 }
 
+export async function verifyAdminSalesPin(pin) {
+  return apiRequest("/studio/admin/settings/sales-pin/verify", { method: "POST", body: { pin } });
+}
+
+export async function getAdminStudioSalesReport(params = {}) {
+  const query = new URLSearchParams();
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.branchId) query.set("branchId", params.branchId);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return apiRequest(`/studio/admin/sales${suffix}`);
+}
+
+export async function createAdminStudioExpense(payload) {
+  const result = await apiRequest("/studio/admin/expenses", { method: "POST", body: payload });
+  return result?.expense || result;
+}
+
 export async function requestStudioPassRefund(payload) {
   return apiRequest("/studio/passes/refund-requests", { method: "POST", body: payload });
 }
@@ -491,16 +539,56 @@ export async function getSmsConfig() {
   return apiRequest("/sms/config");
 }
 
-export async function sendAdminSms({ channel = "sms", receivers, message, title = "" }) {
+export async function sendAdminSms({ channel = "sms", receivers, message, title = "", templateCode = "" }) {
   return apiRequest("/sms/send", {
     method: "POST",
-    body: { channel, receivers, message, title },
+    body: { channel, receivers, message, title, templateCode },
   });
+}
+
+export async function scheduleAdminMessage({ channel = "sms", receivers, message, title = "", scheduledAt, templateCode = "" }) {
+  return apiRequest("/sms/schedule", {
+    method: "POST",
+    body: { channel, receivers, message, title, scheduledAt, templateCode },
+  });
+}
+
+export async function registerMyPushDevice({ token, platform = "android", deviceName = "" }) {
+  return apiRequest("/studio/me/push-devices", {
+    method: "POST",
+    body: { token, platform, deviceName },
+  });
+}
+
+export async function unregisterMyPushDevice(token) {
+  return apiRequest("/studio/me/push-devices", { method: "DELETE", body: { token } });
 }
 
 export async function getSmsHistory(limit = 100) {
   const result = await apiRequest(`/sms/history?limit=${encodeURIComponent(String(limit))}`);
   return Array.isArray(result?.items) ? result.items : [];
+}
+
+export async function listAdminMessageTemplates() {
+  const result = await apiRequest("/studio/admin/message-templates");
+  return Array.isArray(result?.templates) ? result.templates : [];
+}
+
+export async function createAdminMessageTemplate(payload) {
+  const result = await apiRequest("/studio/admin/message-templates", { method: "POST", body: payload });
+  return result?.template || result;
+}
+
+export async function updateAdminMessageTemplate(templateId, payload) {
+  const result = await apiRequest(`/studio/admin/message-templates/${encodeURIComponent(String(templateId))}`, {
+    method: "PUT",
+    body: payload,
+  });
+  return result?.template || result;
+}
+
+export async function deleteAdminMessageTemplate(templateId) {
+  return apiRequest(`/studio/admin/message-templates/${encodeURIComponent(String(templateId))}`, { method: "DELETE" });
 }
 
 export async function getAutoSmsHistory({ limit = 100, type = "" } = {}) {

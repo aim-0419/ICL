@@ -19,7 +19,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { resolveCommunityMediaUrl, uploadCommunityAsset } from "../api/communityApi.js";
@@ -371,9 +371,7 @@ export function CommunityReviewsPage() {
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="content-page reviews-board-page">
+    <PageLayout mainClass="content-page reviews-board-page">
         <section className="content-hero">
           <p className="section-kicker">커뮤니티 · 후기</p>
           <h1>회원 후기 게시판</h1>
@@ -613,8 +611,7 @@ export function CommunityReviewsPage() {
         </section>
 
         <Pagination page={safePage} totalPages={totalPages} setPage={setPage} ariaLabel="후기 페이지네이션" />
-      </main>
-    </div>
+    </PageLayout>
   );
 }
 
@@ -671,17 +668,14 @@ export function CommunityReviewDetailPage() {
 
   if (errorMessage || !review) {
     return (
-      <div className="site-shell">
-        <SiteHeader />
-        <main className="content-page reviews-board-page">
+      <PageLayout mainClass="content-page reviews-board-page">
           <section className="community-board-empty">
             <p>{errorMessage || "후기 정보를 찾을 수 없습니다."}</p>
             <Link className="pill-button" to="/community/reviews">
               후기 목록으로
             </Link>
           </section>
-        </main>
-      </div>
+        </PageLayout>
     );
   }
 
@@ -749,9 +743,7 @@ export function CommunityReviewDetailPage() {
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="content-page review-detail-page">
+    <PageLayout mainClass="content-page review-detail-page">
         <section className="review-detail-card">
           <header className="review-detail-head">
             <Link className="review-detail-back-link" to="/community/reviews">
@@ -966,8 +958,7 @@ export function CommunityReviewDetailPage() {
           </section>
 
         </section>
-      </main>
-    </div>
+    </PageLayout>
   );
 }
 
@@ -1133,9 +1124,7 @@ export function CommunityInquiryPage() {
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="content-page reviews-board-page">
+    <PageLayout mainClass="content-page reviews-board-page">
         <section className="content-hero">
           <p className="section-kicker">커뮤니티 · 문의하기</p>
           <h1>문의 게시판</h1>
@@ -1424,8 +1413,7 @@ export function CommunityInquiryPage() {
         </section>
 
         <Pagination page={safePage} totalPages={totalPages} setPage={setPage} ariaLabel="문의 페이지네이션" />
-      </main>
-    </div>
+    </PageLayout>
   );
 }
 
@@ -1621,17 +1609,14 @@ export function CommunityInquiryDetailPage() {
 
   if (errorMessage || !post) {
     return (
-      <div className="site-shell">
-        <SiteHeader />
-        <main className="content-page reviews-board-page">
+      <PageLayout mainClass="content-page reviews-board-page">
           <section className="community-board-empty">
             <p>{errorMessage || "문의 정보를 찾을 수 없습니다."}</p>
             <Link className="pill-button" to="/community/inquiry">
               문의 목록으로
             </Link>
           </section>
-        </main>
-      </div>
+        </PageLayout>
     );
   }
 
@@ -1641,9 +1626,7 @@ export function CommunityInquiryDetailPage() {
 
   if (!canRead) {
     return (
-      <div className="site-shell">
-        <SiteHeader />
-        <main className="content-page review-detail-page inquiry-private-page">
+      <PageLayout mainClass="content-page review-detail-page inquiry-private-page">
           <section className="review-detail-card inquiry-private-card">
             <section className="inquiry-private-content">
               <span className="inquiry-private-lock">🔒</span>
@@ -1658,15 +1641,12 @@ export function CommunityInquiryDetailPage() {
               </div>
             </section>
           </section>
-        </main>
-      </div>
+        </PageLayout>
     );
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="content-page review-detail-page">
+    <PageLayout mainClass="content-page review-detail-page">
         <section className="review-detail-card">
           <header className="review-detail-head">
             <Link className="review-detail-back-link" to="/community/inquiry">
@@ -1945,8 +1925,7 @@ export function CommunityInquiryDetailPage() {
           </section>
 
         </section>
-      </main>
-    </div>
+    </PageLayout>
   );
 }
 
@@ -2024,11 +2003,6 @@ export function CommunityEventsPage() {
       return;
     }
 
-    if (!summary) {
-      alert("이벤트 설명을 입력해주세요.");
-      return;
-    }
-
     try {
       const image = await uploadOptionalAsset(writeImageFile, "image");
       const created = await apiRequest("/community/events", {
@@ -2036,7 +2010,7 @@ export function CommunityEventsPage() {
         body: {
           title,
           summary,
-          status: writeStatus,
+          status: "진행중",
           startDate: writeStartDate,
           endDate: writeEndDate,
           image,
@@ -2103,9 +2077,7 @@ export function CommunityEventsPage() {
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="content-page events-page">
+    <PageLayout mainClass="content-page events-page">
         <section className="content-hero">
           <p className="section-kicker">커뮤니티 · 이벤트</p>
           <h1>이벤트</h1>
@@ -2229,14 +2201,6 @@ export function CommunityEventsPage() {
 
               <div className="event-write-grid">
                 <label>
-                  상태
-                  <select value={writeStatus} onChange={(e) => setWriteStatus(e.target.value)}>
-                    <option value="진행중">진행중</option>
-                    <option value="종료">종료</option>
-                  </select>
-                </label>
-
-                <label>
                   시작일
                   <input
                     type="date"
@@ -2324,8 +2288,7 @@ export function CommunityEventsPage() {
               </article>
             ))}
         </section>
-      </main>
-    </div>
+    </PageLayout>
   );
 }
 
@@ -2404,24 +2367,19 @@ export function CommunityEventDetailPage() {
 
   if (errorMessage || !eventItem) {
     return (
-      <div className="site-shell">
-        <SiteHeader />
-        <main className="content-page events-page">
+      <PageLayout mainClass="content-page events-page">
           <section className="event-empty-state">
             <h3>{errorMessage || "이벤트 정보를 찾을 수 없습니다."}</h3>
             <Link className="pill-button" to="/community/events">
               이벤트 목록으로
             </Link>
           </section>
-        </main>
-      </div>
+        </PageLayout>
     );
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="content-page event-detail-page">
+    <PageLayout mainClass="content-page event-detail-page">
         <section className="content-hero">
           <p className="section-kicker">커뮤니티 · 이벤트 상세</p>
           <h1>{eventItem.title}</h1>
@@ -2437,13 +2395,6 @@ export function CommunityEventDetailPage() {
               </label>
 
               <div className="event-write-grid">
-                <label>
-                  상태
-                  <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
-                    <option value="진행중">진행중</option>
-                    <option value="종료">종료</option>
-                  </select>
-                </label>
                 <label>
                   시작일
                   <input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} />
@@ -2485,9 +2436,6 @@ export function CommunityEventDetailPage() {
           <section className="event-detail-layout">
             <div className="event-detail-media">
               <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} />
-              <strong className={`event-status ${eventItem.status === "진행중" ? "active" : "ended"}`}>
-                {eventItem.status}
-              </strong>
             </div>
 
             <article className="event-detail-info">
@@ -2496,11 +2444,17 @@ export function CommunityEventDetailPage() {
                   <dt>이벤트 기간</dt>
                   <dd>{formatPeriod(eventItem.startDate, eventItem.endDate)}</dd>
                 </div>
-                <div>
-                  <dt>진행 상태</dt>
-                  <dd>{eventItem.status}</dd>
-                </div>
               </dl>
+              {eventItem.summary ? (
+                <div className="event-detail-description">
+                  <h2>이벤트 설명</h2>
+                  {String(eventItem.summary)
+                    .split("\n")
+                    .map((paragraph, index) => (
+                      <p key={`${eventItem.id}-${index}`}>{paragraph || " "}</p>
+                    ))}
+                </div>
+              ) : null}
               <div className="event-detail-actions">
                 <Link className="pill-button" to="/community/events">
                   이벤트 목록으로
@@ -2512,18 +2466,8 @@ export function CommunityEventDetailPage() {
                 ) : null}
               </div>
             </article>
-
-            <article className="event-detail-description">
-              <h2>이벤트 설명</h2>
-              {String(eventItem.summary || "")
-                .split("\n")
-                .map((paragraph, index) => (
-                  <p key={`${eventItem.id}-${index}`}>{paragraph || " "}</p>
-                ))}
-            </article>
           </section>
         )}
-      </main>
-    </div>
+    </PageLayout>
   );
 }

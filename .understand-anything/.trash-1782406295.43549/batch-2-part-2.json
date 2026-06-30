@@ -1,0 +1,737 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/src/features/admin/admin.service.js",
+      "type": "file",
+      "name": "admin.service.js",
+      "filePath": "backend/src/features/admin/admin.service.js",
+      "summary": "관리자 기능의 핵심 비즈니스 로직을 담당하는 서비스. 회원 관리, 스탭 프로필, 수강권 상품, 굿즈, 매출 대시보드, 학습 리포트 등 56개 함수를 포함한다.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex",
+      "languageNotes": "buildSalesBuckets 함수는 일/주/월/년 단위 매출 버킷을 동적으로 생성하는 2100줄 규모의 대형 서비스 파일이다."
+    },
+    {
+      "id": "function:backend/src/features/admin/admin.service.js:buildSalesBuckets",
+      "type": "function",
+      "name": "buildSalesBuckets",
+      "filePath": "backend/src/features/admin/admin.service.js",
+      "lineRange": [147, 272],
+      "summary": "기간별(일/주/월/년) 매출 버킷을 생성하고 데이터를 집계하는 복합 통계 함수.",
+      "tags": ["service", "utility"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/admin/admin.service.js:listDashboardUsers",
+      "type": "function",
+      "name": "listDashboardUsers",
+      "filePath": "backend/src/features/admin/admin.service.js",
+      "lineRange": [486, 620],
+      "summary": "관리자 대시보드 회원 목록을 필터/페이지네이션 포함하여 조회하는 함수.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/admin/admin.service.js:getUserLearningProgress",
+      "type": "function",
+      "name": "getUserLearningProgress",
+      "filePath": "backend/src/features/admin/admin.service.js",
+      "lineRange": [623, 812],
+      "summary": "특정 사용자의 아카데미 강의 학습 진도를 종합적으로 조회하는 함수.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/admin/admin.service.js:getSalesDashboard",
+      "type": "function",
+      "name": "getSalesDashboard",
+      "filePath": "backend/src/features/admin/admin.service.js",
+      "lineRange": [941, 1238],
+      "summary": "기간별·상품별 매출 현황, 환불, 수강권 통계를 종합 집계하여 대시보드 데이터를 반환하는 함수.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/admin/admin.service.js:listMembersForAdmin",
+      "type": "function",
+      "name": "listMembersForAdmin",
+      "filePath": "backend/src/features/admin/admin.service.js",
+      "lineRange": [1244, 1381],
+      "summary": "관리자용 회원 목록 조회 함수. 검색, 등급 필터, PII 복호화 포함.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/admin/admin.service.js:updateUserGrade",
+      "type": "function",
+      "name": "updateUserGrade",
+      "filePath": "backend/src/features/admin/admin.service.js",
+      "lineRange": [2063, 2111],
+      "summary": "사용자의 등급을 변경하고 관련 권한 및 이력을 업데이트하는 함수.",
+      "tags": ["service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/auth/auth.service.js",
+      "type": "file",
+      "name": "auth.service.js",
+      "filePath": "backend/src/features/auth/auth.service.js",
+      "summary": "회원가입, 로그인, 이메일 인증, 아이디 찾기, 비밀번호 재설정 등 인증 전 과정의 비즈니스 로직을 담당하는 서비스.",
+      "tags": ["service", "security"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/auth/auth.service.js:signup",
+      "type": "function",
+      "name": "signup",
+      "filePath": "backend/src/features/auth/auth.service.js",
+      "lineRange": [248, 364],
+      "summary": "이메일 인증 코드 확인 후 신규 회원을 생성하는 회원가입 함수. PII 암호화 및 세션 생성 포함.",
+      "tags": ["service", "security"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/auth/auth.service.js:login",
+      "type": "function",
+      "name": "login",
+      "filePath": "backend/src/features/auth/auth.service.js",
+      "lineRange": [368, 426],
+      "summary": "아이디/비밀번호 검증 후 세션을 생성하는 로그인 함수. 탈퇴 여부 및 비밀번호 해시 검증 포함.",
+      "tags": ["service", "security"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/auth/auth.service.js:resetPassword",
+      "type": "function",
+      "name": "resetPassword",
+      "filePath": "backend/src/features/auth/auth.service.js",
+      "lineRange": [503, 565],
+      "summary": "인증 코드 확인 후 새 비밀번호로 변경하는 비밀번호 재설정 함수.",
+      "tags": ["service", "security"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/auth/auth.service.js:findUserBySessionToken",
+      "type": "function",
+      "name": "findUserBySessionToken",
+      "filePath": "backend/src/features/auth/auth.service.js",
+      "lineRange": [119, 152],
+      "summary": "세션 토큰으로 사용자를 조회하고 PII 복호화하여 반환하는 인증 핵심 함수.",
+      "tags": ["service", "security"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/community/community.asset.service.js",
+      "type": "file",
+      "name": "community.asset.service.js",
+      "filePath": "backend/src/features/community/community.asset.service.js",
+      "summary": "커뮤니티 게시글에 첨부되는 이미지 파일의 업로드 유효성 검사, 저장, 삭제를 처리하는 자산 서비스.",
+      "tags": ["service", "utility", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/community/community.service.js",
+      "type": "file",
+      "name": "community.service.js",
+      "filePath": "backend/src/features/community/community.service.js",
+      "summary": "커뮤니티 리뷰, 이벤트, 문의글과 각 댓글/답변의 CRUD 비즈니스 로직 전체를 담당하는 서비스. 이미지 자산 연동 포함.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/community/community.service.js:createInquiry",
+      "type": "function",
+      "name": "createInquiry",
+      "filePath": "backend/src/features/community/community.service.js",
+      "lineRange": [375, 407],
+      "summary": "이미지 자산 첨부를 포함한 문의글 생성 함수. 트랜잭션 내에서 자산 저장과 게시글 삽입을 처리.",
+      "tags": ["service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/community/community.service.js:createInquiryReply",
+      "type": "function",
+      "name": "createInquiryReply",
+      "filePath": "backend/src/features/community/community.service.js",
+      "lineRange": [489, 525],
+      "summary": "문의 답변을 등록하고 원글 작성자에게 이메일 알림을 발송하는 함수.",
+      "tags": ["service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/orders/orders.service.js",
+      "type": "file",
+      "name": "orders.service.js",
+      "filePath": "backend/src/features/orders/orders.service.js",
+      "summary": "주문 생성 및 목록 조회 비즈니스 로직을 담당하는 서비스. 스튜디오 수강권 발급, 결제 통합, 구매 이력 관리 처리.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/orders/orders.service.js:createOrder",
+      "type": "function",
+      "name": "createOrder",
+      "filePath": "backend/src/features/orders/orders.service.js",
+      "lineRange": [138, 289],
+      "summary": "주문 생성과 결제 연동(PG사 확인 포함), 수강권 자동 발급까지 처리하는 핵심 주문 생성 함수.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/src/features/payments/payments.service.js",
+      "type": "file",
+      "name": "payments.service.js",
+      "filePath": "backend/src/features/payments/payments.service.js",
+      "summary": "Portone PG사 연동 결제 서비스. 결제 확인, 웹훅 수신/검증, 결제 취소 비즈니스 로직을 처리한다.",
+      "tags": ["service", "security"],
+      "complexity": "complex",
+      "languageNotes": "표준 웹훅(Standard Webhook) 서명 검증 및 타이밍 안전 비교 등 보안 구현이 포함된다."
+    },
+    {
+      "id": "function:backend/src/features/payments/payments.service.js:confirmPayment",
+      "type": "function",
+      "name": "confirmPayment",
+      "filePath": "backend/src/features/payments/payments.service.js",
+      "lineRange": [198, 323],
+      "summary": "PG사에 결제 확인을 요청하고 DB에 결제 내역을 저장하는 결제 확인 함수. 멱등성 처리 포함.",
+      "tags": ["service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/payments/payments.service.js:handlePortoneWebhook",
+      "type": "function",
+      "name": "handlePortoneWebhook",
+      "filePath": "backend/src/features/payments/payments.service.js",
+      "lineRange": [448, 549],
+      "summary": "Portone 웹훅 이벤트를 수신하여 서명 검증 후 결제 상태를 동기화하는 핸들러.",
+      "tags": ["service", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/payments/payments.service.js:cancelPortonePayment",
+      "type": "function",
+      "name": "cancelPortonePayment",
+      "filePath": "backend/src/features/payments/payments.service.js",
+      "lineRange": [640, 673],
+      "summary": "PG사 Portone API를 호출하여 결제를 취소하는 함수.",
+      "tags": ["service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/payments/payments.service.js:validateConfirmedPaymentForOrder",
+      "type": "function",
+      "name": "validateConfirmedPaymentForOrder",
+      "filePath": "backend/src/features/payments/payments.service.js",
+      "lineRange": [551, 627],
+      "summary": "주문에 대한 결제 확인 유효성을 검사하는 함수. 금액 불일치, 상태 오류 등을 검증.",
+      "tags": ["service", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/refunds/refunds.service.js",
+      "type": "file",
+      "name": "refunds.service.js",
+      "filePath": "backend/src/features/refunds/refunds.service.js",
+      "summary": "환불 요청 생성, 목록 조회, 관리자 승인/거절 비즈니스 로직을 처리하는 서비스. PG사 결제 취소 연동 포함.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/refunds/refunds.service.js:createRefundRequest",
+      "type": "function",
+      "name": "createRefundRequest",
+      "filePath": "backend/src/features/refunds/refunds.service.js",
+      "lineRange": [60, 189],
+      "summary": "환불 요청을 생성하는 함수. 상품별 환불 가능 금액 검증 및 트랜잭션 내 DB 저장 처리.",
+      "tags": ["service", "validation"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/refunds/refunds.service.js:approveRefundRequest",
+      "type": "function",
+      "name": "approveRefundRequest",
+      "filePath": "backend/src/features/refunds/refunds.service.js",
+      "lineRange": [252, 359],
+      "summary": "관리자가 환불 요청을 승인하고 PG사 결제 취소를 수행하는 함수.",
+      "tags": ["service", "event-handler"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "file:backend/src/shared/utils/date.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "file:backend/src/shared/utils/normalize.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "file:backend/src/shared/utils/payload.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:buildSalesBuckets",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:listDashboardUsers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:getUserLearningProgress",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:getSalesDashboard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:listMembersForAdmin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:updateUserGrade",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:buildSalesBuckets",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:listDashboardUsers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:getUserLearningProgress",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:getSalesDashboard",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:listMembersForAdmin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "function:backend/src/features/admin/admin.service.js:updateUserGrade",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "file:backend/src/shared/email/email.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "file:backend/src/shared/security/password.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "file:backend/src/shared/utils/normalize.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "function:backend/src/features/auth/auth.service.js:signup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "function:backend/src/features/auth/auth.service.js:login",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "function:backend/src/features/auth/auth.service.js:resetPassword",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "function:backend/src/features/auth/auth.service.js:findUserBySessionToken",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "function:backend/src/features/auth/auth.service.js:signup",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "function:backend/src/features/auth/auth.service.js:login",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "function:backend/src/features/auth/auth.service.js:resetPassword",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.service.js",
+      "target": "function:backend/src/features/auth/auth.service.js:findUserBySessionToken",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/community/community.asset.service.js",
+      "target": "function:backend/src/features/community/community.service.js:createInquiry",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/community/community.service.js",
+      "target": "file:backend/src/features/community/community.asset.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/community/community.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/community/community.service.js",
+      "target": "file:backend/src/shared/email/email.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/community/community.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/community/community.service.js",
+      "target": "function:backend/src/features/community/community.service.js:createInquiry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/community/community.service.js",
+      "target": "function:backend/src/features/community/community.service.js:createInquiryReply",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/community/community.service.js",
+      "target": "function:backend/src/features/community/community.service.js:createInquiry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/community/community.service.js",
+      "target": "function:backend/src/features/community/community.service.js:createInquiryReply",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.service.js",
+      "target": "file:backend/src/features/payments/payments.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.service.js",
+      "target": "file:backend/src/shared/utils/normalize.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.service.js",
+      "target": "file:backend/src/shared/utils/payload.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.service.js",
+      "target": "function:backend/src/features/orders/orders.service.js:createOrder",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.service.js",
+      "target": "function:backend/src/features/orders/orders.service.js:createOrder",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.service.js",
+      "target": "file:backend/src/features/payments/payments.service.js",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "file:backend/src/config/env.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "file:backend/src/shared/utils/normalize.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "function:backend/src/features/payments/payments.service.js:confirmPayment",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "function:backend/src/features/payments/payments.service.js:handlePortoneWebhook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "function:backend/src/features/payments/payments.service.js:cancelPortonePayment",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "function:backend/src/features/payments/payments.service.js:validateConfirmedPaymentForOrder",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "function:backend/src/features/payments/payments.service.js:confirmPayment",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "function:backend/src/features/payments/payments.service.js:handlePortoneWebhook",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "function:backend/src/features/payments/payments.service.js:cancelPortonePayment",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.service.js",
+      "target": "function:backend/src/features/payments/payments.service.js:validateConfirmedPaymentForOrder",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.service.js",
+      "target": "file:backend/src/features/payments/payments.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.service.js",
+      "target": "file:backend/src/shared/utils/payload.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.service.js",
+      "target": "function:backend/src/features/refunds/refunds.service.js:createRefundRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.service.js",
+      "target": "function:backend/src/features/refunds/refunds.service.js:approveRefundRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.service.js",
+      "target": "function:backend/src/features/refunds/refunds.service.js:createRefundRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.service.js",
+      "target": "function:backend/src/features/refunds/refunds.service.js:approveRefundRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.service.js",
+      "target": "file:backend/src/features/payments/payments.service.js",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

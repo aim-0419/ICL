@@ -1,0 +1,490 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/src/features/studio/studio.class-rules.js",
+      "type": "file",
+      "name": "studio.class-rules.js",
+      "filePath": "backend/src/features/studio/studio.class-rules.js",
+      "summary": "스튜디오 수업 입력 데이터를 정규화하고 유효성을 검사하는 비즈니스 규칙 모듈. 예약 상태 결정 로직 포함.",
+      "tags": ["validation", "utility", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.class-rules.js:normalizeClassInput",
+      "type": "function",
+      "name": "normalizeClassInput",
+      "filePath": "backend/src/features/studio/studio.class-rules.js",
+      "lineRange": [21, 64],
+      "summary": "수업 생성/수정 입력값을 정규화하고 필수 필드를 검증하는 함수.",
+      "tags": ["validation", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.class-rules.js:resolveBookingStatus",
+      "type": "function",
+      "name": "resolveBookingStatus",
+      "filePath": "backend/src/features/studio/studio.class-rules.js",
+      "lineRange": [66, 77],
+      "summary": "예약 정원 수와 현재 예약 수를 비교하여 예약 가능 상태를 반환하는 함수.",
+      "tags": ["utility", "validation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/studio/studio.refund-rules.js",
+      "type": "file",
+      "name": "studio.refund-rules.js",
+      "filePath": "backend/src/features/studio/studio.refund-rules.js",
+      "summary": "스튜디오 수강권 환불 요청 데이터를 정규화하고 유효성을 검사하는 규칙 모듈.",
+      "tags": ["validation", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/studio/studio.service.js",
+      "type": "file",
+      "name": "studio.service.js",
+      "filePath": "backend/src/features/studio/studio.service.js",
+      "summary": "스튜디오 예약, 수업 관리, 수강권, 출석, 락커, 알림, 설정 등 스튜디오 운영 전 기능을 처리하는 핵심 서비스 파일. 104개의 함수를 포함한다.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex",
+      "languageNotes": "2200줄 이상의 단일 서비스 파일로 스튜디오 도메인 전체 비즈니스 로직을 담는다."
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.service.js:bookClass",
+      "type": "function",
+      "name": "bookClass",
+      "filePath": "backend/src/features/studio/studio.service.js",
+      "lineRange": [353, 455],
+      "summary": "회원이 수업을 예약하는 함수. 예약 정책, 수강권 잔여 횟수, 영업 여부, 중복 예약 등을 트랜잭션 내에서 검증 후 처리.",
+      "tags": ["service", "validation", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.service.js:cancelMyBooking",
+      "type": "function",
+      "name": "cancelMyBooking",
+      "filePath": "backend/src/features/studio/studio.service.js",
+      "lineRange": [457, 569],
+      "summary": "회원이 예약한 수업을 취소하는 함수. 취소 정책, 수강권 복구, 위약금 처리를 포함한다.",
+      "tags": ["service", "validation"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.service.js:createPassByAdmin",
+      "type": "function",
+      "name": "createPassByAdmin",
+      "filePath": "backend/src/features/studio/studio.service.js",
+      "lineRange": [896, 980],
+      "summary": "관리자가 회원에게 수강권을 직접 발급하는 함수. 수강권 타입별 유효성 검사 및 거래 이력 생성 포함.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.service.js:transferPass",
+      "type": "function",
+      "name": "transferPass",
+      "filePath": "backend/src/features/studio/studio.service.js",
+      "lineRange": [1977, 2052],
+      "summary": "수강권을 다른 회원에게 양도하는 함수. 양도 가능 조건 검증 및 트랜잭션 내 이전 처리.",
+      "tags": ["service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.service.js:isRoleAllowed",
+      "type": "function",
+      "name": "isRoleAllowed",
+      "filePath": "backend/src/features/studio/studio.service.js",
+      "lineRange": [1874, 1920],
+      "summary": "스튜디오 역할 권한 테이블을 기준으로 특정 역할이 요청한 기능 수행을 허용할지 판단하는 함수.",
+      "tags": ["service", "security"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.service.js:createClassesWithRepeat",
+      "type": "function",
+      "name": "createClassesWithRepeat",
+      "filePath": "backend/src/features/studio/studio.service.js",
+      "lineRange": [601, 660],
+      "summary": "반복 일정으로 수업을 일괄 생성하는 함수. 날짜 범위와 요일 패턴을 적용하여 복수 수업을 한 번에 등록.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/src/features/users/users.controller.js",
+      "type": "file",
+      "name": "users.controller.js",
+      "filePath": "backend/src/features/users/users.controller.js",
+      "summary": "사용자 프로필 수정, 이메일/전화번호 인증, 회원 탈퇴, 포인트 조회/사용, 강의 수강권 조회 등 사용자 API 핸들러를 제공하는 컨트롤러.",
+      "tags": ["api-handler", "middleware"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/users/users.controller.js:withdrawMe",
+      "type": "function",
+      "name": "withdrawMe",
+      "filePath": "backend/src/features/users/users.controller.js",
+      "lineRange": [156, 170],
+      "summary": "본인 확인 후 회원 탈퇴를 처리하는 핸들러. 세션 삭제 및 쿠키 클리어 포함.",
+      "tags": ["api-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/features/users/users.controller.js:getMyVideoGrants",
+      "type": "function",
+      "name": "getMyVideoGrants",
+      "filePath": "backend/src/features/users/users.controller.js",
+      "lineRange": [243, 265],
+      "summary": "로그인한 사용자의 강의 영상 수강 권한 목록을 조회하는 핸들러.",
+      "tags": ["api-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/users/users.service.js",
+      "type": "file",
+      "name": "users.service.js",
+      "filePath": "backend/src/features/users/users.service.js",
+      "summary": "사용자 프로필 수정, 이메일/전화번호 인증, 회원 탈퇴, 포인트 관리 등 사용자 관련 비즈니스 로직을 담당하는 서비스.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/users/users.service.js:updateMyProfile",
+      "type": "function",
+      "name": "updateMyProfile",
+      "filePath": "backend/src/features/users/users.service.js",
+      "lineRange": [143, 286],
+      "summary": "사용자 프로필을 업데이트하는 함수. 이름, 연락처, 생년월일 등 PII 필드 암호화 및 재암호화 처리 포함.",
+      "tags": ["service", "security"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/users/users.service.js:withdrawMyAccount",
+      "type": "function",
+      "name": "withdrawMyAccount",
+      "filePath": "backend/src/features/users/users.service.js",
+      "lineRange": [511, 561],
+      "summary": "회원 탈퇴를 처리하는 함수. 세션 삭제, 개인정보 스크럽, 탈퇴 상태 업데이트 포함.",
+      "tags": ["service", "security"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/users/users.service.js:requestWithdrawPhoneVerificationCode",
+      "type": "function",
+      "name": "requestWithdrawPhoneVerificationCode",
+      "filePath": "backend/src/features/users/users.service.js",
+      "lineRange": [379, 436],
+      "summary": "회원 탈퇴 전 본인 확인을 위한 휴대폰 인증 코드 발송 함수. OTP 발송 속도 제한 포함.",
+      "tags": ["service", "security"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/src/features/studio/studio.class-rules.js",
+      "target": "function:backend/src/features/studio/studio.class-rules.js:normalizeClassInput",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.class-rules.js",
+      "target": "function:backend/src/features/studio/studio.class-rules.js:resolveBookingStatus",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.class-rules.js",
+      "target": "function:backend/src/features/studio/studio.class-rules.js:normalizeClassInput",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.class-rules.js",
+      "target": "function:backend/src/features/studio/studio.class-rules.js:resolveBookingStatus",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "file:backend/src/features/studio/studio.class-rules.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "file:backend/src/features/studio/studio.refund-rules.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "file:backend/src/shared/utils/payload.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:bookClass",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:cancelMyBooking",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:createPassByAdmin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:transferPass",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:isRoleAllowed",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:createClassesWithRepeat",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:bookClass",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:cancelMyBooking",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:createPassByAdmin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:transferPass",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:isRoleAllowed",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.service.js:createClassesWithRepeat",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "function:backend/src/features/studio/studio.class-rules.js:normalizeClassInput",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/users/users.controller.js",
+      "target": "file:backend/src/features/auth/auth.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.controller.js",
+      "target": "file:backend/src/features/users/users.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.controller.js",
+      "target": "file:backend/src/shared/constants.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.controller.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.controller.js",
+      "target": "function:backend/src/features/users/users.controller.js:withdrawMe",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/users/users.controller.js",
+      "target": "function:backend/src/features/users/users.controller.js:getMyVideoGrants",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/users/users.controller.js",
+      "target": "function:backend/src/features/users/users.controller.js:withdrawMe",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/users/users.controller.js",
+      "target": "function:backend/src/features/users/users.controller.js:getMyVideoGrants",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/users/users.controller.js",
+      "target": "file:backend/src/features/users/users.service.js",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "file:backend/src/config/env.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "file:backend/src/shared/email/email.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "file:backend/src/shared/security/password.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "file:backend/src/shared/utils/normalize.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "function:backend/src/features/users/users.service.js:updateMyProfile",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "function:backend/src/features/users/users.service.js:withdrawMyAccount",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "function:backend/src/features/users/users.service.js:requestWithdrawPhoneVerificationCode",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "function:backend/src/features/users/users.service.js:updateMyProfile",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "function:backend/src/features/users/users.service.js:withdrawMyAccount",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/users/users.service.js",
+      "target": "function:backend/src/features/users/users.service.js:requestWithdrawPhoneVerificationCode",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

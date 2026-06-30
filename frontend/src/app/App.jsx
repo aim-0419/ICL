@@ -25,9 +25,12 @@ import React, { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "../shared/components/RequireAuth.jsx";
 import { RequireAdminStaff } from "../shared/components/RequireAdminStaff.jsx";
-import { SiteHeader } from "../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../shared/components/PageLayout.jsx";
 import { SiteFooter } from "../shared/components/SiteFooter.jsx";
-import { AdminImageEditor } from "../shared/components/AdminImageEditor.jsx";
+import { canEditPage } from "../shared/auth/userRoles.js";
+import { useAppStore } from "../shared/store/AppContext.jsx";
+import { useMidnightRefresh } from "../shared/hooks/useMidnightRefresh.js";
+import { useNativePushNotifications } from "../shared/hooks/useNativePushNotifications.js";
 
 const HomePage = lazy(() => import("../features/home/pages/HomePage.jsx").then((m) => ({ default: m.HomePage })));
 const LoginPage = lazy(() => import("../features/auth/pages/LoginPage.jsx").then((m) => ({ default: m.LoginPage })));
@@ -36,13 +39,15 @@ const ResetPasswordPage = lazy(() => import("../features/auth/pages/ResetPasswor
 const SignupPage = lazy(() => import("../features/auth/pages/SignupPage.jsx").then((m) => ({ default: m.SignupPage })));
 const CartPage = lazy(() => import("../features/cart/pages/CartPage.jsx").then((m) => ({ default: m.CartPage })));
 const MyPage = lazy(() => import("../features/mypage/pages/MyPage.jsx").then((m) => ({ default: m.MyPage })));
+const StudioReservationPage = lazy(() => import("../features/studio/pages/StudioReservationPage.jsx").then((m) => ({ default: m.StudioReservationPage })));
 const AdminSchedulePage = lazy(() => import("../features/admin/pages/AdminSchedulePage.jsx").then((m) => ({ default: m.AdminSchedulePage })));
 const AdminDashboardPage = lazy(() => import("../features/admin/pages/AdminDashboardPage.jsx").then((m) => ({ default: m.AdminDashboardPage })));
-const AdminSalesDashboardPage = lazy(() => import("../features/admin/pages/AdminSalesDashboardPage.jsx").then((m) => ({ default: m.AdminSalesDashboardPage })));
+const AdminStudioSalesPage = lazy(() => import("../features/admin/pages/AdminStudioSalesPage.jsx").then((m) => ({ default: m.AdminStudioSalesPage })));
 const AdminRefundPage = lazy(() => import("../features/admin/pages/AdminRefundPage.jsx").then((m) => ({ default: m.AdminRefundPage })));
 const AdminVideoGiftPage = lazy(() => import("../features/admin/pages/AdminVideoGiftPage.jsx").then((m) => ({ default: m.AdminVideoGiftPage })));
 const AdminProductPage = lazy(() => import("../features/admin/pages/AdminProductPage.jsx").then((m) => ({ default: m.AdminProductPage })));
 const AdminStudioPassPage = lazy(() => import("../features/admin/pages/AdminStudioPassPage.jsx").then((m) => ({ default: m.AdminStudioPassPage })));
+const AdminOperationsPage = lazy(() => import("../features/admin/pages/AdminOperationsPage.jsx").then((m) => ({ default: m.AdminOperationsPage })));
 const AdminClassListPage = lazy(() => import("../features/admin/pages/AdminClassListPage.jsx").then((m) => ({ default: m.AdminClassListPage })));
 const AdminMemberListPage = lazy(() => import("../features/admin/pages/AdminMemberListPage.jsx").then((m) => ({ default: m.AdminMemberListPage })));
 const AdminInstructorPage = lazy(() => import("../features/admin/pages/AdminInstructorPage.jsx").then((m) => ({ default: m.AdminInstructorPage })));
@@ -64,7 +69,6 @@ const FailPage = lazy(() => import("../features/payment/pages/FailPage.jsx").the
 
 const BrandIntroPage = lazy(() => import("../features/brand/pages/BrandPages.jsx").then((m) => ({ default: m.BrandIntroPage })));
 const BrandInstructorsPage = lazy(() => import("../features/brand/pages/BrandPages.jsx").then((m) => ({ default: m.BrandInstructorsPage })));
-const BrandTourPage = lazy(() => import("../features/brand/pages/BrandPages.jsx").then((m) => ({ default: m.BrandTourPage })));
 const BrandEquipmentPage = lazy(() => import("../features/brand/pages/BrandPages.jsx").then((m) => ({ default: m.BrandEquipmentPage })));
 const BrandDirectionsPage = lazy(() => import("../features/brand/pages/BrandPages.jsx").then((m) => ({ default: m.BrandDirectionsPage })));
 
@@ -74,23 +78,32 @@ const CommunityReviewsPage = lazy(() => import("../features/community/pages/Comm
 const CommunityReviewDetailPage = lazy(() => import("../features/community/pages/CommunityPages.jsx").then((m) => ({ default: m.CommunityReviewDetailPage })));
 const CommunityInquiryPage = lazy(() => import("../features/community/pages/CommunityPages.jsx").then((m) => ({ default: m.CommunityInquiryPage })));
 const CommunityInquiryDetailPage = lazy(() => import("../features/community/pages/CommunityPages.jsx").then((m) => ({ default: m.CommunityInquiryDetailPage })));
+const AdminImageEditor = lazy(() => import("../shared/components/AdminImageEditor.jsx").then((m) => ({ default: m.AdminImageEditor })));
 
 // 컴포넌트 역할: 지연 로딩 중에 사용자에게 보여줄 공통 로딩 화면을 렌더링합니다.
 function AppRouteFallback() {
   return (
-    <div className="site-shell">
-      <SiteHeader subpage />
-      <main className="content-page">
-        <section className="community-board-empty">
-          <p>페이지를 불러오는 중입니다...</p>
-        </section>
-      </main>
-    </div>
+    <PageLayout subpage>
+      <section className="community-board-empty">
+        <p>페이지를 불러오는 중입니다...</p>
+      </section>
+    </PageLayout>
   );
 }
 
 // 컴포넌트 역할: 프론트엔드 전체 페이지 라우팅과 관리자 편집 도구 표시 조건을 구성합니다.
 export default function App() {
+  const { currentUser, adminPageEditMode } = useAppStore();
+  const canUsePageEditor = canEditPage(currentUser);
+
+  useMidnightRefresh();
+  useNativePushNotifications();
+
+  React.useEffect(() => {
+    if (!canUsePageEditor || !adminPageEditMode) return;
+    import("../shared/components/AdminImageEditor.jsx");
+  }, [adminPageEditMode, canUsePageEditor]);
+
   return (
     <>
       <Suspense fallback={<AppRouteFallback />}>
@@ -115,7 +128,6 @@ export default function App() {
           {/* 브랜드 소개 서브페이지 */}
           <Route path="/ikleulrim/intro" element={<BrandIntroPage />} />
           <Route path="/ikleulrim/instructors" element={<BrandInstructorsPage />} />
-          <Route path="/ikleulrim/tour" element={<BrandTourPage />} />
           <Route path="/ikleulrim/equipment" element={<BrandEquipmentPage />} />
           <Route path="/ikleulrim/directions" element={<BrandDirectionsPage />} />
 
@@ -133,6 +145,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <MyPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/pilates/reservation"
+            element={
+              <RequireAuth>
+                <StudioReservationPage />
               </RequireAuth>
             }
           />
@@ -160,7 +180,7 @@ export default function App() {
             path="/admin/sales"
             element={
               <RequireAdminStaff>
-                <AdminSalesDashboardPage />
+                <AdminStudioSalesPage />
               </RequireAdminStaff>
             }
           />
@@ -201,6 +221,14 @@ export default function App() {
             element={
               <RequireAdminStaff>
                 <AdminStudioPassPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
+            path="/admin/operations"
+            element={
+              <RequireAdminStaff>
+                <AdminOperationsPage />
               </RequireAdminStaff>
             }
           />
@@ -293,6 +321,14 @@ export default function App() {
             }
           />
           <Route
+            path="/admin/video-gifts"
+            element={
+              <RequireAdminStaff>
+                <AdminVideoGiftPage />
+              </RequireAdminStaff>
+            }
+          />
+          <Route
             path="/admin/members/:userId/gift-videos"
             element={
               <RequireAdminStaff>
@@ -309,7 +345,11 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
-      <AdminImageEditor />
+      {canUsePageEditor ? (
+        <Suspense fallback={null}>
+          <AdminImageEditor />
+        </Suspense>
+      ) : null}
       <SiteFooter />
     </>
   );

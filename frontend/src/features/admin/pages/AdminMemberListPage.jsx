@@ -1,15 +1,17 @@
 ﻿/**
  * [관리자 회원 목록 페이지]
  *
- * 스튜디오메이트 목록형 UI에 맞춰 통합 회원을 간결하게 표시합니다.
- * 세부 구분은 상단 탭과 필터로 확인합니다.
+ * 교육 사이트 관리자용 회원 목록입니다.
+ * 필라테스 예약/수강권 회원은 /admin/studio 내부 회원 관리에서 별도로 확인합니다.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { formatUserGradeLabel } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { downloadXlsx } from "../../../shared/utils/exportXlsx.js";
 import {
   createAdminMemberMemo,
   createAdminPass,
@@ -20,29 +22,17 @@ import {
   transferAdminPass,
   updateAdminPassStatus,
 } from "../../studio/api/studioApi.js";
+import { DEFAULT_STUDIO_BRANCH_ID, STUDIO_BRANCHES, getStudioBranchName } from "../../studio/constants/studioBranches.js";
 import { SmsSendModal } from "../components/SmsSendModal.jsx";
-
-const NAV_ITEMS = [
-  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
-  { label: "수업", path: "/admin/classes" },
-  { label: "회원", path: "/admin/member-list", active: true },
-  { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/passes" },
-  { label: "메시지", path: "/admin/messages" },
-  { label: "게시판", path: "/admin/board" },
-  { label: "설정", path: "/admin/settings" },
-  { label: "매출", path: "/admin/sales" },
-];
 
 const PAGE_SIZE = 10;
 
 const MEMBER_COLUMNS = [
   "이름",
   "전화번호",
-  "등록일",
-  "최근출석일",
-  "수강권",
+  "가입일",
   "상품",
+  "회원등급",
   "앱연결",
 ];
 
@@ -181,11 +171,6 @@ function isCurrentPass(pass) {
   return getPassStatusLabel(pass).startsWith("사용중");
 }
 
-function toCsvCell(value) {
-  const text = String(value ?? "").replace(/\r?\n/g, " ");
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
 function FilterDropdown({ label, active, children }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -319,7 +304,7 @@ export function AdminMemberListPage() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterUsageScope, setFilterUsageScope] = useState("studioManaged");
+  const [filterUsageScope, setFilterUsageScope] = useState("");
   const [filterGrade, setFilterGrade] = useState("");
   const [filterPass, setFilterPass] = useState("");
   const [filterNoVisit, setFilterNoVisit] = useState("");
@@ -368,6 +353,7 @@ export function AdminMemberListPage() {
     primaryInstructor: "",
   });
   const [passDraft, setPassDraft] = useState({
+    branchId: DEFAULT_STUDIO_BRANCH_ID,
     passName: "",
     passType: "group",
     totalCount: "10",
@@ -396,7 +382,7 @@ export function AdminMemberListPage() {
   }, []);
 
   const managedMembers = useMemo(
-    () => members.filter((member) => !isAdminAccount(member)),
+    () => members.filter((member) => !isAdminAccount(member) && hasEducationEvidence(member)),
     [members]
   );
 
@@ -429,32 +415,7 @@ export function AdminMemberListPage() {
 
   const filteredMembers = useMemo(() => {
     return managedMembers.filter((member) => {
-      if (filterStatus && getMemberStatus(member) !== filterStatus) return false;
-      if (filterUsageScope === "studioManaged" && !isStudioManagedMember(member)) return false;
-      if (filterUsageScope && filterUsageScope !== "studioManaged" && getUsageScope(member) !== filterUsageScope) return false;
       if (filterGrade && member.userGrade !== filterGrade) return false;
-      if (filterPass) {
-        if (filterPass === "그룹" || filterPass === "프라이빗") {
-          const type = filterPass === "그룹" ? "group" : "personal";
-          if (!(member.passes || []).some((pass) => pass.passName?.includes(filterPass) || pass.passType?.includes(type))) return false;
-        } else if (!(member.passes || []).some((pass) => pass.passName?.includes(filterPass))) {
-          return false;
-        }
-      }
-      if (filterNoVisit) {
-        const days = calcDaysSinceVisit(member.lastVisitAt);
-        if (days === null || days < Number(filterNoVisit)) return false;
-      }
-      if (filterDaysLeft) {
-        const ok = (member.passes || []).some((pass) => {
-          const left = calcDaysLeft(pass.expiresAt);
-          return left !== null && left <= Number(filterDaysLeft);
-        });
-        if (!ok) return false;
-      }
-      if (filterCountLeft) {
-        if (!(member.passes || []).some((pass) => Number(pass.remainingCount || 0) <= Number(filterCountLeft))) return false;
-      }
       if (searchQuery.trim()) {
         const query = searchQuery.trim().toLowerCase();
         const memberRows = buildMemberPassRows([member]);
@@ -462,11 +423,28 @@ export function AdminMemberListPage() {
       }
       return true;
     });
-  }, [managedMembers, filterStatus, filterUsageScope, filterGrade, filterPass, filterNoVisit, filterDaysLeft, filterCountLeft, searchQuery]);
+  }, [managedMembers, filterGrade, searchQuery]);
 
   const filteredRows = useMemo(() => buildMemberPassRows(filteredMembers), [filteredMembers]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 9) return Array.from({ length: totalPages }, (_, index) => index + 1);
+
+    const pageSet = new Set([1, totalPages]);
+    for (let pageNumber = safePage - 2; pageNumber <= safePage + 2; pageNumber += 1) {
+      if (pageNumber > 1 && pageNumber < totalPages) pageSet.add(pageNumber);
+    }
+
+    const pages = [...pageSet].sort((a, b) => a - b);
+    const items = [];
+    pages.forEach((pageNumber, index) => {
+      const previous = pages[index - 1];
+      if (previous && pageNumber - previous > 1) items.push(`ellipsis-${previous}-${pageNumber}`);
+      items.push(pageNumber);
+    });
+    return items;
+  }, [safePage, totalPages]);
   const pageRows = filteredRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const allChecked = pageRows.length > 0 && pageRows.every((row) => selectedIds.has(row.member.id));
 
@@ -490,7 +468,7 @@ export function AdminMemberListPage() {
 
 function resetFilters() {
     setFilterStatus("");
-    setFilterUsageScope("studioManaged");
+    setFilterUsageScope("");
     setFilterGrade("");
     setFilterPass("");
     setFilterNoVisit("");
@@ -555,7 +533,6 @@ function resetFilters() {
 
   function handleTopSearchChange(value) {
     setSearchQuery(value);
-    setFilterUsageScope("");
     setPage(1);
   }
 
@@ -701,6 +678,7 @@ function resetFilters() {
       setCreatingPass(true);
       const created = await createAdminPass({
         userId: member.id,
+        branchId: passDraft.branchId || DEFAULT_STUDIO_BRANCH_ID,
         passName,
         passType: passDraft.passType,
         totalCount,
@@ -721,6 +699,7 @@ function resetFilters() {
         )
       );
       setPassDraft({
+        branchId: DEFAULT_STUDIO_BRANCH_ID,
         passName: "",
         passType: "group",
         totalCount: "10",
@@ -827,28 +806,20 @@ function resetFilters() {
     }
   }
 
-  function handleDownloadCsv() {
-    const headers = ["이름", "전화번호", "등록일", "최근출석일", "수강권", "상품", "앱연결", "스튜디오상태"];
+  function handleDownloadXlsx() {
+    const headers = ["이름", "전화번호", "가입일", "상품", "구매건수", "회원등급", "앱연결"];
     const lines = filteredRows.map(({ member }) => [
       member.name || "",
       member.phone || "",
-      formatDate(member.studioRegisteredAt || member.createdAt),
-      member.lastVisitAt ? formatDate(member.lastVisitAt) : "",
-      getPassSummary(member),
+      formatDate(member.createdAt),
       getProductSummary(member),
+      Number(member.orderCount || 0),
+      formatUserGradeLabel(member.userGrade),
       member.appConnectionStatus === "connected" ? "연결" : "미연결",
-      getStudioMemberStatusLabel(member.studioMemberStatus),
     ]);
-    const csv = [headers, ...lines].map((row) => row.map(toCsvCell).join(",")).join("\r\n");
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `studio-members-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    downloadXlsx(`education-members-${new Date().toISOString().slice(0, 10)}.xlsx`, [
+      { name: "교육회원목록", rows: [headers, ...lines] },
+    ]);
   }
 
   async function handleChangeAppConnection(member, nextStatus) {
@@ -891,13 +862,6 @@ function resetFilters() {
     { value: "수강권 없음", label: `수강권 없음 (${statusCounts["수강권 없음"] || 0}명)` },
   ];
 
-  const usageScopeOptions = [
-    { value: "", label: `통합회원 전체 (${usageScopeCounts.all}명)` },
-    { value: "studioManaged", label: `스튜디오관리 (${(usageScopeCounts.studio || 0) + (usageScopeCounts.both || 0)}명)` },
-    { value: "studio", label: `스튜디오회원 (${usageScopeCounts.studio || 0}명)` },
-    { value: "both", label: `통합이용 (${usageScopeCounts.both || 0}명)` },
-  ];
-
   const gradeOptions = [
     { value: "", label: "회원등급 전체" },
     { value: "member", label: "일반회원" },
@@ -914,12 +878,6 @@ function resetFilters() {
     ...passNames.map((name) => ({ value: name, label: name })),
   ];
 
-  const usageScopeTabs = [
-    { value: "studioManaged", label: "스튜디오관리", count: (usageScopeCounts.studio || 0) + (usageScopeCounts.both || 0) },
-    { value: "", label: "전체", count: usageScopeCounts.all },
-    { value: "studio", label: "스튜디오회원", count: usageScopeCounts.studio || 0 },
-    { value: "both", label: "통합이용", count: usageScopeCounts.both || 0 },
-  ];
   const detailMember = useMemo(
     () => managedMembers.find((member) => member.id === detailMemberId) || null,
     [managedMembers, detailMemberId]
@@ -943,50 +901,21 @@ function resetFilters() {
   }, [managedMembers, detailMember?.id, transferSearchQuery]);
 
   return (
-    <div className="admin-memberlist-app">
-      <header className="admin-schedule-topbar">
-        <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-          <span>ICL</span>
-        </button>
-        <nav className="admin-schedule-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.label} className={item.active ? "active" : ""} to={item.path}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="admin-schedule-search">
-          <span aria-hidden="true">이름 또는 전화번호로 검색</span>
-          <input
-            type="search"
-            placeholder="이름 또는 전화번호로 검색"
-            value={searchQuery}
-            onChange={(event) => handleTopSearchChange(event.target.value)}
-            onKeyDown={handleTopSearchKeyDown}
-          />
-        </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
-          {currentUserName}
-        </button>
-      </header>
+    <AdminLayout
+      appClass="admin-memberlist-app"
+      userName={currentUserName}
+      searchValue={searchQuery}
+      onSearchChange={(e) => handleTopSearchChange(e.target.value)}
+      onSearchKeyDown={handleTopSearchKeyDown}
+    >
 
       <div className="admin-memberlist-body">
         <div className="admin-memberlist-title-row">
           <div className="admin-memberlist-tabs">
-            <h1 className="admin-memberlist-heading">회원</h1>
-            {usageScopeTabs.map((tab) => (
-              <button
-                key={tab.value || "all"}
-                type="button"
-                className={`admin-memberlist-scope-tab${filterUsageScope === tab.value ? " active" : ""}`}
-                onClick={() => {
-                  setFilterUsageScope(tab.value);
-                  setPage(1);
-                }}
-              >
-                {tab.label} {tab.count}
-              </button>
-            ))}
+            <h1 className="admin-memberlist-heading">교육 회원</h1>
+            <span className="admin-memberlist-scope-tab active">
+              교육회원 {managedMembers.length}
+            </span>
           </div>
           <div className="admin-memberlist-title-actions">
             <span className="admin-memberlist-count-text">
@@ -1015,60 +944,18 @@ function resetFilters() {
             >
               선택된 회원에게 ▾
             </button>
-            <button type="button" className="admin-classlist-btn primary" onClick={handleDownloadCsv}>엑셀다운로드</button>
+            <button type="button" className="admin-classlist-btn primary" onClick={handleDownloadXlsx}>엑셀다운로드</button>
           </div>
         </div>
 
         <div className="admin-memberlist-filterbar">
           <div className="admin-memberlist-filterbar-left">
             <ListDropdown
-              label={filterStatus ? statusOptions.find((option) => option.value === filterStatus)?.label.split("(")[0].trim() : `전체회원 (${statusCounts.전체}명)`}
-              active={Boolean(filterStatus)}
-              options={statusOptions}
-              value={filterStatus}
-              onChange={(value) => { setFilterStatus(value); setPage(1); }}
-            />
-            <ListDropdown
-              label={filterUsageScope ? usageScopeOptions.find((option) => option.value === filterUsageScope)?.label.split("(")[0].trim() : "통합회원 전체"}
-              active={Boolean(filterUsageScope)}
-              options={usageScopeOptions}
-              value={filterUsageScope}
-              onChange={(value) => { setFilterUsageScope(value); setPage(1); }}
-            />
-            <ListDropdown
               label={filterGrade ? formatUserGradeLabel(filterGrade) : "회원등급 전체"}
               active={Boolean(filterGrade)}
               options={gradeOptions}
               value={filterGrade}
               onChange={(value) => { setFilterGrade(value); setPage(1); }}
-            />
-            <ListDropdown
-              label={filterPass || "전체수강권"}
-              active={Boolean(filterPass)}
-              options={passOptions}
-              value={filterPass}
-              onChange={(value) => { setFilterPass(value); setPage(1); }}
-            />
-            <NumericDropdown
-              label="잔여기간"
-              unit="일"
-              mode="이하"
-              value={filterDaysLeft}
-              onChange={(value) => { setFilterDaysLeft(value); setPage(1); }}
-            />
-            <NumericDropdown
-              label="잔여횟수"
-              unit="회"
-              mode="이하"
-              value={filterCountLeft}
-              onChange={(value) => { setFilterCountLeft(value); setPage(1); }}
-            />
-            <NumericDropdown
-              label="미방문일수"
-              unit="일"
-              mode="이상"
-              value={filterNoVisit}
-              onChange={(value) => { setFilterNoVisit(value); setPage(1); }}
             />
             <button type="button" className="admin-memberlist-reset-btn" onClick={resetFilters} title="필터 초기화">↻</button>
             <button
@@ -1109,27 +996,8 @@ function resetFilters() {
         {memberSettingsOpen ? (
           <div className="admin-member-settings-panel">
             <strong>회원 목록 설정</strong>
-            <button
-              type="button"
-              onClick={() => {
-                setFilterUsageScope("studioManaged");
-                setMemberSettingsOpen(false);
-                setPage(1);
-              }}
-            >
-              스튜디오 관리 대상만 보기
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFilterUsageScope("");
-                setMemberSettingsOpen(false);
-                setPage(1);
-              }}
-            >
-              통합 회원 전체 보기
-            </button>
-            <button type="button" onClick={handleDownloadCsv}>현재 목록 내려받기</button>
+            <p>현재 화면은 교육상품 구매 이력이 있는 교육회원만 표시합니다.</p>
+            <button type="button" onClick={handleDownloadXlsx}>현재 목록 내려받기</button>
           </div>
         ) : null}
 
@@ -1150,7 +1018,7 @@ function resetFilters() {
                 <tr><td colSpan={MEMBER_COLUMNS.length + 1} className="admin-classlist-empty">불러오는 중입니다.</td></tr>
               ) : pageRows.length === 0 ? (
                 <tr><td colSpan={MEMBER_COLUMNS.length + 1} className="admin-classlist-empty">해당 조건의 회원이 없습니다.</td></tr>
-              ) : pageRows.map(({ member, pass, rowId }) => (
+              ) : pageRows.map(({ member, rowId }) => (
                 <tr
                   key={rowId}
                   className={`${selectedIds.has(member.id) ? "selected" : ""}${Number(member.totalArrears || 0) > 0 ? " has-arrears" : ""}`}
@@ -1164,11 +1032,7 @@ function resetFilters() {
                       <div>
                         <strong>{member.name || "-"}</strong>
                         <div className="admin-member-compact-badges">
-                          {["studio", "both"].includes(getUsageScope(member)) ? (
-                            <span className={`admin-member-scope-badge ${getUsageScope(member)}`}>
-                              {getUsageScopeLabel(member)}
-                            </span>
-                          ) : null}
+                          <span className="admin-member-scope-badge education">교육회원</span>
                           <span className="admin-member-grade-badge">{formatUserGradeLabel(member.userGrade)}</span>
                         </div>
                       </div>
@@ -1178,15 +1042,9 @@ function resetFilters() {
                     </div>
                   </td>
                   <td>{member.phone || "-"}</td>
-                  <td>{formatDate(member.studioRegisteredAt || member.createdAt)}</td>
-                  <td>{member.lastVisitAt ? formatDate(member.lastVisitAt) : "-"}</td>
-                  <td>
-                    <div className="admin-member-pass-summary">
-                      <strong>{getPassSummary(member)}</strong>
-                      <span>{pass ? getPassStatusLabel(pass) : "수강권 없음"}</span>
-                    </div>
-                  </td>
+                  <td>{formatDate(member.createdAt)}</td>
                   <td>{getProductSummary(member)}</td>
+                  <td>{formatUserGradeLabel(member.userGrade)}</td>
                   <td>{member.appConnectionStatus === "connected" ? "연결" : "미연결"}</td>
                 </tr>
               ))}
@@ -1408,7 +1266,7 @@ function resetFilters() {
                   detailPasses.filter((pass) => showPreviousPasses ? !isCurrentPass(pass) : isCurrentPass(pass)).map((pass) => (
                     <article key={pass.id} className="admin-member-detail-pass-card">
                       <strong>{pass.passName || "수강권"}</strong>
-                      <span>{getPassStatusLabel(pass)}</span>
+                      <span>{getStudioBranchName(pass.branchId)} · {getPassStatusLabel(pass)}</span>
                       <p>잔여 {formatCount(pass.remainingCount)}회 / 전체 {formatCount(pass.totalCount)}회</p>
                       <p>만료 {pass.expiresAt ? formatDate(pass.expiresAt) : "만료일 없음"}</p>
                       {pass.payment ? (
@@ -1435,6 +1293,15 @@ function resetFilters() {
               </div>
               {showCreatePassForm ? (
                 <div className="admin-member-pass-create-form">
+                  <select
+                    value={passDraft.branchId || DEFAULT_STUDIO_BRANCH_ID}
+                    onChange={(event) => setPassDraft((previous) => ({ ...previous, branchId: event.target.value }))}
+                    aria-label="수강권 지점"
+                  >
+                    {STUDIO_BRANCHES.map((branch) => (
+                      <option key={branch.id} value={branch.id}>{branch.name}</option>
+                    ))}
+                  </select>
                   <input
                     type="text"
                     placeholder="수강권명"
@@ -1700,11 +1567,15 @@ function resetFilters() {
 
         <div className="admin-classlist-pagination" style={{ marginTop: 20 }}>
           <button type="button" disabled={safePage <= 1} onClick={() => setPage((value) => value - 1)}>‹</button>
-          {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-            <button key={pageNumber} type="button" className={pageNumber === safePage ? "active" : ""} onClick={() => setPage(pageNumber)}>
-              {pageNumber}
-            </button>
-          ))}
+          {paginationItems.map((item) =>
+            typeof item === "number" ? (
+              <button key={item} type="button" className={item === safePage ? "active" : ""} onClick={() => setPage(item)}>
+                {item}
+              </button>
+            ) : (
+              <span key={item} className="admin-classlist-pagination-ellipsis">…</span>
+            )
+          )}
           <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((value) => value + 1)}>›</button>
           <span className="admin-classlist-perpage">{PAGE_SIZE}/page</span>
         </div>
@@ -1715,6 +1586,6 @@ function resetFilters() {
       </button>
 
       <SmsSendModal open={smsOpen} onClose={() => setSmsOpen(false)} receivers={smsReceivers} />
-    </div>
+    </AdminLayout>
   );
 }

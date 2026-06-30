@@ -8,7 +8,7 @@
  */
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
@@ -31,9 +31,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader subpage />
-      <main className="auth-page">
+    <PageLayout subpage mainClass="auth-page">
         <section className="auth-card">
           <p className="section-kicker">로그인</p>
           <h1 className="login-title">몸이 바뀌는 방향, 이끌림에서 시작됩니다</h1>
@@ -83,7 +81,6 @@ export function LoginPage() {
             </Link>
           </p>
         </section>
-      </main>
-    </div>
+    </PageLayout>
   );
 }

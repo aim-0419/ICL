@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import {
@@ -9,21 +10,10 @@ import {
   listAdminStudioClasses,
   listAdminRolePermissions,
   saveAdminRolePermissions,
+  searchMembersForPicker,
   updateAdminStudioStaff,
 } from "../../studio/api/studioApi.js";
 import { SmsSendModal } from "../components/SmsSendModal.jsx";
-
-const NAV_ITEMS = [
-  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
-  { label: "수업", path: "/admin/classes" },
-  { label: "회원", path: "/admin/member-list" },
-  { label: "강사", path: "/admin/instructors", active: true },
-  { label: "수강권", path: "/admin/passes" },
-  { label: "메시지", path: "/admin/messages" },
-  { label: "게시판", path: "/admin/board" },
-  { label: "설정", path: "/admin/settings" },
-  { label: "매출", path: "/admin/sales" },
-];
 
 const ROLE_LABELS = {
   owner: "스튜디오 오너",
@@ -309,6 +299,7 @@ const PERMISSION_GROUPS = [
 
 const EMPTY_FORM = {
   id: "",
+  userId: "",
   name: "",
   roleCode: "instructor",
   employmentType: "full_time",
@@ -383,6 +374,7 @@ export function AdminInstructorPage() {
   const currentUserName = getUserDisplayName(store.currentUser) || "관리자";
 
   const [staff, setStaff] = useState([]);
+  const [memberAccounts, setMemberAccounts] = useState([]);
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("list");
@@ -419,6 +411,12 @@ export function AdminInstructorPage() {
 
   useEffect(() => {
     loadStaff();
+    searchMembersForPicker("", 100)
+      .then((rows) => setMemberAccounts(Array.isArray(rows) ? rows : []))
+      .catch((error) => {
+        setMemberAccounts([]);
+        setMessage({ type: "error", text: error.message || "연결 가능한 회원 계정을 불러오지 못했습니다." });
+      });
   }, []);
 
   useEffect(() => {
@@ -637,31 +635,12 @@ export function AdminInstructorPage() {
   }
 
   return (
-    <div className="admin-instructor-app">
-      <header className="admin-schedule-topbar">
-        <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-          <span>ICL</span>
-        </button>
-        <nav className="admin-schedule-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.label} className={item.active ? "active" : ""} to={item.path}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="admin-schedule-search">
-          <span aria-hidden="true">이름 또는 휴대폰 번호로 검색</span>
-          <input
-            type="search"
-            placeholder="이름 또는 휴대폰 번호로 검색"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-        </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
-          {currentUserName}
-        </button>
-      </header>
+    <AdminLayout
+      appClass="admin-instructor-app"
+      userName={currentUserName}
+      searchValue={searchQuery}
+      onSearchChange={(event) => setSearchQuery(event.target.value)}
+    >
 
       {selectedStaff ? (
         <main className="admin-instructor-detail">
@@ -684,7 +663,7 @@ export function AdminInstructorPage() {
                 <button
                   type="button"
                   className="admin-instructor-inline-link"
-                  onClick={() => openEditForm({ ...selectedStaff, appConnectionStatus: selectedStaff.appConnectionStatus === "connected" ? "not_connected" : "connected" })}
+                  onClick={() => openEditForm(selectedStaff)}
                 >
                   앱 연결 {selectedStaff.appConnectionStatus === "connected" ? "완료" : "미연결"}
                 </button>
@@ -821,13 +800,13 @@ export function AdminInstructorPage() {
           <>
             <section className="admin-instructor-toolbar">
               <div>
-                <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                <select aria-label="강사 역할 필터" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
                   <option value="">역할 전체</option>
                   <option value="owner">스튜디오 오너</option>
                   <option value="manager">매니저</option>
                   <option value="instructor">강사</option>
                 </select>
-                <select value={employmentFilter} onChange={(event) => setEmploymentFilter(event.target.value)}>
+                <select aria-label="강사 근무형태 필터" value={employmentFilter} onChange={(event) => setEmploymentFilter(event.target.value)}>
                   <option value="">근무형태 전체</option>
                   <option value="full_time">정규</option>
                   <option value="part_time">파트타임</option>
@@ -836,7 +815,7 @@ export function AdminInstructorPage() {
                 <button type="button" className="admin-memberlist-reset-btn" onClick={loadStaff}>↻</button>
               </div>
               <div>
-                <select className="admin-instructor-view-select" defaultValue="list">
+                <select className="admin-instructor-view-select" aria-label="강사 목록 보기 방식" defaultValue="list">
                   <option value="list">목록형 보기</option>
                 </select>
                 <button type="button" className="admin-classlist-btn" disabled={!selectedIds.size} onClick={() => openSms(staff.filter((item) => selectedIds.has(item.id)))}>
@@ -861,7 +840,7 @@ export function AdminInstructorPage() {
             <table className="admin-instructor-table">
               <thead>
                 <tr>
-                  <th><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
+                  <th><input type="checkbox" aria-label="현재 페이지 강사 전체 선택" checked={allChecked} onChange={toggleAll} /></th>
                   <th>이름</th>
                   <th>역할</th>
                   <th>근무형태</th>
@@ -875,7 +854,7 @@ export function AdminInstructorPage() {
                 ) : filteredStaff.length ? filteredStaff.map((item) => (
                   <tr key={item.id} onClick={() => openDetail(item)}>
                     <td onClick={(event) => event.stopPropagation()}>
-                      <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleOne(item.id)} />
+                      <input type="checkbox" aria-label={`${item.name} 강사 선택`} checked={selectedIds.has(item.id)} onChange={() => toggleOne(item.id)} />
                     </td>
                     <td>
                       <div className="admin-instructor-name-cell">
@@ -1041,7 +1020,24 @@ export function AdminInstructorPage() {
               <label><span>휴대폰 번호</span><input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} /></label>
               <label><span>역할</span><select value={form.roleCode} onChange={(e) => setForm((p) => ({ ...p, roleCode: e.target.value }))}><option value="owner">스튜디오 오너</option><option value="manager">매니저</option><option value="instructor">강사</option></select></label>
               <label><span>근무형태</span><select value={form.employmentType} onChange={(e) => setForm((p) => ({ ...p, employmentType: e.target.value }))}><option value="full_time">정규</option><option value="part_time">파트타임</option><option value="freelance">프리랜서</option></select></label>
-              <label><span>앱 연결</span><select value={form.appConnectionStatus} onChange={(e) => setForm((p) => ({ ...p, appConnectionStatus: e.target.value }))}><option value="connected">연결</option><option value="not_connected">미연결</option></select></label>
+              <label>
+                <span>로그인 계정 연결</span>
+                <select
+                  value={form.userId || ""}
+                  onChange={(e) => setForm((previous) => ({
+                    ...previous,
+                    userId: e.target.value,
+                    appConnectionStatus: e.target.value ? "connected" : "not_connected",
+                  }))}
+                >
+                  <option value="">미연결</option>
+                  {memberAccounts.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name || member.loginId || member.id}{member.phone ? ` · ${member.phone}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label><span>색상</span><input type="color" value={form.color} onChange={(e) => setForm((p) => ({ ...p, color: e.target.value }))} /></label>
               <label><span>급여 기준</span><select value={form.salaryType} onChange={(e) => setForm((p) => ({ ...p, salaryType: e.target.value }))}><option value="fixed">고정급</option><option value="hourly">시급</option><option value="commission">비율</option></select></label>
               <label><span>고정급</span><input type="number" min="0" value={form.basePay} onChange={(e) => setForm((p) => ({ ...p, basePay: e.target.value }))} /></label>
@@ -1074,6 +1070,6 @@ export function AdminInstructorPage() {
       ) : null}
 
       <SmsSendModal open={smsOpen} onClose={() => setSmsOpen(false)} receivers={smsReceivers} />
-    </div>
+    </AdminLayout>
   );
 }

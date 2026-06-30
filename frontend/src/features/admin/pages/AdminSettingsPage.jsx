@@ -1,19 +1,8 @@
 ﻿import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
-
-const NAV_ITEMS = [
-  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
-  { label: "수업", path: "/admin/classes" },
-  { label: "회원", path: "/admin/member-list" },
-  { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/passes" },
-  { label: "메시지", path: "/admin/messages" },
-  { label: "게시판", path: "/admin/board" },
-  { label: "설정", path: "/admin/settings", active: true },
-  { label: "매출", path: "/admin/sales" },
-];
 
 const SETTINGS_ITEMS = [
   {
@@ -118,31 +107,12 @@ export function AdminSettingsPage() {
     : SETTINGS_ITEMS;
 
   return (
-    <div className="admin-settings-app">
-      <header className="admin-schedule-topbar">
-        <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-          <span>ICL</span>
-        </button>
-        <nav className="admin-schedule-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.label} className={item.active ? "active" : ""} to={item.path}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="admin-schedule-search">
-          <span aria-hidden="true">검색</span>
-          <input
-            type="search"
-            placeholder="설정 검색"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
-          {currentUserName}
-        </button>
-      </header>
+    <AdminLayout
+      appClass="admin-settings-app"
+      userName={currentUserName}
+      searchValue={searchQuery}
+      onSearchChange={(e) => setSearchQuery(e.target.value)}
+    >
 
       <main className="admin-settings-body">
         <h1 className="admin-settings-title">시설 정보 수정</h1>
@@ -168,6 +138,6 @@ export function AdminSettingsPage() {
           )}
         </div>
       </main>
-    </div>
+    </AdminLayout>
   );
 }

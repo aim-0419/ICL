@@ -10,8 +10,10 @@ import {
   encryptedUserValues,
   nameHash,
   normalizeEmail as normalizePiiEmail,
+  normalizePhone,
   phoneHash,
 } from "../../shared/security/pii.js";
+import { normalizeBirthYear } from "../../shared/utils/normalize.js";
 
 const ACCOUNT_STATUS_ACTIVE = "active";
 const ACCOUNT_STATUS_WITHDRAWN = "withdrawn";
@@ -42,27 +44,6 @@ async function createSession(userId) {
     [token, userId, expiresAt]
   );
   return token;
-}
-
-// 함수 역할: 전화번호 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizePhone(value) {
-  return String(value || "")
-    .replace(/\D/g, "")
-    .trim();
-}
-
-// 함수 역할: 출생 연도 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizeBirthYear(value) {
-  const text = String(value ?? "").trim();
-  if (!text) return null;
-
-  const year = Number.parseInt(text, 10);
-  const currentYear = new Date().getFullYear();
-  if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
-    return null;
-  }
-
-  return year;
 }
 
 async function checkOtpSendRateLimit(email) {
@@ -115,6 +96,8 @@ function toPublicUser(userRow) {
     role: user.role,
     isAdmin: user.isAdmin,
     userGrade: user.userGrade,
+    studioRole: user.studioRole || null,
+    studioStaffStatus: user.studioStaffStatus || null,
     birthYear: user.birthYear,
     accountStatus: user.accountStatus,
     withdrawnAt: user.withdrawnAt || null,
@@ -146,6 +129,8 @@ export async function findUserBySessionToken(token) {
       u.role,
       u.is_admin AS isAdmin,
       u.user_grade AS userGrade,
+      ssp.role_code AS studioRole,
+      ssp.status AS studioStaffStatus,
       u.birth_year_encrypted AS birthYearEncrypted,
       u.account_status AS accountStatus,
       u.withdrawn_at AS withdrawnAt,
@@ -156,6 +141,7 @@ export async function findUserBySessionToken(token) {
       u.created_at AS createdAt
      FROM sessions s
      JOIN users u ON u.id = s.user_id
+     LEFT JOIN studio_staff_profiles ssp ON ssp.user_id = u.id
      WHERE s.token = ?
        AND u.account_status = ?
        AND (s.expires_at IS NULL OR s.expires_at > NOW())
@@ -374,7 +360,7 @@ export async function signup(payload) {
 
   await query(`DELETE FROM email_verifications WHERE email_hash = ?`, [userPii.emailHash]);
   const token = await createSession(user.id);
-  return { user: toPublicUser(created), token };
+  return { user: (await findUserBySessionToken(token)) || toPublicUser(created), token };
 }
 
 // 로그인 처리 및 탈퇴 계정 접근 차단
@@ -436,7 +422,7 @@ export async function login(payload) {
   }
 
   const token = await createSession(user.id);
-  return { user: toPublicUser(user), token };
+  return { user: (await findUserBySessionToken(token)) || toPublicUser(user), token };
 }
 
 // 함수 역할: 로그인 ID 대상을 탐색해 반환합니다.

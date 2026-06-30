@@ -1,20 +1,10 @@
 ﻿import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getAdminStudioSettings, saveAdminBookingPolicy } from "../../studio/api/studioApi.js";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
-
-const NAV_ITEMS = [
-  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
-  { label: "수업", path: "/admin/classes" },
-  { label: "회원", path: "/admin/member-list" },
-  { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/passes" },
-  { label: "메시지", path: "/admin/messages" },
-  { label: "게시판", path: "/admin/board" },
-  { label: "설정", path: "/admin/settings", active: true },
-  { label: "매출", path: "/admin/sales" },
-];
+import { AdminSettingsSearchBox } from "../components/AdminSettingsSearchBox.jsx";
 
 const DEFAULTS = {
   privateBookHours: 12, privateBookMins: 0,
@@ -41,12 +31,13 @@ const DEFAULTS = {
   penaltyCancelEnabled: false, hideExpiredPassEnabled: true, autoArrearsEnabled: true, loungeEnabled: false,
 };
 
-function NumSpinner({ value, onChange, min = 0, max = 99 }) {
+function NumSpinner({ value, onChange, min = 0, max = 99, label = "운영 설정 숫자 입력" }) {
   return (
     <span className="admin-sop-spinner">
       <input
         type="number"
         className="admin-sop-spin-input"
+        aria-label={label}
         value={value}
         min={min}
         max={max}
@@ -128,25 +119,11 @@ export function AdminSettingsOperationPage() {
     : null;
 
   return (
-    <div className="admin-sop-app">
-      <header className="admin-schedule-topbar">
-        <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-          <span>ICL</span>
-        </button>
-        <nav className="admin-schedule-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.label} className={item.active ? "active" : ""} to={item.path}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="admin-schedule-search">
-          <input type="search" placeholder="검색" readOnly />
-        </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
-          {currentUserName}
-        </button>
-      </header>
+    <AdminLayout
+      appClass="admin-sop-app"
+      userName={currentUserName}
+      searchSlot={<AdminSettingsSearchBox placeholder="설정 검색" />}
+    >
 
       <div className="admin-sop-wrap">
         <div className="admin-sop-crumb">
@@ -169,7 +146,7 @@ export function AdminSettingsOperationPage() {
           <div className="admin-sop-sec-body">
             <p className="admin-sop-sub-title">회원 예약 가능 시간을 설정해주세요.</p>
             <div className="admin-sop-time-row">
-              <select className="admin-sop-deadline-select" value={s.privateBookDeadlineType} onChange={(e) => set("privateBookDeadlineType", e.target.value)}>
+              <select className="admin-sop-deadline-select" aria-label="프라이빗 수업 예약 마감 기준" value={s.privateBookDeadlineType} onChange={(e) => set("privateBookDeadlineType", e.target.value)}>
                 <option value="class_start">수업시간 기준 · 마감시간</option>
                 <option value="fixed_time">절대시간 기준 · 마감시간</option>
               </select>
@@ -180,7 +157,7 @@ export function AdminSettingsOperationPage() {
               <span>분 전까지 <strong>예약 가능</strong>합니다.</span>
             </div>
             <div className="admin-sop-time-row">
-              <select className="admin-sop-deadline-select" value={s.groupBookDeadlineType} onChange={(e) => set("groupBookDeadlineType", e.target.value)}>
+              <select className="admin-sop-deadline-select" aria-label="그룹 수업 예약 마감 기준" value={s.groupBookDeadlineType} onChange={(e) => set("groupBookDeadlineType", e.target.value)}>
                 <option value="class_start">수업시간 기준 · 마감시간</option>
                 <option value="fixed_time">절대시간 기준 · 마감시간</option>
               </select>
@@ -192,7 +169,7 @@ export function AdminSettingsOperationPage() {
             </div>
             <p className="admin-sop-sub-title" style={{ marginTop: 20 }}>회원 예약 취소 가능 시간을 설정해주세요.</p>
             <div className="admin-sop-time-row">
-              <select className="admin-sop-deadline-select" value={s.privateCancelDeadlineType} onChange={(e) => set("privateCancelDeadlineType", e.target.value)}>
+              <select className="admin-sop-deadline-select" aria-label="프라이빗 수업 취소 마감 기준" value={s.privateCancelDeadlineType} onChange={(e) => set("privateCancelDeadlineType", e.target.value)}>
                 <option value="class_start">수업시간 기준 · 마감시간</option>
                 <option value="fixed_time">절대시간 기준 · 마감시간</option>
               </select>
@@ -203,7 +180,7 @@ export function AdminSettingsOperationPage() {
               <span>분 전까지 <strong>예약 취소</strong> 가능합니다.</span>
             </div>
             <div className="admin-sop-time-row">
-              <select className="admin-sop-deadline-select" value={s.groupCancelDeadlineType} onChange={(e) => set("groupCancelDeadlineType", e.target.value)}>
+              <select className="admin-sop-deadline-select" aria-label="그룹 수업 취소 마감 기준" value={s.groupCancelDeadlineType} onChange={(e) => set("groupCancelDeadlineType", e.target.value)}>
                 <option value="class_start">수업시간 기준 · 마감시간</option>
                 <option value="fixed_time">절대시간 기준 · 마감시간</option>
               </select>
@@ -347,6 +324,7 @@ export function AdminSettingsOperationPage() {
               <input
                 type="date"
                 className="admin-sop-date-input"
+                aria-label="예약 가능 기한 날짜"
                 value={s.bookDeadlineDate}
                 onChange={(e) => set("bookDeadlineDate", e.target.value)}
               />
@@ -518,6 +496,6 @@ export function AdminSettingsOperationPage() {
           </button>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

@@ -1,28 +1,25 @@
+/**
+ * 관리자 메시지 화면입니다.
+ * 회원·강사를 수신자로 선택해 문자/SMS 또는 알림톡을 보내고,
+ * 발송 이력과 자동 발송 이력을 확인하는 스튜디오 운영용 페이지입니다.
+ */
 import React, { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import {
   sendAdminSms,
+  scheduleAdminMessage,
   getSmsConfig,
   getSmsHistory,
   getAutoSmsHistory,
   listAdminStudioStaff,
   searchMembersForPicker,
+  listAdminMessageTemplates,
+  createAdminMessageTemplate,
+  deleteAdminMessageTemplate,
 } from "../../studio/api/studioApi.js";
-
-const NAV_ITEMS = [
-  { label: "← 교육관리", path: "/admin" },
-  { label: "일정", path: "/admin/studio" },
-  { label: "수업", path: "/admin/classes" },
-  { label: "회원", path: "/admin/member-list" },
-  { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/passes" },
-  { label: "메시지", path: "/admin/messages", active: true },
-  { label: "게시판", path: "/admin/board" },
-  { label: "설정", path: "/admin/settings" },
-  { label: "매출", path: "/admin/sales" },
-];
 
 const AUTO_TYPE_LABELS = {
   pass_expiry: "수강권 만료",
@@ -153,6 +150,7 @@ function SendTab({ config }) {
   const [recipients, setRecipients] = useState([]);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
+  const [templateCode, setTemplateCode] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
   const [pickerMode, setPickerMode] = useState(null);
@@ -161,11 +159,17 @@ function SendTab({ config }) {
   const [modal, setModal] = useState(null);
   const [scheduleAt, setScheduleAt] = useState("");
   const [templateName, setTemplateName] = useState("");
+  const [messageTemplates, setMessageTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
 
   const bytes = calcBytes(message);
   const msgType = bytes > 90 ? "LMS" : "SMS";
   const maxBytes = 2000;
-  const validRecipients = recipients.filter((r) => String(r.phone || "").replace(/\D/g, "").length >= 10);
+  const validRecipients = recipients.filter((r) => (
+    channel === "push"
+      ? Boolean(String(r.id || "").trim())
+      : String(r.phone || "").replace(/\D/g, "").length >= 10
+  ));
   const existingIds = new Set(recipients.map((r) => r.id));
 
   function addRecipients(newItems) {
@@ -189,9 +193,28 @@ function SendTab({ config }) {
     setSenderDraft(config?.sender || "");
   }, [config?.sender]);
 
+  async function loadMessageTemplates() {
+    setTemplatesLoading(true);
+    try {
+      setMessageTemplates(await listAdminMessageTemplates());
+    } catch {
+      setMessageTemplates([]);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadMessageTemplates();
+  }, []);
+
   function validateMessageDraft() {
     if (!message.trim()) return "메시지를 입력해 주세요.";
-    if (validRecipients.length === 0) return "휴대폰 번호가 있는 수신자를 1명 이상 선택해 주세요.";
+    if (validRecipients.length === 0) {
+      return channel === "push"
+        ? "앱 계정이 연결된 수신자를 1명 이상 선택해 주세요."
+        : "휴대폰 번호가 있는 수신자를 1명 이상 선택해 주세요.";
+    }
     if (bytes > maxBytes) return "메시지가 2000바이트를 초과했습니다.";
     return "";
   }
@@ -222,7 +245,7 @@ function SendTab({ config }) {
     setModal("schedule");
   }
 
-  function saveSchedule() {
+  async function saveSchedule() {
     if (!scheduleAt) {
       setResult({ ok: false, message: "예약 발송 일시를 선택해 주세요." });
       return;
@@ -232,40 +255,64 @@ function SendTab({ config }) {
       setResult({ ok: false, message: "현재 이후의 일시로 예약해 주세요." });
       return;
     }
-    const schedules = JSON.parse(localStorage.getItem("icl_studio_scheduled_messages") || "[]");
-    schedules.unshift({
-      id: `schedule-${Date.now()}`,
-      channel,
-      title: title.trim(),
-      message: message.trim(),
-      sender: senderNo || config?.sender || "",
-      scheduleAt,
-      receivers: validRecipients.map((r) => ({ id: r.id, name: r.name, phone: r.phone })),
-      createdAt: new Date().toISOString(),
-    });
-    localStorage.setItem("icl_studio_scheduled_messages", JSON.stringify(schedules.slice(0, 100)));
-    setModal(null);
-    setResult({ ok: true, successCnt: validRecipients.length, errorCnt: 0, message: "예약 발송이 저장되었습니다." });
+    setSending(true);
+    try {
+      const response = await scheduleAdminMessage({
+        channel,
+        title: title.trim(),
+        message: message.trim(),
+        scheduledAt: selected.toISOString(),
+        templateCode: templateCode.trim(),
+        receivers: validRecipients.map((r) => ({ userId: r.id, name: r.name, phone: r.phone })),
+      });
+      setModal(null);
+      setResult({ ok: true, successCnt: response.queuedCount || validRecipients.length, errorCnt: 0, message: "예약 발송이 서버에 저장되었습니다." });
+    } catch (error) {
+      setResult({ ok: false, message: error.message || "예약 발송 저장에 실패했습니다." });
+    } finally {
+      setSending(false);
+    }
   }
 
-  function saveTemplate() {
+  async function saveTemplate() {
     if (!message.trim()) {
       setResult({ ok: false, message: "보관할 메시지를 입력해 주세요." });
       return;
     }
-    const templates = JSON.parse(localStorage.getItem("icl_studio_message_templates") || "[]");
-    templates.unshift({
-      id: `template-${Date.now()}`,
-      name: templateName.trim() || title.trim() || `보관 메시지 ${templates.length + 1}`,
-      title: title.trim(),
-      message: message.trim(),
-      channel,
-      createdAt: new Date().toISOString(),
-    });
-    localStorage.setItem("icl_studio_message_templates", JSON.stringify(templates.slice(0, 100)));
-    setTemplateName("");
+    try {
+      const saved = await createAdminMessageTemplate({
+        name: templateName.trim() || title.trim() || `보관 메시지 ${messageTemplates.length + 1}`,
+        title: title.trim(),
+        message: message.trim(),
+        channel,
+        templateCode: templateCode.trim(),
+      });
+      setMessageTemplates((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
+      setTemplateName("");
+      setModal(null);
+      setResult({ ok: true, successCnt: 0, errorCnt: 0, message: "문자보관함에 저장되었습니다." });
+    } catch (error) {
+      setResult({ ok: false, message: error.message || "문자보관함 저장에 실패했습니다." });
+    }
+  }
+
+  function applyTemplate(tpl) {
+    setChannel(tpl.channel || "sms");
+    setTitle(tpl.title || "");
+    setMessage(tpl.message || "");
+    setTemplateCode(tpl.templateCode || "");
     setModal(null);
-    setResult({ ok: true, successCnt: 0, errorCnt: 0, message: "문자보관함에 저장되었습니다." });
+    setResult({ ok: true, message: "보관함 문구를 불러왔습니다." });
+  }
+
+  async function removeTemplate(tpl) {
+    try {
+      await deleteAdminMessageTemplate(tpl.id);
+      setMessageTemplates((current) => current.filter((item) => item.id !== tpl.id));
+      setResult({ ok: true, message: "보관함 문구를 삭제했습니다." });
+    } catch (error) {
+      setResult({ ok: false, message: error.message || "보관함 문구 삭제에 실패했습니다." });
+    }
   }
 
   function openPreviewModal() {
@@ -283,11 +330,20 @@ function SendTab({ config }) {
     setSending(true);
     setResult(null);
     try {
-      const res = await sendAdminSms({ channel, receivers: validRecipients.map((r) => ({ phone: r.phone, name: r.name, userId: r.id })), message: message.trim(), title: title.trim() });
-      setResult({ ok: true, ...res });
-      setRecipients([]);
-      setMessage("");
-      setTitle("");
+      const res = await sendAdminSms({ channel, receivers: validRecipients.map((r) => ({ phone: r.phone, name: r.name, userId: r.id })), message: message.trim(), title: title.trim(), templateCode: templateCode.trim() });
+      setResult({
+        ok: Boolean(res?.ok),
+        ...res,
+        message: res?.ok
+          ? "발송 요청을 처리했습니다."
+          : "일부 또는 전체 발송에 실패했습니다. 서버가 자동으로 재시도합니다.",
+      });
+      if (res?.ok) {
+        setRecipients([]);
+        setMessage("");
+        setTitle("");
+        setTemplateCode("");
+      }
     } catch (err) {
       setResult({ ok: false, message: err.message || "발송 실패" });
     } finally {
@@ -295,7 +351,11 @@ function SendTab({ config }) {
     }
   }
 
-  const notConfigured = config && (channel === "sms" ? !config.aligoConfigured : !config.kakaoConfigured);
+  const notConfigured = config && (
+    channel === "sms" ? !config.aligoConfigured
+      : channel === "kakao" ? !config.kakaoConfigured
+        : !config.fcmConfigured
+  );
 
   return (
     <div className="stm-send-wrap">
@@ -303,13 +363,16 @@ function SendTab({ config }) {
       <div className="stm-channel-tabs">
         <button type="button" className={`stm-ch-tab${channel === "sms" ? " active" : ""}`} onClick={() => setChannel("sms")}>문자 메시지</button>
         <button type="button" className={`stm-ch-tab${channel === "kakao" ? " active" : ""}`} onClick={() => setChannel("kakao")}>카카오 알림톡</button>
+        <button type="button" className={`stm-ch-tab${channel === "push" ? " active" : ""}`} onClick={() => setChannel("push")}>앱 푸시</button>
       </div>
 
       {notConfigured && (
         <div className="stm-config-warn">
           {channel === "sms"
             ? "알리고 SMS 미설정 — backend/.env에 ALIGO_API_KEY, ALIGO_USER_ID, ALIGO_SENDER를 입력하세요."
-            : "카카오 알림톡 미설정 — backend/.env에 KAKAO_SENDER_KEY를 입력하세요."}
+            : channel === "kakao"
+              ? "카카오 알림톡 미설정 — backend/.env에 KAKAO_SENDER_KEY와 알리고 계정 정보를 입력하세요."
+              : "앱 푸시 미설정 — backend/.env에 FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY를 입력하세요."}
         </div>
       )}
 
@@ -320,21 +383,29 @@ function SendTab({ config }) {
           <span className="stm-notice-excl">!</span>
         </div>
         <div className="stm-notice-body">
-          <p><strong>1. 문자 발송 시 통신사 사정에 의해 최대 72시간까지 발송결과에 대한 응답 대기 시간이 소요될 수 있습니다.</strong></p>
-          <p><strong>2. 응답 대기 중인 메시지는 '처리중..'으로 표시되며 통신사 응답이 완료되면 '전송 성공'으로 변경되고 '전송 실패'에 한해 차감된 포인트는 환불됩니다.</strong></p>
-          <p>3. 제목은 40byte까지만 입력되어야 하며 한글, 영어, 숫자, 띄어쓰기 및 (), [], &lt; &gt;만 입력할 것을 권장합니다. 이 외 특수 기호 사용 시 전송이 실패될 수 있습니다.</p>
-          <p>4. 다음과 같은 경우, 기타 에러로 표시되어 전송에 실패할 수 있습니다.</p>
-          <p className="stm-notice-bullet">■ 음영 지역, 잘못된 번호, 통신사 수신 거부, 일반 수신 거부, 네트워크 에러</p>
-          <p className="stm-notice-bullet">■ 수신 번호를 찾을 수 없음, 단말기 일시정지, LMS 미지원 단말기 등 기타 사유</p>
+          {channel === "push" ? (
+            <>
+              <p><strong>앱 푸시는 회원이 앱 알림 권한을 허용하고 기기 토큰을 등록한 경우에만 도착합니다.</strong></p>
+              <p>로그아웃하거나 유효하지 않은 기기는 자동으로 제외되며, 일시적인 발송 오류는 서버에서 재시도합니다.</p>
+            </>
+          ) : (
+            <>
+              <p><strong>1. 문자 발송 시 통신사 사정에 의해 최대 72시간까지 발송결과에 대한 응답 대기 시간이 소요될 수 있습니다.</strong></p>
+              <p><strong>2. 응답 대기 중인 메시지는 '처리중..'으로 표시되며 통신사 응답이 완료되면 '전송 성공'으로 변경됩니다.</strong></p>
+              <p>3. 제목은 40byte 이내를 권장하며, 잘못된 번호나 수신 거부 상태에서는 발송이 실패할 수 있습니다.</p>
+            </>
+          )}
         </div>
       </div>
 
       {/* 요금 안내 */}
       <div className="stm-cost-bar">
         <span className="stm-cost-icon">✉</span>
-        <span>SMS 건당 12 포인트 / 90 바이트</span>
-        <span className="stm-cost-sep"> &nbsp; </span>
-        <span>LMS 건당 37 포인트 / 2000 바이트</span>
+        {channel === "push" ? (
+          <span>FCM 앱 푸시 발송</span>
+        ) : (
+          <><span>SMS 건당 12 포인트 / 90 바이트</span><span className="stm-cost-sep"> &nbsp; </span><span>LMS 건당 37 포인트 / 2000 바이트</span></>
+        )}
         {config?.testMode && <span className="stm-test-badge">🧪 테스트 모드 — 실제 발송 안 됨</span>}
         {config?.sender && <span className="stm-sender-label">발신번호: {config.sender}</span>}
       </div>
@@ -342,15 +413,26 @@ function SendTab({ config }) {
       {/* 폼 카드 */}
       <form className="stm-form-card" onSubmit={handleSend}>
         {/* 발송번호 행 */}
-        <div className="stm-row stm-sender-row">
+        {channel !== "push" && <div className="stm-row stm-sender-row">
           <span className="stm-row-label">발송번호</span>
           <input className="stm-sender-input" value={senderNo || "미설정"} readOnly />
           <button type="button" className="stm-outline-btn" onClick={() => { setSenderDraft(senderNo || config?.sender || ""); setModal("sender"); }}>발송번호 설정</button>
           <div className="stm-row-spacer" />
           <button type="button" className="stm-ad-warn-btn" onClick={() => setModal("adGuide")}>⚠ 광고 문자 표기 의무사항 확인</button>
-        </div>
+        </div>}
 
         {/* 제목 + 받는 사람 행 */}
+        {channel === "kakao" && (
+          <div className="stm-row">
+            <span className="stm-row-label">템플릿 코드</span>
+            <input
+              className="stm-title-input"
+              value={templateCode}
+              onChange={(e) => setTemplateCode(e.target.value)}
+              placeholder="비워두면 KAKAO_DEFAULT_TEMPLATE을 사용합니다."
+            />
+          </div>
+        )}
         <div className="stm-row stm-meta-row">
           <div className="stm-title-col">
             <span className="stm-row-label">제목</span>
@@ -387,8 +469,8 @@ function SendTab({ config }) {
             ) : (
               <div className="stm-rcpt-chips">
                 {recipients.map((r) => (
-                  <span key={r.id} className={`stm-rcpt-chip${!r.phone ? " no-phone" : ""}`}>
-                    {r.name}{!r.phone && " ⚠"}
+                  <span key={r.id} className={`stm-rcpt-chip${channel !== "push" && !r.phone ? " no-phone" : ""}`}>
+                    {r.name}{channel !== "push" && !r.phone && " ⚠"}
                     <button type="button" onClick={() => removeRecipient(r.id)}>×</button>
                   </span>
                 ))}
@@ -503,11 +585,11 @@ function SendTab({ config }) {
                   autoFocus
                 />
               </label>
-              <p className="stm-dialog-help">수신자 {validRecipients.length}명에게 예약 발송으로 저장됩니다. 실제 발송 스케줄러는 외부 문자 API 연동 단계에서 서버 작업으로 연결합니다.</p>
+              <p className="stm-dialog-help">수신자 {validRecipients.length}명에게 예약 발송됩니다. 서버 스케줄러가 예약 시간 이후 자동으로 처리합니다.</p>
             </div>
             <div className="stm-picker-footer">
               <button type="button" className="stm-btn-outline" onClick={() => setModal(null)}>취소</button>
-              <button type="button" className="stm-btn-primary" onClick={saveSchedule}>예약 저장</button>
+              <button type="button" className="stm-btn-primary" onClick={saveSchedule} disabled={sending}>{sending ? "저장 중..." : "예약 저장"}</button>
             </div>
           </div>
         </div>
@@ -535,6 +617,30 @@ function SendTab({ config }) {
                 <strong>{title || "제목 없음"}</strong>
                 <p>{message || "저장할 메시지를 입력해 주세요."}</p>
               </div>
+              <div className="stm-preview-card">
+                <strong>저장된 문구</strong>
+                {templatesLoading ? (
+                  <p>문자보관함을 불러오는 중입니다.</p>
+                ) : messageTemplates.length === 0 ? (
+                  <p>저장된 문구가 없습니다.</p>
+                ) : (
+                  <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                    {messageTemplates.slice(0, 8).map((tpl) => (
+                      <article key={tpl.id} style={{ display: "grid", gap: 6, padding: 10, border: "1px solid #e5e7eb", borderRadius: 6 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                          <strong>{tpl.name || tpl.title || "보관 메시지"}</strong>
+                          <span>{tpl.channel === "kakao" ? "알림톡" : tpl.channel === "push" ? "앱 푸시" : "문자"}</span>
+                        </div>
+                        <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{tpl.message}</p>
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                          <button type="button" className="stm-btn-outline" onClick={() => applyTemplate(tpl)}>불러오기</button>
+                          <button type="button" className="stm-btn-outline" onClick={() => removeTemplate(tpl)}>삭제</button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="stm-picker-footer">
               <button type="button" className="stm-btn-outline" onClick={() => setModal(null)}>취소</button>
@@ -553,8 +659,9 @@ function SendTab({ config }) {
             </div>
             <div className="stm-dialog-body">
               <div className="stm-preview-meta">
-                <span>채널: {channel === "sms" ? "문자 메시지" : "카카오 알림톡"}</span>
-                <span>발송번호: {senderNo || config?.sender || "미설정"}</span>
+                <span>채널: {channel === "sms" ? "문자 메시지" : channel === "kakao" ? "카카오 알림톡" : "앱 푸시"}</span>
+                {channel === "kakao" && <span>템플릿: {templateCode || "기본 템플릿"}</span>}
+                {channel !== "push" && <span>발송번호: {senderNo || config?.sender || "미설정"}</span>}
                 <span>수신자: {recipientLabel(validRecipients.map((r) => r.name))}</span>
                 <span>용량: {bytes}/{maxBytes}바이트 · {msgType}</span>
               </div>
@@ -758,20 +865,7 @@ export function AdminMessagesPage() {
   }, []);
 
   return (
-    <div className="admin-schedule-page">
-      <header className="admin-schedule-topbar">
-        <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-          <span>ICL</span>
-        </button>
-        <nav className="admin-schedule-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.label} className={item.active ? "active" : ""} to={item.path}>{item.label}</Link>
-          ))}
-        </nav>
-        <div className="admin-schedule-user">
-          <span>{getUserDisplayName(currentUser)}님</span>
-        </div>
-      </header>
+    <AdminLayout appClass="admin-schedule-page" userName={getUserDisplayName(currentUser)}>
 
       <main className="stm-page-main">
         <div className="stm-page-title-row">
@@ -791,6 +885,6 @@ export function AdminMessagesPage() {
           {tab === "auto" && <AutoHistoryTab />}
         </div>
       </main>
-    </div>
+    </AdminLayout>
   );
 }

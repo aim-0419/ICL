@@ -1,3 +1,4 @@
+// 파일 역할: 관리자 화면 어디서든 특정 회원에게 문자/SMS를 발송할 수 있게 여는 공통 모달입니다.
 import React, { useEffect, useState } from "react";
 import { sendAdminSms, getSmsConfig } from "../../studio/api/studioApi.js";
 

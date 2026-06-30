@@ -1,7 +1,9 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
+// 파일 역할: 관리자가 스튜디오 수강권 상품과 판매/대여 상품을 등록, 수정, 판매중지하는 화면입니다.
 import {
   listAdminPassProducts,
   createAdminPassProduct,
@@ -14,18 +16,7 @@ import {
   listIssuedPassesByProduct,
   extendAdminIssuedPasses,
 } from "../../studio/api/studioApi.js";
-
-const NAV_ITEMS = [
-  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
-  { label: "수업", path: "/admin/classes" },
-  { label: "회원", path: "/admin/member-list" },
-  { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/passes", active: true },
-  { label: "메시지", path: "/admin/messages" },
-  { label: "게시판", path: "/admin/board" },
-  { label: "설정", path: "/admin/settings" },
-  { label: "매출", path: "/admin/sales" },
-];
+import { DEFAULT_STUDIO_BRANCH_ID, STUDIO_BRANCHES, getStudioBranchName } from "../../studio/constants/studioBranches.js";
 
 const PASS_TYPE_LABELS = { count: "횟수제", period: "기간제" };
 const CLASS_TYPE_LABELS = { private: "프라이빗", group: "그룹형" };
@@ -66,6 +57,7 @@ const EMPTY_GOODS_FORM = {
 
 const EMPTY_FORM = {
   id: "",
+  branchId: DEFAULT_STUDIO_BRANCH_ID,
   name: "",
   passType: "count",
   classType: "group",
@@ -122,6 +114,7 @@ export function AdminStudioPassPage() {
   const [saving, setSaving] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState("active");
+  const [selectedBranchId, setSelectedBranchId] = useState(DEFAULT_STUDIO_BRANCH_ID);
   const [passTypeFilter, setPassTypeFilter] = useState("");
   const [classTypeFilter, setClassTypeFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -154,7 +147,7 @@ export function AdminStudioPassPage() {
   async function loadProducts() {
     setLoading(true);
     try {
-      const rows = await listAdminPassProducts();
+      const rows = await listAdminPassProducts({ branchId: selectedBranchId });
       setProducts(Array.isArray(rows) ? rows : []);
     } catch (error) {
       setMessage({ type: "error", text: error.message || "수강권 목록을 불러오지 못했습니다." });
@@ -170,7 +163,7 @@ export function AdminStudioPassPage() {
     } catch {}
   }
 
-  useEffect(() => { loadProducts(); loadGoods(); }, []);
+  useEffect(() => { loadProducts(); loadGoods(); }, [selectedBranchId]);
 
   const filtered = useMemo(() => {
     return products.filter((item) => {
@@ -225,7 +218,7 @@ export function AdminStudioPassPage() {
   }
 
   function openCreate() {
-    setForm({ ...EMPTY_FORM, color: PASS_COLORS[products.length % PASS_COLORS.length] });
+    setForm({ ...EMPTY_FORM, branchId: selectedBranchId, color: PASS_COLORS[products.length % PASS_COLORS.length] });
     setEditing(true);
   }
 
@@ -233,6 +226,7 @@ export function AdminStudioPassPage() {
     const presetVals = VALID_DAYS_PRESETS.filter(p => p.value > 0).map(p => p.value);
     setForm({
       id: item.id,
+      branchId: item.branchId || selectedBranchId,
       name: item.name,
       passType: item.passType,
       classType: item.classType,
@@ -386,30 +380,12 @@ export function AdminStudioPassPage() {
   const setGF = (update) => setGoodsForm((prev) => ({ ...prev, ...update }));
 
   return (
-    <div className="admin-pass-app">
-      <header className="admin-schedule-topbar">
-        <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-          <span>ICL</span>
-        </button>
-        <nav className="admin-schedule-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.label} className={item.active ? "active" : ""} to={item.path}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="admin-schedule-search">
-          <input
-            type="search"
-            placeholder="수강권명 검색"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
-          {currentUserName}
-        </button>
-      </header>
+    <AdminLayout
+      appClass="admin-pass-app"
+      userName={currentUserName}
+      searchValue={searchQuery}
+      onSearchChange={(e) => setSearchQuery(e.target.value)}
+    >
 
       {editingGoods ? (
         <form className="admin-pass-fp" onSubmit={handleGoodsSave}>
@@ -555,6 +531,17 @@ export function AdminStudioPassPage() {
                 <h1 className="admin-pass-fp-h1">{F.id ? "수강권 수정" : "수강권 등록"}</h1>
                 <select
                   className="admin-pass-fp-class-select"
+                  aria-label="수강권 지점"
+                  value={F.branchId || selectedBranchId}
+                  onChange={(e) => setF({ branchId: e.target.value })}
+                >
+                  {STUDIO_BRANCHES.map((branch) => (
+                    <option key={branch.id} value={branch.id}>{branch.name}</option>
+                  ))}
+                </select>
+                <select
+                  className="admin-pass-fp-class-select"
+                  aria-label="수강권 수업 형태"
                   value={F.classType}
                   onChange={(e) => setF({ classType: e.target.value })}
                 >
@@ -840,6 +827,7 @@ export function AdminStudioPassPage() {
                 </p>
                 <select
                   className="admin-pass-fp-select-field"
+                  aria-label="수강권 수업 구분"
                   value={F.classCategory}
                   onChange={(e) => setF({ classCategory: e.target.value })}
                 >
@@ -933,6 +921,8 @@ export function AdminStudioPassPage() {
               <div className="admin-pass-detail-card-wrap">
                 <div className="admin-pass-detail-card" style={{ backgroundColor: viewingPass.color }}>
                   <div className="admin-pass-card-tags">
+                    <span>{viewingPass.branchName || getStudioBranchName(viewingPass.branchId)}</span>
+                    <span>·</span>
                     <span>{PASS_TYPE_LABELS[viewingPass.passType]}</span>
                     <span>·</span>
                     <span>{CLASS_TYPE_LABELS[viewingPass.classType]}</span>
@@ -1021,6 +1011,22 @@ export function AdminStudioPassPage() {
             ) : null}
 
             {/* 탭 */}
+            <div className="admin-schedule-category-tabs" role="tablist" aria-label="지점 선택" style={{ marginBottom: 14 }}>
+              {STUDIO_BRANCHES.map((branch) => (
+                <button
+                  key={branch.id}
+                  type="button"
+                  className={selectedBranchId === branch.id ? "active" : ""}
+                  onClick={() => {
+                    setSelectedBranchId(branch.id);
+                    setPage(1);
+                    setSelectedIds(new Set());
+                  }}
+                >
+                  {branch.name}
+                </button>
+              ))}
+            </div>
             <div className="admin-pass-main-tabs">
               <button
                 type="button"
@@ -1037,17 +1043,17 @@ export function AdminStudioPassPage() {
             {/* 필터 바 */}
             {mainTab === "pass" ? <div className="admin-pass-filterbar">
               <div className="admin-pass-filterbar-left">
-                <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
+                <select aria-label="수강권 판매 상태 필터" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
                   <option value="active">판매중인 수강권</option>
                   <option value="inactive">판매 정지된 수강권</option>
                   <option value="">전체 수강권</option>
                 </select>
-                <select value={passTypeFilter} onChange={(e) => { setPassTypeFilter(e.target.value); setPage(1); }}>
+                <select aria-label="수강권 타입 필터" value={passTypeFilter} onChange={(e) => { setPassTypeFilter(e.target.value); setPage(1); }}>
                   <option value="">모든 타입</option>
                   <option value="count">횟수제</option>
                   <option value="period">기간제</option>
                 </select>
-                <select value={classTypeFilter} onChange={(e) => { setClassTypeFilter(e.target.value); setPage(1); }}>
+                <select aria-label="수강권 수업 형태 필터" value={classTypeFilter} onChange={(e) => { setClassTypeFilter(e.target.value); setPage(1); }}>
                   <option value="">모든 형태</option>
                   <option value="private">프라이빗</option>
                   <option value="group">그룹형</option>
@@ -1083,6 +1089,8 @@ export function AdminStudioPassPage() {
                   >
                     <div className="admin-pass-card-top" style={{ backgroundColor: item.color }}>
                       <div className="admin-pass-card-tags">
+                        <span>{item.branchName || getStudioBranchName(item.branchId)}</span>
+                        <span>·</span>
                         <span>{PASS_TYPE_LABELS[item.passType]}</span>
                         <span>·</span>
                         <span>{CLASS_TYPE_LABELS[item.classType]}</span>
@@ -1255,6 +1263,6 @@ export function AdminStudioPassPage() {
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 }

@@ -8,9 +8,18 @@ import {
   encryptPii,
   nameHash,
   normalizeName,
+  normalizeEmail,
   normalizePhone,
   phoneHash,
 } from "../../shared/security/pii.js";
+import { parsePayload } from "../../shared/utils/payload.js";
+import { addDays, getMondayStart, parseDateFromYmd } from "../../shared/utils/date.js";
+import {
+  normalizeBirthYear,
+  normalizeAgeGroup,
+  resolveAgeGroupByBirthYear,
+  toSafeAmount as toAmount,
+} from "../../shared/utils/normalize.js";
 
 const USER_GRADES = ["admin0", "admin1", "member", "vip", "vvip"];
 const USER_GRADE_SET = new Set(USER_GRADES);
@@ -30,23 +39,6 @@ function normalizeUserGrade(value) {
     .toLowerCase();
 }
 
-// 함수 역할: 요청 데이터 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
-function parsePayload(payload) {
-  if (!payload) return {};
-  if (typeof payload === "object") return payload;
-  try {
-    return JSON.parse(payload);
-  } catch {
-    return {};
-  }
-}
-
-// 함수 역할: 금액 값으로 안전하게 변환합니다.
-function toAmount(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 // 함수 역할: 안전한 날짜 값으로 안전하게 변환합니다.
 function toSafeDate(value) {
   const date = value instanceof Date ? value : new Date(value);
@@ -61,16 +53,6 @@ function pad2(value) {
 // 함수 역할: day 키 값으로 안전하게 변환합니다.
 function toDayKey(date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
-
-// 함수 역할: monday start 데이터를 조회해 호출자에게 반환합니다.
-function getMondayStart(date) {
-  const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = copy.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  copy.setDate(copy.getDate() + diff);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
 }
 
 // 함수 역할: week 키 값으로 안전하게 변환합니다.
@@ -104,13 +86,6 @@ function getBucketKeyByPeriod(date, period) {
   return toYearKey(date);
 }
 
-// 함수 역할: addDays 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
-function addDays(date, days) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
 // 함수 역할: addMonths 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function addMonths(date, months) {
   return new Date(date.getFullYear(), date.getMonth() + months, 1);
@@ -127,30 +102,6 @@ function resolveSalesPeriod(value) {
     .trim()
     .toLowerCase();
   return SALES_PERIODS.includes(normalized) ? normalized : "month";
-}
-
-// 함수 역할: 날짜 from ymd 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
-function parseDateFromYmd(value) {
-  const normalized = String(value || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
-
-  const [yearText, monthText, dayText] = normalized.split("-");
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const parsed = new Date(year, month - 1, day);
-
-  if (
-    Number.isNaN(parsed.getTime()) ||
-    parsed.getFullYear() !== year ||
-    parsed.getMonth() !== month - 1 ||
-    parsed.getDate() !== day
-  ) {
-    return null;
-  }
-
-  parsed.setHours(0, 0, 0, 0);
-  return parsed;
 }
 
 // 함수 역할: floorDateToPeriod 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
@@ -193,7 +144,7 @@ function makeSalesBucketLabel(start, period) {
 }
 
 // 함수 역할: 매출 집계 구간 구조나 문구를 조립해 반환합니다.
-function buildSalesBuckets(period, startDateValue = "", endDateValue = "") {
+export function buildSalesBuckets(period, startDateValue = "", endDateValue = "") {
   const now = new Date();
   const startDate = parseDateFromYmd(startDateValue);
   const endDate = parseDateFromYmd(endDateValue);
@@ -320,6 +271,21 @@ function buildSalesBuckets(period, startDateValue = "", endDateValue = "") {
   };
 }
 
+export function summarizeSalesSeries(series = []) {
+  const rows = Array.isArray(series) ? series : [];
+  const periodGrossRevenue = rows.reduce((sum, item) => sum + toAmount(item?.grossRevenue), 0);
+  const periodNetRevenue = rows.reduce((sum, item) => sum + toAmount(item?.netRevenue), 0);
+  const periodRefundRevenue = rows.reduce((sum, item) => sum + toAmount(item?.refundRevenue), 0);
+  const periodOrderCount = rows.reduce((sum, item) => sum + toAmount(item?.orderCount), 0);
+  return {
+    periodGrossRevenue: Math.round(periodGrossRevenue),
+    periodNetRevenue: Math.round(periodNetRevenue),
+    periodRefundRevenue: Math.round(periodRefundRevenue),
+    periodOrderCount: Math.round(periodOrderCount),
+    averageOrderAmount: periodOrderCount > 0 ? Math.round(periodGrossRevenue / periodOrderCount) : 0,
+  };
+}
+
 // 함수 역할: 환불 금액 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveRefundAmount(payload) {
   const source = payload && typeof payload === "object" ? payload : {};
@@ -340,60 +306,6 @@ function resolveRefundAmount(payload) {
     })
   );
 }
-// 함수 역할: 이메일 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizeEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
-
-// 함수 역할: 출생 연도 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizeBirthYear(value) {
-  const text = String(value ?? "").trim();
-  if (!text) return null;
-
-  const year = Number.parseInt(text, 10);
-  const currentYear = new Date().getFullYear();
-  if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
-    return null;
-  }
-
-  return year;
-}
-
-// 함수 역할: 연령 그룹 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizeAgeGroup(value) {
-  const text = String(value || "")
-    .trim()
-    .replace(/\s+/g, "");
-  if (!text) return "";
-
-  if (text.includes("10")) return "10대 이하";
-  if (text.includes("20")) return "20대";
-  if (text.includes("30")) return "30대";
-  if (text.includes("40")) return "40대";
-  if (text.includes("50")) return "50대";
-  if (text.includes("60") || text.includes("70") || text.includes("80") || text.includes("90")) {
-    return "60대 이상";
-  }
-
-  return "";
-}
-
-// 함수 역할: 연령 그룹 by 출생 연도 상황에 맞는 값을 계산하거나 선택합니다.
-function resolveAgeGroupByBirthYear(birthYear) {
-  const year = normalizeBirthYear(birthYear);
-  if (!year) return "";
-
-  const age = Math.max(0, new Date().getFullYear() - year);
-  if (age <= 19) return "10대 이하";
-  if (age <= 29) return "20대";
-  if (age <= 39) return "30대";
-  if (age <= 49) return "40대";
-  if (age <= 59) return "50대";
-  return "60대 이상";
-}
-
 // 함수 역할: 주문 연령 그룹 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveOrderAgeGroup(orderRow, payload, userBirthYearByEmail = new Map()) {
   const source = payload && typeof payload === "object" ? payload : {};
@@ -587,6 +499,7 @@ export async function listDashboardUsers() {
         DATE_FORMAT(withdrawn_at, '%Y-%m-%d %H:%i:%s') AS withdrawnAt,
         DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS createdAt
        FROM users
+       WHERE platform = 'education'
        ORDER BY created_at DESC`
     ),
     query(
@@ -1034,7 +947,7 @@ export async function getSalesDashboard(options = {}) {
   const range = buildSalesBuckets(period, startDateInput, endDateInput);
   const { buckets, periodStart, periodEnd, isCustomRange, startDate, endDate } = range;
 
-  const [orderRows, productRows, videoRows, userRows] = await Promise.all([
+  const [orderRows, productRows, videoRows, userRows, refundSummary] = await Promise.all([
     query(
       `SELECT
         id,
@@ -1060,6 +973,13 @@ export async function getSalesDashboard(options = {}) {
        FROM users
        WHERE email IS NOT NULL
          AND email <> ''`
+    ),
+    queryOne(
+      `SELECT
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pendingCount,
+        COALESCE(SUM(CASE WHEN status = 'pending' THEN requested_amount ELSE 0 END), 0) AS pendingAmount,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) AS approvedCount
+       FROM refund_requests`
     ),
   ]);
 
@@ -1251,10 +1171,13 @@ export async function getSalesDashboard(options = {}) {
     };
   });
 
-  const periodGrossRevenue = series.reduce((sum, item) => sum + item.grossRevenue, 0);
-  const periodNetRevenue = series.reduce((sum, item) => sum + item.netRevenue, 0);
-  const periodRefundRevenue = series.reduce((sum, item) => sum + item.refundRevenue, 0);
-  const periodOrderCount = series.reduce((sum, item) => sum + item.orderCount, 0);
+  const {
+    periodGrossRevenue,
+    periodNetRevenue,
+    periodRefundRevenue,
+    periodOrderCount,
+    averageOrderAmount,
+  } = summarizeSalesSeries(series);
 
   const videoSales = [...videoSalesMap.values()]
     .map((item) => {
@@ -1307,7 +1230,10 @@ export async function getSalesDashboard(options = {}) {
       periodNetRevenue: Math.round(periodNetRevenue),
       periodRefundRevenue: Math.round(periodRefundRevenue),
       periodOrderCount: Math.round(periodOrderCount),
-      averageOrderAmount: periodOrderCount > 0 ? Math.round(periodGrossRevenue / periodOrderCount) : 0,
+      averageOrderAmount,
+      pendingRefundCount: Math.round(toAmount(refundSummary?.pendingCount)),
+      pendingRefundAmount: Math.round(toAmount(refundSummary?.pendingAmount)),
+      approvedRefundCount: Math.round(toAmount(refundSummary?.approvedCount)),
     },
     range: {
       startDate,
@@ -1640,11 +1566,12 @@ function normalizeStaffPayload(payload = {}) {
   const VALID_GENDERS = new Set(["male", "female"]);
   const VALID_UNITS = new Set(["30min", "hour"]);
   return {
+    userId: String(payload.userId || "").trim() || null,
     name,
     roleCode,
     employmentType,
     phone: String(payload.phone || "").trim(),
-    appConnectionStatus,
+    appConnectionStatus: String(payload.userId || "").trim() ? "connected" : appConnectionStatus,
     color: String(payload.color || "#4aa3ff").trim() || "#4aa3ff",
     status,
     canManageSchedule: payload.canManageSchedule ? 1 : 0,
@@ -1669,6 +1596,7 @@ function normalizeStaffPayload(payload = {}) {
 function mapStaffRow(row = {}) {
   return {
     id: String(row.id || ""),
+    userId: String(row.userId || row.user_id || ""),
     name: String(row.name || ""),
     roleCode: String(row.roleCode || row.role_code || "instructor"),
     employmentType: String(row.employmentType || row.employment_type || "full_time"),
@@ -1701,7 +1629,7 @@ function mapStaffRow(row = {}) {
 export async function listStudioStaffProfiles() {
   const rows = await query(
     `SELECT
-       id, name, role_code AS roleCode, employment_type AS employmentType, phone,
+       id, user_id AS userId, name, role_code AS roleCode, employment_type AS employmentType, phone,
        app_connection_status AS appConnectionStatus, color, status,
        can_manage_schedule AS canManageSchedule, can_view_members AS canViewMembers,
        can_manage_passes AS canManagePasses, can_view_sales AS canViewSales,
@@ -1743,15 +1671,36 @@ export async function listStudioStaffProfiles() {
 export async function saveStudioStaffProfile(staffId, payload = {}) {
   const staff = normalizeStaffPayload(payload);
   const id = staffId ? String(staffId) : `staff-${randomUUID()}`;
+  if (staff.userId) {
+    const user = await queryOne(
+      `SELECT id FROM users WHERE id = ? AND account_status = 'active' LIMIT 1`,
+      [staff.userId],
+    );
+    if (!user?.id) {
+      const error = new Error("연결할 활성 로그인 계정을 찾을 수 없습니다.");
+      error.status = 404;
+      throw error;
+    }
+    const linkedProfile = await queryOne(
+      `SELECT id FROM studio_staff_profiles WHERE user_id = ? AND id <> ? LIMIT 1`,
+      [staff.userId, id],
+    );
+    if (linkedProfile?.id) {
+      const error = new Error("이미 다른 강사 또는 매니저에게 연결된 로그인 계정입니다.");
+      error.status = 409;
+      throw error;
+    }
+  }
   await query(
     `INSERT INTO studio_staff_profiles
-       (id, name, role_code, employment_type, phone, app_connection_status, color, status,
+       (id, user_id, name, role_code, employment_type, phone, app_connection_status, color, status,
         can_manage_schedule, can_view_members, can_manage_passes, can_view_sales,
         salary_type, base_pay, hourly_wage, commission_rate, memo,
         birth_date, gender, bio, career, receive_all_notifications,
         private_am_unit, private_pm_unit, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
      ON DUPLICATE KEY UPDATE
+       user_id = VALUES(user_id),
        name = VALUES(name),
        role_code = VALUES(role_code),
        employment_type = VALUES(employment_type),
@@ -1778,6 +1727,7 @@ export async function saveStudioStaffProfile(staffId, payload = {}) {
        updated_at = NOW()`,
     [
       id,
+      staff.userId,
       staff.name,
       staff.roleCode,
       staff.employmentType,
@@ -1805,7 +1755,7 @@ export async function saveStudioStaffProfile(staffId, payload = {}) {
   );
   const row = await queryOne(
     `SELECT
-       id, name, role_code AS roleCode, employment_type AS employmentType, phone,
+       id, user_id AS userId, name, role_code AS roleCode, employment_type AS employmentType, phone,
        app_connection_status AS appConnectionStatus, color, status,
        can_manage_schedule AS canManageSchedule, can_view_members AS canViewMembers,
        can_manage_passes AS canManagePasses, can_view_sales AS canViewSales,
@@ -1889,11 +1839,18 @@ export async function saveStaffWorkHours(staffId, hoursArray) {
 
 const VALID_PASS_TYPES = new Set(["count", "period"]);
 const VALID_CLASS_TYPES_PASS = new Set(["private", "group"]);
+const VALID_STUDIO_BRANCH_IDS = new Set(["branch-1", "branch-2"]);
+
+function normalizeStudioBranchId(value) {
+  const branchId = String(value || "").trim();
+  return VALID_STUDIO_BRANCH_IDS.has(branchId) ? branchId : "branch-1";
+}
 
 function normalizePassProduct(payload = {}) {
   const name = String(payload.name || "").trim();
   if (!name) { const e = new Error("수강권 이름을 입력해 주세요."); e.status = 400; throw e; }
   return {
+    branchId: normalizeStudioBranchId(payload.branchId),
     name,
     passType: VALID_PASS_TYPES.has(String(payload.passType || "")) ? String(payload.passType) : "count",
     classType: VALID_CLASS_TYPES_PASS.has(String(payload.classType || "")) ? String(payload.classType) : "group",
@@ -1924,6 +1881,8 @@ function mapPassProductRow(row = {}) {
   const totalCount = Number(row.totalCount ?? row.total_count ?? 0);
   return {
     id: String(row.id || ""),
+    branchId: String(row.branchId || row.branch_id || "branch-1"),
+    branchName: String(row.branchName || row.branch_name || (String(row.branchId || row.branch_id) === "branch-2" ? "효천점" : "장덕점")),
     name: String(row.name || ""),
     passType: String(row.passType || row.pass_type || "count"),
     classType: String(row.classType || row.class_type || "group"),
@@ -1952,19 +1911,30 @@ function mapPassProductRow(row = {}) {
   };
 }
 
-export async function listStudioPassProducts() {
+export async function listStudioPassProducts({ branchId = "" } = {}) {
+  const params = [];
+  let where = "";
+  if (branchId) {
+    where = "WHERE spp.branch_id = ?";
+    params.push(normalizeStudioBranchId(branchId));
+  }
   const rows = await query(
-    `SELECT id, name, pass_type AS passType, class_type AS classType, capacity,
-            total_count AS totalCount, valid_days AS validDays, price,
-            color, is_featured AS isFeatured, status, description,
-            is_trial AS isTrial, cancel_count AS cancelCount, points,
-            usage_limit_type AS usageLimitType, usage_limit AS usageLimit,
-            auto_deduct AS autoDeduct, class_category AS classCategory,
-            same_day_change AS sameDayChange, same_day_change_count AS sameDayChangeCount,
-            booking_start_time AS bookingStartTime, booking_end_time AS bookingEndTime,
-            created_at AS createdAt, updated_at AS updatedAt
-     FROM studio_pass_products
-     ORDER BY is_featured DESC, created_at DESC`
+    `SELECT spp.id, spp.branch_id AS branchId,
+            COALESCE(b.name, CASE spp.branch_id WHEN 'branch-2' THEN '효천점' ELSE '장덕점' END) AS branchName,
+            spp.name, spp.pass_type AS passType, spp.class_type AS classType, spp.capacity,
+            spp.total_count AS totalCount, spp.valid_days AS validDays, spp.price,
+            spp.color, spp.is_featured AS isFeatured, spp.status, spp.description,
+            spp.is_trial AS isTrial, spp.cancel_count AS cancelCount, spp.points,
+            spp.usage_limit_type AS usageLimitType, spp.usage_limit AS usageLimit,
+            spp.auto_deduct AS autoDeduct, spp.class_category AS classCategory,
+            spp.same_day_change AS sameDayChange, spp.same_day_change_count AS sameDayChangeCount,
+            spp.booking_start_time AS bookingStartTime, spp.booking_end_time AS bookingEndTime,
+            spp.created_at AS createdAt, spp.updated_at AS updatedAt
+     FROM studio_pass_products spp
+     LEFT JOIN branches b ON b.id = spp.branch_id
+     ${where}
+     ORDER BY spp.is_featured DESC, spp.created_at DESC`,
+    params
   );
   return (Array.isArray(rows) ? rows : []).map(mapPassProductRow);
 }
@@ -1974,15 +1944,15 @@ export async function saveStudioPassProduct(productId, payload = {}) {
   const id = productId ? String(productId) : `pp-${randomUUID()}`;
   await query(
     `INSERT INTO studio_pass_products
-       (id, name, pass_type, class_type, capacity, total_count, valid_days,
+       (id, branch_id, name, pass_type, class_type, capacity, total_count, valid_days,
         price, color, is_featured, status, description,
         is_trial, cancel_count, points, usage_limit_type, usage_limit,
         auto_deduct, class_category, same_day_change, same_day_change_count,
         booking_start_time, booking_end_time,
         created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
      ON DUPLICATE KEY UPDATE
-       name = VALUES(name), pass_type = VALUES(pass_type), class_type = VALUES(class_type),
+       branch_id = VALUES(branch_id), name = VALUES(name), pass_type = VALUES(pass_type), class_type = VALUES(class_type),
        capacity = VALUES(capacity), total_count = VALUES(total_count), valid_days = VALUES(valid_days),
        price = VALUES(price), color = VALUES(color), is_featured = VALUES(is_featured),
        status = VALUES(status), description = VALUES(description),
@@ -1992,7 +1962,7 @@ export async function saveStudioPassProduct(productId, payload = {}) {
        same_day_change = VALUES(same_day_change), same_day_change_count = VALUES(same_day_change_count),
        booking_start_time = VALUES(booking_start_time), booking_end_time = VALUES(booking_end_time),
        updated_at = NOW()`,
-    [id, product.name, product.passType, product.classType, product.capacity,
+    [id, product.branchId, product.name, product.passType, product.classType, product.capacity,
      product.totalCount, product.validDays, product.price, product.color,
      product.isFeatured, product.status, product.description,
      product.isTrial, product.cancelCount, product.points,
@@ -2002,16 +1972,20 @@ export async function saveStudioPassProduct(productId, payload = {}) {
      product.bookingStartTime, product.bookingEndTime]
   );
   const row = await queryOne(
-    `SELECT id, name, pass_type AS passType, class_type AS classType, capacity,
-            total_count AS totalCount, valid_days AS validDays, price,
-            color, is_featured AS isFeatured, status, description,
-            is_trial AS isTrial, cancel_count AS cancelCount, points,
-            usage_limit_type AS usageLimitType, usage_limit AS usageLimit,
-            auto_deduct AS autoDeduct, class_category AS classCategory,
-            same_day_change AS sameDayChange, same_day_change_count AS sameDayChangeCount,
-            booking_start_time AS bookingStartTime, booking_end_time AS bookingEndTime,
-            created_at AS createdAt, updated_at AS updatedAt
-     FROM studio_pass_products WHERE id = ? LIMIT 1`, [id]
+    `SELECT spp.id, spp.branch_id AS branchId,
+            COALESCE(b.name, CASE spp.branch_id WHEN 'branch-2' THEN '효천점' ELSE '장덕점' END) AS branchName,
+            spp.name, spp.pass_type AS passType, spp.class_type AS classType, spp.capacity,
+            spp.total_count AS totalCount, spp.valid_days AS validDays, spp.price,
+            spp.color, spp.is_featured AS isFeatured, spp.status, spp.description,
+            spp.is_trial AS isTrial, spp.cancel_count AS cancelCount, spp.points,
+            spp.usage_limit_type AS usageLimitType, spp.usage_limit AS usageLimit,
+            spp.auto_deduct AS autoDeduct, spp.class_category AS classCategory,
+            spp.same_day_change AS sameDayChange, spp.same_day_change_count AS sameDayChangeCount,
+            spp.booking_start_time AS bookingStartTime, spp.booking_end_time AS bookingEndTime,
+            spp.created_at AS createdAt, spp.updated_at AS updatedAt
+     FROM studio_pass_products spp
+     LEFT JOIN branches b ON b.id = spp.branch_id
+     WHERE spp.id = ? LIMIT 1`, [id]
   );
   return mapPassProductRow(row);
 }
@@ -2023,7 +1997,8 @@ export async function deleteStudioPassProduct(productId) {
 
 export async function listIssuedPassesByProduct(productId) {
   const rows = await query(
-    `SELECT sp.id, sp.user_id AS userId,
+    `SELECT sp.id, sp.user_id AS userId, sp.branch_id AS branchId,
+            COALESCE(b.name, CASE sp.branch_id WHEN 'branch-2' THEN '효천점' ELSE '장덕점' END) AS branchName,
             u.name AS userName, u.phone AS userPhone,
             sp.pass_name AS passName, sp.pass_type AS passType,
             sp.total_count AS totalCount, sp.remaining_count AS remainingCount,
@@ -2034,6 +2009,7 @@ export async function listIssuedPassesByProduct(productId) {
             DATE_FORMAT(spp.paid_at, '%Y-%m-%d') AS paidAt
      FROM studio_passes sp
      LEFT JOIN users u ON u.id = sp.user_id
+     LEFT JOIN branches b ON b.id = sp.branch_id
      LEFT JOIN studio_pass_payments spp ON spp.pass_id = sp.id
      WHERE sp.pass_product_id = ?
      ORDER BY sp.created_at DESC`,

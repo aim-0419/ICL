@@ -1,13 +1,16 @@
 // 파일 역할: 관리자 API 요청을 검증하고 서비스 호출 결과를 HTTP 응답으로 변환합니다.
-import * as authService from "../auth/auth.service.js";
 import * as adminService from "./admin.service.js";
+import * as studioService from "../studio/studio.service.js";
 import * as usersService from "../users/users.service.js";
 import { cancelPortonePayment } from "../payments/payments.service.js";
 import { query } from "../../shared/db/mysql.js";
 import { randomUUID } from "node:crypto";
-import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
 import { env } from "../../config/env.js";
 import { decryptPii } from "../../shared/security/pii.js";
+import { resolveSessionUser, isAdminUser } from "../../shared/middlewares/auth.js";
+import { parsePayload } from "../../shared/utils/payload.js";
+import { addDays, getMondayStart, parseDateFromYmd } from "../../shared/utils/date.js";
+import { toSafeAmount as toAmount } from "../../shared/utils/normalize.js";
 const DASHBOARD_RANGE_DAYS = {
   all: 0,
   today: 1,
@@ -15,20 +18,6 @@ const DASHBOARD_RANGE_DAYS = {
   "30d": 30,
 };
 const SALES_PERIODS = new Set(["day", "week", "month", "year"]);
-
-// 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
-function getCookieValue(req, name) {
-  const cookieHeader = String(req.headers.cookie || "");
-  if (!cookieHeader) return "";
-
-  const cookieItem = cookieHeader
-    .split(";")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(`${name}=`));
-
-  if (!cookieItem) return "";
-  return decodeURIComponent(cookieItem.slice(name.length + 1));
-}
 
 // 함수 역할: 회원 등급 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveUserGrade(user) {
@@ -50,47 +39,27 @@ function resolveUserGrade(user) {
   return "member";
 }
 
-// 함수 역할: access 관리자 대시보드 권한이 있는지 참/거짓으로 판별합니다.
-function canAccessAdminDashboard(user) {
-  const grade = resolveUserGrade(user);
-  return grade === "admin0" || grade === "admin1";
-}
-
 // 함수 역할: manage 회원 등급 권한이 있는지 참/거짓으로 판별합니다.
 function canManageUserGrades(user) {
   return resolveUserGrade(user) === "admin0";
 }
 
-// 함수 역할: create 강의 권한이 있는지 참/거짓으로 판별합니다.
-function canCreateLecture(user) {
-  const grade = resolveUserGrade(user);
-  return grade === "admin0" || grade === "admin1";
-}
-
-// 함수 역할: manage 아카데미 권한이 있는지 참/거짓으로 판별합니다.
-function canManageAcademy(user) {
-  return canCreateLecture(user);
-}
-
-// 함수 역할: 인증된 회원 데이터를 조회해 호출자에게 반환합니다.
-async function getAuthenticatedUser(req) {
-  const token = getCookieValue(req, SESSION_COOKIE_NAME);
-  if (!token) return null;
-  return authService.findUserBySessionToken(token);
-}
-
 // 함수 역할: requireAdminDashboardAccess 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
-async function requireAdminDashboardAccess(req, res) {
-  const authUser = await getAuthenticatedUser(req);
+async function requireAdminDashboardAccess(req, res, studioPermission = "") {
+  const authUser = await resolveSessionUser(req);
 
   if (!authUser?.id) {
     res.status(401).json({ message: "로그인이 필요합니다." });
     return null;
   }
 
-  if (!canAccessAdminDashboard(authUser)) {
-    res.status(403).json({ message: "관리자만 접근할 수 있습니다." });
-    return null;
+  if (!isAdminUser(authUser)) {
+    const studioRole = await studioService.resolveUserStudioRole(authUser);
+    const allowed = studioPermission && await studioService.isRoleAllowed(studioRole, studioPermission);
+    if (!allowed) {
+      res.status(403).json({ message: "해당 업무에 대한 스튜디오 권한이 없습니다." });
+      return null;
+    }
   }
 
   return authUser;
@@ -123,23 +92,6 @@ function resolveIsoDateQuery(value) {
   return normalized;
 }
 
-// 함수 역할: 요청 데이터 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
-function parsePayload(payload) {
-  if (!payload) return {};
-  if (typeof payload === "object") return payload;
-  try {
-    return JSON.parse(payload);
-  } catch {
-    return {};
-  }
-}
-
-// 함수 역할: 금액 값으로 안전하게 변환합니다.
-function toAmount(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 // 함수 역할: 환불 금액 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveRefundAmount(payload) {
   const source = payload && typeof payload === "object" ? payload : {};
@@ -159,46 +111,6 @@ function resolveRefundAmount(payload) {
       return Number.isFinite(amount) ? amount : 0;
     })
   );
-}
-
-// 함수 역할: 날짜 from ymd 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
-function parseDateFromYmd(value) {
-  const normalized = String(value || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
-
-  const [yearText, monthText, dayText] = normalized.split("-");
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const parsed = new Date(year, month - 1, day);
-  if (
-    Number.isNaN(parsed.getTime()) ||
-    parsed.getFullYear() !== year ||
-    parsed.getMonth() !== month - 1 ||
-    parsed.getDate() !== day
-  ) {
-    return null;
-  }
-
-  parsed.setHours(0, 0, 0, 0);
-  return parsed;
-}
-
-// 함수 역할: addDays 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
-function addDays(date, days) {
-  const copy = new Date(date);
-  copy.setDate(copy.getDate() + days);
-  return copy;
-}
-
-// 함수 역할: monday start 데이터를 조회해 호출자에게 반환합니다.
-function getMondayStart(date) {
-  const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = copy.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  copy.setDate(copy.getDate() + diff);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
 }
 
 // 함수 역할: 환불 분석 조회 구간 상황에 맞는 값을 계산하거나 선택합니다.
@@ -332,7 +244,7 @@ function pickRefundReasonEntries(payload, totalRefundAmount) {
 /** 회원 목록 전용 API — 수강권·최근출석일·미수금 포함 */
 export async function getMemberList(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "member.read");
     if (!authUser) return;
     const members = await adminService.listMembersForAdmin();
     res.json({ members });
@@ -343,7 +255,7 @@ export async function getMemberList(req, res, next) {
 
 export async function updateStudioMemberStatus(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "member.write");
     if (!authUser) return;
 
     const targetUserId = String(req.params.userId || "").trim();
@@ -357,7 +269,7 @@ export async function updateStudioMemberStatus(req, res, next) {
 
 export async function updateStudioMemberProfile(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "member.write");
     if (!authUser) return;
 
     const targetUserId = String(req.params.userId || "").trim();
@@ -370,7 +282,7 @@ export async function updateStudioMemberProfile(req, res, next) {
 
 export async function getStudioStaffProfiles(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "staff.read");
     if (!authUser) return;
     const staff = await adminService.listStudioStaffProfiles();
     res.json({ staff });
@@ -381,7 +293,7 @@ export async function getStudioStaffProfiles(req, res, next) {
 
 export async function createStudioStaffProfile(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "settings.write");
     if (!authUser) return;
     const staff = await adminService.saveStudioStaffProfile("", req.body || {});
     res.status(201).json({ staff });
@@ -392,7 +304,7 @@ export async function createStudioStaffProfile(req, res, next) {
 
 export async function updateStudioStaffProfile(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "settings.write");
     if (!authUser) return;
     const staff = await adminService.saveStudioStaffProfile(req.params.staffId, req.body || {});
     res.json({ staff });
@@ -403,7 +315,7 @@ export async function updateStudioStaffProfile(req, res, next) {
 
 export async function deleteStudioStaffProfile(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "settings.write");
     if (!authUser) return;
     const result = await adminService.archiveStudioStaffProfile(req.params.staffId);
     res.json(result);
@@ -414,7 +326,7 @@ export async function deleteStudioStaffProfile(req, res, next) {
 
 export async function getStudioStaffWorkHours(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "staff.read");
     if (!authUser) return;
     const hours = await adminService.getStaffWorkHours(req.params.staffId);
     res.json({ hours });
@@ -425,7 +337,7 @@ export async function getStudioStaffWorkHours(req, res, next) {
 
 export async function saveStudioStaffWorkHours(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "settings.write");
     if (!authUser) return;
     const hours = await adminService.saveStaffWorkHours(req.params.staffId, req.body?.hours || []);
     res.json({ hours });
@@ -436,16 +348,18 @@ export async function saveStudioStaffWorkHours(req, res, next) {
 
 export async function getStudioPassProducts(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "pass.write");
     if (!authUser) return;
-    const products = await adminService.listStudioPassProducts();
+    const products = await adminService.listStudioPassProducts({
+      branchId: String(req.query.branchId || "").trim(),
+    });
     res.json({ products });
   } catch (error) { next(error); }
 }
 
 export async function createStudioPassProduct(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "pass.create");
     if (!authUser) return;
     const product = await adminService.saveStudioPassProduct("", req.body || {});
     res.status(201).json({ product });
@@ -454,7 +368,7 @@ export async function createStudioPassProduct(req, res, next) {
 
 export async function updateStudioPassProduct(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "pass.write");
     if (!authUser) return;
     const product = await adminService.saveStudioPassProduct(req.params.productId, req.body || {});
     res.json({ product });
@@ -463,7 +377,7 @@ export async function updateStudioPassProduct(req, res, next) {
 
 export async function deleteStudioPassProduct(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "pass.write");
     if (!authUser) return;
     const result = await adminService.deleteStudioPassProduct(req.params.productId);
     res.json(result);
@@ -472,7 +386,7 @@ export async function deleteStudioPassProduct(req, res, next) {
 
 export async function getIssuedPassesByProduct(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "pass.detail.write");
     if (!authUser) return;
     const passes = await adminService.listIssuedPassesByProduct(req.params.productId);
     res.json({ passes });
@@ -481,7 +395,7 @@ export async function getIssuedPassesByProduct(req, res, next) {
 
 export async function extendIssuedPassesByProduct(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "pass.detail.write");
     if (!authUser) return;
     const extendDays = Number(req.body?.extendDays);
     if (!extendDays || extendDays < 1) return res.status(400).json({ message: "연장 일수를 입력해 주세요." });
@@ -492,7 +406,7 @@ export async function extendIssuedPassesByProduct(req, res, next) {
 
 export async function getStudioGoods(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "pass.write");
     if (!authUser) return;
     const goods = await adminService.listStudioGoods();
     res.json({ goods });
@@ -501,7 +415,7 @@ export async function getStudioGoods(req, res, next) {
 
 export async function createStudioGoods(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "pass.create");
     if (!authUser) return;
     const item = await adminService.saveStudioGoods("", req.body || {});
     res.status(201).json({ goods: item });
@@ -510,7 +424,7 @@ export async function createStudioGoods(req, res, next) {
 
 export async function updateStudioGoods(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "pass.write");
     if (!authUser) return;
     const item = await adminService.saveStudioGoods(req.params.goodsId, req.body || {});
     res.json({ goods: item });
@@ -519,7 +433,7 @@ export async function updateStudioGoods(req, res, next) {
 
 export async function deleteStudioGoods(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "pass.write");
     if (!authUser) return;
     const result = await adminService.deleteStudioGoods(req.params.goodsId);
     res.json(result);
@@ -629,7 +543,7 @@ export async function getDashboardLectureProgress(req, res, next) {
 // 함수 역할: 대시보드 매출 데이터를 조회해 호출자에게 반환합니다.
 export async function getDashboardSales(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "sales.read");
     if (!authUser) return;
 
     const period = resolveSalesPeriod(req.query.period);
@@ -649,7 +563,7 @@ export async function getDashboardSales(req, res, next) {
 // 함수 역할: 매출 환불 분석 데이터를 조회해 호출자에게 반환합니다.
 export async function getSalesRefundInsights(req, res, next) {
   try {
-    const authUser = await requireAdminDashboardAccess(req, res);
+    const authUser = await requireAdminDashboardAccess(req, res, "sales.read");
     if (!authUser) return;
 
     const window = resolveRefundInsightWindow(
@@ -658,7 +572,7 @@ export async function getSalesRefundInsights(req, res, next) {
       req.query.endDate
     );
 
-    const [orderRows, productRows, videoRows] = await Promise.all([
+    const [orderRows, productRows, videoRows, pendingRefundRows] = await Promise.all([
       query(
         `SELECT
           id,
@@ -678,6 +592,14 @@ export async function getSalesRefundInsights(req, res, next) {
           product_id AS productId,
           instructor
          FROM academy_videos`
+      ),
+      query(
+        `SELECT
+          order_id AS orderId,
+          selected_product_ids AS selectedProductIds,
+          requested_amount AS requestedAmount
+         FROM refund_requests
+         WHERE status = 'pending'`
       ),
     ]);
 
@@ -790,6 +712,26 @@ export async function getSalesRefundInsights(req, res, next) {
       }
     }
 
+    // pending 환불 신청을 refundOrderCount에 반영 (portone 취소 전이라 payload에 없음)
+    for (const refundReq of Array.isArray(pendingRefundRows) ? pendingRefundRows : []) {
+      let productIds;
+      try { productIds = JSON.parse(refundReq.selectedProductIds || "[]"); } catch { productIds = []; }
+      if (!Array.isArray(productIds) || !productIds.length) continue;
+
+      const visitedInReq = new Set();
+      for (const rawId of productIds) {
+        const normId = normalizeProductId(rawId);
+        if (!normId || visitedInReq.has(normId)) continue;
+        visitedInReq.add(normId);
+
+        const existing = refundInsightMap.get(normId);
+        if (!existing) continue;
+
+        existing.refundOrderCount += 1;
+        refundInsightMap.set(normId, existing);
+      }
+    }
+
     const videos = [...refundInsightMap.values()]
       .map((item) => {
         const grossRevenue = Math.max(0, Math.round(item.grossRevenue));
@@ -844,7 +786,7 @@ export async function getSalesRefundInsights(req, res, next) {
 // 함수 역할: 회원 등급 데이터를 수정합니다.
 export async function updateUserGrade(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
@@ -885,7 +827,7 @@ export async function updateUserGrade(req, res, next) {
 // 함수 역할: 관리자 강제 탈퇴 처리를 실행합니다.
 export async function withdrawUser(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
@@ -916,13 +858,13 @@ export async function withdrawUser(req, res, next) {
 export async function restoreWithdrawnUser(req, res, next) {
   // 관리자 권한 기반 탈퇴 계정 복구 처리
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
     }
 
-    if (!canAccessAdminDashboard(authUser)) {
+    if (!isAdminUser(authUser)) {
       res.status(403).json({ message: "관리자 권한이 필요합니다." });
       return;
     }
@@ -943,13 +885,13 @@ export async function restoreWithdrawnUser(req, res, next) {
 // 함수 역할: refundOrder 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function refundOrder(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
     }
 
-    if (!canAccessAdminDashboard(authUser)) {
+    if (!isAdminUser(authUser)) {
       res.status(403).json({ message: "관리자 권한이 필요합니다." });
       return;
     }
@@ -1072,13 +1014,13 @@ export async function refundOrder(req, res, next) {
 // 함수 역할: 강의 데이터를 새로 생성합니다.
 export async function createLecture(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
     }
 
-    if (!canCreateLecture(authUser)) {
+    if (!isAdminUser(authUser)) {
       res.status(403).json({ message: "관리자 권한이 필요합니다." });
       return;
     }
@@ -1120,8 +1062,8 @@ export async function getPageOverrides(req, res, next) {
 // 함수 역할: 페이지 override 데이터를 저장하거나 기존 값을 갱신합니다.
 export async function savePageOverride(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
-    if (!canManageAcademy(authUser)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const authUser = await resolveSessionUser(req);
+    if (!isAdminUser(authUser)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
     const { type, key, value } = req.body || {};
     if (!type || !key) return res.status(400).json({ message: "type과 key는 필수입니다." });
     await query(
@@ -1137,8 +1079,8 @@ export async function savePageOverride(req, res, next) {
 // 함수 역할: 페이지 override 데이터를 삭제합니다.
 export async function deletePageOverride(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
-    if (!canManageAcademy(authUser)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const authUser = await resolveSessionUser(req);
+    if (!isAdminUser(authUser)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
     const { type, key } = req.body || {};
     await query(
       `DELETE FROM admin_page_overrides WHERE override_type = ? AND override_key = ?`,
@@ -1151,8 +1093,8 @@ export async function deletePageOverride(req, res, next) {
 // 함수 역할: all 페이지 수정값 by type 데이터를 삭제합니다.
 export async function deleteAllPageOverridesByType(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
-    if (!canManageAcademy(authUser)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const authUser = await resolveSessionUser(req);
+    if (!isAdminUser(authUser)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
     const { type } = req.params;
     await query(`DELETE FROM admin_page_overrides WHERE override_type = ?`, [String(type || "")]);
     res.json({ ok: true });
@@ -1172,15 +1114,19 @@ function resolveGrantExpiresAt(durationType) {
   return expiresAt;
 }
 
+function isValidGrantDurationType(durationType) {
+  return Object.prototype.hasOwnProperty.call(GRANT_DURATION_DAYS, durationType);
+}
+
 // 함수 역할: giftVideos 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function giftVideos(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
     }
-    if (!canAccessAdminDashboard(authUser)) {
+    if (!isAdminUser(authUser)) {
       res.status(403).json({ message: "관리자 권한이 필요합니다." });
       return;
     }
@@ -1200,7 +1146,7 @@ export async function giftVideos(req, res, next) {
     }
 
     const durationType = String(req.body?.durationType || "unlimited").trim();
-    if (!Object.prototype.hasOwnProperty.call(GRANT_DURATION_DAYS, durationType)) {
+    if (!isValidGrantDurationType(durationType)) {
       res.status(400).json({ message: "이용 기간 값이 올바르지 않습니다." });
       return;
     }
@@ -1231,12 +1177,12 @@ export async function giftVideos(req, res, next) {
 // 함수 역할: 강의 영상 수강권 목록을 조회해 반환합니다.
 export async function listVideoGrants(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
     }
-    if (!canAccessAdminDashboard(authUser)) {
+    if (!isAdminUser(authUser)) {
       res.status(403).json({ message: "관리자 권한이 필요합니다." });
       return;
     }
@@ -1254,31 +1200,139 @@ export async function listVideoGrants(req, res, next) {
          vg.duration_type AS durationType,
          vg.expires_at AS expiresAt,
          vg.created_at AS createdAt,
-         av.title,
+         COALESCE(p.name, av.product_id, vg.video_id) AS title,
          av.instructor,
          av.category
        FROM video_grants vg
        LEFT JOIN academy_videos av ON av.id = vg.video_id
+       LEFT JOIN products p ON p.id = av.product_id
        WHERE vg.user_id = ?
        ORDER BY vg.created_at DESC`,
       [targetUserId]
     );
 
-    res.json({ grants: Array.isArray(rows) ? rows : [] });
+    const grants = Array.isArray(rows)
+      ? rows.map((row) => ({
+          ...row,
+          userName: decryptPii(row.userName),
+          userEmail: decryptPii(row.userEmail),
+          loginId: decryptPii(row.loginId),
+        }))
+      : [];
+
+    res.json({ grants });
   } catch (error) {
     next(error);
   }
 }
 
 // 함수 역할: 강의 영상 수강권 권한이나 세션을 회수합니다.
-export async function revokeVideoGrant(req, res, next) {
+// 함수 역할: 관리자가 전체 회원의 영상 선물 내역을 한 번에 조회합니다.
+export async function listAllVideoGrants(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
     }
-    if (!canAccessAdminDashboard(authUser)) {
+    if (!isAdminUser(authUser)) {
+      res.status(403).json({ message: "관리자 권한이 필요합니다." });
+      return;
+    }
+
+    const rows = await query(
+      `SELECT
+         vg.id,
+         vg.user_id AS userId,
+         u.name AS userName,
+         u.email AS userEmail,
+         u.login_id AS loginId,
+         vg.video_id AS videoId,
+         COALESCE(p.name, av.product_id, vg.video_id) AS title,
+         av.instructor,
+         av.category,
+         vg.duration_type AS durationType,
+         vg.expires_at AS expiresAt,
+         vg.created_at AS createdAt
+       FROM video_grants vg
+       LEFT JOIN users u ON u.id = vg.user_id
+       LEFT JOIN academy_videos av ON av.id = vg.video_id
+       LEFT JOIN products p ON p.id = av.product_id
+       ORDER BY vg.created_at DESC, u.name ASC, p.name ASC`
+    );
+
+    const grants = Array.isArray(rows)
+      ? rows.map((row) => ({
+          ...row,
+          userName: decryptPii(row.userName),
+          userEmail: decryptPii(row.userEmail),
+          loginId: decryptPii(row.loginId),
+        }))
+      : [];
+
+    res.json({ grants });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateVideoGrantDuration(req, res, next) {
+  try {
+    const authUser = await resolveSessionUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    if (!isAdminUser(authUser)) {
+      res.status(403).json({ message: "관리자 권한이 필요합니다." });
+      return;
+    }
+
+    const grantId = String(req.params.grantId || "").trim();
+    const durationType = String(req.body?.durationType || "").trim();
+
+    if (!grantId) {
+      res.status(400).json({ message: "선물 ID가 필요합니다." });
+      return;
+    }
+    if (!isValidGrantDurationType(durationType)) {
+      res.status(400).json({ message: "사용 기간 값이 올바르지 않습니다." });
+      return;
+    }
+
+    const expiresAt = resolveGrantExpiresAt(durationType);
+    const result = await query(
+      `UPDATE video_grants
+       SET duration_type = ?, expires_at = ?
+       WHERE id = ?`,
+      [durationType, expiresAt, grantId]
+    );
+
+    if (!result?.affectedRows) {
+      res.status(404).json({ message: "선물 영상을 찾을 수 없습니다." });
+      return;
+    }
+
+    res.json({
+      grant: {
+        id: grantId,
+        durationType,
+        expiresAt,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function revokeVideoGrant(req, res, next) {
+  try {
+    const authUser = await resolveSessionUser(req);
+    if (!authUser?.id) {
+      res.status(401).json({ message: "로그인이 필요합니다." });
+      return;
+    }
+    if (!isAdminUser(authUser)) {
       res.status(403).json({ message: "관리자 권한이 필요합니다." });
       return;
     }

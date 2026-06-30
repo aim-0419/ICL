@@ -1,27 +1,13 @@
-import * as smsService from "./sms.service.js";
-import * as studioService from "../studio/studio.service.js";
-import * as authService from "../auth/auth.service.js";
-import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
+// 파일 역할: 관리자 문자/알림톡 발송 요청, 발송 이력 조회, 발송 설정 확인 API를 처리합니다.
+import * as notificationDispatch from "./notification-dispatch.service.js";
+import { getFcmConfigurationStatus } from "./fcm.service.js";
 import { query } from "../../shared/db/mysql.js";
 import { env } from "../../config/env.js";
 
-function getCookieValue(req, name) {
-  const header = String(req.headers.cookie || "");
-  if (!header) return "";
-  const item = header.split(";").map((s) => s.trim()).find((s) => s.startsWith(`${name}=`));
-  return item ? decodeURIComponent(item.slice(name.length + 1)) : "";
-}
-
-async function getAuthUser(req) {
-  const token = getCookieValue(req, SESSION_COOKIE_NAME);
-  if (!token) return null;
-  return authService.findUserBySessionToken(token);
-}
-
-function isAdmin(user) {
-  const role = String(user?.role || "").toLowerCase();
-  const grade = String(user?.userGrade || "").toLowerCase();
-  return user?.isAdmin === true || user?.isAdmin === 1 || role === "admin" || grade === "admin0" || grade === "admin1";
+function parseHistoryLimit(value) {
+  const parsed = Number(value || 100);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 100;
+  return Math.min(500, Math.floor(parsed));
 }
 
 /**
@@ -30,10 +16,6 @@ function isAdmin(user) {
  */
 export async function sendSms(req, res, next) {
   try {
-    const user = await getAuthUser(req);
-    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
-    if (!isAdmin(user)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
-
     const { channel = "sms", receivers, message, title = "" } = req.body || {};
 
     if (!Array.isArray(receivers) || receivers.length === 0) {
@@ -43,42 +25,51 @@ export async function sendSms(req, res, next) {
       return res.status(400).json({ message: "메시지를 입력해 주세요." });
     }
 
-    let result;
-    if (channel === "kakao") {
-      result = await smsService.sendKakaoAlimtok({
-        receivers,
-        message: String(message),
-        title: String(title),
-        templateCode: req.body.templateCode || "",
-      });
-    } else {
-      result = await smsService.sendSmsAligo({
-        receivers,
-        message: String(message),
-        title: String(title),
-      });
+    const queued = await notificationDispatch.queueNotificationBatch({
+      channel,
+      receivers,
+      message: String(message),
+      title: String(title),
+      type: `manual_${channel}`,
+      templateCode: req.body.templateCode || "",
+    });
+    const results = [];
+    for (const deliveryId of queued.deliveryIds) {
+      results.push(await notificationDispatch.processNotificationDelivery(deliveryId));
     }
+    const sentCount = results.filter((item) => item.sent).length;
+    const skippedCount = results.filter((item) => item.skipped).length;
+    const failedCount = queued.queuedCount - sentCount - skippedCount;
+    res.json({
+      ok: failedCount === 0,
+      queuedCount: queued.queuedCount,
+      successCnt: sentCount,
+      errorCnt: failedCount,
+      skippedCnt: skippedCount,
+      channel,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
 
-    // 발송 이력 DB 저장 (실패해도 발송 결과에 영향 없음)
-    for (const r of receivers) {
-      try {
-        const notif = await studioService.createNotification({
-          userId: r.userId || "",
-          type: "manual_sms",
-          title: String(title || "수동 문자"),
-          message: String(message),
-          status: "sent",
-        });
-        await studioService.appendNotificationLog({
-          notificationId: notif.id,
-          channel,
-          resultStatus: "sent",
-          providerMessageId: result.msgId,
-        });
-      } catch { /* 이력 저장 실패는 무시 */ }
+/** POST /api/sms/schedule - SMS·알림톡·앱 푸시를 DB 발송 대기열에 예약합니다. */
+export async function scheduleMessage(req, res, next) {
+  try {
+    const { channel = "sms", receivers, message, title = "", scheduledAt, templateCode = "" } = req.body || {};
+    if (!scheduledAt || new Date(scheduledAt).getTime() <= Date.now()) {
+      return res.status(400).json({ message: "현재 이후의 예약 발송 시간을 입력해 주세요." });
     }
-
-    res.json({ ok: true, ...result });
+    const result = await notificationDispatch.queueNotificationBatch({
+      channel,
+      receivers,
+      message,
+      title,
+      scheduledAt,
+      type: `scheduled_${channel}`,
+      templateCode,
+    });
+    res.status(201).json({ ok: true, ...result });
   } catch (error) {
     next(error);
   }
@@ -90,11 +81,7 @@ export async function sendSms(req, res, next) {
  */
 export async function getSmsHistory(req, res, next) {
   try {
-    const user = await getAuthUser(req);
-    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
-    if (!isAdmin(user)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
-
-    const limit = Math.min(500, Number(req.query.limit || 100));
+    const limit = parseHistoryLimit(req.query.limit);
     const rows = await query(
       `SELECT n.id, n.user_id AS userId, n.title, n.message, n.status,
               n.created_at AS createdAt,
@@ -104,10 +91,9 @@ export async function getSmsHistory(req, res, next) {
        FROM studio_notifications n
        LEFT JOIN studio_notification_logs l ON l.notification_id = n.id
        LEFT JOIN users u ON u.id = n.user_id
-       WHERE n.type = 'manual_sms'
+       WHERE n.type LIKE 'manual_%'
        ORDER BY n.created_at DESC
-       LIMIT ${Number(limit)}`,
-      []
+       LIMIT ${limit}`
     );
     res.json({ items: Array.isArray(rows) ? rows : [] });
   } catch (error) {
@@ -121,20 +107,15 @@ export async function getSmsHistory(req, res, next) {
  */
 export async function getAutoHistory(req, res, next) {
   try {
-    const user = await getAuthUser(req);
-    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
-    if (!isAdmin(user)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
-
-    const limit = Math.min(500, Number(req.query.limit || 100));
+    const limit = parseHistoryLimit(req.query.limit);
     const typeFilter = req.query.type ? String(req.query.type) : null;
 
-    let whereClause = "WHERE n.type NOT IN ('manual_sms', 'manual')";
+    let whereClause = "WHERE n.type NOT LIKE 'manual_%' AND n.type NOT LIKE 'scheduled_%' AND n.type <> 'manual'";
     const params = [];
     if (typeFilter) {
       whereClause += " AND n.type = ?";
       params.push(typeFilter);
     }
-
     const rows = await query(
       `SELECT n.id, n.user_id AS userId, n.type, n.title, n.message, n.status,
               n.created_at AS sentAt,
@@ -145,7 +126,7 @@ export async function getAutoHistory(req, res, next) {
        LEFT JOIN users u ON u.id = n.user_id
        ${whereClause}
        ORDER BY n.created_at DESC
-       LIMIT ${Number(limit)}`,
+       LIMIT ${limit}`,
       params
     );
     res.json({ items: Array.isArray(rows) ? rows : [] });
@@ -160,15 +141,15 @@ export async function getAutoHistory(req, res, next) {
  */
 export async function getSmsConfig(req, res, next) {
   try {
-    const user = await getAuthUser(req);
-    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
-    if (!isAdmin(user)) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
-
+    const fcm = getFcmConfigurationStatus();
     res.json({
       aligoConfigured: !!(env.aligoApiKey && env.aligoUserId && env.aligoSender),
       kakaoConfigured: !!(env.kakaoSenderKey && env.aligoApiKey && env.aligoUserId),
       sender: env.aligoSender || "",
       testMode: env.nodeEnv !== "production",
+      fcmConfigured: fcm.configured,
+      fcmProjectId: fcm.projectId,
+      schedulerEnabled: env.notificationSchedulerEnabled,
     });
   } catch (error) {
     next(error);

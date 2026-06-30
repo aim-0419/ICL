@@ -17,7 +17,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import {
   deleteAcademyVideo,
@@ -36,6 +36,8 @@ import {
   listMyStudioSummary,
   listStudioClasses,
   listStudioNotificationsByUser,
+  markMyStudioNotificationRead,
+  markMyStudioNotificationsRead,
   requestStudioPassRefund,
 } from "../../studio/api/studioApi.js";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
@@ -57,80 +59,11 @@ const MEMBER_CALENDAR_VIEW_OPTIONS = [
   { value: "month", label: "월" },
 ];
 
-const DEFAULT_MEMBER_CLASSES = [
-  {
-    id: "member-class-reformer",
-    dayOffset: 0,
-    time: "10:00",
-    title: "리포머 그룹",
-    instructor: "은혜T",
-    room: "리포머룸",
-    category: "그룹",
-    capacity: 8,
-    bookedCount: 4,
-    waitlistCount: 0,
-    userStatus: "available",
-  },
-  {
-    id: "member-class-duet",
-    dayOffset: 1,
-    time: "19:30",
-    title: "듀엣 레슨",
-    instructor: "수연T",
-    room: "개인레슨실",
-    category: "듀엣",
-    capacity: 2,
-    bookedCount: 2,
-    waitlistCount: 1,
-    userStatus: "available",
-  },
-  {
-    id: "member-class-barrel",
-    dayOffset: 3,
-    time: "11:00",
-    title: "바렐 밸런스",
-    instructor: "승연T",
-    room: "바렐존",
-    category: "그룹",
-    capacity: 6,
-    bookedCount: 5,
-    waitlistCount: 0,
-    userStatus: "reserved",
-  },
-  {
-    id: "member-class-private",
-    dayOffset: 6,
-    time: "15:00",
-    title: "개인 재활 필라테스",
-    instructor: "원장님",
-    room: "개인레슨실 2",
-    category: "개인",
-    capacity: 1,
-    bookedCount: 1,
-    waitlistCount: 2,
-    userStatus: "waiting",
-  },
-  {
-    id: "member-class-springboard",
-    dayOffset: 12,
-    time: "18:20",
-    title: "스프링보드 코어",
-    instructor: "빛나T",
-    room: "그룹룸",
-    category: "그룹",
-    capacity: 8,
-    bookedCount: 3,
-    waitlistCount: 0,
-    userStatus: "available",
-  },
-];
-
 const MEMBER_STUDIO_INFO = [
   { title: "강사 정보", text: "수업별 담당 강사와 전문 분야를 예약 전에 확인합니다.", path: "/ikleulrim/instructors" },
   { title: "시설 정보", text: "리포머룸, 바렐존, 개인레슨실 등 이용 공간을 확인합니다.", path: "/ikleulrim/tour" },
 ];
-
-const MEMBER_NOTIFICATIONS = [];
+const SHOW_MYPAGE_STUDIO_SERVICES = false;
 
 // formatYmd, formatDate, formatDateTime, formatDuration, formatCertificateDate 는
 // shared/utils/format.js 에서 가져옵니다 (파일 상단 import 참고)
@@ -412,15 +345,23 @@ export function MyPage() {
   const [certificateMessage, setCertificateMessage] = useState({ type: "", text: "" });
   const [issuingCertificateVideoId, setIssuingCertificateVideoId] = useState("");
   const [activeVideoTab, setActiveVideoTab] = useState("purchased");
+  const [activeTab, setActiveTab] = useState("courses");
+  const [orderPage, setOrderPage] = useState(1);
+  const [pointPage, setPointPage] = useState(1);
+  const [qnaPage, setQnaPage] = useState(1);
   const [myQnaItems, setMyQnaItems] = useState([]);
   const [myQnaLoading, setMyQnaLoading] = useState(false);
   const [myQnaError, setMyQnaError] = useState("");
   const [memberCalendarView, setMemberCalendarView] = useState("week");
   const [selectedMemberDayOffset, setSelectedMemberDayOffset] = useState(null);
-  const [memberClasses, setMemberClasses] = useState(() => DEFAULT_MEMBER_CLASSES);
+  const [memberClasses, setMemberClasses] = useState([]);
   const [memberTickets, setMemberTickets] = useState([]);
+  const [memberPassTab, setMemberPassTab] = useState("active");
   const [memberPassTransactions, setMemberPassTransactions] = useState([]);
   const [memberNotifications, setMemberNotifications] = useState([]);
+  const [studioDataLoading, setStudioDataLoading] = useState(false);
+  const [studioDataError, setStudioDataError] = useState("");
+  const [studioDataReloadKey, setStudioDataReloadKey] = useState(0);
 
   const [myRefundRequests, setMyRefundRequests] = useState([]);
   const [refundModal, setRefundModal] = useState(null);
@@ -435,6 +376,7 @@ export function MyPage() {
   const [passRefundMessage, setPassRefundMessage] = useState({ type: "", text: "" });
 
   useEffect(() => {
+    if (!SHOW_MYPAGE_STUDIO_SERVICES) return;
     if (window.location.hash !== "#member-services") return;
     const target = document.getElementById("member-services");
     if (!target) return;
@@ -444,9 +386,12 @@ export function MyPage() {
   }, []);
 
   useEffect(() => {
+    if (!SHOW_MYPAGE_STUDIO_SERVICES) return;
     if (!currentUser?.id) return;
     let mounted = true;
     async function loadStudioData() {
+      setStudioDataLoading(true);
+      setStudioDataError("");
       try {
         const from = formatYmd(new Date());
         const toDate = new Date();
@@ -462,15 +407,22 @@ export function MyPage() {
         setMemberTickets(Array.isArray(summary?.passes) ? summary.passes : []);
         setMemberPassTransactions(Array.isArray(summary?.passTransactions) ? summary.passTransactions : []);
         setMemberNotifications(Array.isArray(notifications) ? notifications : []);
-      } catch {
+      } catch (error) {
         if (!mounted) return;
+        setMemberClasses([]);
+        setMemberTickets([]);
+        setMemberPassTransactions([]);
+        setMemberNotifications([]);
+        setStudioDataError(error?.message || "스튜디오 정보를 불러오지 못했습니다.");
+      } finally {
+        if (mounted) setStudioDataLoading(false);
       }
     }
     loadStudioData();
     return () => {
       mounted = false;
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, studioDataReloadKey]);
 
   const memberVisibleClasses = useMemo(() => {
     return memberClasses.filter((item) => {
@@ -500,29 +452,32 @@ export function MyPage() {
     [memberClasses]
   );
   const memberTicketItems = useMemo(() => {
-    if (memberTickets.length) {
-      return memberTickets.map((item) => ({
-        id: String(item.id),
-        title: String(item.passName || "수강권"),
-        type: String(item.passType || "그룹"),
-        remaining: Number(item.remainingCount || 0),
-        total: Number(item.totalCount || 0),
-        expiresAt: item.expiresAt ? new Date(item.expiresAt).toLocaleDateString("ko-KR") : "무제한",
-      }));
-    }
-    const today = new Date();
-    return [
-      {
-        id: "group-ticket",
-        title: "그룹 20회권",
-        type: "그룹",
-        remaining: 8,
-        total: 20,
-        expiresAt: addDays(today, 33).toLocaleDateString("ko-KR"),
-      },
-    ];
+    return memberTickets.map((item) => {
+      const expiryTime = item.expiresAt ? new Date(item.expiresAt).getTime() : null;
+      const normalizedStatus = String(item.status || "active").toLowerCase();
+      const expired = ["expired", "refunded", "transferred"].includes(normalizedStatus)
+        || (expiryTime !== null && expiryTime < new Date().setHours(0, 0, 0, 0))
+        || Number(item.remainingCount || 0) <= 0;
+      return {
+      id: String(item.id),
+      title: String(item.passName || "수강권"),
+      type: String(item.passType || "그룹"),
+      remaining: Number(item.remainingCount || 0),
+      total: Number(item.totalCount || 0),
+      expiresAt: item.expiresAt ? new Date(item.expiresAt).toLocaleDateString("ko-KR") : "무제한",
+        status: normalizedStatus,
+        expired,
+      };
+    });
   }, [memberTickets]);
-  const memberReservationAllowance = Math.max(0, memberTicketItems[0].remaining - memberReservedCount);
+  const visibleMemberTicketItems = useMemo(
+    () => memberTicketItems.filter((item) => memberPassTab === "expired" ? item.expired : !item.expired),
+    [memberPassTab, memberTicketItems]
+  );
+  const memberReservationAllowance = Math.max(
+    0,
+    memberTicketItems.filter((item) => !item.expired).reduce((total, item) => total + item.remaining, 0) - memberReservedCount,
+  );
   const nextReservedClass = useMemo(() => {
     return [...memberClasses]
       .filter((item) => item.userStatus === "reserved")
@@ -601,19 +556,11 @@ export function MyPage() {
   const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState({ type: "", text: "" });
-  const [withdrawPhone, setWithdrawPhone] = useState(currentUser.phone || "");
-  const [withdrawVerificationCode, setWithdrawVerificationCode] = useState("");
-  const [withdrawVerificationState, setWithdrawVerificationState] = useState({
-    status: "",
-    text: "",
-    verifiedPhone: "",
-    debugCode: "",
-  });
-  const [isWithdrawConfirmOpened, setIsWithdrawConfirmOpened] = useState(false);
-  const [isSendingWithdrawCode, setIsSendingWithdrawCode] = useState(false);
-  const [isVerifyingWithdrawCode, setIsVerifyingWithdrawCode] = useState(false);
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
+  const [withdrawPassword, setWithdrawPassword] = useState("");
+  const [withdrawPasswordVisible, setWithdrawPasswordVisible] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
-  const [withdrawMessage, setWithdrawMessage] = useState({ type: "", text: "" });
+  const [withdrawError, setWithdrawError] = useState("");
 
   const [isMarketingToggling, setIsMarketingToggling] = useState(false);
   const [marketingMessage, setMarketingMessage] = useState({ type: "", text: "" });
@@ -625,10 +572,6 @@ export function MyPage() {
     !isEmailChanged ||
     (emailVerificationState.status === "success" &&
       emailVerificationState.verifiedEmail === normalizedFormEmail);
-  const normalizedWithdrawPhone = String(withdrawPhone || "").replace(/\D/g, "");
-  const isWithdrawPhoneVerified =
-    withdrawVerificationState.status === "success" &&
-    withdrawVerificationState.verifiedPhone === normalizedWithdrawPhone;
 
   useEffect(() => {
     setForm({
@@ -642,11 +585,9 @@ export function MyPage() {
     });
     setEmailVerificationCode("");
     setEmailVerificationState({ status: "", text: "", verifiedEmail: "", debugCode: "" });
-    setWithdrawPhone(currentUser.phone || "");
-    setWithdrawVerificationCode("");
-    setWithdrawVerificationState({ status: "", text: "", verifiedPhone: "", debugCode: "" });
-    setIsWithdrawConfirmOpened(false);
-    setWithdrawMessage({ type: "", text: "" });
+    setWithdrawModalOpen(false);
+    setWithdrawPassword("");
+    setWithdrawError("");
   }, [currentUser.loginId, currentUser.name, currentUser.email, currentUser.phone, currentUser.birthYear]);
 
   useEffect(() => {
@@ -656,11 +597,6 @@ export function MyPage() {
     }
   }, [isEmailChanged]);
 
-  useEffect(() => {
-    setWithdrawVerificationCode("");
-    setWithdrawVerificationState({ status: "", text: "", verifiedPhone: "", debugCode: "" });
-    setWithdrawMessage({ type: "", text: "" });
-  }, [normalizedWithdrawPhone]);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -686,6 +622,12 @@ export function MyPage() {
       .then((result) => setMyRefundRequests(Array.isArray(result?.requests) ? result.requests : []))
       .catch(() => setMyRefundRequests([]));
   }, [currentUser?.id]);
+
+  useEffect(() => {
+    const isOpen = Boolean(refundModal || passRefundModal || withdrawModalOpen);
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [refundModal, passRefundModal, withdrawModalOpen]);
 
   async function handleCertificateClick(video) {
     if (!video?.completed) {
@@ -893,120 +835,24 @@ export function MyPage() {
   }
 
   function handleOpenWithdrawFlow() {
-    setWithdrawMessage({ type: "", text: "" });
-    const confirmed = window.confirm("회원 탈퇴 하시겠습니까?");
-    if (!confirmed) return;
-    setIsWithdrawConfirmOpened(true);
-  }
-
-  async function handleRequestWithdrawVerification() {
-    setWithdrawMessage({ type: "", text: "" });
-    setWithdrawVerificationState({ status: "", text: "", verifiedPhone: "", debugCode: "" });
-
-    if (!normalizedWithdrawPhone) {
-      setWithdrawVerificationState({
-        status: "error",
-        text: "전화번호를 입력해주세요.",
-        verifiedPhone: "",
-        debugCode: "",
-      });
-      return;
-    }
-
-    try {
-      setIsSendingWithdrawCode(true);
-      const result = await store.requestWithdrawPhoneVerification(normalizedWithdrawPhone);
-      setWithdrawVerificationState({
-        status: "pending",
-        text: result?.message || "전화번호 인증번호를 발송했습니다.",
-        verifiedPhone: "",
-        debugCode: result?.debugCode || "",
-      });
-    } catch (error) {
-      setWithdrawVerificationState({
-        status: "error",
-        text: error?.message || "전화번호 인증번호 발송에 실패했습니다.",
-        verifiedPhone: "",
-        debugCode: "",
-      });
-    } finally {
-      setIsSendingWithdrawCode(false);
-    }
-  }
-
-  async function handleConfirmWithdrawVerification() {
-    setWithdrawMessage({ type: "", text: "" });
-
-    if (!normalizedWithdrawPhone) {
-      setWithdrawVerificationState({
-        status: "error",
-        text: "전화번호를 입력해주세요.",
-        verifiedPhone: "",
-        debugCode: "",
-      });
-      return;
-    }
-
-    if (!String(withdrawVerificationCode || "").trim()) {
-      setWithdrawVerificationState({
-        status: "error",
-        text: "인증번호를 입력해주세요.",
-        verifiedPhone: "",
-        debugCode: "",
-      });
-      return;
-    }
-
-    try {
-      setIsVerifyingWithdrawCode(true);
-      const result = await store.confirmWithdrawPhoneVerification(
-        normalizedWithdrawPhone,
-        withdrawVerificationCode
-      );
-      setWithdrawVerificationState({
-        status: "success",
-        text: result?.message || "전화번호 인증이 완료됐습니다.",
-        verifiedPhone: normalizedWithdrawPhone,
-        debugCode: "",
-      });
-    } catch (error) {
-      setWithdrawVerificationState({
-        status: "error",
-        text: error?.message || "전화번호 인증 확인에 실패했습니다.",
-        verifiedPhone: "",
-        debugCode: "",
-      });
-    } finally {
-      setIsVerifyingWithdrawCode(false);
-    }
+    setWithdrawPassword("");
+    setWithdrawPasswordVisible(false);
+    setWithdrawError("");
+    setWithdrawModalOpen(true);
   }
 
   async function handleWithdrawAccount() {
-    setWithdrawMessage({ type: "", text: "" });
-
-    if (!isWithdrawPhoneVerified) {
-      setWithdrawMessage({ type: "error", text: "탈퇴 전 전화번호 인증을 완료해주세요." });
+    setWithdrawError("");
+    if (!withdrawPassword.trim()) {
+      setWithdrawError("현재 비밀번호를 입력해주세요.");
       return;
     }
-
     try {
       setIsWithdrawing(true);
-      const result = await store.withdrawMe(normalizedWithdrawPhone);
-      setWithdrawMessage({
-        type: "success",
-        text:
-          result?.message ||
-          "탈퇴가 완료됐습니다. 탈퇴 데이터는 90일간 보존되며, 기간 내 재가입으로 복구하실 수 있습니다.",
-      });
-      window.alert(
-        "탈퇴가 완료됐습니다.\n탈퇴 데이터는 90일간 보존되며, 기간 내 재가입으로 복구하실 수 있습니다."
-      );
+      await store.withdrawMe(null, withdrawPassword.trim());
       navigate("/");
     } catch (error) {
-      setWithdrawMessage({
-        type: "error",
-        text: error?.message || "회원 탈퇴 처리에 실패했습니다.",
-      });
+      setWithdrawError(error?.message || "회원 탈퇴 처리에 실패했습니다.");
     } finally {
       setIsWithdrawing(false);
     }
@@ -1100,27 +946,118 @@ export function MyPage() {
       setMemberTickets(Array.isArray(summary?.passes) ? summary.passes : []);
       setMemberPassTransactions(Array.isArray(summary?.passTransactions) ? summary.passTransactions : []);
       setMemberNotifications(Array.isArray(notifications) ? notifications : []);
+      setStudioDataError("");
     } catch (error) {
-      alert(error?.message || "예약 처리에 실패했습니다.");
+      const message = error?.message || "예약 처리에 실패했습니다.";
+      setStudioDataError(message);
+      alert(message);
     }
   }
 
+  async function handleReadNotification(notificationId) {
+    if (!notificationId) return;
+    try {
+      await markMyStudioNotificationRead(notificationId);
+      setMemberNotifications((items) => items.map((item) => (
+        item.id === notificationId ? { ...item, readAt: item.readAt || new Date().toISOString() } : item
+      )));
+    } catch (error) {
+      setStudioDataError(error?.message || "알림 읽음 처리에 실패했습니다.");
+    }
+  }
+
+  async function handleReadAllNotifications() {
+    try {
+      await markMyStudioNotificationsRead();
+      const now = new Date().toISOString();
+      setMemberNotifications((items) => items.map((item) => ({ ...item, readAt: item.readAt || now })));
+    } catch (error) {
+      setStudioDataError(error?.message || "알림 읽음 처리에 실패했습니다.");
+    }
+  }
+
+  const unreadNotificationCount = memberNotifications.filter((item) => !item.readAt).length;
+  const orderPageSize = 5;
+  const pointPageSize = 5;
+  const qnaPageSize = 5;
+  const orderTotalPages = Math.max(1, Math.ceil(userOrders.length / orderPageSize));
+  const pointHistoryRows = userOrders
+    .map((order) => {
+      const amount = Number(order.amount || 0);
+      const point = Math.max(0, Math.floor(amount * 0.01));
+      return {
+        id: order.orderId || order.id || `${order.createdAt}-${order.orderName}`,
+        date: order.createdAt,
+        content: `${order.orderName || "교육 영상"} 구매 적립`,
+        point,
+      };
+    })
+    .filter((item) => item.point > 0);
+  const pointTotalPages = Math.max(1, Math.ceil(pointHistoryRows.length / pointPageSize));
+  const qnaTotalPages = Math.max(1, Math.ceil(myQnaItems.length / qnaPageSize));
+  const pagedOrders = userOrders.slice((orderPage - 1) * orderPageSize, orderPage * orderPageSize);
+  const pagedPointRows = pointHistoryRows.slice((pointPage - 1) * pointPageSize, pointPage * pointPageSize);
+  const pagedQnaItems = myQnaItems.slice((qnaPage - 1) * qnaPageSize, qnaPage * qnaPageSize);
+  const accessibleVideoCount = learningHistory.length + grantedLearningHistory.length;
+
+  useEffect(() => {
+    setOrderPage((page) => Math.min(page, orderTotalPages));
+  }, [orderTotalPages]);
+
+  useEffect(() => {
+    setPointPage((page) => Math.min(page, pointTotalPages));
+  }, [pointTotalPages]);
+
+  useEffect(() => {
+    setQnaPage((page) => Math.min(page, qnaTotalPages));
+  }, [qnaTotalPages]);
+
+  function renderSimplePager(page, totalPages, onChange, label) {
+    return (
+      <div className="mypage-redesign-pager" aria-label={`${label} 페이지`}>
+        {totalPages > 1 ? (
+          <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)}>‹</button>
+        ) : null}
+        {Array.from({ length: totalPages }, (_, index) => index + 1).map((number) => (
+          <button
+            key={number}
+            type="button"
+            className={number === page ? "active" : ""}
+            onClick={() => onChange(number)}
+          >
+            {number}
+          </button>
+        ))}
+        {totalPages > 1 ? (
+          <button type="button" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>›</button>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="dashboard-page">
+    <>
+      <PageLayout mainClass="dashboard-page mypage-redesign-page">
         <section className="dashboard-hero mypage-hero-card">
-          <p className="section-kicker">마이페이지</p>
+          <p className="section-kicker">WELCOME BACK</p>
           <h1>{currentUserDisplayName} 님의 마이페이지</h1>
+          <p className="mypage-redesign-hero-subcopy">더 건강하고 아름다운 내일을 응원합니다.</p>
           <div className="mypage-identity-row">
-            <span className="mypage-identity-chip">구매 영상 {purchasedVideoItemCount}건</span>
-            <span className="mypage-identity-chip">수강 영상 {grantedVideos.length}개</span>
-            <span className="mypage-identity-chip">수강 완료 {completedVideoCount}개</span>
-            <span className="mypage-identity-chip">주문 {userOrders.length}건</span>
-            <span className="mypage-identity-chip">포인트 {store.formatCurrency(store.userPoints ?? 0)}</span>
+            {[
+              ["구매 영상", `${purchasedVideoItemCount}건`],
+              ["수강 영상", `${accessibleVideoCount}개`],
+              ["수강 완료", `${completedVideoCount}개`],
+              ["주문", `${userOrders.length}건`],
+            ].map(([label, value]) => (
+              <span key={label} className="mypage-identity-chip">
+                <em>{label}</em>
+                <strong>{value}</strong>
+              </span>
+            ))}
           </div>
         </section>
 
+        {SHOW_MYPAGE_STUDIO_SERVICES ? (
         <section id="member-services" className="dashboard-card mypage-member-service-card">
           <div className="member-service-header">
             <div>
@@ -1148,6 +1085,15 @@ export function MyPage() {
               ))}
             </div>
           </div>
+
+          {studioDataError ? (
+            <div className="message error" role="alert">
+              <span>{studioDataError}</span>
+              <button type="button" onClick={() => setStudioDataReloadKey((value) => value + 1)}>
+                다시 불러오기
+              </button>
+            </div>
+          ) : null}
 
           <div className="member-service-summary">
             <article>
@@ -1196,7 +1142,9 @@ export function MyPage() {
                 ))}
               </div>
               <div className="member-schedule-list">
-                {memberVisibleClasses.length ? memberVisibleClasses.map((item) => {
+                {studioDataLoading ? (
+                  <p className="member-schedule-empty">수업 정보를 불러오는 중입니다.</p>
+                ) : memberVisibleClasses.length ? memberVisibleClasses.map((item) => {
                   const isReserved = item.userStatus === "reserved";
                   const isWaiting = item.userStatus === "waiting";
                   const isFull = item.bookedCount >= item.capacity;
@@ -1237,8 +1185,12 @@ export function MyPage() {
                 <h3>보유 수강권</h3>
                 <span>잔여 / 만료</span>
               </div>
+              <div className="member-pass-tabs" role="tablist" aria-label="수강권 상태">
+                <button type="button" role="tab" aria-selected={memberPassTab === "active"} className={memberPassTab === "active" ? "active" : ""} onClick={() => setMemberPassTab("active")}>사용 중</button>
+                <button type="button" role="tab" aria-selected={memberPassTab === "expired"} className={memberPassTab === "expired" ? "active" : ""} onClick={() => setMemberPassTab("expired")}>만료·종료</button>
+              </div>
               <div className="member-ticket-list">
-                {memberTicketItems.map((ticket) => (
+                {visibleMemberTicketItems.length ? visibleMemberTicketItems.map((ticket) => (
                   <article key={ticket.id}>
                     <div>
                       <strong>{ticket.title}</strong>
@@ -1251,6 +1203,7 @@ export function MyPage() {
                     <button
                       type="button"
                       className="ghost-button small-ghost"
+                      disabled={ticket.expired}
                       onClick={() => {
                         setPassRefundModal(ticket);
                         setPassRefundReason("");
@@ -1260,7 +1213,9 @@ export function MyPage() {
                       환불 요청
                     </button>
                   </article>
-                ))}
+                )) : (
+                  <p className="member-payment-empty">{memberPassTab === "active" ? "사용 중인 수강권이 없습니다." : "만료되거나 종료된 수강권이 없습니다."}</p>
+                )}
               </div>
               <div className="member-payment-mini">
                 <h4>수강권 이용 내역</h4>
@@ -1302,546 +1257,639 @@ export function MyPage() {
               </article>
             ))}
             <article className="member-notification-card">
-              <h3>알림</h3>
-              {(memberNotifications.length ? memberNotifications : MEMBER_NOTIFICATIONS).map((item, idx) => (
-                <p key={item.id || item.title || idx}>
+              <h3>알림 {unreadNotificationCount ? <span>새 알림 {unreadNotificationCount}개</span> : null}</h3>
+              {unreadNotificationCount ? (
+                <button type="button" className="ghost-button small-ghost" onClick={handleReadAllNotifications}>
+                  전체 읽음
+                </button>
+              ) : null}
+              {memberNotifications.map((item, idx) => (
+                <p key={item.id || item.title || idx} className={item.readAt ? "is-read" : "is-unread"}>
                   <strong>{item.title || "알림"}</strong>
                   <span>{item.message || item.text || "-"}</span>
+                  {!item.readAt ? (
+                    <button type="button" onClick={() => handleReadNotification(item.id)}>읽음</button>
+                  ) : null}
                 </p>
               ))}
+              {!memberNotifications.length ? <p>새로운 알림이 없습니다.</p> : null}
             </article>
           </div>
         </section>
+        ) : null}
 
-        <section className="dashboard-grid">
-          <div>
-            <div className="mypage-video-tab-bar">
+        <div className="mypage-tab-layout">
+          <nav className="mypage-sidenav" aria-label="마이페이지 메뉴">
+            {[
+              { id: "courses", label: "내 강의" },
+              { id: "orders", label: "주문·결제" },
+              { id: "qna", label: "Q&A" },
+              { id: "profile", label: "내 정보" },
+            ].map((tab) => (
               <button
+                key={tab.id}
                 type="button"
-                className={`mypage-video-tab ${activeVideoTab === "purchased" ? "active" : ""}`}
-                onClick={() => setActiveVideoTab("purchased")}
+                className={`mypage-sidenav-item${activeTab === tab.id ? " active" : ""}`}
+                onClick={() => setActiveTab(tab.id)}
               >
-                구매 영상
-                <span className="mypage-video-tab-count">{purchasedVideos.length}</span>
+                {tab.label}
               </button>
-              <button
-                type="button"
-                className={`mypage-video-tab ${activeVideoTab === "granted" ? "active" : ""}`}
-                onClick={() => setActiveVideoTab("granted")}
-              >
-                수강 영상
-                <span className="mypage-video-tab-count">{grantedVideos.length}</span>
-              </button>
-            </div>
+            ))}
+          </nav>
 
-            {certificateMessage.text ? (
-              <p className={`refund-modal-message ${certificateMessage.type}`}>{certificateMessage.text}</p>
-            ) : null}
+          <div className="mypage-tab-body">
+            {activeTab === "courses" && (
+              <div className="mypage-tab-panel">
+                <div className="mypage-video-tab-bar">
+                  <button
+                    type="button"
+                    className={`mypage-video-tab ${activeVideoTab === "purchased" ? "active" : ""}`}
+                    onClick={() => setActiveVideoTab("purchased")}
+                  >
+                    구매 영상
+                    <span className="mypage-video-tab-count">{purchasedVideos.length}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`mypage-video-tab ${activeVideoTab === "granted" ? "active" : ""}`}
+                    onClick={() => setActiveVideoTab("granted")}
+                  >
+                    수강 영상
+                    <span className="mypage-video-tab-count">{grantedVideos.length}</span>
+                  </button>
+                </div>
 
-            {activeVideoTab === "purchased" && (
-              <div className="dashboard-card-grid">
-                {learningHistory.length ? (
-                  learningHistory.map((video) => {
-                    const expiry = calcEnrollmentExpiryForMyPage(store.orders, video.productId || video.id, video.period);
-                    const durSec = calcChaptersTotalDuration(video.chapters);
-                    const durLabel = formatDuration(durSec);
-                    const isExpired = expiry && expiry.daysLeft <= 0;
-                    const certificate = certificateByVideoId.get(String(video.id));
-                    return (
-                      <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card ${isExpired ? "is-expired" : ""}`}>
-                        <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
-                        <div className="mypage-video-copy">
-                          <p className="mini-kicker">
-                            {isExpired ? "수강 기한 만료" : video.completed ? "수강 완료" : video.progressPercent > 0 ? "이어 학습" : "새 강의"}
-                          </p>
-                          <h3>{video.title}</h3>
-                          <p className="mypage-course-date">
-                            {video.instructor} · {video.category}{durLabel ? ` · ${durLabel}` : ""}
-                          </p>
-                          <p className="mypage-course-date">
-                            진도 {video.progressPercent}%{video.lastWatchedAt ? ` · 최근 수강 ${formatDate(video.lastWatchedAt)}` : " · 아직 시청 전"}
-                          </p>
-                          {video.chapterCount > 0 ? (
-                            <p className="mypage-course-date">
-                              차시 {video.completedChapterCount}/{video.chapterCount}
-                              {video.latestChapterTitle ? ` · 최근 차시 ${video.latestChapterTitle}` : ""}
-                            </p>
-                          ) : null}
-                          {expiry ? (
-                            <p className={`mypage-expiry-label ${expiry.daysLeft <= 0 ? "is-expired" : expiry.daysLeft <= 7 ? "is-urgent" : expiry.daysLeft <= 30 ? "is-warning" : ""}`}>
-                              {expiry.daysLeft <= 0 ? `수강 기한 만료 (${expiry.expiryLabel})` : `수강 만료 ${expiry.expiryLabel} · D-${expiry.daysLeft}`}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div className="mypage-course-actions">
-                          <button type="button" className="ghost-button small-ghost" disabled={isExpired} onClick={() => navigate(`/academy/player/${video.id}`)}>
-                            {isExpired ? "만료됨" : video.completed ? "다시보기" : video.progressPercent > 0 ? "이어보기" : "지금 수강"}
-                          </button>
-                          {video.completed ? (
-                            <button
-                              type="button"
-                              className="ghost-button small-ghost mypage-certificate-button"
-                              disabled={issuingCertificateVideoId === String(video.id)}
-                              onClick={() => handleCertificateClick(video)}
-                            >
-                              {issuingCertificateVideoId === String(video.id)
-                                ? "발급 중..."
-                                : certificate
-                                  ? "수료증 보기"
-                                  : "수료증 발급"}
-                            </button>
-                          ) : null}
-                        </div>
+                {certificateMessage.text ? (
+                  <p className={`refund-modal-message ${certificateMessage.type}`}>{certificateMessage.text}</p>
+                ) : null}
+
+                {activeVideoTab === "purchased" && (
+                  <div className="dashboard-card-grid">
+                    {learningHistory.length ? (
+                      learningHistory.map((video) => {
+                        const expiry = calcEnrollmentExpiryForMyPage(store.orders, video.productId || video.id, video.period);
+                        const durSec = calcChaptersTotalDuration(video.chapters);
+                        const durLabel = formatDuration(durSec);
+                        const isExpired = expiry && expiry.daysLeft <= 0;
+                        const certificate = certificateByVideoId.get(String(video.id));
+                        return (
+                          <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card ${isExpired ? "is-expired" : ""}`}>
+                            <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
+                            <div className="mypage-video-copy">
+                              <p className="mini-kicker">
+                                {isExpired ? "수강 기한 만료" : video.completed ? "수강 완료" : video.progressPercent > 0 ? "이어 학습" : "새 강의"}
+                              </p>
+                              <h3>{video.title}</h3>
+                              <p className="mypage-course-date">
+                                {video.instructor} · {video.category}{durLabel ? ` · ${durLabel}` : ""}
+                              </p>
+                              <p className="mypage-course-date">
+                                진도 {video.progressPercent}%{video.lastWatchedAt ? ` · 최근 수강 ${formatDate(video.lastWatchedAt)}` : " · 아직 시청 전"}
+                              </p>
+                              <div className="mypage-redesign-progress-line" aria-label={`수강 진행률 ${video.progressPercent}%`}>
+                                <span style={{ width: `${Math.max(0, Math.min(100, Number(video.progressPercent || 0)))}%` }} />
+                              </div>
+                              {video.chapterCount > 0 ? (
+                                <p className="mypage-course-date">
+                                  차시 {video.completedChapterCount}/{video.chapterCount}
+                                  {video.latestChapterTitle ? ` · 최근 차시 ${video.latestChapterTitle}` : ""}
+                                </p>
+                              ) : null}
+                              {expiry ? (
+                                <p className={`mypage-expiry-label ${expiry.daysLeft <= 0 ? "is-expired" : expiry.daysLeft <= 7 ? "is-urgent" : expiry.daysLeft <= 30 ? "is-warning" : ""}`}>
+                                  {expiry.daysLeft <= 0 ? `수강 기한 만료 (${expiry.expiryLabel})` : `수강 만료 ${expiry.expiryLabel} · D-${expiry.daysLeft}`}
+                                </p>
+                              ) : null}
+                            </div>
+                            <div className="mypage-course-actions">
+                              <button type="button" className="ghost-button small-ghost" disabled={isExpired} onClick={() => navigate(`/academy/player/${video.id}`)}>
+                                {isExpired ? "만료됨" : video.completed ? "다시보기" : video.progressPercent > 0 ? "이어보기" : "지금 수강"}
+                              </button>
+                              {video.completed ? (
+                                <button
+                                  type="button"
+                                  className="ghost-button small-ghost mypage-certificate-button"
+                                  disabled={issuingCertificateVideoId === String(video.id)}
+                                  onClick={() => handleCertificateClick(video)}
+                                >
+                                  {issuingCertificateVideoId === String(video.id)
+                                    ? "발급 중..."
+                                    : certificate
+                                      ? "수료증 보기"
+                                      : "수료증 발급"}
+                                </button>
+                              ) : null}
+                            </div>
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <article className="dashboard-card empty-state">
+                        <h3>아직 구매한 교육 영상이 없습니다</h3>
+                        <p>교육 영상 페이지에서 원하는 강의를 구매해보세요.</p>
+                        <button className="pill-button small" type="button" onClick={() => navigate("/academy")}>
+                          교육 영상 보러가기
+                        </button>
                       </article>
-                    );
-                  })
-                ) : (
-                  <article className="dashboard-card empty-state">
-                    <h3>아직 구매한 교육 영상이 없습니다</h3>
-                    <p>교육 영상 페이지에서 원하는 강의를 구매해보세요.</p>
-                    <button className="pill-button small" type="button" onClick={() => navigate("/academy")}>
-                      교육 영상 보러가기
-                    </button>
-                  </article>
+                    )}
+                  </div>
+                )}
+
+                {activeVideoTab === "granted" && (
+                  <div className="dashboard-card-grid">
+                    {grantedLearningHistory.length ? (
+                      grantedLearningHistory.map((video) => {
+                        const durSec = calcChaptersTotalDuration(video.chapters);
+                        const durLabel = formatDuration(durSec);
+                        const expiresAt = video.grant?.expiresAt ? new Date(video.grant.expiresAt) : null;
+                        const daysLeft = expiresAt ? Math.ceil((expiresAt - Date.now()) / 86400000) : null;
+                        const isExpired = daysLeft !== null && daysLeft <= 0;
+                        const certificate = certificateByVideoId.get(String(video.id));
+                        return (
+                          <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card mypage-granted-card ${isExpired ? "is-expired" : ""}`}>
+                            <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
+                            <div className="mypage-video-copy">
+                              <p className="mini-kicker mypage-granted-badge">센터 제공</p>
+                              <h3>{video.title}</h3>
+                              <p className="mypage-course-date">
+                                {video.instructor}{video.category ? ` · ${video.category}` : ""}{durLabel ? ` · ${durLabel}` : ""}
+                              </p>
+                              <p className="mypage-course-date">
+                                진도 {video.progressPercent}%{video.lastWatchedAt ? ` · 최근 수강 ${formatDate(video.lastWatchedAt)}` : " · 아직 시청 전"}
+                              </p>
+                              <div className="mypage-redesign-progress-line" aria-label={`수강 진행률 ${video.progressPercent}%`}>
+                                <span style={{ width: `${Math.max(0, Math.min(100, Number(video.progressPercent || 0)))}%` }} />
+                              </div>
+                              {video.chapterCount > 0 && (
+                                <p className="mypage-course-date">
+                                  차시 {video.completedChapterCount}/{video.chapterCount}
+                                  {video.latestChapterTitle ? ` · 최근 차시 ${video.latestChapterTitle}` : ""}
+                                </p>
+                              )}
+                              {daysLeft !== null ? (
+                                <p className={`mypage-expiry-label ${isExpired ? "is-expired" : daysLeft <= 1 ? "is-urgent" : daysLeft <= 7 ? "is-warning" : ""}`}>
+                                  {isExpired ? "수강 기한 만료" : `수강 만료 D-${daysLeft} · ${expiresAt.toLocaleDateString("ko-KR")}`}
+                                </p>
+                              ) : (
+                                <p className="mypage-expiry-label">무제한 이용</p>
+                              )}
+                            </div>
+                            <div className="mypage-course-actions">
+                              <button type="button" className="ghost-button small-ghost" disabled={isExpired} onClick={() => navigate(`/academy/player/${video.id}`)}>
+                                {isExpired ? "만료됨" : video.completed ? "다시보기" : video.progressPercent > 0 ? "이어보기" : "지금 수강"}
+                              </button>
+                              {video.completed ? (
+                                <button
+                                  type="button"
+                                  className="ghost-button small-ghost mypage-certificate-button"
+                                  disabled={issuingCertificateVideoId === String(video.id)}
+                                  onClick={() => handleCertificateClick(video)}
+                                >
+                                  {issuingCertificateVideoId === String(video.id)
+                                    ? "발급 중..."
+                                    : certificate
+                                      ? "수료증 보기"
+                                      : "수료증 발급"}
+                                </button>
+                              ) : null}
+                            </div>
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <article className="dashboard-card empty-state">
+                        <h3>센터에서 제공한 수강 영상이 없습니다</h3>
+                        <p>오프라인 수강생은 센터를 통해 영상을 이용하실 수 있습니다.</p>
+                      </article>
+                    )}
+                  </div>
                 )}
               </div>
             )}
 
-            {activeVideoTab === "granted" && (
-              <div className="dashboard-card-grid">
-                {grantedLearningHistory.length ? (
-                  grantedLearningHistory.map((video) => {
-                    const durSec = calcChaptersTotalDuration(video.chapters);
-                    const durLabel = formatDuration(durSec);
-                    const expiresAt = video.grant?.expiresAt ? new Date(video.grant.expiresAt) : null;
-                    const daysLeft = expiresAt ? Math.ceil((expiresAt - Date.now()) / 86400000) : null;
-                    const isExpired = daysLeft !== null && daysLeft <= 0;
-                    const certificate = certificateByVideoId.get(String(video.id));
-                    return (
-                      <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card mypage-granted-card ${isExpired ? "is-expired" : ""}`}>
-                        <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
-                        <div className="mypage-video-copy">
-                          <p className="mini-kicker mypage-granted-badge">센터 제공</p>
-                          <h3>{video.title}</h3>
-                          <p className="mypage-course-date">
-                            {video.instructor}{video.category ? ` · ${video.category}` : ""}{durLabel ? ` · ${durLabel}` : ""}
-                          </p>
-                          <p className="mypage-course-date">
-                            진도 {video.progressPercent}%{video.lastWatchedAt ? ` · 최근 수강 ${formatDate(video.lastWatchedAt)}` : " · 아직 시청 전"}
-                          </p>
-                          {video.chapterCount > 0 && (
-                            <p className="mypage-course-date">
-                              차시 {video.completedChapterCount}/{video.chapterCount}
-                              {video.latestChapterTitle ? ` · 최근 차시 ${video.latestChapterTitle}` : ""}
-                            </p>
-                          )}
-                          {daysLeft !== null ? (
-                            <p className={`mypage-expiry-label ${isExpired ? "is-expired" : daysLeft <= 1 ? "is-urgent" : daysLeft <= 7 ? "is-warning" : ""}`}>
-                              {isExpired ? "수강 기한 만료" : `수강 만료 D-${daysLeft} · ${expiresAt.toLocaleDateString("ko-KR")}`}
-                            </p>
-                          ) : (
-                            <p className="mypage-expiry-label">무제한 이용</p>
-                          )}
-                        </div>
-                        <div className="mypage-course-actions">
-                          <button type="button" className="ghost-button small-ghost" disabled={isExpired} onClick={() => navigate(`/academy/player/${video.id}`)}>
-                            {isExpired ? "만료됨" : video.completed ? "다시보기" : video.progressPercent > 0 ? "이어보기" : "지금 수강"}
+            {activeTab === "orders" && (
+              <div className="mypage-tab-panel">
+                <section className="mypage-redesign-panel mypage-redesign-table-card mypage-redesign-order-card">
+                  <div className="mypage-redesign-panel-head">
+                    <div>
+                      <p className="mypage-redesign-kicker">ORDER HISTORY</p>
+                      <h2>주문 / 결제 내역 <span className="mypage-redesign-count-badge">{userOrders.length}건</span></h2>
+                    </div>
+                  </div>
+                  <div className="mypage-redesign-table-wrap">
+                    <table className="mypage-redesign-table">
+                      <thead>
+                        <tr>
+                          <th>주문일</th>
+                          <th>주문번호</th>
+                          <th>상품명</th>
+                          <th>결제금액</th>
+                          <th>결제상태</th>
+                          <th>관리</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pagedOrders.length ? pagedOrders.map((order, index) => {
+                          const orderId = order.orderId || order.id || "";
+                          const orderRequests = myRefundRequests.filter((r) => r.orderId === orderId);
+                          const latestRequest = orderRequests[0] || null;
+                          const pendingRequest = orderRequests.find((r) => r.status === "pending");
+                          const payload = typeof order.payload === "object" ? order.payload : {};
+                          const cancelledIds = new Set(
+                            Array.isArray(order.cancelledProductIds)
+                              ? order.cancelledProductIds
+                              : Array.isArray(payload.cancelledProductIds)
+                                ? payload.cancelledProductIds
+                                : []
+                          );
+                          const isFullyRefunded = order.paymentStatus === "refunded" ||
+                            (order.refundAmount != null && order.refundAmount >= order.amount);
+                          const allProductIds = Array.isArray(order.selectedProductIds) ? order.selectedProductIds : [];
+                          const activeProductIds = allProductIds.filter((id) => !cancelledIds.has(id));
+                          const canRequestRefund = !isFullyRefunded && activeProductIds.length > 0 && !pendingRequest;
+
+                          return (
+                            <tr key={orderId || `${order.createdAt || "order"}-${index}`}>
+                              <td data-label="주문일">{formatDate(order.createdAt)}</td>
+                              <td data-label="주문번호">{orderId || "-"}</td>
+                              <td data-label="상품명">{order.orderName || "주문 상품"}</td>
+                              <td data-label="결제금액">{store.formatCurrency(order.amount)}</td>
+                              <td data-label="결제상태">
+                                {latestRequest ? (
+                                  <span className={getRefundStatusClass(latestRequest.status)}>
+                                    환불 {getRefundStatusLabel(latestRequest.status)}
+                                  </span>
+                                ) : isFullyRefunded ? (
+                                  <span className="refund-status approved">환불 완료</span>
+                                ) : (
+                                  <span className="refund-status approved">결제완료</span>
+                                )}
+                              </td>
+                              <td data-label="관리">
+                                {canRequestRefund ? (
+                                  <button
+                                    type="button"
+                                    className="mypage-redesign-mini-button"
+                                    onClick={() => openRefundModal({ ...order, orderId, activeProductIds })}
+                                  >
+                                    환불 신청
+                                  </button>
+                                ) : "-"}
+                              </td>
+                            </tr>
+                          );
+                        }) : (
+                          <tr><td colSpan={6}>주문 내역이 없습니다.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mypage-redesign-card-foot">
+                    <span>전체 {userOrders.length}건</span>
+                    {renderSimplePager(orderPage, orderTotalPages, setOrderPage, "주문")}
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {activeTab === "qna" && (
+              <div className="mypage-tab-panel">
+                <section className="mypage-redesign-panel mypage-redesign-table-card mypage-redesign-qna-card">
+                  <div className="mypage-redesign-panel-head">
+                    <div>
+                      <p className="mypage-redesign-kicker">QNA HISTORY</p>
+                      <h2>Q&A 내역</h2>
+                    </div>
+                    <button type="button" className="mypage-redesign-text-button" onClick={() => navigate("/community/inquiry")}>
+                      전체 보기 ›
+                    </button>
+                  </div>
+                  <div className="mypage-redesign-table-wrap">
+                    <table className="mypage-redesign-table">
+                      <thead>
+                        <tr>
+                          <th>번호</th>
+                          <th>제목</th>
+                          <th>답변상태</th>
+                          <th>작성일</th>
+                          <th>관리</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myQnaLoading ? (
+                          <tr><td colSpan={5}>불러오는 중...</td></tr>
+                        ) : myQnaError ? (
+                          <tr><td colSpan={5}>{myQnaError}</td></tr>
+                        ) : pagedQnaItems.length ? pagedQnaItems.map((item, index) => (
+                          <tr key={item.id}>
+                            <td data-label="번호">{myQnaItems.length - ((qnaPage - 1) * qnaPageSize + index)}</td>
+                            <td data-label="제목">{item.title}</td>
+                            <td data-label="답변상태">
+                              <span className={`refund-status ${item.answered ? "approved" : "pending"}`}>
+                                {item.answered ? "답변완료" : "답변대기"}
+                              </span>
+                            </td>
+                            <td data-label="작성일">{formatDate(item.createdAt)}</td>
+                            <td data-label="관리">
+                              <button
+                                type="button"
+                                className="mypage-redesign-mini-button"
+                                onClick={() => navigate(`/academy/player/${item.videoId}`)}
+                              >
+                                보기
+                              </button>
+                            </td>
+                          </tr>
+                        )) : (
+                          <tr><td colSpan={5}>작성한 Q&A가 없습니다.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mypage-redesign-card-foot">
+                    <span>전체 {myQnaItems.length}건</span>
+                    {renderSimplePager(qnaPage, qnaTotalPages, setQnaPage, "Q&A")}
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {activeTab === "profile" && (
+              <div className="mypage-tab-panel">
+                <form className="dashboard-card mypage-profile-form" onSubmit={handleSubmit}>
+                  <p className="mypage-form-caption">
+                    이름은 고정되고, 나머지 정보는 현재 비밀번호 인증 후 변경할 수 있습니다.
+                  </p>
+
+                  <div className="mypage-form-grid">
+                    <label className="mypage-field">
+                      이름 (수정 불가)
+                      <input type="text" value={form.name} disabled />
+                    </label>
+                    <label className="mypage-field">
+                      아이디
+                      <input
+                        type="text"
+                        value={form.loginId}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, loginId: event.target.value }))
+                        }
+                      />
+                    </label>
+
+                    <div className="mypage-field">
+                      <span>이메일</span>
+                      <div className="mypage-inline-field">
+                        <input
+                          type="email"
+                          value={form.email}
+                          onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
+                        />
+                        <button
+                          type="button"
+                          className="checkout-text-button mypage-inline-button"
+                          onClick={handleRequestEmailVerification}
+                          disabled={isSendingEmailCode || !isEmailChanged}
+                        >
+                          {isSendingEmailCode ? "발송 중..." : "인증번호 발송"}
+                        </button>
+                      </div>
+                    </div>
+                    <label className="mypage-field">
+                      연락처
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, phone: event.target.value.replace(/\D/g, "") }))
+                        }
+                      />
+                    </label>
+                    <label className="mypage-field">
+                      출생연도 (선택)
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={4}
+                        placeholder="예: 1994"
+                        value={form.birthYear}
+                        onChange={(event) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            birthYear: event.target.value.replace(/\D/g, "").slice(0, 4),
+                          }))
+                        }
+                      />
+                    </label>
+
+                    {isEmailChanged ? (
+                      <div className="mypage-field mypage-field-full">
+                        <span>이메일 인증번호</span>
+                        <div className="mypage-inline-field">
+                          <input
+                            type="text"
+                            value={emailVerificationCode}
+                            onChange={(event) =>
+                              setEmailVerificationCode(event.target.value.replace(/\D/g, ""))
+                            }
+                            placeholder="6자리 인증번호 입력"
+                          />
+                          <button
+                            type="button"
+                            className="checkout-text-button mypage-inline-button"
+                            onClick={handleConfirmEmailVerification}
+                            disabled={isVerifyingEmailCode}
+                          >
+                            {isVerifyingEmailCode ? "확인 중..." : "인증확인"}
                           </button>
-                          {video.completed ? (
-                            <button
-                              type="button"
-                              className="ghost-button small-ghost mypage-certificate-button"
-                              disabled={issuingCertificateVideoId === String(video.id)}
-                              onClick={() => handleCertificateClick(video)}
-                            >
-                              {issuingCertificateVideoId === String(video.id)
-                                ? "발급 중..."
-                                : certificate
-                                  ? "수료증 보기"
-                                  : "수료증 발급"}
-                            </button>
-                          ) : null}
                         </div>
-                      </article>
-                    );
-                  })
-                ) : (
-                  <article className="dashboard-card empty-state">
-                    <h3>센터에서 제공한 수강 영상이 없습니다</h3>
-                    <p>오프라인 수강생은 센터를 통해 영상을 이용하실 수 있습니다.</p>
-                  </article>
-                )}
+                        {emailVerificationState.text ? (
+                          <p className={`mypage-inline-message ${emailVerificationState.status}`}>
+                            {emailVerificationState.text}
+                            {emailVerificationState.debugCode
+                              ? ` (개발용 인증번호: ${emailVerificationState.debugCode})`
+                              : ""}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    <label className="mypage-field mypage-field-full">
+                      새 비밀번호 (선택)
+                      <span className="mypage-password-wrap">
+                        <input
+                          type={showNewPassword ? "text" : "password"}
+                          value={form.newPassword}
+                          onChange={(event) =>
+                            setForm((prev) => ({ ...prev, newPassword: event.target.value }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="mypage-password-toggle"
+                          onClick={() => setShowNewPassword((prev) => !prev)}
+                          aria-label={showNewPassword ? "새 비밀번호 숨기기" : "새 비밀번호 보기"}
+                        >
+                          <EyeIcon open={showNewPassword} />
+                        </button>
+                      </span>
+                    </label>
+
+                    <label className="mypage-field mypage-field-full">
+                      현재 비밀번호 (인증)
+                      <span className="mypage-password-wrap">
+                        <input
+                          type={showCurrentPassword ? "text" : "password"}
+                          required
+                          value={form.currentPassword}
+                          onChange={(event) =>
+                            setForm((prev) => ({ ...prev, currentPassword: event.target.value }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="mypage-password-toggle"
+                          onClick={() => setShowCurrentPassword((prev) => !prev)}
+                          aria-label={showCurrentPassword ? "현재 비밀번호 숨기기" : "현재 비밀번호 보기"}
+                        >
+                          <EyeIcon open={showCurrentPassword} />
+                        </button>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="mypage-marketing-inline">
+                    <div className="mypage-marketing-row">
+                      <div>
+                        <strong>마케팅 정보 수신 동의</strong>
+                        <p className="mypage-marketing-desc">신규 강의, 이벤트, 할인 혜택 등 유용한 정보를 이메일로 받아보실 수 있습니다.</p>
+                      </div>
+                      <button
+                        type="button"
+                        className={`ghost-button small-ghost mypage-marketing-toggle${currentUser.marketingAgree ? " active" : ""}`}
+                        onClick={handleToggleMarketing}
+                        disabled={isMarketingToggling}
+                      >
+                        {isMarketingToggling
+                          ? "처리 중..."
+                          : currentUser.marketingAgree
+                            ? "수신 거부"
+                            : "수신 동의"}
+                      </button>
+                    </div>
+                    <span className="mypage-marketing-status">
+                      현재 상태: <strong>{currentUser.marketingAgree ? "동의" : "미동의"}</strong>
+                    </span>
+                    {marketingMessage.text ? (
+                      <p className={`mypage-save-message ${marketingMessage.type}`}>{marketingMessage.text}</p>
+                    ) : null}
+                  </div>
+
+                  {saveMessage.text ? (
+                    <p className={`mypage-save-message ${saveMessage.type}`}>{saveMessage.text}</p>
+                  ) : null}
+
+                  <button className="pill-button full mypage-save-button" type="submit" disabled={isSaving}>
+                    {isSaving ? "저장 중..." : "변경사항 저장"}
+                  </button>
+                </form>
+
+                <div className="dashboard-card mypage-withdraw-card">
+                  <div className="mypage-withdraw-header">
+                    <h2>회원 탈퇴</h2>
+                    <p className="mypage-withdraw-note">
+                      탈퇴 후 계정 데이터는 90일간 보존되며, 기간 내 재가입으로 복구하실 수 있습니다.
+                    </p>
+                  </div>
+                  <button type="button" className="ghost-button small-ghost" onClick={handleOpenWithdrawFlow}>
+                    회원 탈퇴 진행
+                  </button>
+                </div>
               </div>
             )}
           </div>
+        </div>
+      </PageLayout>
 
-          <aside className="mypage-aside-stack">
-            <div className="dashboard-section-header">
-              <h2>개인정보 수정</h2>
+      {withdrawModalOpen ? (
+        <div className="refund-modal-backdrop" onClick={() => !isWithdrawing && setWithdrawModalOpen(false)}>
+          <div className="refund-modal withdraw-guide-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="refund-modal-header">
+              <h2>탈퇴 전, 안내 사항</h2>
+              <button type="button" className="refund-modal-close" onClick={() => setWithdrawModalOpen(false)}>×</button>
             </div>
-            <form className="dashboard-card mypage-profile-form" onSubmit={handleSubmit}>
-              <p className="mypage-form-caption">
-                이름은 고정되고, 나머지 정보는 현재 비밀번호 인증 후 변경할 수 있습니다.
-              </p>
+            <div className="refund-modal-body withdraw-guide-body">
+              <ol className="withdraw-guide-list">
+                <li>계정 탈퇴 시, <strong>이끌림 필라테스 서비스에서 모두</strong> 탈퇴됩니다.</li>
+                <li>탈퇴시 계정과 관련된 모든 권한이 사라지며 복구할 수 없습니다.</li>
+                <li>직접 구매한 강의 수강 권한은 탈퇴 즉시 사라지며, 탈퇴 이전에 환불 신청이 필요합니다.</li>
+                <li>탈퇴 후 동일한 이메일로 재가입이 가능하나, 탈퇴된 계정과 연동되지 않습니다.</li>
+                <li>탈퇴 후 계정 데이터는 90일간 보존되며, 기간 내 재가입으로 복구하실 수 있습니다.</li>
+                <li>현재 비밀번호를 입력하고 탈퇴하기를 누르시면 위 내용에 동의하는 것으로 간주됩니다.</li>
+              </ol>
 
-              <div className="mypage-form-grid">
-                <label className="mypage-field">
-                  이름 (수정 불가)
-                  <input type="text" value={form.name} disabled />
-                </label>
-                <label className="mypage-field">
-                  아이디
-                  <input
-                    type="text"
-                    value={form.loginId}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, loginId: event.target.value }))
-                    }
-                  />
-                </label>
-
-                <div className="mypage-field">
-                  <span>이메일</span>
-                  <div className="mypage-inline-field">
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-                    />
-                    <button
-                      type="button"
-                      className="checkout-text-button mypage-inline-button"
-                      onClick={handleRequestEmailVerification}
-                      disabled={isSendingEmailCode || !isEmailChanged}
-                    >
-                      {isSendingEmailCode ? "발송 중..." : "인증번호 발송"}
-                    </button>
-                  </div>
+              <div className="withdraw-guide-stats">
+                <div className="withdraw-stat-item">
+                  <span>구매 강의</span>
+                  <strong>{purchasedVideoItemCount}건</strong>
                 </div>
-                <label className="mypage-field">
-                  연락처
-                  <input
-                    type="tel"
-                    value={form.phone}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, phone: event.target.value.replace(/\D/g, "") }))
-                    }
-                  />
-                </label>
-                <label className="mypage-field">
-                  출생연도 (선택)
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={4}
-                    placeholder="예: 1994"
-                    value={form.birthYear}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        birthYear: event.target.value.replace(/\D/g, "").slice(0, 4),
-                      }))
-                    }
-                  />
-                </label>
-
-                {isEmailChanged ? (
-                  <div className="mypage-field mypage-field-full">
-                    <span>이메일 인증번호</span>
-                    <div className="mypage-inline-field">
-                      <input
-                        type="text"
-                        value={emailVerificationCode}
-                        onChange={(event) =>
-                          setEmailVerificationCode(event.target.value.replace(/\D/g, ""))
-                        }
-                        placeholder="6자리 인증번호 입력"
-                      />
-                      <button
-                        type="button"
-                        className="checkout-text-button mypage-inline-button"
-                        onClick={handleConfirmEmailVerification}
-                        disabled={isVerifyingEmailCode}
-                      >
-                        {isVerifyingEmailCode ? "확인 중..." : "인증확인"}
-                      </button>
-                    </div>
-                    {emailVerificationState.text ? (
-                      <p className={`mypage-inline-message ${emailVerificationState.status}`}>
-                        {emailVerificationState.text}
-                        {emailVerificationState.debugCode
-                          ? ` (개발용 인증번호: ${emailVerificationState.debugCode})`
-                          : ""}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <label className="mypage-field mypage-field-full">
-                  새 비밀번호 (선택)
-                  <span className="mypage-password-wrap">
-                    <input
-                      type={showNewPassword ? "text" : "password"}
-                      value={form.newPassword}
-                      onChange={(event) =>
-                        setForm((prev) => ({ ...prev, newPassword: event.target.value }))
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="mypage-password-toggle"
-                      onClick={() => setShowNewPassword((prev) => !prev)}
-                      aria-label={showNewPassword ? "새 비밀번호 숨기기" : "새 비밀번호 보기"}
-                    >
-                      <EyeIcon open={showNewPassword} />
-                    </button>
-                  </span>
-                </label>
-
-                <label className="mypage-field mypage-field-full">
-                  현재 비밀번호 (인증)
-                  <span className="mypage-password-wrap">
-                    <input
-                      type={showCurrentPassword ? "text" : "password"}
-                      required
-                      value={form.currentPassword}
-                      onChange={(event) =>
-                        setForm((prev) => ({ ...prev, currentPassword: event.target.value }))
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="mypage-password-toggle"
-                      onClick={() => setShowCurrentPassword((prev) => !prev)}
-                      aria-label={showCurrentPassword ? "현재 비밀번호 숨기기" : "현재 비밀번호 보기"}
-                    >
-                      <EyeIcon open={showCurrentPassword} />
-                    </button>
-                  </span>
-                </label>
+                <div className="withdraw-stat-item">
+                  <span>주문 내역</span>
+                  <strong>{userOrders.length}건</strong>
+                </div>
+                <div className="withdraw-stat-item">
+                  <span>수강 완료</span>
+                  <strong>{completedVideoCount}개</strong>
+                </div>
               </div>
 
-              {saveMessage.text ? (
-                <p className={`mypage-save-message ${saveMessage.type}`}>{saveMessage.text}</p>
-              ) : null}
-
-              <button className="pill-button full mypage-save-button" type="submit" disabled={isSaving}>
-                {isSaving ? "저장 중..." : "변경사항 저장"}
-              </button>
-            </form>
-
-            <div className="dashboard-section-header">
-              <h2>마케팅 정보 수신 동의</h2>
-            </div>
-            <div className="dashboard-card mypage-marketing-card">
-              <p className="mypage-marketing-desc">
-                신규 강의, 이벤트, 할인 혜택 등 유용한 정보를 이메일로 받아보실 수 있습니다.
-              </p>
-              <div className="mypage-marketing-row">
-                <span className="mypage-marketing-status">
-                  현재 상태: <strong>{currentUser.marketingAgree ? "동의" : "미동의"}</strong>
-                </span>
-                <button
-                  type="button"
-                  className={`ghost-button small-ghost mypage-marketing-toggle${currentUser.marketingAgree ? " active" : ""}`}
-                  onClick={handleToggleMarketing}
-                  disabled={isMarketingToggling}
-                >
-                  {isMarketingToggling
-                    ? "처리 중..."
-                    : currentUser.marketingAgree
-                      ? "수신 거부"
-                      : "수신 동의"}
-                </button>
+              <div className="withdraw-guide-warning">
+                <span className="withdraw-guide-warning-icon">!</span>
+                <div>
+                  <p><strong>탈퇴 시, 위 강의 및 주문 정보가 모두 사라집니다.</strong></p>
+                  <p>내용을 모두 확인하셨나요?<br />비밀번호를 입력 후, 탈퇴하면 위 내용에 동의하는 것으로 간주됩니다.</p>
+                </div>
               </div>
-              {marketingMessage.text ? (
-                <p className={`mypage-save-message ${marketingMessage.type}`}>{marketingMessage.text}</p>
-              ) : null}
-            </div>
 
-            <div className="dashboard-section-header">
-              <h2>회원 탈퇴</h2>
-            </div>
-            <div className="dashboard-card mypage-withdraw-card">
-              <p className="mypage-withdraw-note">
-                탈퇴 후 계정 데이터는 90일간 보존되며, 기간 내 재가입으로 복구하실 수 있습니다.
-              </p>
-              <button type="button" className="ghost-button small-ghost" onClick={handleOpenWithdrawFlow}>
-                회원 탈퇴 진행
-              </button>
-
-              {isWithdrawConfirmOpened ? (
-                <div className="mypage-withdraw-panel">
-                  <label className="mypage-field">
-                    본인인증 전화번호
-                    <div className="mypage-inline-field">
-                      <input
-                        type="tel"
-                        value={withdrawPhone}
-                        onChange={(event) =>
-                          setWithdrawPhone(event.target.value.replace(/\D/g, ""))
-                        }
-                        placeholder="숫자만 입력"
-                      />
-                      <button
-                        type="button"
-                        className="checkout-text-button mypage-inline-button"
-                        onClick={handleRequestWithdrawVerification}
-                        disabled={isSendingWithdrawCode}
-                      >
-                        {isSendingWithdrawCode ? "발송 중..." : "인증번호 발송"}
-                      </button>
-                    </div>
-                  </label>
-
-                  <label className="mypage-field">
-                    인증번호
-                    <div className="mypage-inline-field">
-                      <input
-                        type="text"
-                        value={withdrawVerificationCode}
-                        onChange={(event) =>
-                          setWithdrawVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-                        }
-                        placeholder="6자리 인증번호 입력"
-                      />
-                      <button
-                        type="button"
-                        className="checkout-text-button mypage-inline-button"
-                        onClick={handleConfirmWithdrawVerification}
-                        disabled={isVerifyingWithdrawCode}
-                      >
-                        {isVerifyingWithdrawCode ? "확인 중..." : "인증확인"}
-                      </button>
-                    </div>
-                  </label>
-
-                  {withdrawVerificationState.text ? (
-                    <p className={`mypage-inline-message ${withdrawVerificationState.status}`}>
-                      {withdrawVerificationState.text}
-                      {withdrawVerificationState.debugCode
-                        ? ` (개발용 인증번호: ${withdrawVerificationState.debugCode})`
-                        : ""}
-                    </p>
-                  ) : null}
-
-                  {withdrawMessage.text ? (
-                    <p className={`mypage-save-message ${withdrawMessage.type}`}>{withdrawMessage.text}</p>
-                  ) : null}
-
+              <div className="withdraw-guide-password-section">
+                <label className="withdraw-guide-password-label">비밀번호</label>
+                <p className="withdraw-guide-password-desc">본인 확인을 위해 현재 계정의 비밀번호를 입력해주세요.</p>
+                <span className="mypage-password-wrap">
+                  <input
+                    type={withdrawPasswordVisible ? "text" : "password"}
+                    className="withdraw-guide-password-input"
+                    placeholder="현재 비밀번호"
+                    value={withdrawPassword}
+                    onChange={(e) => setWithdrawPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleWithdrawAccount()}
+                  />
                   <button
                     type="button"
-                    className="pill-button full mypage-withdraw-submit"
-                    onClick={handleWithdrawAccount}
-                    disabled={!isWithdrawPhoneVerified || isWithdrawing}
+                    className="mypage-password-toggle"
+                    onClick={() => setWithdrawPasswordVisible((p) => !p)}
+                    aria-label="비밀번호 표시 토글"
                   >
-                    {isWithdrawing ? "탈퇴 처리 중..." : "전화번호 인증 후 탈퇴 완료"}
+                    <EyeIcon open={withdrawPasswordVisible} />
                   </button>
-                </div>
+                </span>
+              </div>
+
+              {withdrawError ? (
+                <p className="mypage-save-message error">{withdrawError}</p>
               ) : null}
-            </div>
 
-            <div className="dashboard-section-header">
-                <h2>최근 주문 내역</h2>
+              <button
+                type="button"
+                className="pill-button full mypage-withdraw-submit"
+                onClick={handleWithdrawAccount}
+                disabled={isWithdrawing || !withdrawPassword.trim()}
+              >
+                {isWithdrawing ? "탈퇴 처리 중..." : "탈퇴하기"}
+              </button>
             </div>
-            <div className="dashboard-card order-list">
-              {userOrders.length ? (
-                userOrders.map((order, index) => {
-                  const orderId = order.orderId || order.id || "";
-                  const orderRequests = myRefundRequests.filter((r) => r.orderId === orderId);
-                  const latestRequest = orderRequests[0] || null;
-                  const pendingRequest = orderRequests.find((r) => r.status === "pending");
-                  const payload = typeof order.payload === "object" ? order.payload : {};
-                  const cancelledIds = new Set(
-                    Array.isArray(order.cancelledProductIds)
-                      ? order.cancelledProductIds
-                      : Array.isArray(payload.cancelledProductIds)
-                        ? payload.cancelledProductIds
-                        : []
-                  );
-                  const isFullyRefunded = order.paymentStatus === "refunded" ||
-                    (order.refundAmount != null && order.refundAmount >= order.amount);
-                  const allProductIds = Array.isArray(order.selectedProductIds) ? order.selectedProductIds : [];
-                  const activeProductIds = allProductIds.filter((id) => !cancelledIds.has(id));
-                  const canRequestRefund = !isFullyRefunded && activeProductIds.length > 0 && !pendingRequest;
-
-                  return (
-                    <article key={orderId || `${order.createdAt || "order"}-${index}`} className="order-row">
-                      <div className="order-row-info">
-                        <strong>{order.orderName}</strong>
-                        <p>{formatDate(order.createdAt)}</p>
-                        {latestRequest ? (
-                          <span className={getRefundStatusClass(latestRequest.status)}>
-                            환불 {getRefundStatusLabel(latestRequest.status)}
-                            {latestRequest.adminNote ? ` · ${latestRequest.adminNote}` : ""}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="order-row-actions">
-                        <strong>{store.formatCurrency(order.amount)}</strong>
-                        {canRequestRefund ? (
-                          <button
-                            type="button"
-                            className="ghost-button small-ghost"
-                            onClick={() => openRefundModal({ ...order, orderId, activeProductIds })}
-                          >
-                            환불 신청
-                          </button>
-                        ) : null}
-                        {isFullyRefunded ? (
-                          <span className="refund-status approved">환불 완료</span>
-                        ) : null}
-                      </div>
-                    </article>
-                  );
-                })
-              ) : (
-                  <p className="empty-copy">주문 내역이 없습니다.</p>
-              )}
-            </div>
-
-            <div className="dashboard-section-header">
-              <h2>내 Q&A</h2>
-            </div>
-            <div className="dashboard-card order-list">
-              {myQnaLoading ? (
-                <p className="empty-copy">불러오는 중...</p>
-              ) : myQnaError ? (
-                <p className="empty-copy">{myQnaError}</p>
-              ) : myQnaItems.length ? (
-                myQnaItems.map((item) => (
-                  <article key={item.id} className="order-row mypage-qna-row">
-                    <div className="order-row-info">
-                      <strong>{item.title}</strong>
-                      <p>{item.videoTitle}</p>
-                      <p>작성 {formatDateTime(item.createdAt)}</p>
-                      {item.answered ? (
-                        <p>답변 {item.replyCount}건 · 최근 답변 {formatDateTime(item.lastReplyAt)}</p>
-                      ) : (
-                        <p>답변 대기 중</p>
-                      )}
-                    </div>
-                    <div className="order-row-actions">
-                      <span className={`refund-status ${item.answered ? "approved" : "pending"}`}>
-                        {item.answered ? "답변 완료" : "답변 대기"}
-                      </span>
-                      <button
-                        type="button"
-                        className="ghost-button small-ghost"
-                        onClick={() => navigate(`/academy/player/${item.videoId}`)}
-                      >
-                        보기
-                      </button>
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <p className="empty-copy">작성한 Q&A가 없습니다.</p>
-              )}
-            </div>
-          </aside>
-        </section>
-      </main>
+          </div>
+        </div>
+      ) : null}
 
       {refundModal ? (
         <div className="refund-modal-backdrop" onClick={closeRefundModal}>
@@ -1860,6 +1908,8 @@ export function MyPage() {
                     const video = store.academyVideos?.find(
                       (v) => v.productId === productId || v.id === productId
                     );
+                    const product = store.products?.[productId];
+                    const displayName = video?.title || product?.name || productId;
                     return (
                       <label key={productId} className="refund-product-item">
                         <input
@@ -1867,7 +1917,7 @@ export function MyPage() {
                           checked={refundSelectedProductIds.includes(productId)}
                           onChange={() => toggleRefundProduct(productId)}
                         />
-                        <span>{video?.title || productId}</span>
+                        <span>{displayName}</span>
                       </label>
                     );
                   })}
@@ -1974,6 +2024,6 @@ export function MyPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

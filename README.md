@@ -86,7 +86,7 @@ HomePage/
 ```bash
 cd backend
 npm install
-cp .env.example .env   # 환경변수 설정
+touch backend/.env     # 아래 환경변수 항목을 참고해 직접 작성
 npm run dev
 ```
 
@@ -107,7 +107,7 @@ npm run dev
 
 ## 환경변수 (backend/.env)
 
-`.env.example`을 복사해서 사용합니다.
+`backend/.env` 파일을 직접 생성하고 아래 항목을 채워넣습니다.
 
 ```env
 PORT=4000

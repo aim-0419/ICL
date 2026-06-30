@@ -2,12 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../../shared/db/mysql.js";
 import { decryptUserRow, emailHash } from "../../../shared/security/pii.js";
-
-function parsePayload(raw) {
-  if (!raw) return {};
-  if (typeof raw === "object") return raw;
-  try { return JSON.parse(raw); } catch { return {}; }
-}
+import { parsePayload } from "../../../shared/utils/payload.js";
 
 function extractProductIds(source) {
   const ids = new Set();

@@ -1,0 +1,1332 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/src/app.js",
+      "type": "file",
+      "name": "app.js",
+      "filePath": "backend/src/app.js",
+      "summary": "Express 애플리케이션 팩토리 함수로, CORS 화이트리스트 설정, 보안 헤더, CSRF 검증, rate-limit·request-context 등 전역 미들웨어를 등록하고 모든 피처 라우터를 마운트하는 백엔드 진입점입니다.",
+      "tags": ["entry-point", "middleware", "api-handler", "설정"],
+      "complexity": "complex",
+      "languageNotes": "createApp 팩토리 패턴을 사용해 테스트 시 앱 인스턴스를 주입할 수 있도록 설계되어 있습니다."
+    },
+    {
+      "id": "function:backend/src/app.js:createApp",
+      "type": "function",
+      "name": "createApp",
+      "filePath": "backend/src/app.js",
+      "lineRange": [38, 169],
+      "summary": "CORS 설정, 보안 헤더, 모든 라우터 마운트를 포함한 완전한 Express 앱 인스턴스를 생성해 반환하는 팩토리 함수입니다.",
+      "tags": ["entry-point", "설정", "middleware"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/src/features/admin/admin.routes.js",
+      "type": "file",
+      "name": "admin.routes.js",
+      "filePath": "backend/src/features/admin/admin.routes.js",
+      "summary": "관리자 기능 라우터 정의 파일로, auth 미들웨어를 적용한 사용자 관리·주문·환불·통계 등 관리자 전용 API 엔드포인트를 구성합니다.",
+      "tags": ["api-handler", "middleware", "라우팅"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/auth/auth.controller.js",
+      "type": "file",
+      "name": "auth.controller.js",
+      "filePath": "backend/src/features/auth/auth.controller.js",
+      "summary": "회원가입·로그인·로그아웃·세션 조회·이메일 인증·비밀번호 재설정 등 인증 관련 모든 HTTP 요청을 처리하는 컨트롤러로, IP 기반 rate-limit 로직을 내장합니다.",
+      "tags": ["api-handler", "인증", "보안", "rate-limit"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/auth/auth.controller.js:signup",
+      "type": "function",
+      "name": "signup",
+      "filePath": "backend/src/features/auth/auth.controller.js",
+      "lineRange": [104, 115],
+      "summary": "가입 rate-limit 검사 후 authService.signup을 호출하고 세션 쿠키를 설정하는 회원가입 핸들러입니다.",
+      "tags": ["api-handler", "인증"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/features/auth/auth.controller.js:login",
+      "type": "function",
+      "name": "login",
+      "filePath": "backend/src/features/auth/auth.controller.js",
+      "lineRange": [118, 130],
+      "summary": "로그인 rate-limit 확인 후 authService.login을 호출하고 성공 시 세션 쿠키를 발급하는 로그인 핸들러입니다.",
+      "tags": ["api-handler", "인증"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/features/auth/auth.controller.js:logout",
+      "type": "function",
+      "name": "logout",
+      "filePath": "backend/src/features/auth/auth.controller.js",
+      "lineRange": [133, 144],
+      "summary": "세션 토큰을 파싱해 서버 측 세션을 삭제하고 쿠키를 지우는 로그아웃 핸들러입니다.",
+      "tags": ["api-handler", "인증"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/features/auth/auth.controller.js:me",
+      "type": "function",
+      "name": "me",
+      "filePath": "backend/src/features/auth/auth.controller.js",
+      "lineRange": [147, 166],
+      "summary": "쿠키 세션 토큰으로 현재 로그인 사용자 정보를 조회해 반환하는 핸들러입니다.",
+      "tags": ["api-handler", "인증"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/features/auth/auth.controller.js:checkLoginRateLimit",
+      "type": "function",
+      "name": "checkLoginRateLimit",
+      "filePath": "backend/src/features/auth/auth.controller.js",
+      "lineRange": [11, 25],
+      "summary": "IP별 로그인 실패 횟수를 DB에서 조회해 임계치 초과 시 에러를 던지는 rate-limit 검사 함수입니다.",
+      "tags": ["보안", "rate-limit", "유틸리티"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/auth/auth.routes.js",
+      "type": "file",
+      "name": "auth.routes.js",
+      "filePath": "backend/src/features/auth/auth.routes.js",
+      "summary": "인증 관련 API 라우터를 정의하며, 회원가입·로그인·로그아웃·이메일 인증·비밀번호 재설정 엔드포인트를 auth.controller에 연결합니다.",
+      "tags": ["라우팅", "인증", "api-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/brand/brand.controller.js",
+      "type": "file",
+      "name": "brand.controller.js",
+      "filePath": "backend/src/features/brand/brand.controller.js",
+      "summary": "필라테스 스튜디오 브랜드의 강사 및 지점 정보를 조회·생성·수정·삭제하는 REST API 컨트롤러입니다.",
+      "tags": ["api-handler", "브랜드", "콘텐츠 관리"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/brand/brand.routes.js",
+      "type": "file",
+      "name": "brand.routes.js",
+      "filePath": "backend/src/features/brand/brand.routes.js",
+      "summary": "강사·지점 관련 브랜드 API 라우터를 구성해 brand.controller 핸들러에 연결합니다.",
+      "tags": ["라우팅", "브랜드"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/brand/brand.service.js",
+      "type": "file",
+      "name": "brand.service.js",
+      "filePath": "backend/src/features/brand/brand.service.js",
+      "summary": "강사 및 지점 데이터를 MySQL에서 조회·upsert·삭제하는 비즈니스 로직 서비스로, careers 필드를 JSON으로 파싱해 반환합니다.",
+      "tags": ["service", "데이터베이스", "브랜드"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/cart/cart.controller.js",
+      "type": "file",
+      "name": "cart.controller.js",
+      "filePath": "backend/src/features/cart/cart.controller.js",
+      "summary": "장바구니 조회·상품 추가·수량 변경·삭제 요청을 처리하는 컨트롤러로, 비회원(게스트 ID) 및 로그인 사용자 모두 지원합니다.",
+      "tags": ["api-handler", "장바구니", "전자상거래"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/cart/cart.routes.js",
+      "type": "file",
+      "name": "cart.routes.js",
+      "filePath": "backend/src/features/cart/cart.routes.js",
+      "summary": "장바구니 REST API 엔드포인트를 cart.controller 핸들러에 연결하는 라우터 파일입니다.",
+      "tags": ["라우팅", "장바구니"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/cart/cart.service.js",
+      "type": "file",
+      "name": "cart.service.js",
+      "filePath": "backend/src/features/cart/cart.service.js",
+      "summary": "장바구니 항목의 DB CRUD 로직을 담당하며, 수량 합산 및 갱신 후 전체 장바구니 상태를 반환합니다.",
+      "tags": ["service", "데이터베이스", "장바구니"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/community/community.controller.js",
+      "type": "file",
+      "name": "community.controller.js",
+      "filePath": "backend/src/features/community/community.controller.js",
+      "summary": "리뷰·이벤트·문의 게시판의 CRUD, 댓글, 조회수, 일괄 삭제, 파일 업로드 등 커뮤니티 전체 기능을 처리하는 대형 컨트롤러입니다.",
+      "tags": ["api-handler", "커뮤니티", "콘텐츠 관리"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/community/community.controller.js:createReview",
+      "type": "function",
+      "name": "createReview",
+      "filePath": "backend/src/features/community/community.controller.js",
+      "lineRange": [106, 142],
+      "summary": "인증 사용자 확인 후 HTML 삭제·미디어 URL 정규화를 수행하고 리뷰를 저장하는 핸들러입니다.",
+      "tags": ["api-handler", "커뮤니티", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/community/community.controller.js:updateReview",
+      "type": "function",
+      "name": "updateReview",
+      "filePath": "backend/src/features/community/community.controller.js",
+      "lineRange": [159, 209],
+      "summary": "권한 검사 후 리뷰 본문·미디어 URL을 정규화하고 기존 미디어 파일을 삭제한 뒤 업데이트하는 핸들러입니다.",
+      "tags": ["api-handler", "커뮤니티"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/community/community.controller.js:createEvent",
+      "type": "function",
+      "name": "createEvent",
+      "filePath": "backend/src/features/community/community.controller.js",
+      "lineRange": [352, 402],
+      "summary": "관리자 권한을 확인하고 이벤트 데이터를 검증·저장하는 이벤트 생성 핸들러입니다.",
+      "tags": ["api-handler", "커뮤니티", "관리자"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/community/community.controller.js:createInquiry",
+      "type": "function",
+      "name": "createInquiry",
+      "filePath": "backend/src/features/community/community.controller.js",
+      "lineRange": [582, 619],
+      "summary": "인증 사용자가 문의를 작성할 수 있도록 입력값을 검증하고 저장하는 문의 생성 핸들러입니다.",
+      "tags": ["api-handler", "커뮤니티"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/community/community.routes.js",
+      "type": "file",
+      "name": "community.routes.js",
+      "filePath": "backend/src/features/community/community.routes.js",
+      "summary": "리뷰·이벤트·문의·SNS 피드 등 커뮤니티 모든 API 엔드포인트를 community.controller에 연결하는 라우터입니다.",
+      "tags": ["라우팅", "커뮤니티"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/community/community.social.service.js",
+      "type": "file",
+      "name": "community.social.service.js",
+      "filePath": "backend/src/features/community/community.social.service.js",
+      "summary": "유튜브·블로그(RSS)·인스타그램 최신 콘텐츠를 크롤링·파싱해 DB에 캐싱하고, 백그라운드 갱신으로 TTL 기반 stale 체크를 수행하는 소셜 피드 서비스입니다.",
+      "tags": ["service", "소셜-미디어", "크롤링", "캐싱"],
+      "complexity": "complex",
+      "languageNotes": "RSS XML 수동 파싱과 YouTube Data API, Instagram 스크래핑을 조합한 다중 소스 집계 패턴을 사용합니다."
+    },
+    {
+      "id": "function:backend/src/features/community/community.social.service.js:getBrandSocialLatest",
+      "type": "function",
+      "name": "getBrandSocialLatest",
+      "filePath": "backend/src/features/community/community.social.service.js",
+      "lineRange": [525, 558],
+      "summary": "DB 캐시를 우선 조회하고 stale 시 백그라운드 갱신을 트리거하며, 유튜브·블로그·인스타그램 최신 콘텐츠를 반환하는 퍼블릭 진입 함수입니다.",
+      "tags": ["service", "소셜-미디어", "캐싱"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/community/community.social.service.js:collectFreshPayload",
+      "type": "function",
+      "name": "collectFreshPayload",
+      "filePath": "backend/src/features/community/community.social.service.js",
+      "lineRange": [367, 415],
+      "summary": "설정 DB에서 소셜 URL을 읽고 유튜브·블로그·인스타그램 소스를 병렬 fetch하여 통합 페이로드를 구성합니다.",
+      "tags": ["service", "소셜-미디어", "비동기"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/src/features/orders/orders.controller.js",
+      "type": "file",
+      "name": "orders.controller.js",
+      "filePath": "backend/src/features/orders/orders.controller.js",
+      "summary": "주문 목록 조회 및 신규 주문 생성 요청을 처리하고, 주문 완료 시 이메일 발송을 트리거하는 컨트롤러입니다.",
+      "tags": ["api-handler", "주문", "전자상거래"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/orders/orders.routes.js",
+      "type": "file",
+      "name": "orders.routes.js",
+      "filePath": "backend/src/features/orders/orders.routes.js",
+      "summary": "주문 관련 API 엔드포인트를 orders.controller 핸들러에 연결하는 라우터 파일입니다.",
+      "tags": ["라우팅", "주문"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/payments/payments.controller.js",
+      "type": "file",
+      "name": "payments.controller.js",
+      "filePath": "backend/src/features/payments/payments.controller.js",
+      "summary": "포트원(PortOne) 결제 승인 확인 및 웹훅 이벤트 수신을 처리하는 결제 컨트롤러입니다.",
+      "tags": ["api-handler", "결제", "전자상거래"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/payments/payments.routes.js",
+      "type": "file",
+      "name": "payments.routes.js",
+      "filePath": "backend/src/features/payments/payments.routes.js",
+      "summary": "결제 승인 및 웹훅 API 엔드포인트를 구성하며, rate-limit 미들웨어를 결제 경로에 적용합니다.",
+      "tags": ["라우팅", "결제", "rate-limit"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/products/products.controller.js",
+      "type": "file",
+      "name": "products.controller.js",
+      "filePath": "backend/src/features/products/products.controller.js",
+      "summary": "수강권 상품의 목록 조회·생성·수정·삭제 요청을 처리하는 컨트롤러입니다.",
+      "tags": ["api-handler", "상품", "전자상거래"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/products/products.routes.js",
+      "type": "file",
+      "name": "products.routes.js",
+      "filePath": "backend/src/features/products/products.routes.js",
+      "summary": "상품 관련 REST API 엔드포인트를 products.controller 핸들러에 연결하는 라우터입니다.",
+      "tags": ["라우팅", "상품"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/products/products.service.js",
+      "type": "file",
+      "name": "products.service.js",
+      "filePath": "backend/src/features/products/products.service.js",
+      "summary": "수강권 상품의 목록 조회·생성·수정·삭제 DB 쿼리를 수행하는 서비스 레이어입니다.",
+      "tags": ["service", "데이터베이스", "상품"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/refunds/refunds.controller.js",
+      "type": "file",
+      "name": "refunds.controller.js",
+      "filePath": "backend/src/features/refunds/refunds.controller.js",
+      "summary": "환불 신청, 내 환불 내역 조회, 관리자의 환불 목록 조회·승인·거절 등 환불 전체 흐름을 처리하는 컨트롤러입니다.",
+      "tags": ["api-handler", "환불", "관리자"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/refunds/refunds.routes.js",
+      "type": "file",
+      "name": "refunds.routes.js",
+      "filePath": "backend/src/features/refunds/refunds.routes.js",
+      "summary": "환불 관련 API 엔드포인트를 refunds.controller에 연결하는 라우터 파일입니다.",
+      "tags": ["라우팅", "환불"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/studio/studio.asset.service.js",
+      "type": "file",
+      "name": "studio.asset.service.js",
+      "filePath": "backend/src/features/studio/studio.asset.service.js",
+      "summary": "스튜디오 공지 이미지 업로드를 처리하며, 파일 매직 바이트 검증과 MIME 타입 허용 목록을 통해 보안을 보장합니다.",
+      "tags": ["service", "파일-업로드", "보안"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/studio/studio.controller.js",
+      "type": "file",
+      "name": "studio.controller.js",
+      "filePath": "backend/src/features/studio/studio.controller.js",
+      "summary": "스튜디오 예약·수강권·락커·출석·알림·설정·역할·공지 등 스튜디오 관리 플랫폼의 모든 핵심 기능을 담당하는 대형 컨트롤러입니다.",
+      "tags": ["api-handler", "스튜디오", "관리자"],
+      "complexity": "complex",
+      "languageNotes": "단일 파일에 80개 이상의 핸들러가 집약된 monolithic controller 구조로, 향후 도메인별 분리가 권장됩니다."
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.controller.js:bookClass",
+      "type": "function",
+      "name": "bookClass",
+      "filePath": "backend/src/features/studio/studio.controller.js",
+      "lineRange": [83, 93],
+      "summary": "회원이 수업을 예약하는 핸들러로, 스튜디오 서비스를 통해 예약 처리를 위임합니다.",
+      "tags": ["api-handler", "스튜디오", "예약"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.controller.js:createPassByAdmin",
+      "type": "function",
+      "name": "createPassByAdmin",
+      "filePath": "backend/src/features/studio/studio.controller.js",
+      "lineRange": [234, 244],
+      "summary": "관리자가 회원에게 수강권을 직접 발급하는 핸들러입니다.",
+      "tags": ["api-handler", "스튜디오", "관리자", "수강권"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.controller.js:checkInMember",
+      "type": "function",
+      "name": "checkInMember",
+      "filePath": "backend/src/features/studio/studio.controller.js",
+      "lineRange": [605, 615],
+      "summary": "회원 출석 체크인을 처리하는 핸들러입니다.",
+      "tags": ["api-handler", "스튜디오", "출석"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/features/studio/studio.controller.js:assignLocker",
+      "type": "function",
+      "name": "assignLocker",
+      "filePath": "backend/src/features/studio/studio.controller.js",
+      "lineRange": [746, 756],
+      "summary": "특정 회원에게 락커를 배정하는 핸들러입니다.",
+      "tags": ["api-handler", "스튜디오", "락커"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/studio/studio.routes.js",
+      "type": "file",
+      "name": "studio.routes.js",
+      "filePath": "backend/src/features/studio/studio.routes.js",
+      "summary": "스튜디오 관리 플랫폼의 모든 REST API 라우트를 정의하며, 인증·관리자 권한·rate-limit 미들웨어를 각 경로에 적절히 적용합니다.",
+      "tags": ["라우팅", "스튜디오", "middleware"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/src/features/users/users.routes.js",
+      "type": "file",
+      "name": "users.routes.js",
+      "filePath": "backend/src/features/users/users.routes.js",
+      "summary": "사용자 프로필 조회·수정, 비밀번호 변경, 회원 탈퇴, 주문/수강권 조회 등 마이페이지 관련 API 라우터를 정의합니다.",
+      "tags": ["라우팅", "사용자", "마이페이지"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/shared/constants.js",
+      "type": "file",
+      "name": "constants.js",
+      "filePath": "backend/src/shared/constants.js",
+      "summary": "SESSION_COOKIE_NAME 등 백엔드 전반에서 공유하는 상수를 정의하는 파일입니다.",
+      "tags": ["유틸리티", "설정", "공유"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/shared/middlewares/auth.js",
+      "type": "file",
+      "name": "auth.js",
+      "filePath": "backend/src/shared/middlewares/auth.js",
+      "summary": "세션 토큰 파싱, 사용자 조회, 관리자/스태프 권한 체크, requireAuth·requireAdmin·requireAdminOrStudioStaff 미들웨어를 제공하는 공유 인증 모듈입니다.",
+      "tags": ["middleware", "인증", "보안", "공유"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/shared/middlewares/auth.js:requireAuth",
+      "type": "function",
+      "name": "requireAuth",
+      "filePath": "backend/src/shared/middlewares/auth.js",
+      "lineRange": [36, 47],
+      "summary": "세션 유효성을 검사하고 인증되지 않은 요청을 401로 거부하는 Express 미들웨어입니다.",
+      "tags": ["middleware", "인증", "보안"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/shared/middlewares/auth.js:requireAdmin",
+      "type": "function",
+      "name": "requireAdmin",
+      "filePath": "backend/src/shared/middlewares/auth.js",
+      "lineRange": [49, 63],
+      "summary": "인증 확인 후 관리자 권한이 없으면 403을 반환하는 Express 미들웨어입니다.",
+      "tags": ["middleware", "인증", "관리자"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/shared/middlewares/auth.js:createAuthMiddlewares",
+      "type": "function",
+      "name": "createAuthMiddlewares",
+      "filePath": "backend/src/shared/middlewares/auth.js",
+      "lineRange": [83, 106],
+      "summary": "auth.service 의존성을 주입받아 resolveSessionToken·resolveSessionUser 등 인증 함수들을 반환하는 팩토리 함수입니다.",
+      "tags": ["middleware", "factory", "인증"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/shared/middlewares/error-handler.js",
+      "type": "file",
+      "name": "error-handler.js",
+      "filePath": "backend/src/shared/middlewares/error-handler.js",
+      "summary": "404 핸들러와 전역 에러 핸들러를 제공하며, HTTP 상태 코드와 구조화된 에러 응답을 일관되게 반환합니다.",
+      "tags": ["middleware", "에러-처리", "공유"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/shared/middlewares/error-handler.js:errorHandler",
+      "type": "function",
+      "name": "errorHandler",
+      "filePath": "backend/src/shared/middlewares/error-handler.js",
+      "lineRange": [24, 50],
+      "summary": "Express 4-argument 에러 핸들러로 status·code·message 필드를 표준화해 JSON 에러 응답을 생성합니다.",
+      "tags": ["middleware", "에러-처리"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/shared/middlewares/rate-limit.js",
+      "type": "file",
+      "name": "rate-limit.js",
+      "filePath": "backend/src/shared/middlewares/rate-limit.js",
+      "summary": "IP 기반 sliding window rate-limit 미들웨어를 생성하는 createRateLimiter 팩토리를 제공하며, 429 응답 형식을 표준화합니다.",
+      "tags": ["middleware", "rate-limit", "보안", "공유"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/shared/middlewares/rate-limit.js:createRateLimiter",
+      "type": "function",
+      "name": "createRateLimiter",
+      "filePath": "backend/src/shared/middlewares/rate-limit.js",
+      "lineRange": [9, 60],
+      "summary": "windowMs·max 옵션을 받아 IP 기반 요청 횟수를 제한하는 Express 미들웨어 인스턴스를 반환하는 팩토리 함수입니다.",
+      "tags": ["middleware", "rate-limit", "factory"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/shared/middlewares/request-context.js",
+      "type": "file",
+      "name": "request-context.js",
+      "filePath": "backend/src/shared/middlewares/request-context.js",
+      "summary": "요청 ID와 타임스탬프를 req 객체에 주입하는 경량 request-context 미들웨어를 제공합니다.",
+      "tags": ["middleware", "공유", "로깅"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/test/auth-middleware.test.js",
+      "type": "file",
+      "name": "auth-middleware.test.js",
+      "filePath": "backend/test/auth-middleware.test.js",
+      "summary": "requireAuth·requireAdmin 미들웨어의 세션 검증 및 권한 체크 동작을 단위 테스트합니다.",
+      "tags": ["test", "인증", "middleware"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/test/auth.test.js",
+      "type": "file",
+      "name": "auth.test.js",
+      "filePath": "backend/test/auth.test.js",
+      "summary": "auth.js 미들웨어의 세션 토큰 파싱, 사용자 조회, 에러 응답 흐름을 포괄적으로 단위 테스트합니다.",
+      "tags": ["test", "인증", "middleware"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/test/error-handler.test.js",
+      "type": "file",
+      "name": "error-handler.test.js",
+      "filePath": "backend/test/error-handler.test.js",
+      "summary": "error-handler.js의 404 및 전역 에러 핸들러 응답 형식을 단위 테스트합니다.",
+      "tags": ["test", "에러-처리", "middleware"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/test/rate-limit.test.js",
+      "type": "file",
+      "name": "rate-limit.test.js",
+      "filePath": "backend/test/rate-limit.test.js",
+      "summary": "createRateLimiter 미들웨어의 허용 임계치·429 거절 동작을 단위 테스트합니다.",
+      "tags": ["test", "rate-limit", "middleware"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/src/app.js",
+      "target": "function:backend/src/app.js:createApp",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "function:backend/src/app.js:createApp",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "function:backend/src/features/auth/auth.controller.js:signup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "function:backend/src/features/auth/auth.controller.js:signup",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "function:backend/src/features/auth/auth.controller.js:login",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "function:backend/src/features/auth/auth.controller.js:login",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "function:backend/src/features/auth/auth.controller.js:logout",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "function:backend/src/features/auth/auth.controller.js:logout",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "function:backend/src/features/auth/auth.controller.js:me",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "function:backend/src/features/auth/auth.controller.js:me",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "function:backend/src/features/auth/auth.controller.js:checkLoginRateLimit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "function:backend/src/features/community/community.controller.js:createReview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "function:backend/src/features/community/community.controller.js:createReview",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "function:backend/src/features/community/community.controller.js:updateReview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "function:backend/src/features/community/community.controller.js:updateReview",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "function:backend/src/features/community/community.controller.js:createEvent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "function:backend/src/features/community/community.controller.js:createEvent",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "function:backend/src/features/community/community.controller.js:createInquiry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "function:backend/src/features/community/community.controller.js:createInquiry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/community/community.social.service.js",
+      "target": "function:backend/src/features/community/community.social.service.js:getBrandSocialLatest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/community/community.social.service.js",
+      "target": "function:backend/src/features/community/community.social.service.js:getBrandSocialLatest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/community/community.social.service.js",
+      "target": "function:backend/src/features/community/community.social.service.js:collectFreshPayload",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "function:backend/src/features/studio/studio.controller.js:bookClass",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "function:backend/src/features/studio/studio.controller.js:bookClass",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "function:backend/src/features/studio/studio.controller.js:createPassByAdmin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "function:backend/src/features/studio/studio.controller.js:createPassByAdmin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "function:backend/src/features/studio/studio.controller.js:checkInMember",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "function:backend/src/features/studio/studio.controller.js:checkInMember",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "function:backend/src/features/studio/studio.controller.js:assignLocker",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "function:backend/src/features/studio/studio.controller.js:assignLocker",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/auth.js",
+      "target": "function:backend/src/shared/middlewares/auth.js:requireAuth",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/auth.js",
+      "target": "function:backend/src/shared/middlewares/auth.js:requireAuth",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/auth.js",
+      "target": "function:backend/src/shared/middlewares/auth.js:requireAdmin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/auth.js",
+      "target": "function:backend/src/shared/middlewares/auth.js:requireAdmin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/auth.js",
+      "target": "function:backend/src/shared/middlewares/auth.js:createAuthMiddlewares",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/auth.js",
+      "target": "function:backend/src/shared/middlewares/auth.js:createAuthMiddlewares",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/error-handler.js",
+      "target": "function:backend/src/shared/middlewares/error-handler.js:errorHandler",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/error-handler.js",
+      "target": "function:backend/src/shared/middlewares/error-handler.js:errorHandler",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/rate-limit.js",
+      "target": "function:backend/src/shared/middlewares/rate-limit.js:createRateLimiter",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/rate-limit.js",
+      "target": "function:backend/src/shared/middlewares/rate-limit.js:createRateLimiter",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/config/env.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/academy/academy.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/admin/admin.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/auth/auth.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/brand/brand.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/cart/cart.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/community/community.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/orders/orders.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/payments/payments.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/products/products.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/refunds/refunds.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/sms/sms.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/studio/studio.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/features/users/users.routes.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/shared/middlewares/error-handler.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/shared/middlewares/rate-limit.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/app.js",
+      "target": "file:backend/src/shared/middlewares/request-context.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.routes.js",
+      "target": "file:backend/src/features/admin/admin.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.routes.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "file:backend/src/features/auth/auth.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "file:backend/src/shared/constants.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/auth/auth.routes.js",
+      "target": "file:backend/src/features/auth/auth.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/brand/brand.controller.js",
+      "target": "file:backend/src/features/brand/brand.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/brand/brand.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/brand/brand.routes.js",
+      "target": "file:backend/src/features/brand/brand.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/brand/brand.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/cart/cart.controller.js",
+      "target": "file:backend/src/features/cart/cart.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/cart/cart.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/cart/cart.routes.js",
+      "target": "file:backend/src/features/cart/cart.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/cart/cart.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "file:backend/src/features/community/community.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "file:backend/src/features/community/community.social.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/community/community.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/community/community.routes.js",
+      "target": "file:backend/src/features/community/community.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/community/community.social.service.js",
+      "target": "file:backend/src/config/env.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/community/community.social.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.controller.js",
+      "target": "file:backend/src/features/orders/orders.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.controller.js",
+      "target": "file:backend/src/shared/email/email.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/orders/orders.routes.js",
+      "target": "file:backend/src/features/orders/orders.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.controller.js",
+      "target": "file:backend/src/features/payments/payments.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.routes.js",
+      "target": "file:backend/src/features/payments/payments.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.routes.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/payments/payments.routes.js",
+      "target": "file:backend/src/shared/middlewares/rate-limit.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/products/products.controller.js",
+      "target": "file:backend/src/features/products/products.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/products/products.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/products/products.routes.js",
+      "target": "file:backend/src/features/products/products.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/products/products.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.controller.js",
+      "target": "file:backend/src/features/refunds/refunds.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/refunds/refunds.routes.js",
+      "target": "file:backend/src/features/refunds/refunds.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "file:backend/src/features/sms/notification-dispatch.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "file:backend/src/features/studio/studio.asset.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "file:backend/src/features/studio/studio.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.routes.js",
+      "target": "file:backend/src/features/studio/studio.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.routes.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.routes.js",
+      "target": "file:backend/src/shared/middlewares/rate-limit.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/users/users.routes.js",
+      "target": "file:backend/src/features/users/users.controller.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/auth.js",
+      "target": "file:backend/src/features/auth/auth.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/auth.js",
+      "target": "file:backend/src/shared/constants.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/test/auth-middleware.test.js",
+      "target": "file:backend/src/shared/constants.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/test/auth-middleware.test.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/test/auth.test.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/test/error-handler.test.js",
+      "target": "file:backend/src/shared/middlewares/error-handler.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/test/rate-limit.test.js",
+      "target": "file:backend/src/shared/middlewares/rate-limit.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/auth.js",
+      "target": "file:backend/test/auth.test.js",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/auth.js",
+      "target": "file:backend/test/auth-middleware.test.js",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/error-handler.js",
+      "target": "file:backend/test/error-handler.test.js",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/src/shared/middlewares/rate-limit.js",
+      "target": "file:backend/test/rate-limit.test.js",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

@@ -23,16 +23,29 @@
  */
 import express, { Router } from "express";
 import * as studioController from "./studio.controller.js";
+import { requireAuth } from "../../shared/middlewares/auth.js";
+import { createRateLimiter } from "../../shared/middlewares/rate-limit.js";
 
 export const studioRoutes = Router();
+const memberStudioWriteRateLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 30,
+  keyGenerator: (req) => String(req.authUser?.id || req.ip || "unknown"),
+});
 
 // ─── 회원용 라우트 ─────────────────────────────────────────────────────────────
 studioRoutes.get("/classes", studioController.listClasses);
-studioRoutes.get("/me/summary", studioController.listMySummary);
-studioRoutes.post("/classes/:classId/book", studioController.bookClass);
-studioRoutes.post("/classes/:classId/cancel", studioController.cancelMyBooking);
+studioRoutes.get("/me/summary", requireAuth, studioController.listMySummary);
+studioRoutes.post("/me/push-devices", requireAuth, express.json(), studioController.registerMyPushDevice);
+studioRoutes.delete("/me/push-devices", requireAuth, express.json(), studioController.unregisterMyPushDevice);
+studioRoutes.patch("/me/notifications/read", requireAuth, studioController.markMyNotificationsRead);
+studioRoutes.patch("/me/notifications/:notificationId/read", requireAuth, studioController.markMyNotificationRead);
+studioRoutes.post("/classes/:classId/book", requireAuth, memberStudioWriteRateLimiter, studioController.bookClass);
+studioRoutes.post("/classes/:classId/cancel", requireAuth, memberStudioWriteRateLimiter, studioController.cancelMyBooking);
 
 // ─── 관리자용 라우트 ────────────────────────────────────────────────────────────
+// 세부 역할 권한은 각 컨트롤러에서 다시 확인하되, 모든 관리자 경로는 로그인부터 강제합니다.
+studioRoutes.use("/admin", requireAuth);
 studioRoutes.get("/admin/bookings", studioController.listAllBookings);
 studioRoutes.post("/admin/classes", express.json(), studioController.createClass);
 studioRoutes.put("/admin/classes/:classId", express.json(), studioController.updateClass);
@@ -73,8 +86,15 @@ studioRoutes.put("/admin/class-categories/:categoryId", express.json(), studioCo
 studioRoutes.delete("/admin/class-categories/:categoryId", studioController.deleteClassCategory);
 studioRoutes.get("/admin/notification-templates", studioController.getNotificationTemplates);
 studioRoutes.put("/admin/notification-templates/:templateId", express.json(), studioController.saveNotificationTemplate);
+studioRoutes.get("/admin/message-templates", studioController.listMessageTemplates);
+studioRoutes.post("/admin/message-templates", express.json(), studioController.createMessageTemplate);
+studioRoutes.put("/admin/message-templates/:templateId", express.json(), studioController.updateMessageTemplate);
+studioRoutes.delete("/admin/message-templates/:templateId", studioController.deleteMessageTemplate);
 studioRoutes.get("/admin/settings/sales-pin", studioController.getSalesPinHandler);
 studioRoutes.put("/admin/settings/sales-pin", express.json(), studioController.saveSalesPinHandler);
+studioRoutes.post("/admin/settings/sales-pin/verify", express.json(), studioController.verifySalesPinHandler);
+studioRoutes.get("/admin/sales", studioController.getStudioSalesReportHandler);
+studioRoutes.post("/admin/expenses", express.json(), studioController.createStudioExpenseHandler);
 studioRoutes.get("/admin/notices", studioController.listAdminNotices);
 studioRoutes.post("/admin/notices", express.json(), studioController.createAdminNoticeHandler);
 studioRoutes.get("/admin/notices/:noticeId", studioController.getAdminNoticeHandler);
@@ -84,8 +104,10 @@ studioRoutes.post("/admin/notices/upload-image", express.raw({ type: ["image/jpe
 studioRoutes.post("/admin/settings/holidays", express.json(), studioController.addHoliday);
 studioRoutes.delete("/admin/settings/holidays/:holidayId", studioController.deleteHoliday);
 studioRoutes.post("/admin/checkins", express.json(), studioController.checkInMember);
+studioRoutes.patch("/admin/checkins/:checkinId/cancel", studioController.cancelCheckIn);
 studioRoutes.get("/admin/classes/:classId/checkins", studioController.listClassCheckins);
 studioRoutes.post("/admin/arrears", express.json(), studioController.createArrears);
+studioRoutes.get("/admin/arrears", studioController.listArrears);
 studioRoutes.patch("/admin/arrears/:arrearsId/resolve", studioController.resolveArrears);
 studioRoutes.get("/admin/users/:userId/arrears", studioController.listArrearsByUser);
 studioRoutes.post("/admin/lockers", express.json(), studioController.createLocker);
@@ -95,7 +117,7 @@ studioRoutes.get("/admin/locker-assignments", studioController.listLockerAssignm
 studioRoutes.post("/admin/locker-assignments", express.json(), studioController.assignLocker);
 studioRoutes.patch("/admin/locker-assignments/:assignmentId/end", studioController.endLockerAssignment);
 studioRoutes.post("/admin/notifications", express.json(), studioController.createNotification);
-studioRoutes.get("/users/:userId/notifications", studioController.listNotificationsByUser);
+studioRoutes.get("/users/:userId/notifications", requireAuth, studioController.listNotificationsByUser);
 studioRoutes.get("/admin/instructor-hours", studioController.listInstructorHours);
 studioRoutes.put("/admin/instructor-hours", express.json(), studioController.saveInstructorHours);
 studioRoutes.get("/admin/role-permissions", studioController.listRolePermissions);
@@ -104,6 +126,6 @@ studioRoutes.get("/admin/users/:userId/memos", studioController.listMemberMemos)
 studioRoutes.post("/admin/memos", express.json(), studioController.createMemberMemo);
 studioRoutes.post("/admin/passes/pause", express.json(), studioController.pausePass);
 studioRoutes.post("/admin/passes/transfer", express.json(), studioController.transferPass);
-studioRoutes.post("/passes/refund-requests", express.json(), studioController.requestPassRefund);
+studioRoutes.post("/passes/refund-requests", requireAuth, memberStudioWriteRateLimiter, express.json(), studioController.requestPassRefund);
 studioRoutes.get("/admin/pass-refunds", studioController.listAdminPassRefunds);
 studioRoutes.patch("/admin/pass-refunds/:refundId", express.json(), studioController.resolvePassRefund);

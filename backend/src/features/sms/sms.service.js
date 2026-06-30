@@ -1,3 +1,4 @@
+// 파일 역할: 외부 문자 발송사(알리고) API 호출과 테스트 모드 발송 결과 생성을 담당합니다.
 import { env } from "../../config/env.js";
 
 const ALIGO_SMS_URL = "https://apis.aligo.in/send/";

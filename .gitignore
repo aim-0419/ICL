@@ -12,6 +12,7 @@ pnpm-debug.log*
 # Env
 .env
 .env.*
+!backend/.env.example
 
 # OS / Editor
 .DS_Store
@@ -28,3 +29,13 @@ frontend/_tmp_davenue_intro.html
 
 # Uploaded media
 backend/uploads/
+
+# Capacitor native projects (generated — do not commit)
+frontend/ios/
+frontend/android/
+
+# Local QA artifacts
+qa-screenshots/
+chrome-cdp-profile*/
+chrome-qa-profile*/
+ICL.zip

@@ -1,20 +1,10 @@
 ﻿import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getAdminNotificationTemplates, saveAdminNotificationTemplate } from "../../studio/api/studioApi.js";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
-
-const NAV_ITEMS = [
-  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
-  { label: "수업", path: "/admin/classes" },
-  { label: "회원", path: "/admin/member-list" },
-  { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/passes" },
-  { label: "메시지", path: "/admin/messages" },
-  { label: "게시판", path: "/admin/board" },
-  { label: "설정", path: "/admin/settings", active: true },
-  { label: "매출", path: "/admin/sales" },
-];
+import { AdminSettingsSearchBox } from "../components/AdminSettingsSearchBox.jsx";
 
 const DEFAULTS = {
   pass_expire:       { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! [[수강권명]]의 잔여일이 [[수강권 잔여일]]일 남았습니다.",                          param1: 5,    param2: null, skipExpired: false },
@@ -50,11 +40,12 @@ function renderPreview(msg) {
   return Object.entries(SAMPLE_VALUES).reduce((s, [k, v]) => s.replaceAll(k, v), String(msg || ""));
 }
 
-function NumInput({ value, onChange, min = 1, max = 99 }) {
+function NumInput({ value, onChange, min = 1, max = 99, label = "알림 발송 기준 숫자" }) {
   return (
     <input
       type="number"
       className="admin-snoti-num"
+      aria-label={label}
       min={min}
       max={max}
       value={value ?? ""}
@@ -105,10 +96,27 @@ function NotificationCard({ id, title, note, renderTiming, tpl, onChange, onSave
           <input type="checkbox" checked={Boolean(tpl?.smsEnabled)} onChange={(e) => update({ smsEnabled: e.target.checked })} />
           <span>문자</span>
         </label>
+        <label className="admin-snoti-ch-label">
+          <input type="checkbox" checked={Boolean(tpl?.kakaoEnabled)} onChange={(e) => update({ kakaoEnabled: e.target.checked })} />
+          <span>카카오 알림톡</span>
+        </label>
       </div>
+
+      {tpl?.kakaoEnabled && (
+        <label className="admin-snoti-template-code">
+          <span>알림톡 승인 템플릿 코드</span>
+          <input
+            type="text"
+            value={tpl?.kakaoTemplateCode || ""}
+            onChange={(e) => update({ kakaoTemplateCode: e.target.value })}
+            placeholder="알리고에 등록된 템플릿 코드"
+          />
+        </label>
+      )}
 
       <textarea
         className="admin-snoti-textarea"
+        aria-label={`${title} 메시지 내용`}
         value={tpl?.message || ""}
         onChange={(e) => update({ message: e.target.value })}
         rows={5}
@@ -189,26 +197,11 @@ export function AdminSettingsNotificationsPage() {
   });
 
   return (
-    <div className="admin-snoti-app">
-      <header className="admin-schedule-topbar">
-        <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-          <span>ICL</span>
-        </button>
-        <nav className="admin-schedule-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.label} className={item.active ? "active" : ""} to={item.path}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="admin-schedule-search">
-          <span aria-hidden="true">검색</span>
-          <input type="search" placeholder="설정 검색" readOnly />
-        </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
-          {currentUserName}
-        </button>
-      </header>
+    <AdminLayout
+      appClass="admin-snoti-app"
+      userName={currentUserName}
+      searchSlot={<AdminSettingsSearchBox placeholder="설정 검색" />}
+    >
 
       <div className="admin-snoti-wrap">
         <div className="admin-sroom-crumb">
@@ -361,6 +354,6 @@ export function AdminSettingsNotificationsPage() {
           <span />
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

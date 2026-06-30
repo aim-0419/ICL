@@ -1,6 +1,13 @@
 ﻿import { randomUUID } from "node:crypto";
 import { query, queryOne, withTransaction } from "../../shared/db/mysql.js";
 import { decryptPii, decryptUserRow, normalizeEmail } from "../../shared/security/pii.js";
+import {
+  normalizeClassInput,
+  normalizeOptionalCount,
+  resolveBookingStatus,
+} from "./studio.class-rules.js";
+import { normalizePassRefundRequest } from "./studio.refund-rules.js";
+import { parseJson } from "../../shared/utils/payload.js";
 
 function toCount(value) {
   const n = Number(value);
@@ -13,14 +20,15 @@ function createHttpError(message, status = 400) {
   return err;
 }
 
-function parseJson(value, fallback = {}) {
-  if (!value) return fallback;
-  if (typeof value === "object") return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
+const VALID_STUDIO_BRANCH_IDS = new Set(["branch-1", "branch-2"]);
+
+function normalizeBranchId(value) {
+  const branchId = String(value || "").trim();
+  return VALID_STUDIO_BRANCH_IDS.has(branchId) ? branchId : "branch-1";
+}
+
+function branchNameExpr(alias = "sc") {
+  return `COALESCE(b.name, CASE ${alias}.branch_id WHEN 'branch-2' THEN '효천점' ELSE '장덕점' END)`;
 }
 
 function normalizeDate(value) {
@@ -62,9 +70,19 @@ async function getBookingPolicyWithConn(conn) {
   return rows?.[0]?.[0] || { reserveLimitHours: 24, cancelLimitHours: 6, sameDayChangeAllowed: 0 };
 }
 
-async function assertBookingPolicyAllows(conn, classStartAt, action) {
+async function assertBookingPolicyAllows(conn, classInfo, action) {
+  const classStartAt = classInfo?.start_at ?? classInfo?.startAt ?? classInfo;
   const start = normalizeDate(classStartAt);
   if (!start) throw createHttpError("수업 시작 시간을 확인할 수 없습니다.", 400);
+  const classDeadline = action === "cancel"
+    ? normalizeDate(classInfo?.cancellation_deadline_at ?? classInfo?.cancellationDeadlineAt)
+    : normalizeDate(classInfo?.booking_deadline_at ?? classInfo?.bookingDeadlineAt);
+  if (classDeadline) {
+    if (Date.now() > classDeadline.getTime()) {
+      throw createHttpError(action === "cancel" ? "취소 가능 시간이 지났습니다." : "예약 가능 시간이 지났습니다.", 400);
+    }
+    return;
+  }
   const policy = await getBookingPolicyWithConn(conn);
   const limitHours = action === "cancel" ? Number(policy.cancelLimitHours || 0) : Number(policy.reserveLimitHours || 0);
   if (limitHours > 0 && start.getTime() - Date.now() < limitHours * 60 * 60 * 1000) {
@@ -115,14 +133,14 @@ async function createNotificationWithConn(conn, payload) {
   await conn.execute(
     `INSERT INTO studio_notifications
       (id, user_id, type, title, message, status, scheduled_at, sent_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NOW())`,
     [
       id,
       String(payload?.userId || "").trim(),
       String(payload?.type || "system").trim(),
       String(payload?.title || "").trim(),
       String(payload?.message || "").trim(),
-      String(payload?.status || "sent").trim(),
+      String(payload?.status || "pending").trim(),
       payload?.scheduledAt || null,
     ]
   );
@@ -138,7 +156,7 @@ function assertFutureClass(startAt) {
   }
 }
 
-export async function listClasses({ from = "", to = "", userId = "" } = {}) {
+export async function listClasses({ from = "", to = "", userId = "", branchId = "" } = {}) {
   const params = [];
   let where = " WHERE 1=1 ";
   if (from) {
@@ -149,19 +167,32 @@ export async function listClasses({ from = "", to = "", userId = "" } = {}) {
     where += " AND sc.start_at <= ? ";
     params.push(to);
   }
+  if (branchId) {
+    where += " AND sc.branch_id = ? ";
+    params.push(normalizeBranchId(branchId));
+  }
   const rows = await query(
     `SELECT
       sc.id,
+      sc.branch_id AS branchId,
+      ${branchNameExpr("sc")} AS branchName,
+      sc.class_type AS classType,
       sc.title,
       sc.instructor_name AS instructorName,
       sc.room_name AS roomName,
       sc.start_at AS startAt,
       sc.end_at AS endAt,
       sc.capacity,
+      sc.min_capacity AS minCapacity,
+      sc.waitlist_capacity AS waitlistCapacity,
+      sc.booking_deadline_at AS bookingDeadlineAt,
+      sc.cancellation_deadline_at AS cancellationDeadlineAt,
+      sc.cancellation_decision_at AS cancellationDecisionAt,
       sc.status,
       SUM(CASE WHEN sb.status = 'reserved' THEN 1 ELSE 0 END) AS reservedCount,
       SUM(CASE WHEN sb.status = 'waitlisted' THEN 1 ELSE 0 END) AS waitlistCount
     FROM studio_classes sc
+    LEFT JOIN branches b ON b.id = sc.branch_id
     LEFT JOIN studio_bookings sb ON sb.class_id = sc.id
     ${where}
     GROUP BY sc.id
@@ -187,7 +218,7 @@ export async function listClasses({ from = "", to = "", userId = "" } = {}) {
   }));
 }
 
-export async function listClassesForAdmin({ from = "", to = "", status = "" } = {}) {
+export async function listClassesForAdmin({ from = "", to = "", status = "", branchId = "" } = {}) {
   const params = [];
   let where = " WHERE 1=1 ";
   if (from) {
@@ -202,19 +233,32 @@ export async function listClassesForAdmin({ from = "", to = "", status = "" } = 
     where += " AND sc.status = ? ";
     params.push(status);
   }
+  if (branchId) {
+    where += " AND sc.branch_id = ? ";
+    params.push(normalizeBranchId(branchId));
+  }
   const rows = await query(
     `SELECT
       sc.id,
+      sc.branch_id AS branchId,
+      ${branchNameExpr("sc")} AS branchName,
+      sc.class_type AS classType,
       sc.title,
       sc.instructor_name AS instructorName,
       sc.room_name AS roomName,
       sc.start_at AS startAt,
       sc.end_at AS endAt,
       sc.capacity,
+      sc.min_capacity AS minCapacity,
+      sc.waitlist_capacity AS waitlistCapacity,
+      sc.booking_deadline_at AS bookingDeadlineAt,
+      sc.cancellation_deadline_at AS cancellationDeadlineAt,
+      sc.cancellation_decision_at AS cancellationDecisionAt,
       sc.status,
       SUM(CASE WHEN sb.status = 'reserved' THEN 1 ELSE 0 END) AS reservedCount,
       SUM(CASE WHEN sb.status = 'waitlisted' THEN 1 ELSE 0 END) AS waitlistCount
     FROM studio_classes sc
+    LEFT JOIN branches b ON b.id = sc.branch_id
     LEFT JOIN studio_bookings sb ON sb.class_id = sc.id
     ${where}
     GROUP BY sc.id
@@ -228,23 +272,40 @@ export async function listClassesForAdmin({ from = "", to = "", status = "" } = 
   }));
 }
 
-export async function listMyPasses(userId) {
+export async function listMyPasses(userId, branchId = "") {
+  const params = [userId];
+  let branchWhere = "";
+  if (branchId) {
+    branchWhere = " AND sp.branch_id = ? ";
+    params.push(normalizeBranchId(branchId));
+  }
   const rows = await query(
-    `SELECT id, pass_name AS passName, pass_type AS passType, remaining_count AS remainingCount,
-            total_count AS totalCount, expires_at AS expiresAt, status
-     FROM studio_passes
-     WHERE user_id = ?
-     ORDER BY created_at DESC`,
-    [userId]
+    `SELECT sp.id, sp.branch_id AS branchId, ${branchNameExpr("sp")} AS branchName,
+            sp.pass_name AS passName, sp.pass_type AS passType, sp.remaining_count AS remainingCount,
+            sp.total_count AS totalCount, sp.expires_at AS expiresAt, sp.status
+     FROM studio_passes sp
+     LEFT JOIN branches b ON b.id = sp.branch_id
+     WHERE sp.user_id = ?
+       ${branchWhere}
+     ORDER BY sp.created_at DESC`,
+    params
   );
   return Array.isArray(rows) ? rows : [];
 }
 
-export async function listMyPassTransactions(userId) {
+export async function listMyPassTransactions(userId, branchId = "") {
+  const params = [userId];
+  let branchWhere = "";
+  if (branchId) {
+    branchWhere = " AND sp.branch_id = ? ";
+    params.push(normalizeBranchId(branchId));
+  }
   const rows = await query(
     `SELECT
        spt.id,
        spt.pass_id AS passId,
+       sp.branch_id AS branchId,
+       ${branchNameExpr("sp")} AS branchName,
        sp.pass_name AS passName,
        spt.class_id AS classId,
        sc.title AS classTitle,
@@ -253,16 +314,19 @@ export async function listMyPassTransactions(userId) {
        spt.created_at AS createdAt
      FROM studio_pass_transactions spt
      INNER JOIN studio_passes sp ON sp.id = spt.pass_id
+     LEFT JOIN branches b ON b.id = sp.branch_id
      LEFT JOIN studio_classes sc ON sc.id = spt.class_id
      WHERE spt.user_id = ?
+       ${branchWhere}
      ORDER BY spt.created_at DESC
      LIMIT 50`,
-    [userId]
+    params
   );
   return Array.isArray(rows) ? rows : [];
 }
 
 export async function listPassTransactionsForAdmin({ limit = 200 } = {}) {
+  const safeLimit = Math.min(500, Math.max(1, Number.parseInt(String(limit || 200), 10) || 200));
   const rows = await query(
     `SELECT
        spt.id,
@@ -271,6 +335,8 @@ export async function listPassTransactionsForAdmin({ limit = 200 } = {}) {
        u.login_id AS loginId,
        u.phone,
        spt.pass_id AS passId,
+       sp.branch_id AS branchId,
+       ${branchNameExpr("sp")} AS branchName,
        sp.pass_name AS passName,
        sp.pass_type AS passType,
        spt.class_id AS classId,
@@ -280,11 +346,11 @@ export async function listPassTransactionsForAdmin({ limit = 200 } = {}) {
        spt.created_at AS createdAt
      FROM studio_pass_transactions spt
      INNER JOIN studio_passes sp ON sp.id = spt.pass_id
+     LEFT JOIN branches b ON b.id = sp.branch_id
      LEFT JOIN users u ON u.id = spt.user_id
      LEFT JOIN studio_classes sc ON sc.id = spt.class_id
      ORDER BY spt.created_at DESC
-     LIMIT ?`,
-    [Math.min(500, Math.max(1, Number(limit || 200)))]
+     LIMIT ${safeLimit}`
   );
   return (Array.isArray(rows) ? rows : []).map((row) => {
     const user = decryptUserRow({
@@ -300,6 +366,8 @@ export async function listPassTransactionsForAdmin({ limit = 200 } = {}) {
       loginId: user?.loginId || row.loginId || "",
       phone: user?.phone || "",
       passId: row.passId,
+      branchId: row.branchId || "branch-1",
+      branchName: row.branchName || "장덕점",
       passName: row.passName,
       passType: row.passType,
       classId: row.classId,
@@ -311,22 +379,32 @@ export async function listPassTransactionsForAdmin({ limit = 200 } = {}) {
   });
 }
 
-export async function listMyBookings(userId) {
+export async function listMyBookings(userId, branchId = "") {
+  const params = [userId];
+  let branchWhere = "";
+  if (branchId) {
+    branchWhere = " AND sc.branch_id = ? ";
+    params.push(normalizeBranchId(branchId));
+  }
   const rows = await query(
     `SELECT
       sb.id,
       sb.class_id AS classId,
       sb.status,
       sb.booked_at AS bookedAt,
+      sc.branch_id AS branchId,
+      ${branchNameExpr("sc")} AS branchName,
       sc.title,
       sc.instructor_name AS instructorName,
       sc.room_name AS roomName,
       sc.start_at AS startAt
      FROM studio_bookings sb
      INNER JOIN studio_classes sc ON sc.id = sb.class_id
+     LEFT JOIN branches b ON b.id = sc.branch_id
      WHERE sb.user_id = ? AND sb.status IN ('reserved','waitlisted')
+       ${branchWhere}
      ORDER BY sc.start_at ASC`,
-    [userId]
+    params
   );
   return Array.isArray(rows) ? rows : [];
 }
@@ -334,27 +412,32 @@ export async function listMyBookings(userId) {
 export async function bookClass({ userId, classId }) {
   return withTransaction(async (conn) => {
     const classRows = await conn.execute(
-      `SELECT id, title, start_at, end_at, capacity, status
+      `SELECT id, branch_id AS branchId, title, start_at, end_at, capacity, waitlist_capacity, booking_deadline_at, status
        FROM studio_classes
        WHERE id = ?
-       LIMIT 1`,
+       LIMIT 1
+       FOR UPDATE`,
       [classId]
     );
     const classInfo = classRows?.[0]?.[0] || null;
-    if (!classInfo) throw createHttpError("Class not found.", 404);
-    if (String(classInfo.status) !== "active") throw createHttpError("This class cannot be booked.", 400);
+    if (!classInfo) throw createHttpError("수업을 찾을 수 없습니다.", 404);
+    if (String(classInfo.status) !== "active") throw createHttpError("현재 예약할 수 없는 수업입니다.", 400);
 
     assertFutureClass(classInfo.start_at);
     await assertStudioOpenForClass({ startAt: classInfo.start_at, endAt: classInfo.end_at, conn });
-    await assertBookingPolicyAllows(conn, classInfo.start_at, "book");
+    await assertBookingPolicyAllows(conn, classInfo, "book");
 
     const existRows = await conn.execute(
-      `SELECT id, status FROM studio_bookings WHERE class_id = ? AND user_id = ? LIMIT 1`,
+      `SELECT id, status
+       FROM studio_bookings
+       WHERE class_id = ? AND user_id = ?
+       LIMIT 1
+       FOR UPDATE`,
       [classId, userId]
     );
     const exist = existRows?.[0]?.[0] || null;
     if (exist && (exist.status === "reserved" || exist.status === "waitlisted")) {
-      throw createHttpError("Class is already booked or waitlisted.", 409);
+      throw createHttpError("이미 예약했거나 대기 신청한 수업입니다.", 409);
     }
 
     const passRows = await conn.execute(
@@ -362,24 +445,34 @@ export async function bookClass({ userId, classId }) {
        FROM studio_passes
        WHERE user_id = ?
          AND status = 'active'
+         AND branch_id = ?
          AND remaining_count > 0
          AND (expires_at IS NULL OR expires_at >= NOW())
        ORDER BY expires_at IS NULL DESC, expires_at ASC, created_at ASC
-       LIMIT 1`,
-      [userId]
+       LIMIT 1
+       FOR UPDATE`,
+      [userId, normalizeBranchId(classInfo.branchId)]
     );
     const pass = passRows?.[0]?.[0] || null;
-    if (!pass) throw createHttpError("No usable pass is available.", 400);
+    if (!pass) throw createHttpError("사용 가능한 수강권이 없습니다.", 400);
 
     const cntRows = await conn.execute(
-      `SELECT SUM(CASE WHEN status = 'reserved' THEN 1 ELSE 0 END) AS reservedCount
+      `SELECT
+         SUM(CASE WHEN status = 'reserved' THEN 1 ELSE 0 END) AS reservedCount,
+         SUM(CASE WHEN status = 'waitlisted' THEN 1 ELSE 0 END) AS waitlistCount
        FROM studio_bookings
        WHERE class_id = ?`,
       [classId]
     );
     const reservedCount = toCount(cntRows?.[0]?.[0]?.reservedCount);
-    const isReserved = reservedCount < toCount(classInfo.capacity);
-    const bookingStatus = isReserved ? "reserved" : "waitlisted";
+    const waitlistCount = toCount(cntRows?.[0]?.[0]?.waitlistCount);
+    const bookingStatus = resolveBookingStatus({
+      reservedCount,
+      capacity: classInfo.capacity,
+      waitlistCount,
+      waitlistCapacity: classInfo.waitlist_capacity,
+    });
+    const isReserved = bookingStatus === "reserved";
     const bookingId = exist?.id || randomUUID();
     if (exist) {
       await conn.execute(
@@ -413,8 +506,8 @@ export async function bookClass({ userId, classId }) {
     await createNotificationWithConn(conn, {
       userId,
       type: bookingStatus === "reserved" ? "booking_confirmed" : "booking_waitlisted",
-      title: bookingStatus === "reserved" ? "Booking confirmed" : "Waitlist registered",
-      message: `${classInfo.title || "Class"} ${bookingStatus === "reserved" ? "booking has been confirmed." : "has been added to the waitlist."}`,
+      title: bookingStatus === "reserved" ? "예약 확정" : "예약 대기 등록",
+      message: `${classInfo.title || "수업"} ${bookingStatus === "reserved" ? "예약이 확정되었습니다." : "대기 명단에 등록되었습니다."}`,
     });
 
     return { bookingStatus };
@@ -423,20 +516,32 @@ export async function bookClass({ userId, classId }) {
 
 export async function cancelMyBooking({ userId, classId }) {
   return withTransaction(async (conn) => {
+    const classRows = await conn.execute(
+      `SELECT title, branch_id AS branchId, start_at AS startAt, cancellation_deadline_at AS cancellationDeadlineAt
+       FROM studio_classes
+       WHERE id = ?
+       LIMIT 1
+       FOR UPDATE`,
+      [classId]
+    );
+    const classInfo = classRows?.[0]?.[0] || null;
+    if (!classInfo) throw createHttpError("수업을 찾을 수 없습니다.", 404);
+
     const rows = await conn.execute(
-      `SELECT sb.id, sb.status, sb.pass_id AS passId, sc.title, sc.start_at AS startAt
-       FROM studio_bookings sb
-       INNER JOIN studio_classes sc ON sc.id = sb.class_id
-       WHERE sb.class_id = ? AND sb.user_id = ?
-       LIMIT 1`,
+      `SELECT id, status, pass_id AS passId
+       FROM studio_bookings
+       WHERE class_id = ? AND user_id = ?
+       LIMIT 1
+       FOR UPDATE`,
       [classId, userId]
     );
-    const booking = rows?.[0]?.[0] || null;
+    const bookingRow = rows?.[0]?.[0] || null;
+    const booking = bookingRow ? { ...bookingRow, ...classInfo } : null;
     if (!booking || !["reserved", "waitlisted"].includes(String(booking.status))) {
-      throw createHttpError("No cancellable booking exists.", 404);
+      throw createHttpError("취소할 수 있는 예약 또는 대기 내역이 없습니다.", 404);
     }
 
-    await assertBookingPolicyAllows(conn, booking.startAt, "cancel");
+    await assertBookingPolicyAllows(conn, booking, "cancel");
     await conn.execute(
       `UPDATE studio_bookings
        SET status = 'cancelled', cancelled_at = NOW()
@@ -459,8 +564,8 @@ export async function cancelMyBooking({ userId, classId }) {
       await createNotificationWithConn(conn, {
         userId,
         type: "booking_cancelled",
-        title: "Booking cancelled",
-        message: `${booking.title || "Class"} booking has been cancelled.`,
+        title: "예약 취소",
+        message: `${booking.title || "수업"} 예약이 취소되었습니다.`,
       });
 
       const waitRows = await conn.execute(
@@ -468,7 +573,8 @@ export async function cancelMyBooking({ userId, classId }) {
          FROM studio_bookings
          WHERE class_id = ? AND status = 'waitlisted'
          ORDER BY booked_at ASC
-         LIMIT 1`,
+         LIMIT 1
+         FOR UPDATE`,
         [classId]
       );
       const waiter = waitRows?.[0]?.[0] || null;
@@ -478,11 +584,13 @@ export async function cancelMyBooking({ userId, classId }) {
            FROM studio_passes
            WHERE user_id = ?
              AND status = 'active'
+             AND branch_id = ?
              AND remaining_count > 0
              AND (expires_at IS NULL OR expires_at >= NOW())
            ORDER BY expires_at IS NULL DESC, expires_at ASC, created_at ASC
-           LIMIT 1`,
-          [waiter.userId]
+           LIMIT 1
+           FOR UPDATE`,
+          [waiter.userId, normalizeBranchId(classInfo.branchId)]
         );
         const waiterPass = passRows?.[0]?.[0] || null;
         if (waiterPass) {
@@ -504,8 +612,8 @@ export async function cancelMyBooking({ userId, classId }) {
           await createNotificationWithConn(conn, {
             userId: waiter.userId,
             type: "waitlist_promoted",
-            title: "Booking confirmed",
-            message: `${booking.title || "Class"} waitlist booking has been confirmed.`,
+            title: "예약 확정",
+            message: `${booking.title || "수업"} 대기 예약이 확정되었습니다.`,
           });
         }
       }
@@ -513,33 +621,39 @@ export async function cancelMyBooking({ userId, classId }) {
       await createNotificationWithConn(conn, {
         userId,
         type: "booking_cancelled",
-        title: "Waitlist cancelled",
-        message: `${booking.title || "Class"} waitlist has been cancelled.`,
+        title: "예약 대기 취소",
+        message: `${booking.title || "수업"} 대기 신청이 취소되었습니다.`,
       });
     }
     return { ok: true };
   });
 }
 
-const VALID_CLASS_TYPES = ["private", "group", "consulting", "etc"];
-
 export async function createClass(payload, userId) {
-  await assertStudioOpenForClass({ startAt: payload?.startAt, endAt: payload?.endAt });
+  const classData = normalizeClassInput(payload);
+  await assertStudioOpenForClass({ startAt: classData.startAt, endAt: classData.endAt });
   const id = randomUUID();
-  const classType = VALID_CLASS_TYPES.includes(payload?.classType) ? payload.classType : "group";
   await query(
     `INSERT INTO studio_classes
-      (id, class_type, title, instructor_name, room_name, start_at, end_at, capacity, status, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW(), NOW())`,
+      (id, branch_id, class_type, title, instructor_name, room_name, start_at, end_at, capacity,
+       min_capacity, waitlist_capacity, booking_deadline_at, cancellation_deadline_at, cancellation_decision_at,
+       status, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW(), NOW())`,
     [
       id,
-      classType,
-      String(payload?.title || "").trim(),
-      String(payload?.instructorName || "").trim(),
-      String(payload?.roomName || "").trim(),
-      payload?.startAt,
-      payload?.endAt,
-      Math.max(1, Number(payload?.capacity || 1)),
+      classData.branchId,
+      classData.classType,
+      classData.title,
+      classData.instructorName,
+      classData.roomName,
+      classData.startAt,
+      classData.endAt,
+      classData.capacity,
+      classData.minCapacity,
+      classData.waitlistCapacity,
+      classData.bookingDeadlineAt,
+      classData.cancellationDeadlineAt,
+      classData.cancellationDecisionAt,
       userId,
     ]
   );
@@ -547,14 +661,11 @@ export async function createClass(payload, userId) {
 }
 
 export async function createClassesWithRepeat(payload, userId) {
+  const classData = normalizeClassInput(payload);
   const repeatWeeks = Math.max(1, Math.min(24, Number(payload?.repeatWeeks || 1)));
-  const startBase = new Date(payload?.startAt);
-  const endBase = new Date(payload?.endAt);
-  if (Number.isNaN(startBase.getTime()) || Number.isNaN(endBase.getTime()) || endBase <= startBase) {
-    const err = new Error("수업 시간 정보가 올바르지 않습니다.");
-    err.status = 400;
-    throw err;
-  }
+  const startBase = classData.startAt;
+  const endBase = classData.endAt;
+  const addWeeks = (date, weeks) => date ? new Date(date.getTime() + weeks * 7 * 86400000) : null;
 
   const recurrenceId = repeatWeeks > 1 ? randomUUID() : null;
   const rows = [];
@@ -563,20 +674,27 @@ export async function createClassesWithRepeat(payload, userId) {
     const end = new Date(endBase.getTime() + i * 7 * 86400000);
     await assertStudioOpenForClass({ startAt: start, endAt: end });
     const id = randomUUID();
-    const classType = VALID_CLASS_TYPES.includes(payload?.classType) ? payload.classType : "group";
     await query(
       `INSERT INTO studio_classes
-        (id, class_type, title, instructor_name, room_name, start_at, end_at, capacity, status, repeat_group_id, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, NOW(), NOW())`,
+        (id, branch_id, class_type, title, instructor_name, room_name, start_at, end_at, capacity,
+         min_capacity, waitlist_capacity, booking_deadline_at, cancellation_deadline_at, cancellation_decision_at,
+         status, repeat_group_id, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, NOW(), NOW())`,
       [
         id,
-        classType,
-        String(payload?.title || "").trim(),
-        String(payload?.instructorName || "").trim(),
-        String(payload?.roomName || "").trim(),
+        classData.branchId,
+        classData.classType,
+        classData.title,
+        classData.instructorName,
+        classData.roomName,
         start,
         end,
-        Math.max(1, Number(payload?.capacity || 1)),
+        classData.capacity,
+        classData.minCapacity,
+        classData.waitlistCapacity,
+        addWeeks(classData.bookingDeadlineAt, i),
+        addWeeks(classData.cancellationDeadlineAt, i),
+        addWeeks(classData.cancellationDecisionAt, i),
         recurrenceId,
         userId,
       ]
@@ -605,20 +723,28 @@ export async function createClassesWithRepeat(payload, userId) {
 }
 
 export async function updateClass(classId, payload) {
-  await assertStudioOpenForClass({ startAt: payload?.startAt, endAt: payload?.endAt });
-  const classType = VALID_CLASS_TYPES.includes(payload?.classType) ? payload.classType : "group";
+  const classData = normalizeClassInput(payload);
+  await assertStudioOpenForClass({ startAt: classData.startAt, endAt: classData.endAt });
   await query(
     `UPDATE studio_classes
-     SET class_type = ?, title = ?, instructor_name = ?, room_name = ?, start_at = ?, end_at = ?, capacity = ?, updated_at = NOW()
+     SET branch_id = ?, class_type = ?, title = ?, instructor_name = ?, room_name = ?, start_at = ?, end_at = ?, capacity = ?,
+         min_capacity = ?, waitlist_capacity = ?, booking_deadline_at = ?, cancellation_deadline_at = ?,
+         cancellation_decision_at = ?, updated_at = NOW()
      WHERE id = ?`,
     [
-      classType,
-      String(payload?.title || "").trim(),
-      String(payload?.instructorName || "").trim(),
-      String(payload?.roomName || "").trim(),
-      payload?.startAt,
-      payload?.endAt,
-      Math.max(1, Number(payload?.capacity || 1)),
+      classData.branchId,
+      classData.classType,
+      classData.title,
+      classData.instructorName,
+      classData.roomName,
+      classData.startAt,
+      classData.endAt,
+      classData.capacity,
+      classData.minCapacity,
+      classData.waitlistCapacity,
+      classData.bookingDeadlineAt,
+      classData.cancellationDeadlineAt,
+      classData.cancellationDecisionAt,
       classId,
     ]
   );
@@ -761,7 +887,7 @@ export async function listClassBookings(classId) {
  * 관리자용 전체 예약 내역 조회입니다.
  * 날짜 범위·예약 상태로 필터링할 수 있으며, 수업 정보·회원 정보·수강권 정보를 함께 반환합니다.
  */
-export async function listAllBookingsForAdmin({ from = "", to = "", status = "" } = {}) {
+export async function listAllBookingsForAdmin({ from = "", to = "", status = "", branchId = "" } = {}) {
   const params = [];
   let where = " WHERE 1=1 ";
   if (from) { where += " AND sc.start_at >= ? "; params.push(from); }
@@ -769,6 +895,10 @@ export async function listAllBookingsForAdmin({ from = "", to = "", status = "" 
   if (status && ["reserved", "waitlisted", "cancelled"].includes(status)) {
     where += " AND sb.status = ? ";
     params.push(status);
+  }
+  if (branchId) {
+    where += " AND sc.branch_id = ? ";
+    params.push(normalizeBranchId(branchId));
   }
 
   const rows = await query(
@@ -778,6 +908,8 @@ export async function listAllBookingsForAdmin({ from = "", to = "", status = "" 
        sb.user_id AS userId,
        sb.status,
        sb.booked_at AS bookedAt,
+       sc.branch_id AS branchId,
+       ${branchNameExpr("sc")} AS branchName,
        sc.title AS classTitle,
        sc.instructor_name AS instructorName,
        sc.room_name AS roomName,
@@ -793,6 +925,7 @@ export async function listAllBookingsForAdmin({ from = "", to = "", status = "" 
        COALESCE(sa.openAmount, 0) AS openArrearsAmount
      FROM studio_bookings sb
      JOIN studio_classes sc ON sc.id = sb.class_id
+     LEFT JOIN branches b ON b.id = sc.branch_id
      LEFT JOIN users u ON u.id = sb.user_id
      LEFT JOIN studio_passes sp ON sp.id = sb.pass_id
      LEFT JOIN (
@@ -813,6 +946,8 @@ export async function listAllBookingsForAdmin({ from = "", to = "", status = "" 
     return {
       id: row.id,
       classId: row.classId,
+      branchId: row.branchId || "branch-1",
+      branchName: row.branchName || "장덕점",
       classTitle: row.classTitle,
       instructorName: row.instructorName,
       roomName: row.roomName,
@@ -834,6 +969,7 @@ export async function listAllBookingsForAdmin({ from = "", to = "", status = "" 
 export async function createPassByAdmin(payload) {
   const id = randomUUID();
   const userId = String(payload?.userId || "").trim();
+  const branchId = normalizeBranchId(payload?.branchId);
   const passName = String(payload?.passName || "").trim();
   const totalCount = Math.max(0, Number(payload?.totalCount || 0));
   const remainingCount = Math.max(0, Number(payload?.remainingCount || payload?.totalCount || 0));
@@ -852,11 +988,12 @@ export async function createPassByAdmin(payload) {
 
     await conn.execute(
       `INSERT INTO studio_passes
-        (id, user_id, pass_name, pass_type, remaining_count, total_count, expires_at, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
+        (id, user_id, branch_id, pass_name, pass_type, remaining_count, total_count, expires_at, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
       [
         id,
         userId,
+        branchId,
         passName,
         String(payload?.passType || "group").trim(),
         remainingCount,
@@ -886,6 +1023,8 @@ export async function createPassByAdmin(payload) {
   });
   const row = await queryOne(
     `SELECT id,
+            branch_id AS branchId,
+            ${branchNameExpr("studio_passes")} AS branchName,
             pass_name AS passName,
             pass_type AS passType,
             remaining_count AS remainingCount,
@@ -908,6 +1047,7 @@ export async function createPassByAdmin(payload) {
               LIMIT 1
             ) AS payment
      FROM studio_passes
+     LEFT JOIN branches b ON b.id = studio_passes.branch_id
      WHERE id = ?`,
     [id]
   );
@@ -932,8 +1072,11 @@ export async function updatePassStatus(passId, status) {
 
 export async function listPassesByUser(userId) {
   const rows = await query(
-    `SELECT id, pass_name AS passName, pass_type AS passType, remaining_count AS remainingCount,
-            total_count AS totalCount, expires_at AS expiresAt, status, created_at AS createdAt,
+    `SELECT studio_passes.id,
+            studio_passes.branch_id AS branchId,
+            ${branchNameExpr("studio_passes")} AS branchName,
+            studio_passes.pass_name AS passName, studio_passes.pass_type AS passType, studio_passes.remaining_count AS remainingCount,
+            studio_passes.total_count AS totalCount, studio_passes.expires_at AS expiresAt, studio_passes.status, studio_passes.created_at AS createdAt,
             (
               SELECT JSON_OBJECT(
                 'paymentType', spp.payment_type,
@@ -949,8 +1092,9 @@ export async function listPassesByUser(userId) {
               LIMIT 1
             ) AS payment
      FROM studio_passes
+     LEFT JOIN branches b ON b.id = studio_passes.branch_id
      WHERE user_id = ?
-     ORDER BY created_at DESC`,
+     ORDER BY studio_passes.created_at DESC`,
     [userId]
   );
   return (Array.isArray(rows) ? rows : []).map((row) => ({
@@ -1136,6 +1280,372 @@ export async function saveSalesPin(pin) {
   return { ok: true };
 }
 
+export async function verifySalesPin(pin) {
+  const input = String(pin || "").trim();
+  const row = await queryOne(`SELECT sales_pin AS salesPin FROM studio_info WHERE id = 'main' LIMIT 1`);
+  const savedPin = String(row?.salesPin || "").trim();
+  if (!savedPin) throw createHttpError("매출 비밀번호가 설정되어 있지 않습니다.", 400);
+  if (!input || input !== savedPin) throw createHttpError("매출 비밀번호가 올바르지 않습니다.", 403);
+  return { ok: true };
+}
+
+function normalizeReportRange({ from = "", to = "" } = {}) {
+  const now = new Date();
+  const defaultFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+  const defaultTo = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const fromDate = normalizeDate(from) || defaultFrom;
+  const toDate = normalizeDate(to) || defaultTo;
+  const start = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate(), 0, 0, 0);
+  const end = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate(), 23, 59, 59);
+  return {
+    from: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")} 00:00:00`,
+    to: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")} 23:59:59`,
+    previousFrom: `${new Date(start.getFullYear(), start.getMonth() - 1, 1).getFullYear()}-${String(new Date(start.getFullYear(), start.getMonth() - 1, 1).getMonth() + 1).padStart(2, "0")}-01 00:00:00`,
+    previousTo: `${new Date(start.getFullYear(), start.getMonth(), 0).getFullYear()}-${String(new Date(start.getFullYear(), start.getMonth(), 0).getMonth() + 1).padStart(2, "0")}-${String(new Date(start.getFullYear(), start.getMonth(), 0).getDate()).padStart(2, "0")} 23:59:59`,
+  };
+}
+
+function normalizePaymentKind(value) {
+  const text = String(value || "").trim();
+  if (text.includes("환불")) return "refund";
+  if (text.includes("업그레이드")) return "upgrade";
+  if (text.includes("양도")) return "transfer";
+  if (text.includes("재")) return "renewal";
+  if (text.includes("체험")) return "trial";
+  return "new";
+}
+
+function toSafeAmount(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export async function listStudioSalesReport({ from = "", to = "", branchId = "" } = {}) {
+  const range = normalizeReportRange({ from, to });
+  const normalizedBranchId = branchId ? normalizeBranchId(branchId) : "";
+  const branchWhere = normalizedBranchId ? " AND sp.branch_id = ? " : "";
+  const branchParams = normalizedBranchId ? [normalizedBranchId] : [];
+
+  const paymentRows = await query(
+    `SELECT
+       spp.id,
+       spp.pass_id AS passId,
+       spp.user_id AS userId,
+       spp.payment_type AS paymentType,
+       spp.amount,
+       spp.paid_at AS paidAt,
+       spp.payment_method AS paymentMethod,
+       spp.installment_months AS installmentMonths,
+       spp.note,
+       sp.branch_id AS branchId,
+       ${branchNameExpr("sp")} AS branchName,
+       sp.pass_name AS passName,
+       sp.pass_type AS passType,
+       sp.total_count AS totalCount,
+       sp.remaining_count AS remainingCount,
+       sp.expires_at AS expiresAt,
+       sp.status AS passStatus,
+       u.login_id AS loginId,
+       u.name,
+       u.phone,
+       smp.primary_instructor AS instructorName
+     FROM studio_pass_payments spp
+     JOIN studio_passes sp ON sp.id = spp.pass_id
+     LEFT JOIN branches b ON b.id = sp.branch_id
+     LEFT JOIN users u ON u.id = spp.user_id
+     LEFT JOIN studio_member_profiles smp ON smp.user_id = spp.user_id
+     WHERE COALESCE(spp.paid_at, spp.created_at) BETWEEN ? AND ?
+       ${branchWhere}
+     ORDER BY COALESCE(spp.paid_at, spp.created_at) DESC, spp.created_at DESC`,
+    [range.from, range.to, ...branchParams]
+  );
+
+  const previousRows = await query(
+    `SELECT spp.amount, spp.payment_type AS paymentType
+     FROM studio_pass_payments spp
+     JOIN studio_passes sp ON sp.id = spp.pass_id
+     WHERE COALESCE(spp.paid_at, spp.created_at) BETWEEN ? AND ?
+       ${branchWhere}`,
+    [range.previousFrom, range.previousTo, ...branchParams]
+  );
+
+  const refundRows = await query(
+    `SELECT
+       r.id,
+       r.pass_id AS passId,
+       r.user_id AS userId,
+       r.refund_amount AS refundAmount,
+       r.reason,
+       r.status,
+       r.requested_at AS requestedAt,
+       r.resolved_at AS resolvedAt,
+       sp.branch_id AS branchId,
+       ${branchNameExpr("sp")} AS branchName,
+       sp.pass_name AS passName,
+       u.login_id AS loginId,
+       u.name,
+       u.phone
+     FROM studio_pass_refunds r
+     JOIN studio_passes sp ON sp.id = r.pass_id
+     LEFT JOIN branches b ON b.id = sp.branch_id
+     LEFT JOIN users u ON u.id = r.user_id
+     WHERE COALESCE(r.resolved_at, r.requested_at) BETWEEN ? AND ?
+       ${branchWhere}
+     ORDER BY COALESCE(r.resolved_at, r.requested_at) DESC`,
+    [range.from, range.to, ...branchParams]
+  ).catch(() => []);
+
+  const classSaleRows = await query(
+    `SELECT
+       spt.id,
+       spt.pass_id AS passId,
+       spt.user_id AS userId,
+       spt.class_id AS classId,
+       spt.delta_count AS deltaCount,
+       spt.reason,
+       spt.created_at AS createdAt,
+       sp.branch_id AS branchId,
+       ${branchNameExpr("sp")} AS branchName,
+       sp.pass_name AS passName,
+       sp.total_count AS totalCount,
+       sc.title AS classTitle,
+       sc.instructor_name AS instructorName,
+       sc.start_at AS classStartAt,
+       u.login_id AS loginId,
+       u.name,
+       u.phone,
+       (
+         SELECT amount FROM studio_pass_payments spp
+         WHERE spp.pass_id = sp.id
+         ORDER BY COALESCE(spp.paid_at, spp.created_at) ASC
+         LIMIT 1
+       ) AS passAmount
+     FROM studio_pass_transactions spt
+     JOIN studio_passes sp ON sp.id = spt.pass_id
+     LEFT JOIN branches b ON b.id = sp.branch_id
+     LEFT JOIN studio_classes sc ON sc.id = spt.class_id
+     LEFT JOIN users u ON u.id = spt.user_id
+     WHERE spt.created_at BETWEEN ? AND ?
+       AND spt.delta_count < 0
+       ${branchWhere}
+     ORDER BY spt.created_at DESC`,
+    [range.from, range.to, ...branchParams]
+  );
+
+  const expenseRows = await query(
+    `SELECT e.id, e.branch_id AS branchId, ${branchNameExpr("e")} AS branchName,
+            e.expense_date AS expenseDate, e.category, e.title, e.amount,
+            e.payment_method AS paymentMethod, e.installment_months AS installmentMonths,
+            e.instructor_name AS instructorName, e.attachment_url AS attachmentUrl,
+            e.memo, e.created_by AS createdBy, e.created_at AS createdAt
+     FROM studio_expenses e
+     LEFT JOIN branches b ON b.id = e.branch_id
+     WHERE e.expense_date BETWEEN ? AND ?
+       ${normalizedBranchId ? " AND e.branch_id = ? " : ""}
+     ORDER BY e.expense_date DESC, e.created_at DESC`,
+    [range.from, range.to, ...(normalizedBranchId ? [normalizedBranchId] : [])]
+  ).catch(() => []);
+
+  const arrearsRows = await query(
+    `SELECT sa.id, sa.user_id AS userId, sa.amount, sa.reason, sa.status,
+            sa.due_date AS dueDate, sa.created_at AS createdAt, sa.resolved_at AS resolvedAt,
+            u.login_id AS loginId, u.name, u.phone,
+            sp.branch_id AS branchId,
+            ${branchNameExpr("sp")} AS branchName,
+            sp.pass_name AS passName
+     FROM studio_arrears sa
+     LEFT JOIN users u ON u.id = sa.user_id
+     LEFT JOIN (
+       SELECT user_id, MAX(id) AS pass_id FROM studio_passes
+       ${normalizedBranchId ? "WHERE branch_id = ?" : ""}
+       GROUP BY user_id
+     ) latest ON latest.user_id = sa.user_id
+     LEFT JOIN studio_passes sp ON sp.id = latest.pass_id
+     LEFT JOIN branches b ON b.id = sp.branch_id
+     WHERE sa.status = 'open'
+     ORDER BY sa.created_at DESC`,
+    normalizedBranchId ? [normalizedBranchId] : []
+  );
+
+  const pointRows = await query(
+    `SELECT ph.id, ph.user_id AS userId, ph.amount, ph.reason, ph.order_id AS orderId,
+            ph.created_at AS createdAt, u.login_id AS loginId, u.name, u.phone
+     FROM point_history ph
+     LEFT JOIN users u ON u.id = ph.user_id
+     WHERE ph.created_at BETWEEN ? AND ?
+     ORDER BY ph.created_at DESC`,
+    [range.from, range.to]
+  ).catch(() => []);
+
+  const staffRows = await query(
+    `SELECT id, name, role_code AS roleCode, employment_type AS employmentType,
+            phone, app_connection_status AS appConnectionStatus, status,
+            salary_type AS salaryType, base_pay AS basePay,
+            hourly_wage AS hourlyWage, commission_rate AS commissionRate
+     FROM studio_staff_profiles
+     WHERE status <> 'archived'
+     ORDER BY FIELD(role_code,'owner','manager','instructor'), name ASC`
+  ).catch(() => []);
+
+  const sales = (Array.isArray(paymentRows) ? paymentRows : []).map((row) => {
+    const user = decryptUserRow({ id: row.userId, loginId: row.loginId, name: row.name, phone: row.phone });
+    const kind = normalizePaymentKind(row.paymentType);
+    return {
+      id: row.id,
+      passId: row.passId,
+      userId: row.userId,
+      userName: user?.name || row.loginId || row.userId,
+      userPhone: user?.phone || "",
+      branchId: row.branchId || "branch-1",
+      branchName: row.branchName || "장덕점",
+      paymentType: row.paymentType || "신규결제",
+      paymentKind: kind,
+      amount: toSafeAmount(row.amount),
+      paidAt: row.paidAt,
+      paymentMethod: row.paymentMethod || "",
+      installmentMonths: row.installmentMonths || "",
+      note: row.note || "",
+      passName: row.passName || "",
+      passType: row.passType || "group",
+      totalCount: toCount(row.totalCount),
+      remainingCount: toCount(row.remainingCount),
+      expiresAt: row.expiresAt,
+      instructorName: row.instructorName || "-",
+    };
+  });
+
+  const refunds = (Array.isArray(refundRows) ? refundRows : []).map((row) => {
+    const user = decryptUserRow({ id: row.userId, loginId: row.loginId, name: row.name, phone: row.phone });
+    return {
+      id: row.id,
+      userId: row.userId,
+      userName: user?.name || row.loginId || row.userId,
+      userPhone: user?.phone || "",
+      branchId: row.branchId || "branch-1",
+      branchName: row.branchName || "장덕점",
+      passName: row.passName || "",
+      refundAmount: toSafeAmount(row.refundAmount),
+      reason: row.reason || "",
+      status: row.status || "requested",
+      requestedAt: row.requestedAt,
+      resolvedAt: row.resolvedAt,
+    };
+  });
+
+  const classSales = (Array.isArray(classSaleRows) ? classSaleRows : []).map((row) => {
+    const user = decryptUserRow({ id: row.userId, loginId: row.loginId, name: row.name, phone: row.phone });
+    const totalCount = Math.max(1, toCount(row.totalCount));
+    const amountPerClass = Math.round(toSafeAmount(row.passAmount) / totalCount);
+    return {
+      id: row.id,
+      userId: row.userId,
+      userName: user?.name || row.loginId || row.userId,
+      userPhone: user?.phone || "",
+      branchId: row.branchId || "branch-1",
+      branchName: row.branchName || "장덕점",
+      passName: row.passName || "",
+      classTitle: row.classTitle || row.reason || "수업 이용",
+      classStartAt: row.classStartAt,
+      instructorName: row.instructorName || "-",
+      usedCount: Math.abs(toCount(row.deltaCount)),
+      amount: amountPerClass,
+      createdAt: row.createdAt,
+    };
+  });
+
+  const arrears = (Array.isArray(arrearsRows) ? arrearsRows : []).map((row) => ({
+    ...row,
+    userName: decryptPii(row.name) || row.loginId || row.userId,
+    userPhone: decryptPii(row.phone) || "",
+    amount: toSafeAmount(row.amount),
+    branchId: row.branchId || "branch-1",
+    branchName: row.branchName || "장덕점",
+  }));
+
+  const expenses = (Array.isArray(expenseRows) ? expenseRows : []).map((row) => ({
+    ...row,
+    amount: toSafeAmount(row.amount),
+    branchId: row.branchId || "branch-1",
+    branchName: row.branchName || "장덕점",
+  }));
+
+  const points = (Array.isArray(pointRows) ? pointRows : []).map((row) => ({
+    ...row,
+    userName: decryptPii(row.name) || row.loginId || row.userId,
+    userPhone: decryptPii(row.phone) || "",
+    amount: toSafeAmount(row.amount),
+  }));
+
+  const grossSales = sales.reduce((sum, item) => sum + (item.paymentKind === "refund" ? 0 : item.amount), 0);
+  const refundAmount = refunds.reduce((sum, item) => sum + item.refundAmount, 0) + sales.filter((item) => item.paymentKind === "refund").reduce((sum, item) => sum + item.amount, 0);
+  const previousGross = (Array.isArray(previousRows) ? previousRows : []).reduce((sum, row) => sum + (normalizePaymentKind(row.paymentType) === "refund" ? 0 : toSafeAmount(row.amount)), 0);
+  const expenseAmount = expenses.reduce((sum, item) => sum + item.amount, 0);
+  const netSales = grossSales - refundAmount;
+  const safeOrderCount = Math.max(1, sales.filter((item) => item.paymentKind !== "refund").length);
+
+  return {
+    range,
+    summary: {
+      grossSales,
+      netSales,
+      refundAmount,
+      refundRate: grossSales > 0 ? Math.round((refundAmount / grossSales) * 1000) / 10 : 0,
+      orderCount: sales.filter((item) => item.paymentKind !== "refund").length,
+      averageOrderAmount: Math.round(grossSales / safeOrderCount),
+      realSales: netSales - expenseAmount,
+      expenseAmount,
+      arrearsAmount: arrears.reduce((sum, item) => sum + item.amount, 0),
+      previousGross,
+      monthOverMonthRate: previousGross > 0 ? Math.round(((grossSales - previousGross) / previousGross) * 1000) / 10 : 0,
+    },
+    sales,
+    classSales,
+    otherSales: [],
+    refunds,
+    expenses,
+    arrears,
+    points,
+    staff: (Array.isArray(staffRows) ? staffRows : []).map((row) => ({ ...row, phone: decryptPii(row.phone) || "" })),
+  };
+}
+
+export async function createStudioExpense(payload, createdBy = "") {
+  const title = String(payload?.title || "").trim();
+  const amount = Math.max(0, Number(payload?.amount || 0));
+  if (!title) throw createHttpError("지출 내역을 입력해 주세요.", 400);
+  if (amount <= 0) throw createHttpError("지출 금액을 입력해 주세요.", 400);
+  const id = randomUUID();
+  const expenseDate = payload?.expenseDate || new Date();
+  await query(
+    `INSERT INTO studio_expenses
+      (id, branch_id, expense_date, category, title, amount, payment_method,
+       installment_months, instructor_name, attachment_url, memo, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    [
+      id,
+      normalizeBranchId(payload?.branchId),
+      expenseDate,
+      String(payload?.category || "기타").trim().slice(0, 80),
+      title.slice(0, 200),
+      amount,
+      String(payload?.paymentMethod || "").trim() || null,
+      String(payload?.installmentMonths || "").trim() || null,
+      String(payload?.instructorName || "").trim() || null,
+      String(payload?.attachmentUrl || "").trim() || null,
+      String(payload?.memo || "").trim() || null,
+      String(createdBy || "").trim() || null,
+    ]
+  );
+  return queryOne(
+    `SELECT id, branch_id AS branchId, expense_date AS expenseDate, category, title, amount,
+            payment_method AS paymentMethod, installment_months AS installmentMonths,
+            instructor_name AS instructorName, attachment_url AS attachmentUrl, memo,
+            created_by AS createdBy, created_at AS createdAt
+     FROM studio_expenses WHERE id = ?`,
+    [id]
+  );
+}
+
 export async function getRoomSettings() {
   const [row, rooms] = await Promise.all([
     queryOne(`SELECT rooms_enabled AS roomsEnabled FROM studio_info WHERE id = 'main' LIMIT 1`),
@@ -1274,14 +1784,14 @@ export async function updateClassCategory(id, name) {
 }
 
 const NOTIFICATION_DEFAULTS = {
-  pass_expire:       { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! [[수강권명]]의 잔여일이 [[수강권 잔여일]]일 남았습니다.",                                param1: 5,    param2: null, skipExpired: false },
-  pass_count_expire: { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! [[수강권명]]의 잔여횟수가 [[수강권 잔여횟수]]회 남았습니다.",                           param1: 5,    param2: null, skipExpired: false },
-  pass_pause_expire: { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! [[수강권명]]의 정지기간이 [[수강권 정지만료일]]일 남았습니다.",                          param1: 3,    param2: null, skipExpired: false },
-  class_waitlist:    { pushEnabled: true,  smsEnabled: false, message: "[[수업 시작시간]] [[수업명]] [[강사명]] 강사 예약대기 수업이 예약되었습니다.",                         param1: null, param2: null, skipExpired: false },
-  class_cancelled:   { pushEnabled: true,  smsEnabled: false, message: "최소 수강인원 미달로 [[수업 시작시간]] [[수업명]] [[강사명]] 강사 수업이 취소되었습니다.",              param1: null, param2: null, skipExpired: false },
-  class_reminder:    { pushEnabled: true,  smsEnabled: false, message: "[[수업 시작시간]] [[수업명]] 수업 일정이 있습니다.",                                                   param1: 3,    param2: 3,    skipExpired: false },
-  member_birthday:   { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! 생일을 축하드립니다. 행복한 하루 되세요!",                                               param1: null, param2: null, skipExpired: false },
-  locker_expire:     { pushEnabled: true,  smsEnabled: false, message: "[[회원명]]님! [[락커 번호]]번 락커 만료일이 [[락커 종료일]]일 남았습니다.",                             param1: 3,    param2: null, skipExpired: false },
+  pass_expire:       { pushEnabled: true,  smsEnabled: false, kakaoEnabled: false, kakaoTemplateCode: "", message: "[[회원명]]님! [[수강권명]]의 잔여일이 [[수강권 잔여일]]일 남았습니다.",                                param1: 5,    param2: null, skipExpired: false },
+  pass_count_expire: { pushEnabled: true,  smsEnabled: false, kakaoEnabled: false, kakaoTemplateCode: "", message: "[[회원명]]님! [[수강권명]]의 잔여횟수가 [[수강권 잔여횟수]]회 남았습니다.",                           param1: 5,    param2: null, skipExpired: false },
+  pass_pause_expire: { pushEnabled: true,  smsEnabled: false, kakaoEnabled: false, kakaoTemplateCode: "", message: "[[회원명]]님! [[수강권명]]의 정지기간이 [[수강권 정지만료일]]일 남았습니다.",                          param1: 3,    param2: null, skipExpired: false },
+  class_waitlist:    { pushEnabled: true,  smsEnabled: false, kakaoEnabled: false, kakaoTemplateCode: "", message: "[[수업 시작시간]] [[수업명]] [[강사명]] 강사 예약대기 수업이 예약되었습니다.",                         param1: null, param2: null, skipExpired: false },
+  class_cancelled:   { pushEnabled: true,  smsEnabled: false, kakaoEnabled: false, kakaoTemplateCode: "", message: "최소 수강인원 미달로 [[수업 시작시간]] [[수업명]] [[강사명]] 강사 수업이 취소되었습니다.",              param1: null, param2: null, skipExpired: false },
+  class_reminder:    { pushEnabled: true,  smsEnabled: false, kakaoEnabled: false, kakaoTemplateCode: "", message: "[[수업 시작시간]] [[수업명]] 수업 일정이 있습니다.",                                                   param1: 3,    param2: 3,    skipExpired: false },
+  member_birthday:   { pushEnabled: true,  smsEnabled: false, kakaoEnabled: false, kakaoTemplateCode: "", message: "[[회원명]]님! 생일을 축하드립니다. 행복한 하루 되세요!",                                               param1: null, param2: null, skipExpired: false },
+  locker_expire:     { pushEnabled: true,  smsEnabled: false, kakaoEnabled: false, kakaoTemplateCode: "", message: "[[회원명]]님! [[락커 번호]]번 락커 만료일이 [[락커 종료일]]일 남았습니다.",                             param1: 3,    param2: null, skipExpired: false },
 };
 
 export async function getNotificationTemplates() {
@@ -1294,6 +1804,8 @@ export async function getNotificationTemplates() {
       return [id, {
         pushEnabled: row ? Boolean(row.push_enabled) : def.pushEnabled,
         smsEnabled:  row ? Boolean(row.sms_enabled)  : def.smsEnabled,
+        kakaoEnabled: row ? Boolean(row.kakao_enabled) : def.kakaoEnabled,
+        kakaoTemplateCode: row ? String(row.kakao_template_code || "") : def.kakaoTemplateCode,
         message:     row ? row.message               : def.message,
         param1:      row ? row.param1                : def.param1,
         param2:      row ? row.param2                : def.param2,
@@ -1303,15 +1815,16 @@ export async function getNotificationTemplates() {
   );
 }
 
-export async function saveNotificationTemplate(templateId, { pushEnabled, smsEnabled, message, param1, param2, skipExpired }) {
+export async function saveNotificationTemplate(templateId, { pushEnabled, smsEnabled, kakaoEnabled, kakaoTemplateCode, message, param1, param2, skipExpired }) {
   if (!NOTIFICATION_DEFAULTS[templateId]) throw createHttpError("알 수 없는 템플릿 ID입니다.", 400);
   await query(
-    `INSERT INTO studio_notification_templates (template_id, push_enabled, sms_enabled, message, param1, param2, skip_expired, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+    `INSERT INTO studio_notification_templates (template_id, push_enabled, sms_enabled, kakao_enabled, kakao_template_code, message, param1, param2, skip_expired, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE push_enabled=VALUES(push_enabled), sms_enabled=VALUES(sms_enabled),
+       kakao_enabled=VALUES(kakao_enabled), kakao_template_code=VALUES(kakao_template_code),
        message=VALUES(message), param1=VALUES(param1), param2=VALUES(param2),
        skip_expired=VALUES(skip_expired), updated_at=NOW()`,
-    [templateId, pushEnabled ? 1 : 0, smsEnabled ? 1 : 0, String(message || ""), param1 ?? null, param2 ?? null, skipExpired ? 1 : 0]
+    [templateId, pushEnabled ? 1 : 0, smsEnabled ? 1 : 0, kakaoEnabled ? 1 : 0, String(kakaoTemplateCode || "").trim() || null, String(message || ""), param1 ?? null, param2 ?? null, skipExpired ? 1 : 0]
   );
 }
 
@@ -1368,6 +1881,29 @@ export async function listCheckinsByClass(classId) {
   return Array.isArray(rows) ? rows : [];
 }
 
+export async function cancelCheckIn(checkinId) {
+  const normalizedId = String(checkinId || "").trim();
+  if (!normalizedId) throw createHttpError("체크인 기록을 선택해 주세요.", 400);
+
+  const existing = await queryOne(
+    `SELECT id, status FROM studio_checkins WHERE id = ? LIMIT 1`,
+    [normalizedId]
+  );
+  if (!existing) throw createHttpError("체크인 기록을 찾을 수 없습니다.", 404);
+  if (existing.status === "cancelled") return existing;
+
+  await query(
+    `UPDATE studio_checkins SET status = 'cancelled' WHERE id = ?`,
+    [normalizedId]
+  );
+  return queryOne(
+    `SELECT id, class_id AS classId, user_id AS userId, booking_id AS bookingId,
+            status, checked_in_at AS checkedInAt
+     FROM studio_checkins WHERE id = ?`,
+    [normalizedId]
+  );
+}
+
 export async function createArrears(payload) {
   const id = randomUUID();
   await query(
@@ -1378,7 +1914,7 @@ export async function createArrears(payload) {
       id,
       String(payload?.userId || "").trim(),
       Math.max(0, Number(payload?.amount || 0)),
-      String(payload?.reason || "").trim() || "誘몄닔湲??깅줉",
+      String(payload?.reason || "").trim() || "미수금 등록",
       payload?.dueDate || null,
     ]
   );
@@ -1403,6 +1939,36 @@ export async function listArrearsByUser(userId) {
     [userId]
   );
   return Array.isArray(rows) ? rows : [];
+}
+
+export async function listArrears({ status = "", userId = "" } = {}) {
+  const conditions = [];
+  const params = [];
+  if (status) {
+    conditions.push("sa.status = ?");
+    params.push(String(status).trim());
+  }
+  if (userId) {
+    conditions.push("sa.user_id = ?");
+    params.push(String(userId).trim());
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(
+    `SELECT sa.id, sa.user_id AS userId, sa.amount, sa.reason, sa.status,
+            sa.due_date AS dueDate, sa.created_at AS createdAt,
+            sa.resolved_at AS resolvedAt, u.name, u.phone
+     FROM studio_arrears sa
+     JOIN users u ON u.id = sa.user_id
+     ${where}
+     ORDER BY CASE WHEN sa.status = 'open' THEN 0 ELSE 1 END,
+              sa.created_at DESC`,
+    params
+  );
+  return (Array.isArray(rows) ? rows : []).map((row) => ({
+    ...row,
+    name: decryptPii(row.name),
+    phone: decryptPii(row.phone),
+  }));
 }
 
 export async function createLocker(payload) {
@@ -1591,13 +2157,103 @@ export async function appendNotificationLog(payload) {
 
 export async function listNotificationsByUser(userId) {
   const rows = await query(
-    `SELECT id, user_id AS userId, type, title, message, status, scheduled_at AS scheduledAt, sent_at AS sentAt, created_at AS createdAt
+    `SELECT id, user_id AS userId, type, title, message, status,
+            scheduled_at AS scheduledAt, sent_at AS sentAt, read_at AS readAt, created_at AS createdAt
      FROM studio_notifications
      WHERE user_id = ?
      ORDER BY created_at DESC`,
     [userId]
   );
   return Array.isArray(rows) ? rows : [];
+}
+
+export async function markNotificationRead({ notificationId, userId }) {
+  const result = await query(
+    `UPDATE studio_notifications
+     SET read_at = COALESCE(read_at, NOW())
+     WHERE id = ? AND user_id = ?`,
+    [String(notificationId || "").trim(), String(userId || "").trim()]
+  );
+  return { updated: Number(result?.affectedRows || 0) > 0 };
+}
+
+export async function markAllNotificationsRead(userId) {
+  const result = await query(
+    `UPDATE studio_notifications
+     SET read_at = COALESCE(read_at, NOW())
+     WHERE user_id = ? AND read_at IS NULL`,
+    [String(userId || "").trim()]
+  );
+  return { updatedCount: Number(result?.affectedRows || 0) };
+}
+
+export async function listMessageTemplates() {
+  const rows = await query(
+    `SELECT id, name, channel, title, message, template_code AS templateCode,
+            created_by AS createdBy, created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_message_templates
+     ORDER BY updated_at DESC, created_at DESC`
+  );
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function createMessageTemplate(payload) {
+  const id = randomUUID();
+  const name = String(payload?.name || payload?.title || "보관 메시지").trim();
+  const message = String(payload?.message || "").trim();
+  if (!message) throw createHttpError("보관할 메시지를 입력해 주세요.", 400);
+  await query(
+    `INSERT INTO studio_message_templates
+      (id, name, channel, title, message, template_code, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    [
+      id,
+      name.slice(0, 160),
+      String(payload?.channel || "sms").trim().slice(0, 20),
+      String(payload?.title || "").trim().slice(0, 160) || null,
+      message,
+      String(payload?.templateCode || payload?.template_code || "").trim() || null,
+      String(payload?.createdBy || payload?.created_by || "").trim() || null,
+    ]
+  );
+  return queryOne(
+    `SELECT id, name, channel, title, message, template_code AS templateCode,
+            created_by AS createdBy, created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_message_templates WHERE id = ?`,
+    [id]
+  );
+}
+
+export async function updateMessageTemplate(templateId, payload) {
+  const id = String(templateId || "").trim();
+  const message = String(payload?.message || "").trim();
+  if (!id) throw createHttpError("수정할 보관함 항목을 찾을 수 없습니다.", 400);
+  if (!message) throw createHttpError("보관할 메시지를 입력해 주세요.", 400);
+  const result = await query(
+    `UPDATE studio_message_templates
+     SET name = ?, channel = ?, title = ?, message = ?, template_code = ?, updated_at = NOW()
+     WHERE id = ?`,
+    [
+      String(payload?.name || payload?.title || "보관 메시지").trim().slice(0, 160),
+      String(payload?.channel || "sms").trim().slice(0, 20),
+      String(payload?.title || "").trim().slice(0, 160) || null,
+      message,
+      String(payload?.templateCode || payload?.template_code || "").trim() || null,
+      id,
+    ]
+  );
+  if (!Number(result?.affectedRows || 0)) throw createHttpError("보관함 항목을 찾을 수 없습니다.", 404);
+  return queryOne(
+    `SELECT id, name, channel, title, message, template_code AS templateCode,
+            created_by AS createdBy, created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_message_templates WHERE id = ?`,
+    [id]
+  );
+}
+
+export async function deleteMessageTemplate(templateId) {
+  const result = await query(`DELETE FROM studio_message_templates WHERE id = ?`, [String(templateId || "").trim()]);
+  return { deleted: Number(result?.affectedRows || 0) > 0 };
 }
 
 export async function listInstructorHours() {
@@ -1639,9 +2295,34 @@ export async function listRolePermissions() {
   return Array.isArray(rows) ? rows : [];
 }
 
+/** 로그인 계정과 연결된 재직 직원 프로필을 기준으로 실제 스튜디오 역할을 결정합니다. */
+export async function resolveUserStudioRole(user) {
+  const userId = String(user?.id || "").trim();
+  if (!userId) return "";
+
+  const profile = await queryOne(
+    `SELECT role_code AS roleCode, status
+     FROM studio_staff_profiles
+     WHERE user_id = ?
+     LIMIT 1`,
+    [userId],
+  );
+  if (profile) {
+    return String(profile.status) === "active"
+      ? String(profile.roleCode || "").trim().toLowerCase()
+      : "";
+  }
+
+  // 기존 데이터 호환용입니다. 새 직원 권한은 studio_staff_profiles.user_id 연결을 사용합니다.
+  const legacyRole = String(user?.role || "").trim().toLowerCase();
+  if (["owner", "manager", "staff", "instructor", "teacher"].includes(legacyRole)) return legacyRole;
+  return "";
+}
+
 export async function isRoleAllowed(roleCode, permissionCode) {
   if (!roleCode || !permissionCode) return false;
   const normalizedRole = String(roleCode).trim().toLowerCase();
+  if (["owner", "admin", "admin0", "admin1"].includes(normalizedRole)) return true;
   const ownerPermissions = new Set([
     "class.read",
     "class.write",
@@ -1656,6 +2337,13 @@ export async function isRoleAllowed(roleCode, permissionCode) {
     "settings.write",
     "communication.read",
     "communication.write",
+    "sales.read",
+    "staff.read",
+    "pass.create",
+    "pass.status",
+    "pass.issue",
+    "pass.detail.write",
+    "member.export",
   ]);
   const managerPermissions = new Set(ownerPermissions);
   const instructorPermissions = new Set([
@@ -1754,7 +2442,7 @@ export async function transferPass(payload) {
     }
 
     const passRows = await conn.execute(
-      `SELECT id, user_id AS userId, pass_name AS passName, pass_type AS passType,
+      `SELECT id, user_id AS userId, branch_id AS branchId, pass_name AS passName, pass_type AS passType,
               remaining_count AS remainingCount, expires_at AS expiresAt
        FROM studio_passes
        WHERE id = ? AND user_id = ?
@@ -1788,11 +2476,12 @@ export async function transferPass(payload) {
     const newPassId = randomUUID();
     await conn.execute(
       `INSERT INTO studio_passes
-        (id, user_id, pass_name, pass_type, remaining_count, total_count, expires_at, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
+        (id, user_id, branch_id, pass_name, pass_type, remaining_count, total_count, expires_at, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
       [
         newPassId,
         toUserId,
+        normalizeBranchId(sourcePass.branchId),
         `${sourcePass.passName || "수강권"} 양도`,
         sourcePass.passType || "group",
         transferCount,
@@ -1812,20 +2501,44 @@ export async function transferPass(payload) {
 }
 
 export async function requestPassRefund(payload) {
+  const request = normalizePassRefundRequest(payload);
   const id = randomUUID();
-  await query(
-    `INSERT INTO studio_pass_refunds
-      (id, pass_id, user_id, refund_amount, reason, status, requested_at)
-     VALUES (?, ?, ?, ?, ?, 'requested', NOW())`,
-    [
-      id,
-      String(payload?.passId || "").trim(),
-      String(payload?.userId || "").trim(),
-      Math.max(0, Number(payload?.refundAmount || 0)),
-      String(payload?.reason || "").trim(),
-    ]
-  );
-  return queryOne(`SELECT * FROM studio_pass_refunds WHERE id = ?`, [id]);
+  return withTransaction(async (conn) => {
+    const [passRows] = await conn.execute(
+      `SELECT id, status
+       FROM studio_passes
+       WHERE id = ? AND user_id = ?
+       LIMIT 1
+       FOR UPDATE`,
+      [request.passId, request.userId],
+    );
+    const pass = passRows?.[0] || null;
+    if (!pass) throw createHttpError("본인 소유의 수강권을 찾을 수 없습니다.", 404);
+    if (String(pass.status) === "refunded") {
+      throw createHttpError("이미 환불 처리된 수강권입니다.", 409);
+    }
+
+    const [pendingRows] = await conn.execute(
+      `SELECT id
+       FROM studio_pass_refunds
+       WHERE pass_id = ? AND status = 'requested'
+       LIMIT 1
+       FOR UPDATE`,
+      [request.passId],
+    );
+    if (pendingRows?.[0]) {
+      throw createHttpError("이미 처리 대기 중인 환불 요청이 있습니다.", 409);
+    }
+
+    await conn.execute(
+      `INSERT INTO studio_pass_refunds
+        (id, pass_id, user_id, refund_amount, reason, status, requested_at)
+       VALUES (?, ?, ?, ?, ?, 'requested', NOW())`,
+      [id, request.passId, request.userId, request.refundAmount, request.reason],
+    );
+    const [rows] = await conn.execute(`SELECT * FROM studio_pass_refunds WHERE id = ?`, [id]);
+    return rows?.[0] || null;
+  });
 }
 
 export async function listPassRefunds({ status } = {}) {
@@ -1858,17 +2571,32 @@ export async function listPassRefunds({ status } = {}) {
 }
 
 export async function resolvePassRefund(refundId, status) {
-  const row = await queryOne(`SELECT pass_id AS passId FROM studio_pass_refunds WHERE id = ? LIMIT 1`, [refundId]);
-  await withTransaction(async (conn) => {
+  return withTransaction(async (conn) => {
+    const [rows] = await conn.execute(
+      `SELECT pass_id AS passId, status
+       FROM studio_pass_refunds
+       WHERE id = ?
+       LIMIT 1
+       FOR UPDATE`,
+      [refundId],
+    );
+    const row = rows?.[0] || null;
+    if (!row) throw createHttpError("환불 요청을 찾을 수 없습니다.", 404);
+    if (String(row.status) !== "requested") {
+      if (String(row.status) === status) return { ok: true, alreadyResolved: true };
+      throw createHttpError("이미 다른 상태로 처리된 환불 요청입니다.", 409);
+    }
+
     await conn.execute(
       `UPDATE studio_pass_refunds
        SET status = ?, resolved_at = NOW()
-       WHERE id = ?`,
+       WHERE id = ? AND status = 'requested'`,
       [status, refundId]
     );
     if (status === "approved" && row?.passId) {
       await conn.execute(`UPDATE studio_passes SET status = 'refunded', updated_at = NOW() WHERE id = ?`, [row.passId]);
     }
+    return { ok: true, alreadyResolved: false };
   });
 }
 

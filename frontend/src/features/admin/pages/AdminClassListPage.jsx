@@ -6,16 +6,18 @@
  *
  * ─ 탭 구성 ────────────────────────────────────────────────────
  *  · 수업 목록   — 현재 운영 중인 수업
- *  · 예약 내역   — 전체 예약 목록 (추후 구현)
- *  · 삭제된 수업 — 폐강·삭제 처리된 수업 (추후 구현)
+ *  · 예약 내역   — 전체 예약 목록을 조회하고 상태별로 확인
+ *  · 삭제된 수업 — 폐강·삭제 처리된 수업을 별도로 확인
  *
  * ─ 필터 항목 ──────────────────────────────────────────────────
  *  날짜 / 요일 / 수업시간 / 강사 / 수업유형 / 룸
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { downloadXlsx } from "../../../shared/utils/exportXlsx.js";
 import {
   cancelAdminStudioClass,
   deleteAdminStudioClass,
@@ -24,6 +26,7 @@ import {
   listAdminStudioClasses,
   updateAdminStudioClass,
 } from "../../studio/api/studioApi.js";
+import { DEFAULT_STUDIO_BRANCH_ID, STUDIO_BRANCHES, getStudioBranchName } from "../../studio/constants/studioBranches.js";
 
 // ─── 상수 ──────────────────────────────────────────────────────────────────────
 
@@ -38,18 +41,6 @@ const WEEKDAY_OPTIONS = [
   { value: "5", label: "금요일" },
   { value: "6", label: "토요일" },
   { value: "0", label: "일요일" },
-];
-
-const NAV_ITEMS = [
-  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
-  { label: "수업", path: "/admin/classes", active: true },
-  { label: "회원", path: "/admin/member-list" },
-  { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/passes" },
-  { label: "메시지", path: "/admin/messages" },
-  { label: "게시판", path: "/admin/board" },
-  { label: "설정", path: "/admin/settings" },
-  { label: "매출", path: "/admin/sales" },
 ];
 
 const PAGE_SIZE = 10;
@@ -93,6 +84,19 @@ function calcDeadline(startAt, limitHours) {
     + " " + toHm(deadline.toISOString()) + " 까지";
 }
 
+/** DB에 저장된 수업별 마감 시간이 있으면 정책 계산값보다 먼저 보여줍니다 */
+function formatDeadline(deadlineAt, fallback) {
+  if (!deadlineAt) return fallback;
+  const date = new Date(String(deadlineAt).replace(" ", "T"));
+  if (Number.isNaN(date.getTime())) return fallback;
+  return date.toLocaleDateString("ko-KR", { year: "numeric", month: "numeric", day: "numeric" })
+    + " " + toHm(date) + " 까지";
+}
+
+function formatWaitlistCapacity(value) {
+  return value === null || typeof value === "undefined" || value === "" ? "무제한" : `${Number(value) || 0}명`;
+}
+
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
 export function AdminClassListPage() {
@@ -109,6 +113,7 @@ export function AdminClassListPage() {
   // 필터
   const today = new Date();
   const [filterDate, setFilterDate] = useState(toDateStr(today));
+  const [selectedBranchId, setSelectedBranchId] = useState(DEFAULT_STUDIO_BRANCH_ID);
   const [filterWeekday, setFilterWeekday] = useState("");
   const [filterTime, setFilterTime] = useState("");
   const [filterInstructor, setFilterInstructor] = useState("");
@@ -146,26 +151,31 @@ export function AdminClassListPage() {
   // ── 데이터 로드 ─────────────────────────────────────────────────────────────
   async function loadData() {
     setLoading(true);
+    setMessage({ type: "", text: "" });
     try {
       const { from, to } = getDateRange();
       if (activeTab === 0) {
         // 수업 목록: 운영 중인 수업
-        const rows = await listAdminStudioClasses({ from, to, status: "active" });
+        const rows = await listAdminStudioClasses({ from, to, status: "active", branchId: selectedBranchId });
         setClasses(Array.isArray(rows) ? rows : []);
       } else if (activeTab === 1) {
         // 예약 내역: 전체 예약
-        const rows = await listAdminAllBookings({ from, to });
+        const rows = await listAdminAllBookings({ from, to, branchId: selectedBranchId });
         setClasses(Array.isArray(rows) ? rows : []);
       } else if (activeTab === 2) {
         // 삭제된 수업: cancelled + deleted 상태
         const [cancelled, deleted] = await Promise.all([
-          listAdminStudioClasses({ from, to, status: "cancelled" }),
-          listAdminStudioClasses({ from, to, status: "deleted" }),
+          listAdminStudioClasses({ from, to, status: "cancelled", branchId: selectedBranchId }),
+          listAdminStudioClasses({ from, to, status: "deleted", branchId: selectedBranchId }),
         ]);
         setClasses([...(Array.isArray(cancelled) ? cancelled : []), ...(Array.isArray(deleted) ? deleted : [])]);
       }
-    } catch {
+    } catch (error) {
       setClasses([]);
+      setMessage({
+        type: "error",
+        text: error?.message || "수업 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      });
     } finally {
       setLoading(false);
     }
@@ -175,12 +185,18 @@ export function AdminClassListPage() {
     setPage(1);
     setSelectedIds(new Set());
     loadData();
-  }, [filterDate, activeTab]);
+  }, [filterDate, activeTab, selectedBranchId]);
 
   useEffect(() => {
     getAdminStudioSettings().then((data) => {
       setPolicy(data?.bookingPolicy || null);
-    }).catch(() => {});
+    }).catch((error) => {
+      setPolicy(null);
+      setMessage({
+        type: "error",
+        text: error?.message || "예약 정책을 불러오지 못해 마감 시간을 계산할 수 없습니다.",
+      });
+    });
   }, []);
 
   // ── 고유 목록 (필터 드롭다운용) ─────────────────────────────────────────────
@@ -274,12 +290,23 @@ export function AdminClassListPage() {
     if (!window.confirm(`선택한 수업 ${selectedIds.size}개를 삭제하시겠습니까?`)) return;
     setBusy(true);
     try {
-      await Promise.all([...selectedIds].map((id) => deleteAdminStudioClass(id).catch(() => {})));
-      setSelectedIds(new Set());
-      setMessage({ type: "success", text: "삭제 완료됐습니다." });
+      const ids = [...selectedIds];
+      const results = await Promise.allSettled(ids.map((id) => deleteAdminStudioClass(id)));
+      const failedIds = ids.filter((_, index) => results[index].status === "rejected");
+
+      setSelectedIds(new Set(failedIds));
       await loadData();
-    } catch {
-      setMessage({ type: "error", text: "일부 삭제에 실패했습니다." });
+
+      if (failedIds.length > 0) {
+        setMessage({
+          type: "error",
+          text: `${ids.length - failedIds.length}개 삭제, ${failedIds.length}개 실패했습니다. 실패한 수업을 다시 선택해 주세요.`,
+        });
+      } else {
+        setMessage({ type: "success", text: `${ids.length}개 수업을 삭제했습니다.` });
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: error?.message || "수업 삭제에 실패했습니다." });
     } finally {
       setBusy(false);
     }
@@ -301,12 +328,19 @@ export function AdminClassListPage() {
     try {
       if (Object.keys(patch).length) {
         await Promise.all(selectedItems.map((item) => updateAdminStudioClass(item.id, {
+          classType: item.classType || "group",
+          branchId: item.branchId || selectedBranchId,
           title: item.title || item.classTitle || "",
           instructorName: patch.instructorName ?? item.instructorName ?? "",
           roomName: patch.roomName ?? item.roomName ?? "",
           startAt: item.startAt,
           endAt: item.endAt,
           capacity: patch.capacity ?? item.capacity ?? 1,
+          minCapacity: item.minCapacity ?? 0,
+          waitlistCapacity: item.waitlistCapacity ?? null,
+          bookingDeadlineAt: item.bookingDeadlineAt ?? null,
+          cancellationDeadlineAt: item.cancellationDeadlineAt ?? null,
+          cancellationDecisionAt: item.cancellationDecisionAt ?? null,
         })));
       }
       if (bulkEditDraft.status === "cancelled") {
@@ -327,17 +361,13 @@ export function AdminClassListPage() {
     }
   }
 
-  function toCsvCell(value) {
-    const text = String(value ?? "").replace(/\r?\n/g, " ");
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-
-  function handleDownloadCsv() {
+  function handleDownloadXlsx() {
     const headers = activeTab === 1
-      ? ["수업일시", "수업명", "강사", "룸", "회원명", "연락처", "수강권", "잔여횟수", "예약상태", "예약일시", "미수금"]
-      : ["수업일시", "강사", "수업", "수업명", "수업구분", "룸", "예약인원", "상태"];
+      ? ["지점", "수업일시", "수업명", "강사", "룸", "회원명", "연락처", "수강권", "잔여횟수", "예약상태", "예약일시", "미수금"]
+      : ["지점", "수업일시", "강사", "수업", "수업명", "수업구분", "룸", "최대인원", "최소인원", "예약대기", "예약마감", "취소마감", "폐강기준", "상태"];
     const lines = filtered.map((item) => activeTab === 1
       ? [
+          item.branchName || getStudioBranchName(item.branchId),
           formatClassDateTime(item.startAt, item.endAt),
           item.classTitle || "",
           item.instructorName || "",
@@ -351,25 +381,24 @@ export function AdminClassListPage() {
           item.openArrearsAmount || "",
         ]
       : [
+          item.branchName || getStudioBranchName(item.branchId),
           formatClassDateTime(item.startAt, item.endAt),
           item.instructorName || "",
           item.roomName?.includes("개인") || item.roomName?.includes("듀엣") ? "프라이빗" : "그룹",
           item.title || "",
           item.roomName || "",
           "",
-          `${item.reservedCount ?? 0}/${item.capacity ?? 0}`,
+          item.capacity ?? 0,
+          item.minCapacity ?? 0,
+          formatWaitlistCapacity(item.waitlistCapacity),
+          formatDeadline(item.bookingDeadlineAt, ""),
+          formatDeadline(item.cancellationDeadlineAt, ""),
+          formatDeadline(item.cancellationDecisionAt, ""),
           item.status || "",
         ]);
-    const csv = [headers, ...lines].map((row) => row.map(toCsvCell).join(",")).join("\r\n");
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `studio-classes-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    downloadXlsx(`studio-classes-${new Date().toISOString().slice(0, 10)}.xlsx`, [
+      { name: activeTab === 1 ? "예약내역" : activeTab === 2 ? "삭제수업" : "수업목록", rows: [headers, ...lines] },
+    ]);
   }
 
   // ── 날짜 이동 ──────────────────────────────────────────────────────────────
@@ -381,35 +410,12 @@ export function AdminClassListPage() {
   }
 
   return (
-    <div className="admin-classlist-app">
-      {/* ── 상단 네비게이션 ─────────────────────────────────────────────────── */}
-      <header className="admin-schedule-topbar">
-        <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-          <span>ICL</span>
-        </button>
-        <nav className="admin-schedule-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.label} className={item.active ? "active" : ""} to={item.path}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="admin-schedule-search">
-          <span aria-hidden="true">검색</span>
-          <input
-            type="search"
-            placeholder="수업명, 강사, 회원명, 전화번호 검색"
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
-          {currentUserName}
-        </button>
-      </header>
+    <AdminLayout
+      appClass="admin-classlist-app"
+      userName={currentUserName}
+      searchValue={searchQuery}
+      onSearchChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+    >
 
       <div className="admin-classlist-body">
         {/* ── 탭 + 제목 ──────────────────────────────────────────────────────── */}
@@ -426,6 +432,23 @@ export function AdminClassListPage() {
           ))}
         </div>
 
+        <div className="admin-schedule-category-tabs" role="tablist" aria-label="지점 선택" style={{ marginBottom: 12 }}>
+          {STUDIO_BRANCHES.map((branch) => (
+            <button
+              key={branch.id}
+              type="button"
+              className={selectedBranchId === branch.id ? "active" : ""}
+              onClick={() => {
+                setSelectedBranchId(branch.id);
+                setPage(1);
+                setSelectedIds(new Set());
+              }}
+            >
+              {branch.name}
+            </button>
+          ))}
+        </div>
+
         {/* ── 필터 바 ────────────────────────────────────────────────────────── */}
         <div className="admin-classlist-filterbar">
           {/* 날짜 피커 */}
@@ -433,36 +456,37 @@ export function AdminClassListPage() {
             <button type="button" onClick={() => moveDate(-1)}>‹</button>
             <input
               type="date"
+              aria-label="수업 목록 기준 날짜"
               value={filterDate}
               onChange={(e) => { setFilterDate(e.target.value); setPage(1); }}
             />
             <button type="button" onClick={() => moveDate(1)}>›</button>
           </div>
 
-          <select value={filterWeekday} onChange={(e) => { setFilterWeekday(e.target.value); setPage(1); }}>
+          <select aria-label="요일 필터" value={filterWeekday} onChange={(e) => { setFilterWeekday(e.target.value); setPage(1); }}>
             {WEEKDAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
 
-          <select value={filterTime} onChange={(e) => { setFilterTime(e.target.value); setPage(1); }}>
+          <select aria-label="수업 시간 필터" value={filterTime} onChange={(e) => { setFilterTime(e.target.value); setPage(1); }}>
             <option value="">수업시간 전체</option>
             {["06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21"].map((h) => (
               <option key={h} value={h}>{h}:00대</option>
             ))}
           </select>
 
-          <select value={filterInstructor} onChange={(e) => { setFilterInstructor(e.target.value); setPage(1); }}>
+          <select aria-label="강사 필터" value={filterInstructor} onChange={(e) => { setFilterInstructor(e.target.value); setPage(1); }}>
             <option value="">강사 전체</option>
             {instructorList.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
 
           {activeTab !== 1 ? (
-            <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1); }}>
+            <select aria-label="수업 유형 필터" value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1); }}>
               <option value="">수업 전체</option>
               <option value="그룹">그룹</option>
               <option value="개인">프라이빗</option>
             </select>
           ) : (
-            <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1); }}>
+            <select aria-label="예약 상태 필터" value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1); }}>
               <option value="">예약 상태 전체</option>
               <option value="reserved">예약 완료</option>
               <option value="waitlisted">대기 중</option>
@@ -470,7 +494,7 @@ export function AdminClassListPage() {
             </select>
           )}
 
-          <select value={filterRoom} onChange={(e) => { setFilterRoom(e.target.value); setPage(1); }}>
+          <select aria-label="룸 필터" value={filterRoom} onChange={(e) => { setFilterRoom(e.target.value); setPage(1); }}>
             <option value="">룸 전체</option>
             {roomList.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
@@ -496,7 +520,7 @@ export function AdminClassListPage() {
             >
               일괄 수정
             </button>
-            <button type="button" className="admin-classlist-btn primary" onClick={handleDownloadCsv}>
+            <button type="button" className="admin-classlist-btn primary" onClick={handleDownloadXlsx}>
               엑셀 다운
             </button>
           </div>
@@ -525,6 +549,7 @@ export function AdminClassListPage() {
               onChange={(event) => setBulkEditDraft((previous) => ({ ...previous, capacity: event.target.value }))}
             />
             <select
+              aria-label="선택 수업 상태 일괄 변경"
               value={bulkEditDraft.status}
               onChange={(event) => setBulkEditDraft((previous) => ({ ...previous, status: event.target.value }))}
             >
@@ -549,7 +574,7 @@ export function AdminClassListPage() {
             {activeTab !== 1 ? (
               <thead>
                 <tr>
-                  <th><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
+                  <th><input type="checkbox" aria-label="현재 페이지 수업 전체 선택" checked={allChecked} onChange={toggleAll} /></th>
                   <th>수업일시 ↑</th>
                   <th>강사</th>
                   <th>수업</th>
@@ -568,7 +593,7 @@ export function AdminClassListPage() {
               /* 예약 내역 헤더 */
               <thead>
                 <tr>
-                  <th><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
+                  <th><input type="checkbox" aria-label="현재 페이지 예약 전체 선택" checked={allChecked} onChange={toggleAll} /></th>
                   <th>수업일시 ↑</th>
                   <th>수업명</th>
                   <th>강사</th>
@@ -598,10 +623,12 @@ export function AdminClassListPage() {
               ) : activeTab !== 1 ? (
                 /* 수업 목록 / 삭제된 수업 행 */
                 pageItems.map((item) => {
-                  const reserveDeadline = policy?.reserveLimitHours != null
+                  const reserveDeadlineFallback = policy?.reserveLimitHours != null
                     ? calcDeadline(item.startAt, policy.reserveLimitHours) : "무제한";
-                  const cancelDeadline = policy?.cancelLimitHours != null
+                  const cancelDeadlineFallback = policy?.cancelLimitHours != null
                     ? calcDeadline(item.startAt, policy.cancelLimitHours) : "무제한";
+                  const reserveDeadline = formatDeadline(item.bookingDeadlineAt, reserveDeadlineFallback);
+                  const cancelDeadline = formatDeadline(item.cancellationDeadlineAt, cancelDeadlineFallback);
                   const sameDayAllowed = policy?.sameDayChangeAllowed;
                   return (
                     <tr key={item.id} className={selectedIds.has(item.id) ? "selected" : ""} onClick={() => toggleOne(item.id)}>
@@ -614,8 +641,8 @@ export function AdminClassListPage() {
                       <td>{item.title || "-"}</td>
                       <td>{item.roomName || "-"}</td>
                       <td>-</td>
-                      <td className="center">{item.reservedCount ?? 0}/{item.capacity ?? 0}</td>
-                      <td className="center">무제한</td>
+                      <td className="center">{item.capacity ?? 0}/{item.minCapacity ?? 0}</td>
+                      <td className="center">{formatWaitlistCapacity(item.waitlistCapacity)}</td>
                       <td className="nowrap">{reserveDeadline}</td>
                       <td className="nowrap">{cancelDeadline}</td>
                       <td className="nowrap">{sameDayAllowed == null ? "-" : sameDayAllowed ? cancelDeadline : "-"}</td>
@@ -673,6 +700,6 @@ export function AdminClassListPage() {
           <span className="admin-classlist-perpage">{PAGE_SIZE}/page</span>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

@@ -1,30 +1,9 @@
 // 파일 역할: 장바구니 API 요청을 검증하고 서비스 호출 결과를 HTTP 응답으로 변환합니다.
 import * as cartService from "./cart.service.js";
-import * as authService from "../auth/auth.service.js";
-import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
+import { resolveSessionUser } from "../../shared/middlewares/auth.js";
 
-function getCookieValue(req, name) {
-  const cookieHeader = String(req.headers.cookie || "");
-  if (!cookieHeader) return "";
-
-  const cookieItem = cookieHeader
-    .split(";")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(`${name}=`));
-
-  if (!cookieItem) return "";
-  return decodeURIComponent(cookieItem.slice(name.length + 1));
-}
-
-async function getAuthenticatedUser(req) {
-  const token = getCookieValue(req, SESSION_COOKIE_NAME);
-  if (!token) return null;
-  return authService.findUserBySessionToken(token);
-}
-
-// 함수 역할: 회원 ID에서 필요한 항목만 골라냅니다.
 async function pickUserId(req, res) {
-  const authUser = await getAuthenticatedUser(req);
+  const authUser = await resolveSessionUser(req);
   const userId = String(authUser?.id || "").trim();
   if (!userId) {
     res.status(401).json({ message: "로그인이 필요합니다." });

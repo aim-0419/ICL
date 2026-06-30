@@ -39,7 +39,19 @@ export function getUserGrade(user) {
 // 함수 역할: 관리자 스태프 조건에 해당하는지 참/거짓으로 판별합니다.
 export function isAdminStaff(user) {
   const grade = getUserGrade(user);
+  if (grade === "admin0" || grade === "admin1") return true;
+  const studioRole = normalize(user?.studioRole);
+  const activeStaff = !user?.studioStaffStatus || normalize(user.studioStaffStatus) === "active";
+  return activeStaff && ["owner", "manager", "staff", "instructor", "teacher"].includes(studioRole);
+}
+
+export function isPlatformAdmin(user) {
+  const grade = getUserGrade(user);
   return grade === "admin0" || grade === "admin1";
+}
+
+export function getAdminLandingPath(user) {
+  return isPlatformAdmin(user) ? "/admin" : "/admin/studio";
 }
 
 // 컴포넌트 역할: canEditPage 화면을 렌더링하고 필요한 API 호출과 사용자 입력 상태를 관리합니다.

@@ -1,0 +1,294 @@
+{
+  "nodes": [
+    {
+      "id": "file:.gitattributes",
+      "type": "file",
+      "name": ".gitattributes",
+      "filePath": ".gitattributes",
+      "summary": "Git 줄 끝 정규화 설정 파일로, .js/.jsx/.mjs/.cjs/.json/.css/.md/.html 파일의 줄 바꿈 문자를 LF로 강제합니다.",
+      "tags": ["configuration", "git", "build-system"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:.understand-anything/.understandignore",
+      "type": "file",
+      "name": ".understandignore",
+      "filePath": ".understand-anything/.understandignore",
+      "summary": "Understand-Anything 분석 도구가 무시해야 할 파일 및 디렉토리 패턴을 정의하는 설정 파일로, chrome 프로파일 디렉토리와 ICL.zip 같은 빌드 산출물을 제외합니다.",
+      "tags": ["configuration", "build-system", "documentation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.understand-anything/config.json",
+      "type": "config",
+      "name": "config.json",
+      "filePath": ".understand-anything/config.json",
+      "summary": "Understand-Anything 지식 그래프 도구의 출력 언어를 한국어(ko)로 설정하는 구성 파일입니다.",
+      "tags": ["configuration", "documentation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:backend/.env.example",
+      "type": "config",
+      "name": ".env.example",
+      "filePath": "backend/.env.example",
+      "summary": "백엔드 서버의 환경 변수 템플릿으로, MySQL 데이터베이스 접속 정보, 알리고 SMS/카카오 알림톡 API 키, 알림 스케줄러 설정, Firebase FCM 서비스 계정 정보 등 19개의 환경 변수 예시를 포함합니다.",
+      "tags": ["configuration", "security", "infrastructure"],
+      "complexity": "moderate",
+      "languageNotes": "실제 .env 파일은 .gitignore에 의해 제외되며, 이 파일은 개발 환경 온보딩용 템플릿입니다."
+    },
+    {
+      "id": "config:backend/package.json",
+      "type": "config",
+      "name": "package.json",
+      "filePath": "backend/package.json",
+      "summary": "백엔드(icl-pilates-backend) Node.js 프로젝트 설정으로, ESM 모듈 방식을 사용하며 Express, MySQL2, dotenv, multer, nodemailer를 핵심 의존성으로 포함합니다.",
+      "tags": ["configuration", "build-system", "infrastructure"],
+      "complexity": "simple",
+      "languageNotes": "\"type\": \"module\" 설정으로 모든 .js 파일이 ES 모듈로 처리됩니다."
+    },
+    {
+      "id": "file:backend/scripts/check-syntax.mjs",
+      "type": "file",
+      "name": "check-syntax.mjs",
+      "filePath": "backend/scripts/check-syntax.mjs",
+      "summary": "백엔드 src와 scripts 디렉토리 내 모든 .js/.mjs 파일을 재귀적으로 탐색하고 Node.js --check 플래그로 구문 오류를 검사하는 CI용 유틸리티 스크립트입니다.",
+      "tags": ["utility", "build-system", "script"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/scripts/db-backup.sh",
+      "type": "file",
+      "name": "db-backup.sh",
+      "filePath": "backend/scripts/db-backup.sh",
+      "summary": "Docker 데모 환경의 MySQL 컨테이너(icl-demo-mysql)에서 mysqldump를 실행하여 gzip 압축 백업 파일을 생성하는 셸 스크립트입니다.",
+      "tags": ["database", "infrastructure", "script"],
+      "complexity": "simple",
+      "languageNotes": "--single-transaction, --routines, --triggers 옵션으로 일관성 있는 전체 스키마 백업을 수행합니다."
+    },
+    {
+      "id": "file:backend/scripts/db-restore.sh",
+      "type": "file",
+      "name": "db-restore.sh",
+      "filePath": "backend/scripts/db-restore.sh",
+      "summary": "gzip 압축된 SQL 백업 파일을 Docker 데모 환경의 MySQL 컨테이너에 복구하는 셸 스크립트로, 데이터 덮어쓰기 전 사용자 확인('yes' 입력)을 요구합니다.",
+      "tags": ["database", "infrastructure", "script"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/features/academy/service/index.js",
+      "type": "file",
+      "name": "index.js",
+      "filePath": "backend/src/features/academy/service/index.js",
+      "summary": "아카데미 기능의 서비스 레이어 barrel 파일로, video-progress.service.js, asset.service.js, review.service.js, qna.service.js에서 30개의 함수를 통합하여 단일 진입점으로 재내보냅니다.",
+      "tags": ["barrel", "service", "entry-point"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:deploy/nginx-prod.conf",
+      "type": "file",
+      "name": "nginx-prod.conf",
+      "filePath": "deploy/nginx-prod.conf",
+      "summary": "운영 환경 Nginx 설정으로, Vue/React SPA 정적 파일을 서빙하고 /api/ 요청을 로컬 4000번 포트(Express)로 프록시하며, 아카데미 비디오 업로드 경로 보호와 Vite 빌드 자산의 장기 캐시 정책을 설정합니다.",
+      "tags": ["infrastructure", "deployment", "configuration"],
+      "complexity": "moderate",
+      "languageNotes": "SPA fallback으로 index.html을 캐시하지 않아 배포 후 즉시 최신 버전이 반영됩니다."
+    },
+    {
+      "id": "service:docker-compose.yml",
+      "type": "service",
+      "name": "docker-compose.yml",
+      "filePath": "docker-compose.yml",
+      "summary": "로컬 데모 환경을 위한 Docker Compose 설정으로, MySQL 8.4, 백엔드(Node.js), 프론트엔드 세 컨테이너를 헬스체크와 의존성 순서를 지정하여 오케스트레이션합니다.",
+      "tags": ["orchestration", "infrastructure", "containerization"],
+      "complexity": "moderate",
+      "languageNotes": "mysql → backend → frontend 순서로 헬스체크 기반 의존성이 설정되어 있습니다."
+    },
+    {
+      "id": "document:fonts/Pretendard/LICENSE.txt",
+      "type": "document",
+      "name": "LICENSE.txt",
+      "filePath": "fonts/Pretendard/LICENSE.txt",
+      "summary": "Pretendard 폰트의 SIL Open Font License 1.1 전문으로, 폰트의 자유로운 사용, 수정, 배포 권한과 조건을 명시합니다.",
+      "tags": ["documentation", "security"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:fonts/Pretendard/public/static/Pretendard-Black.otf",
+      "type": "file",
+      "name": "Pretendard-Black.otf",
+      "filePath": "fonts/Pretendard/public/static/Pretendard-Black.otf",
+      "summary": "Pretendard 폰트 패밀리의 Black(900) 굵기 OTF 바이너리 파일입니다.",
+      "tags": ["typography", "asset"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:fonts/Pretendard/public/static/Pretendard-Bold.otf",
+      "type": "file",
+      "name": "Pretendard-Bold.otf",
+      "filePath": "fonts/Pretendard/public/static/Pretendard-Bold.otf",
+      "summary": "Pretendard 폰트 패밀리의 Bold(700) 굵기 OTF 바이너리 파일입니다.",
+      "tags": ["typography", "asset"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:fonts/Pretendard/public/static/Pretendard-ExtraBold.otf",
+      "type": "file",
+      "name": "Pretendard-ExtraBold.otf",
+      "filePath": "fonts/Pretendard/public/static/Pretendard-ExtraBold.otf",
+      "summary": "Pretendard 폰트 패밀리의 ExtraBold(800) 굵기 OTF 바이너리 파일입니다.",
+      "tags": ["typography", "asset"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:fonts/Pretendard/public/static/Pretendard-ExtraLight.otf",
+      "type": "file",
+      "name": "Pretendard-ExtraLight.otf",
+      "filePath": "fonts/Pretendard/public/static/Pretendard-ExtraLight.otf",
+      "summary": "Pretendard 폰트 패밀리의 ExtraLight(200) 굵기 OTF 바이너리 파일입니다.",
+      "tags": ["typography", "asset"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:fonts/Pretendard/public/static/Pretendard-Light.otf",
+      "type": "file",
+      "name": "Pretendard-Light.otf",
+      "filePath": "fonts/Pretendard/public/static/Pretendard-Light.otf",
+      "summary": "Pretendard 폰트 패밀리의 Light(300) 굵기 OTF 바이너리 파일입니다.",
+      "tags": ["typography", "asset"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:fonts/Pretendard/public/static/Pretendard-Medium.otf",
+      "type": "file",
+      "name": "Pretendard-Medium.otf",
+      "filePath": "fonts/Pretendard/public/static/Pretendard-Medium.otf",
+      "summary": "Pretendard 폰트 패밀리의 Medium(500) 굵기 OTF 바이너리 파일입니다.",
+      "tags": ["typography", "asset"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:fonts/Pretendard/public/static/Pretendard-Regular.otf",
+      "type": "file",
+      "name": "Pretendard-Regular.otf",
+      "filePath": "fonts/Pretendard/public/static/Pretendard-Regular.otf",
+      "summary": "Pretendard 폰트 패밀리의 Regular(400) 굵기 OTF 바이너리 파일입니다.",
+      "tags": ["typography", "asset"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:fonts/Pretendard/public/static/Pretendard-SemiBold.otf",
+      "type": "file",
+      "name": "Pretendard-SemiBold.otf",
+      "filePath": "fonts/Pretendard/public/static/Pretendard-SemiBold.otf",
+      "summary": "Pretendard 폰트 패밀리의 SemiBold(600) 굵기 OTF 바이너리 파일입니다.",
+      "tags": ["typography", "asset"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:fonts/Pretendard/public/static/Pretendard-Thin.otf",
+      "type": "file",
+      "name": "Pretendard-Thin.otf",
+      "filePath": "fonts/Pretendard/public/static/Pretendard-Thin.otf",
+      "summary": "Pretendard 폰트 패밀리의 Thin(100) 굵기 OTF 바이너리 파일입니다.",
+      "tags": ["typography", "asset"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:fonts/Pretendard/web/static/pretendard-subset.css",
+      "type": "file",
+      "name": "pretendard-subset.css",
+      "filePath": "fonts/Pretendard/web/static/pretendard-subset.css",
+      "summary": "Pretendard 폰트의 서브셋(한글 자주 사용 문자 최적화) 웹폰트 CSS로, @font-face 규칙을 통해 여러 굵기의 woff2/woff 형식을 정의합니다.",
+      "tags": ["typography", "configuration", "markup"],
+      "complexity": "simple",
+      "languageNotes": "서브셋 폰트는 전체 폰트 대비 용량이 작아 초기 웹 로딩 성능에 유리합니다."
+    },
+    {
+      "id": "file:fonts/Pretendard/web/static/pretendard.css",
+      "type": "file",
+      "name": "pretendard.css",
+      "filePath": "fonts/Pretendard/web/static/pretendard.css",
+      "summary": "Pretendard 폰트 전체 문자셋 웹폰트 CSS로, @font-face 규칙을 통해 모든 굵기의 woff2/woff 형식을 정의합니다.",
+      "tags": ["typography", "configuration", "markup"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:fonts/Pretendard/web/variable/pretendardvariable.css",
+      "type": "file",
+      "name": "pretendardvariable.css",
+      "filePath": "fonts/Pretendard/web/variable/pretendardvariable.css",
+      "summary": "Pretendard Variable 가변 폰트 웹폰트 CSS로, 단일 @font-face 선언으로 font-weight 범위(100-900) 전체를 지원합니다.",
+      "tags": ["typography", "configuration", "markup"],
+      "complexity": "simple",
+      "languageNotes": "가변 폰트(Variable Font)는 단일 파일로 모든 굵기를 지원하여 HTTP 요청 수를 줄입니다."
+    },
+    {
+      "id": "file:fonts/SUIT/__MACOSX/._LICENSE",
+      "type": "file",
+      "name": "._LICENSE",
+      "filePath": "fonts/SUIT/__MACOSX/._LICENSE",
+      "summary": "macOS가 자동으로 생성하는 메타데이터 아티팩트 파일로, SUIT 폰트 배포 아카이브에 포함된 AppleDouble 포맷의 불필요한 파일입니다.",
+      "tags": ["asset"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "service:docker-compose.yml",
+      "target": "config:backend/.env.example",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/scripts/db-backup.sh",
+      "target": "service:docker-compose.yml",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:backend/scripts/db-restore.sh",
+      "target": "service:docker-compose.yml",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:deploy/nginx-prod.conf",
+      "target": "file:backend/src/features/academy/service/index.js",
+      "type": "routes",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:backend/package.json",
+      "target": "file:backend/scripts/check-syntax.mjs",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:fonts/Pretendard/LICENSE.txt",
+      "target": "file:fonts/Pretendard/public/static/Pretendard-Regular.otf",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:fonts/Pretendard/web/static/pretendard-subset.css",
+      "target": "file:fonts/Pretendard/public/static/Pretendard-Regular.otf",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:fonts/Pretendard/web/static/pretendard.css",
+      "target": "file:fonts/Pretendard/public/static/Pretendard-Regular.otf",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

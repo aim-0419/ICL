@@ -1,20 +1,10 @@
 ﻿import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getAdminStudioInfo, saveAdminStudioInfo, getAdminStudioSettings, saveAdminBusinessHours, getAdminSalesPin, saveAdminSalesPin } from "../../studio/api/studioApi.js";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
-
-const NAV_ITEMS = [
-  { label: "← 교육관리", path: "/admin" }, { label: "일정", path: "/admin/studio" },
-  { label: "수업", path: "/admin/classes" },
-  { label: "회원", path: "/admin/member-list" },
-  { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/passes" },
-  { label: "메시지", path: "/admin/messages" },
-  { label: "게시판", path: "/admin/board" },
-  { label: "설정", path: "/admin/settings", active: true },
-  { label: "매출", path: "/admin/sales" },
-];
+import { AdminSettingsSearchBox } from "../components/AdminSettingsSearchBox.jsx";
 
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const PHONE_TYPES = ["유선전화", "휴대전화", "팩스"];
@@ -153,25 +143,11 @@ export function AdminSettingsBasicPage() {
 
   return (
     <>
-    <div className="admin-sbasic-app">
-      <header className="admin-schedule-topbar">
-        <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-          <span>ICL</span>
-        </button>
-        <nav className="admin-schedule-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.label} className={item.active ? "active" : ""} to={item.path}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="admin-schedule-search">
-          <input type="search" placeholder="검색" readOnly />
-        </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
-          {currentUserName}
-        </button>
-      </header>
+    <AdminLayout
+      appClass="admin-sbasic-app"
+      userName={currentUserName}
+      searchSlot={<AdminSettingsSearchBox placeholder="설정 검색" />}
+    >
 
     <div className="admin-sbasic-wrap">
       {/* 브레드크럼 */}
@@ -230,6 +206,7 @@ export function AdminSettingsBasicPage() {
             <div key={idx} className="admin-sbasic-phone-row">
               <select
                 className="admin-sbasic-phone-type"
+                aria-label={`${idx + 1}번째 연락처 종류`}
                 value={p.type}
                 onChange={(e) => setPhoneField(idx, "type", e.target.value)}
               >
@@ -275,6 +252,7 @@ export function AdminSettingsBasicPage() {
                 <input
                   type="time"
                   className="admin-sbasic-time"
+                  aria-label={`${WEEKDAYS[idx]} 영업 시작 시간`}
                   value={h.openTime}
                   disabled={h.isClosed}
                   onChange={(e) => setHourField(idx, "openTime", e.target.value)}
@@ -284,6 +262,7 @@ export function AdminSettingsBasicPage() {
                 <input
                   type="time"
                   className="admin-sbasic-time"
+                  aria-label={`${WEEKDAYS[idx]} 영업 종료 시간`}
                   value={h.closeTime}
                   disabled={h.isClosed}
                   onChange={(e) => setHourField(idx, "closeTime", e.target.value)}
@@ -339,7 +318,7 @@ export function AdminSettingsBasicPage() {
         </button>
       </div>
     </div>
-    </div>
+    </AdminLayout>
 
     {/* 비밀번호 모달 */}
     {pinModal && (

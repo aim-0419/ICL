@@ -2,6 +2,7 @@
 import * as authService from "./auth.service.js";
 import { query, queryOne } from "../../shared/db/mysql.js";
 import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
+import { resolveSessionToken } from "../../shared/middlewares/auth.js";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_BLOCK_MINUTES = 15;
@@ -17,7 +18,7 @@ async function checkLoginRateLimit(ip) {
   const blockedUntil = new Date(row.blocked_until);
   if (blockedUntil > now && row.fail_count >= MAX_LOGIN_ATTEMPTS) {
     const waitSec = Math.ceil((blockedUntil - now) / 1000);
-    const error = new Error(`로그인 시도 횟수를 초과했습니다. ${waitSec}초 후 다시 시도해 주세요.`);
+    const error = new Error(`로그인 시도 횟수를 초과했습니다. ${waitSec}초 후에 시도해 주세요.`);
     error.status = 429;
     throw error;
   }
@@ -57,7 +58,7 @@ async function checkSignupRateLimit(ip) {
   );
   if (!row) return;
   if (new Date(row.window_start) > hourAgo && row.attempt_count >= MAX_SIGNUP_ATTEMPTS_PER_HOUR) {
-    const error = new Error("같은 IP에서 너무 많은 가입 시도가 있었습니다. 잠시 후 다시 시도해 주세요.");
+    const error = new Error("같은 IP에서 너무 많은 회원가입 시도가 있었습니다. 잠시 후에 시도해 주세요.");
     error.status = 429;
     throw error;
   }
@@ -76,21 +77,7 @@ async function recordSignupAttempt(ip) {
   );
 }
 
-// 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
-function getCookieValue(req, name) {
-  const cookieHeader = String(req.headers.cookie || "");
-  if (!cookieHeader) return "";
-
-  const cookieItem = cookieHeader
-    .split(";")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(`${name}=`));
-
-  if (!cookieItem) return "";
-  return decodeURIComponent(cookieItem.slice(name.length + 1));
-}
-
-// 함수 역할: setSessionCookie 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
+// ?⑥닔 ??븷: setSessionCookie ?⑥닔?????뚯씪??湲곕뒫 ?먮쫫 以??섎굹瑜??대떦?⑸땲??
 function setSessionCookie(res, token) {
   const secure = process.env.NODE_ENV === "production";
   res.cookie(SESSION_COOKIE_NAME, encodeURIComponent(token), {
@@ -102,7 +89,7 @@ function setSessionCookie(res, token) {
   });
 }
 
-// 함수 역할: clearSessionCookie 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
+// ?⑥닔 ??븷: clearSessionCookie ?⑥닔?????뚯씪??湲곕뒫 ?먮쫫 以??섎굹瑜??대떦?⑸땲??
 function clearSessionCookie(res) {
   const secure = process.env.NODE_ENV === "production";
   res.clearCookie(SESSION_COOKIE_NAME, {
@@ -113,7 +100,7 @@ function clearSessionCookie(res) {
   });
 }
 
-// 함수 역할: signup에 서명해 변조 여부를 확인할 수 있게 합니다.
+// ?⑥닔 ??븷: signup???쒕챸??蹂議??щ?瑜??뺤씤?????덇쾶 ?⑸땲??
 export async function signup(req, res, next) {
   const ip = req.ip || "unknown";
   try {
@@ -127,7 +114,7 @@ export async function signup(req, res, next) {
   }
 }
 
-// 함수 역할: login 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
+// ?⑥닔 ??븷: login ?⑥닔?????뚯씪??湲곕뒫 ?먮쫫 以??섎굹瑜??대떦?⑸땲??
 export async function login(req, res, next) {
   const ip = req.ip || "unknown";
   try {
@@ -142,10 +129,10 @@ export async function login(req, res, next) {
   }
 }
 
-// 함수 역할: logout 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
+// ?⑥닔 ??븷: logout ?⑥닔?????뚯씪??湲곕뒫 ?먮쫫 以??섎굹瑜??대떦?⑸땲??
 export async function logout(req, res, next) {
   try {
-    const token = getCookieValue(req, SESSION_COOKIE_NAME);
+    const token = resolveSessionToken(req);
     if (token) {
       await authService.deleteSession(token);
     }
@@ -156,19 +143,19 @@ export async function logout(req, res, next) {
   }
 }
 
-// 함수 역할: me 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
+// ?⑥닔 ??븷: me ?⑥닔?????뚯씪??湲곕뒫 ?먮쫫 以??섎굹瑜??대떦?⑸땲??
 export async function me(req, res, next) {
   try {
-    const token = getCookieValue(req, SESSION_COOKIE_NAME);
+    const token = resolveSessionToken(req);
     if (!token) {
-      res.status(401).json({ message: "로그인이 필요합니다." });
+      res.json({ user: null });
       return;
     }
 
     const user = await authService.findUserBySessionToken(token);
     if (!user) {
       clearSessionCookie(res);
-      res.status(401).json({ message: "세션이 만료되었습니다." });
+      res.json({ user: null });
       return;
     }
 
@@ -178,7 +165,7 @@ export async function me(req, res, next) {
   }
 }
 
-// 함수 역할: 회원가입 이메일 인증번호를 발송합니다.
+// ?⑥닔 ??븷: ?뚯썝媛???대찓???몄쬆踰덊샇瑜?諛쒖넚?⑸땲??
 export async function requestSignupEmailVerification(req, res, next) {
   try {
     const result = await authService.requestSignupEmailVerification(req.body?.email);
@@ -188,7 +175,7 @@ export async function requestSignupEmailVerification(req, res, next) {
   }
 }
 
-// 함수 역할: 회원가입 이메일 인증번호를 확인합니다.
+// ?⑥닔 ??븷: ?뚯썝媛???대찓???몄쬆踰덊샇瑜??뺤씤?⑸땲??
 export async function confirmSignupEmailVerification(req, res, next) {
   try {
     const result = await authService.confirmSignupEmailVerification(req.body?.email, req.body?.code);
@@ -198,7 +185,7 @@ export async function confirmSignupEmailVerification(req, res, next) {
   }
 }
 
-// 함수 역할: 로그인 ID 대상을 탐색해 반환합니다.
+// ?⑥닔 ??븷: 濡쒓렇??ID ??곸쓣 ?먯깋??諛섑솚?⑸땲??
 export async function findLoginId(req, res, next) {
   try {
     const loginId = await authService.findLoginId(req.body);
@@ -208,7 +195,7 @@ export async function findLoginId(req, res, next) {
   }
 }
 
-// 함수 역할: 비밀번호 재설정용 이메일 인증번호를 발송합니다.
+// ?⑥닔 ??븷: 鍮꾨?踰덊샇 ?ъ꽕?뺤슜 ?대찓???몄쬆踰덊샇瑜?諛쒖넚?⑸땲??
 export async function requestPasswordResetEmailVerification(req, res, next) {
   try {
     const result = await authService.requestPasswordResetVerification(
@@ -221,7 +208,7 @@ export async function requestPasswordResetEmailVerification(req, res, next) {
   }
 }
 
-// 함수 역할: resetPassword 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
+// ?⑥닔 ??븷: resetPassword ?⑥닔?????뚯씪??湲곕뒫 ?먮쫫 以??섎굹瑜??대떦?⑸땲??
 export async function resetPassword(req, res, next) {
   try {
     const result = await authService.resetPassword(req.body);

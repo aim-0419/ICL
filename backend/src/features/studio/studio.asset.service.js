@@ -1,3 +1,4 @@
+// 파일 역할: 스튜디오 게시판 공지에 첨부하는 이미지 파일을 검증하고 업로드 폴더에 저장합니다.
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";

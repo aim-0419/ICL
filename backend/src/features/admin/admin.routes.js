@@ -36,9 +36,13 @@
 // 파일 역할: 관리자 관련 API 경로와 컨트롤러를 Express Router에 연결합니다.
 import express, { Router } from "express";
 import * as adminController from "./admin.controller.js";
+import { requireAdminOrStudioStaff } from "../../shared/middlewares/auth.js";
 
 // 라우터 역할: 관리자 라우터는 해당 기능의 API 경로와 컨트롤러 함수를 연결합니다.
 export const adminRoutes = Router();
+
+// 관리자 API는 개별 컨트롤러 검사와 별개로 라우터 입구에서도 관리자 인증을 강제합니다.
+adminRoutes.use(requireAdminOrStudioStaff);
 
 adminRoutes.get("/members", adminController.getMemberList);
 adminRoutes.put("/members/:userId/studio-profile", express.json(), adminController.updateStudioMemberProfile);
@@ -71,6 +75,8 @@ adminRoutes.post("/orders/:orderId/refund", express.json(), adminController.refu
 adminRoutes.post("/lectures", adminController.createLecture);
 
 adminRoutes.post("/users/:userId/video-grants", express.json(), adminController.giftVideos);
+adminRoutes.get("/video-grants", adminController.listAllVideoGrants);
+adminRoutes.patch("/video-grants/:grantId", express.json(), adminController.updateVideoGrantDuration);
 adminRoutes.get("/users/:userId/video-grants", adminController.listVideoGrants);
 adminRoutes.delete("/users/:userId/video-grants/:videoId", adminController.revokeVideoGrant);
 

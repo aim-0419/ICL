@@ -1,59 +1,12 @@
 // 파일 역할: 커뮤니티 API 요청을 검증하고 서비스 호출 결과를 HTTP 응답으로 변환합니다.
-import * as authService from "../auth/auth.service.js";
 import * as communityService from "./community.service.js";
 import * as communitySocialService from "./community.social.service.js";
-import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
+import { resolveSessionUser, isAdminUser, requireAuth as requireCommunityUploadAuth } from "../../shared/middlewares/auth.js";
 const EVENT_STATUSES = new Set(["진행중", "종료"]);
 
-// 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
-function getCookieValue(req, name) {
-  const cookieHeader = String(req.headers.cookie || "");
-  if (!cookieHeader) return "";
+export { requireCommunityUploadAuth };
 
-  const cookieItem = cookieHeader
-    .split(";")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(`${name}=`));
-
-  if (!cookieItem) return "";
-  return decodeURIComponent(cookieItem.slice(name.length + 1));
-}
-
-// 함수 역할: 인증 회원 데이터를 조회해 호출자에게 반환합니다.
-async function getAuthUser(req) {
-  const token = getCookieValue(req, SESSION_COOKIE_NAME);
-  if (!token) return null;
-  return authService.findUserBySessionToken(token);
-}
-
-export async function requireCommunityUploadAuth(req, res, next) {
-  try {
-    const authUser = await getAuthUser(req);
-    if (!authUser?.id) {
-      res.status(401).json({ message: "로그인이 필요합니다." });
-      return;
-    }
-
-    req.authUser = authUser;
-    next();
-  } catch (error) {
-    next(error);
-  }
-}
-
-// 함수 역할: 관리자 회원 조건에 해당하는지 참/거짓으로 판별합니다.
-function isAdminUser(user) {
-  if (!user) return false;
-  const normalizedGrade = String(user.userGrade || "").toLowerCase();
-  if (normalizedGrade === "admin0" || normalizedGrade === "admin1") return true;
-  const normalizedRole = String(user.role || "").toLowerCase();
-  const adminFlag = user.isAdmin === true || user.isAdmin === 1 || user.isAdmin === "1";
-  return (
-    normalizedRole === "admin" ||
-    normalizedRole === "admin1" ||
-    adminFlag
-  );
-}
+const getAuthUser = resolveSessionUser;
 
 // 함수 역할: same 회원 조건에 해당하는지 참/거짓으로 판별합니다.
 function isSameUser(leftId, rightId) {
@@ -86,6 +39,19 @@ function normalizeMediaUrl(value) {
   }
 }
 
+// 함수 역할: 브라우저 헤더에 안전하게 실린 파일명을 원래 이름으로 복원합니다.
+function decodeUploadFileName(value) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const text = String(raw || "").trim();
+  if (!text) return "";
+
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}
+
 // 함수 역할: 커뮤니티 첨부 파일을 업로드하고 저장 경로를 반환합니다.
 export async function uploadCommunityAsset(req, res, next) {
   try {
@@ -99,8 +65,7 @@ export async function uploadCommunityAsset(req, res, next) {
       .trim()
       .toLowerCase();
 
-    const fileNameHeader = req.headers["x-file-name"];
-    const fileName = Array.isArray(fileNameHeader) ? fileNameHeader[0] : fileNameHeader;
+    const fileName = decodeUploadFileName(req.headers["x-file-name"]);
 
     const mimeTypeHeader = req.headers["content-type"];
     const mimeType = Array.isArray(mimeTypeHeader) ? mimeTypeHeader[0] : mimeTypeHeader;

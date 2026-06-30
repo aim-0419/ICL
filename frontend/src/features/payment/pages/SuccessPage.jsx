@@ -6,7 +6,7 @@
  */
 import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 
 // 컴포넌트 역할: 결제 성공 후 주문 정보를 확인하고 완료 안내를 보여주는 페이지 컴포넌트입니다.
 export function SuccessPage() {
@@ -17,9 +17,7 @@ export function SuccessPage() {
     : "확인 예정";
 
   return (
-    <div className="site-shell">
-      <SiteHeader subpage />
-      <main className="content-page payment-result-page">
+    <PageLayout subpage mainClass="content-page payment-result-page">
         <section className="payment-result-card">
           <div className="payment-result-copy">
             <p className="section-kicker">결제 완료</p>
@@ -44,7 +42,6 @@ export function SuccessPage() {
             </div>
           </div>
         </section>
-      </main>
-    </div>
+    </PageLayout>
   );
 }

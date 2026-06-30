@@ -34,6 +34,8 @@
 // 파일 역할: MySQL 연결 풀, 스키마 자동 보정, 기본 데이터 시드, 공통 query 헬퍼를 담당합니다.
 import mysql from "mysql2/promise";
 import { env } from "../../config/env.js";
+import { createDatabaseClient } from "./database-client.js";
+import { runMigrations } from "./migrations.js";
 import { hashPassword } from "../security/password.js";
 import {
   decryptPii,
@@ -65,6 +67,12 @@ const pool = mysql.createPool({
   namedPlaceholders: true,
   timezone: "+09:00",
 });
+
+const databaseClient = createDatabaseClient(pool);
+export const query = databaseClient.query;
+export const queryOne = databaseClient.queryOne;
+export const withTransaction = databaseClient.withTransaction;
+export const closeDatabase = () => pool.end();
 
 let initPromise = null;
 
@@ -112,6 +120,9 @@ const SCHEMA_TABLE_COMMENTS = {
   studio_locker_assignments: "회원에게 배정된 락커와 이용 기간을 보관합니다.",
   studio_notifications: "회원에게 발송하거나 예약해 둔 알림(제목·내용·발송 상태)을 보관합니다.",
   studio_notification_logs: "알림이 실제로 발송된 이력을 기록합니다. (발송 성공·실패 추적용)",
+  studio_notification_deliveries: "한 알림을 SMS·카카오 알림톡·앱 푸시 채널별로 나누어 발송 상태와 재시도 횟수를 관리합니다.",
+  studio_push_devices: "회원 앱에서 등록한 FCM 기기 토큰을 보관합니다. 앱 푸시 발송과 로그아웃 시 토큰 해제에 사용합니다.",
+  studio_message_templates: "관리자가 자주 보내는 문자·알림톡·앱 푸시 문구를 보관합니다. 여러 PC에서 같은 보관함을 공유합니다.",
   studio_instructor_hours: "강사별 요일별 근무 가능 시간을 보관합니다.",
   studio_role_permissions: "직책(오너·매니저·강사)별로 어떤 기능을 쓸 수 있는지 권한을 보관합니다.",
   studio_staff_profiles: "스튜디오 운영자가 관리하는 강사·매니저 프로필과 앱연결, 권한, 급여 기준을 보관합니다.",
@@ -120,6 +131,7 @@ const SCHEMA_TABLE_COMMENTS = {
   studio_pass_pauses: "수강권 일시정지 처리 이력을 보관합니다. (언제 누가 정지했는지 추적용)",
   studio_pass_transfers: "수강권 양도 처리 이력을 보관합니다. (누구에게 넘겼는지 추적용)",
   studio_pass_refunds: "수강권 환불 요청과 관리자의 처리 결과(승인·거절)를 보관합니다.",
+  studio_expenses: "필라테스 운영 중 발생한 지출 내역을 보관합니다. 급여, 소모품, 임대료처럼 매출 리포트에서 함께 확인할 비용을 기록합니다.",
 
   // ── 커뮤니티 ───────────────────────────────────────────────────────────────
   review_posts: "커뮤니티 후기 게시판의 글을 보관합니다.",
@@ -471,6 +483,7 @@ const EXTRA_SCHEMA_COLUMN_COMMENTS = {
   // ── 스튜디오 테이블 컬럼 설명 ──────────────────────────────────────────────
   studio_classes: {
     id: "수업 고유 번호",
+    branch_id: "이 수업이 열리는 지점입니다. branch-1=장덕점, branch-2=효천점입니다.",
     class_type: "수업 유형 (private=개인, group=그룹, consulting=상담, etc=기타)",
     title: "수업 이름 (예: 그룹 리포머, 개인 레슨)",
     instructor_name: "담당 강사 이름",
@@ -488,6 +501,7 @@ const EXTRA_SCHEMA_COLUMN_COMMENTS = {
   studio_passes: {
     id: "수강권 고유 번호",
     user_id: "이 수강권을 보유한 회원 번호",
+    branch_id: "이 수강권을 사용할 수 있는 지점입니다. branch-1=장덕점, branch-2=효천점입니다.",
     pass_name: "수강권 이름 (예: 그룹 20회권, 개인 10회권)",
     pass_type: "수강권 종류 (personal=개인, duet=듀엣, group=그룹)",
     remaining_count: "현재 사용 가능한 잔여 횟수",
@@ -531,6 +545,22 @@ const EXTRA_SCHEMA_COLUMN_COMMENTS = {
     status: "처리 상태 (open=미처리, resolved=정리 완료)",
     created_at: "미수금이 등록된 날짜와 시간",
     resolved_at: "미수금이 정리된 날짜와 시간",
+  },
+  studio_expenses: {
+    id: "지출 기록 고유 번호",
+    branch_id: "지출이 발생한 지점입니다. branch-1=장덕점, branch-2=효천점입니다.",
+    expense_date: "지출이 실제로 발생하거나 결제된 날짜와 시간",
+    category: "지출 구분입니다. 급여, 소모품, 임대료, 기타처럼 분류합니다.",
+    title: "지출 내역 이름입니다. 관리자가 목록에서 바로 알아볼 수 있게 적습니다.",
+    amount: "지출 금액입니다.",
+    payment_method: "지출 결제 방법입니다. 카드, 계좌이체, 현금 등으로 기록합니다.",
+    installment_months: "카드 할부개월수입니다. 일시불이면 비워둘 수 있습니다.",
+    instructor_name: "특정 강사와 관련된 지출이면 강사명을 기록합니다.",
+    attachment_url: "영수증 또는 증빙 파일 주소입니다.",
+    memo: "지출과 관련해 관리자가 남기는 참고 메모입니다.",
+    created_by: "지출을 등록한 관리자 회원 번호",
+    created_at: "지출 기록이 생성된 날짜와 시간",
+    updated_at: "지출 기록이 마지막으로 수정된 날짜와 시간",
   },
   studio_business_hours: {
     id: "영업시간 설정 고유 번호",
@@ -577,7 +607,48 @@ const EXTRA_SCHEMA_COLUMN_COMMENTS = {
     status: "발송 상태 (pending=대기, sent=발송 완료, failed=실패)",
     scheduled_at: "예약 발송 날짜와 시간 (즉시 발송이면 비워둠)",
     sent_at: "실제 발송된 날짜와 시간",
+    read_at: "회원이 알림을 읽은 날짜와 시간입니다. 비어 있으면 아직 읽지 않은 알림입니다.",
     created_at: "알림이 등록된 날짜와 시간",
+  },
+  studio_message_templates: {
+    id: "메시지 보관함 항목 고유 번호",
+    name: "관리자가 알아보기 쉬운 보관함 이름",
+    channel: "기본 발송 채널 (sms=문자, kakao=카카오 알림톡, push=앱 푸시)",
+    title: "메시지 제목",
+    message: "메시지 본문",
+    template_code: "카카오 알림톡 승인 템플릿 코드",
+    created_by: "이 보관함 항목을 만든 관리자 번호",
+    created_at: "보관함 항목이 생성된 날짜와 시간",
+    updated_at: "보관함 항목이 마지막으로 수정된 날짜와 시간",
+  },
+  studio_notification_deliveries: {
+    id: "채널별 발송 작업 고유 번호",
+    notification_id: "원본 알림 번호",
+    channel: "발송 채널 (sms=문자, kakao=카카오 알림톡, push=앱 푸시)",
+    recipient_user_id: "수신 회원 번호",
+    recipient_name: "발송 당시 수신자 이름 (암호화 저장)",
+    recipient_phone: "발송 당시 수신자 전화번호 (암호화 저장)",
+    template_code: "카카오 알림톡 승인 템플릿 코드",
+    status: "발송 상태 (pending=대기, processing=처리 중, sent=완료, failed=재시도 대기, exhausted=재시도 종료, skipped=발송 제외)",
+    attempts: "발송을 시도한 횟수",
+    next_attempt_at: "실패 후 다음 재시도 예정 시간",
+    scheduled_at: "예약 발송 예정 시간",
+    sent_at: "실제 발송 완료 시간",
+    provider_message_id: "알리고 또는 FCM이 반환한 발송 번호",
+    error_message: "마지막 발송 실패 사유",
+    created_at: "발송 작업이 생성된 시간",
+    updated_at: "발송 상태가 마지막으로 변경된 시간",
+  },
+  studio_push_devices: {
+    id: "앱 기기 등록 고유 번호",
+    user_id: "기기를 사용하는 회원 번호",
+    token: "FCM에서 발급한 앱 푸시 토큰",
+    platform: "기기 종류 (android, ios, web)",
+    device_name: "사용자가 구분할 수 있는 기기 이름",
+    is_active: "푸시 수신 가능 여부 (1=사용, 0=해제)",
+    last_seen_at: "앱에서 토큰을 마지막으로 갱신한 시간",
+    created_at: "기기를 처음 등록한 시간",
+    updated_at: "기기 정보가 마지막으로 변경된 시간",
   },
   studio_instructor_hours: {
     id: "강사 근무시간 고유 번호",
@@ -634,7 +705,11 @@ const EXTRA_SCHEMA_COLUMN_COMMENTS = {
   studio_pass_pauses: {
     id: "정지 이력 고유 번호",
     pass_id: "정지된 수강권 번호",
+    user_id: "수강권을 보유한 회원 번호",
+    start_date: "수강권 정지 시작일",
+    end_date: "수강권 정지 종료일",
     reason: "정지 사유",
+    processed_at: "정지 기간 종료 후 수강권을 자동 활성화한 날짜와 시간",
     created_at: "정지가 처리된 날짜와 시간",
   },
   studio_pass_transfers: {
@@ -691,6 +766,7 @@ EXTRA_SCHEMA_COLUMN_COMMENTS.studio_member_profiles = {
 
 EXTRA_SCHEMA_COLUMN_COMMENTS.studio_passes = {
   ...(EXTRA_SCHEMA_COLUMN_COMMENTS.studio_passes || {}),
+  branch_id: "이 수강권을 사용할 수 있는 지점입니다. 장덕점 수강권과 효천점 수강권을 분리해 예약 차감에 사용합니다.",
   is_family_pass: "패밀리 수강권 여부입니다. 1이면 가족과 함께 쓰는 수강권, 0이면 개인 수강권입니다.",
   reservable_count: "현재 예약 가능한 횟수입니다. 보통 잔여횟수와 같지만 운영 정책에 따라 다르게 관리할 수 있습니다.",
   cancellable_count: "현재 취소 가능한 횟수입니다. 취소 제한 정책이 있을 때 별도로 관리합니다.",
@@ -708,6 +784,149 @@ EXTRA_SCHEMA_COLUMN_COMMENTS.studio_pass_payments = {
   note: "결제와 관련해 관리자가 남기는 참고 메모입니다.",
   created_at: "결제 기록이 생성된 날짜와 시간입니다.",
   updated_at: "결제 기록이 마지막으로 수정된 날짜와 시간입니다.",
+};
+
+Object.assign(SCHEMA_TABLE_COMMENTS, {
+  studio_info: "스튜디오 기본 정보(상호, 주소, 연락처, 문자 발신번호, 매출 비밀번호)를 보관합니다.",
+  studio_rooms: "수업을 진행하는 룸 또는 공간 이름과 사용 여부를 보관합니다.",
+  studio_roles: "스튜디오에서 사용하는 역할 이름(오너, 매니저, 강사 등)을 보관합니다.",
+  studio_member_grades: "스튜디오 회원 등급 이름과 표시 색상을 보관합니다.",
+  studio_class_categories: "수업 카테고리 이름을 보관합니다. 수업 등록과 필터에 사용합니다.",
+  studio_notification_templates: "예약 확정, 취소, 만료 알림처럼 자동 발송할 메시지 템플릿을 보관합니다.",
+  studio_notices: "스튜디오 게시판 공지 글과 팝업 노출 여부를 보관합니다.",
+  studio_staff_work_hours: "강사별 요일 근무 시간과 휴무, 휴게 시간을 보관합니다.",
+  studio_pass_products: "관리자가 판매할 수강권 상품 템플릿을 보관합니다.",
+  studio_goods: "스튜디오에서 판매하거나 대여하는 기타 상품 정보를 보관합니다.",
+});
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_info = {
+  ...(EXTRA_SCHEMA_COLUMN_COMMENTS.studio_info || {}),
+  id: "스튜디오 기본 정보 고유값입니다. 보통 main 한 건만 사용합니다.",
+  studio_name: "회원과 관리자 화면에 표시할 스튜디오 이름입니다.",
+  address: "스튜디오 기본 주소입니다.",
+  address_detail: "층, 호수 등 상세 주소입니다.",
+  phones: "대표번호, 상담번호 등 여러 연락처를 JSON 형태로 보관합니다.",
+  sms_sender: "문자 발송 시 사용할 발신번호입니다.",
+  sales_pin: "매출 화면처럼 민감한 화면에 접근할 때 확인하는 비밀번호입니다.",
+  rooms_enabled: "룸 관리 기능 사용 여부입니다. 1이면 룸 기능을 사용합니다.",
+  roles_enabled: "역할 관리 기능 사용 여부입니다. 1이면 역할 설정을 사용합니다.",
+  member_grades_enabled: "회원 등급 관리 기능 사용 여부입니다. 1이면 회원 등급을 사용합니다.",
+  updated_at: "기본 정보가 마지막으로 수정된 날짜와 시간입니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_rooms = {
+  id: "룸 고유 번호입니다.",
+  name: "룸 이름입니다. 예: 리포머룸, 개인레슨룸",
+  is_active: "룸 사용 여부입니다. 1이면 사용 중, 0이면 숨김 또는 미사용입니다.",
+  sort_order: "화면에 표시할 순서입니다. 숫자가 낮을수록 먼저 표시됩니다.",
+  created_at: "룸이 등록된 날짜와 시간입니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_roles = {
+  id: "역할 고유 번호입니다.",
+  name: "역할 이름입니다. 예: 오너, 매니저, 강사",
+  sort_order: "화면에 표시할 순서입니다.",
+  created_at: "역할이 등록된 날짜와 시간입니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_member_grades = {
+  id: "회원 등급 고유 번호입니다.",
+  name: "회원 등급 이름입니다. 예: 일반회원, VIP",
+  color: "등급을 화면에 표시할 때 사용할 색상입니다.",
+  sort_order: "화면에 표시할 순서입니다.",
+  created_at: "회원 등급이 등록된 날짜와 시간입니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_class_categories = {
+  id: "수업 카테고리 고유 번호입니다.",
+  name: "수업 카테고리 이름입니다. 예: 개인, 듀엣, 그룹",
+  sort_order: "화면에 표시할 순서입니다.",
+  created_at: "수업 카테고리가 등록된 날짜와 시간입니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_notification_templates = {
+  template_id: "알림 템플릿 고유 번호입니다.",
+  push_enabled: "앱 푸시 사용 여부입니다. 1이면 푸시 발송 대상입니다.",
+  sms_enabled: "문자 발송 사용 여부입니다. 1이면 문자 발송 대상입니다.",
+  kakao_enabled: "카카오 알림톡 사용 여부입니다. 1이면 알림톡 발송 대상입니다.",
+  kakao_template_code: "알리고에 등록하고 카카오 심사를 통과한 알림톡 템플릿 코드입니다.",
+  message: "자동 알림으로 발송할 문구입니다.",
+  param1: "템플릿별 추가 조건값 1입니다. 예: 만료 며칠 전",
+  param2: "템플릿별 추가 조건값 2입니다. 예: 잔여 횟수 기준",
+  skip_expired: "만료된 회원에게는 발송하지 않을지 여부입니다.",
+  updated_at: "템플릿이 마지막으로 수정된 날짜와 시간입니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_notices = {
+  id: "공지 글 고유 번호입니다.",
+  title: "공지 제목입니다.",
+  content: "공지 본문입니다.",
+  author_id: "공지 작성자 회원 번호입니다.",
+  popup_enabled: "공지 팝업 노출 여부입니다. 1이면 팝업으로 보여줍니다.",
+  pinned: "상단 고정 여부입니다. 1이면 목록 상단에 고정됩니다.",
+  target: "공지 노출 대상입니다. active=이용중 회원, expired=만료 회원, both=전체",
+  post_timing: "공지 노출 방식입니다. now=즉시, scheduled=예약, none=비노출, unlimited=상시",
+  start_at: "공지 노출 시작 날짜와 시간입니다.",
+  end_at: "공지 노출 종료 날짜와 시간입니다.",
+  images: "공지에 첨부한 이미지 경로 목록입니다.",
+  created_at: "공지 글이 작성된 날짜와 시간입니다.",
+  updated_at: "공지 글이 마지막으로 수정된 날짜와 시간입니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_staff_work_hours = {
+  id: "강사 근무시간 고유 번호입니다.",
+  staff_id: "근무시간을 설정한 강사/스태프 번호입니다.",
+  weekday: "요일 번호입니다. 0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토",
+  start_time: "근무 시작 시간입니다. 예: 09:00",
+  end_time: "근무 종료 시간입니다. 예: 18:00",
+  is_day_off: "해당 요일 휴무 여부입니다. 1이면 휴무입니다.",
+  break_start_time: "휴게 시작 시간입니다.",
+  break_end_time: "휴게 종료 시간입니다.",
+  created_at: "근무시간 설정이 생성된 날짜와 시간입니다.",
+  updated_at: "근무시간 설정이 마지막으로 수정된 날짜와 시간입니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_pass_products = {
+  ...(EXTRA_SCHEMA_COLUMN_COMMENTS.studio_pass_products || {}),
+  id: "수강권 상품 고유 번호입니다.",
+  branch_id: "이 수강권 상품을 판매할 지점입니다. 장덕점 상품과 효천점 상품을 분리해 관리합니다.",
+  name: "수강권 상품명입니다. 예: VVIP 1:1 10회",
+  pass_type: "수강권 방식입니다. count=횟수제, period=기간제",
+  class_type: "이용 가능한 수업 형태입니다. private=개인, group=그룹",
+  capacity: "상품이 적용되는 수업 정원입니다. 1:1은 1, 듀엣은 2처럼 사용합니다.",
+  total_count: "상품 구매 시 부여되는 총 이용 횟수입니다.",
+  valid_days: "구매 후 사용할 수 있는 유효기간(일)입니다.",
+  price: "판매 금액입니다.",
+  color: "관리자 화면 카드에 표시할 색상입니다.",
+  is_featured: "즐겨찾기 상품 여부입니다. 1이면 상단/별표로 강조합니다.",
+  status: "판매 상태입니다. active=판매중, inactive=판매정지",
+  description: "상품 설명입니다.",
+  is_trial: "체험권 여부입니다. 1이면 체험 수업용 상품입니다.",
+  cancel_count: "상품에 포함된 취소 가능 횟수입니다.",
+  points: "상품 구매 시 적립할 포인트입니다.",
+  usage_limit_type: "사용 제한 기준입니다. week=주간, month=월간 등으로 사용합니다.",
+  usage_limit: "해당 기간 안에 사용할 수 있는 최대 횟수입니다.",
+  auto_deduct: "예약 확정 시 수강권을 자동 차감할지 여부입니다.",
+  class_category: "이 상품으로 예약 가능한 수업 카테고리 목록입니다.",
+  same_day_change: "당일 변경 허용 여부입니다.",
+  same_day_change_count: "당일 변경 가능한 횟수입니다.",
+  booking_start_time: "예약 가능한 시작 시간입니다.",
+  booking_end_time: "예약 가능한 종료 시간입니다.",
+  created_at: "상품이 등록된 날짜와 시간입니다.",
+  updated_at: "상품이 마지막으로 수정된 날짜와 시간입니다.",
+};
+
+EXTRA_SCHEMA_COLUMN_COMMENTS.studio_goods = {
+  id: "판매/대여 상품 고유 번호입니다.",
+  name: "상품명입니다.",
+  goods_type: "상품 구분입니다. sale=판매, rental=대여",
+  color: "관리자 화면 카드에 표시할 색상입니다.",
+  price: "판매 또는 대여 금액입니다.",
+  points: "상품 구매 시 적립할 포인트입니다.",
+  status: "상품 상태입니다. active=판매/대여 가능, inactive=중지",
+  description: "상품 설명입니다.",
+  created_at: "상품이 등록된 날짜와 시간입니다.",
+  updated_at: "상품이 마지막으로 수정된 날짜와 시간입니다.",
 };
 
 const NUMERIC_DATA_TYPES = new Set([
@@ -1455,6 +1674,16 @@ async function initDatabase() {
 
   await pool.query(`ALTER TABLE users MODIFY account_status VARCHAR(20) NOT NULL DEFAULT 'active'`);
 
+  // users.platform 컬럼 — 교육 플랫폼 회원('education')과 스튜디오 전용 회원('studio') 구분
+  const [platformColRows] = await pool.query(
+    `SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'platform'`
+  );
+  if (Number(platformColRows?.[0]?.count ?? 0) === 0) {
+    await pool.query(`ALTER TABLE users ADD COLUMN platform ENUM('education','studio') NOT NULL DEFAULT 'education' AFTER account_status`);
+    await pool.query(`UPDATE users SET platform = 'studio' WHERE login_id LIKE 'studio\\_%'`);
+  }
+
   // 탈퇴 시각/폐기 시각/복구 시각 컬럼 보정 처리
   const [withdrawnAtColumnRows] = await pool.query(
     `SELECT COUNT(*) AS count
@@ -2154,6 +2383,15 @@ async function initDatabase() {
       created_at DATETIME NOT NULL
     )
   `);
+  await pool.query(`
+    INSERT INTO branches (id, name, address, phone, parking, sort_order, created_at)
+    VALUES
+      ('branch-1', '장덕점', '주소 미등록', '-', '', 1, NOW()),
+      ('branch-2', '효천점', '주소 미등록', '-', '', 2, NOW())
+    ON DUPLICATE KEY UPDATE
+      name = VALUES(name),
+      sort_order = VALUES(sort_order)
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS academy_reviews (
@@ -2241,6 +2479,7 @@ async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_classes (
       id VARCHAR(80) PRIMARY KEY,
+      branch_id VARCHAR(80) NOT NULL DEFAULT 'branch-1' COMMENT '수업이 열리는 지점입니다. branch-1=장덕점, branch-2=효천점입니다.',
       class_type ENUM('private','group','consulting','etc') NOT NULL DEFAULT 'group',
       title VARCHAR(160) NOT NULL,
       instructor_name VARCHAR(120) NOT NULL,
@@ -2248,18 +2487,24 @@ async function initDatabase() {
       start_at DATETIME NOT NULL,
       end_at DATETIME NOT NULL,
       capacity INT NOT NULL DEFAULT 1,
+      min_capacity INT NOT NULL DEFAULT 0 COMMENT '수업이 정상 운영되기 위해 필요한 최소 수강 인원입니다.',
+      waitlist_capacity INT NULL COMMENT '예약 정원 초과 시 받을 수 있는 대기 인원입니다. NULL이면 무제한 대기입니다.',
+      booking_deadline_at DATETIME NULL COMMENT '회원이 이 수업을 예약할 수 있는 마지막 시각입니다.',
+      cancellation_deadline_at DATETIME NULL COMMENT '회원이 이 수업 예약을 취소할 수 있는 마지막 시각입니다.',
+      cancellation_decision_at DATETIME NULL COMMENT '최소 인원 미달 등으로 폐강 여부를 판단하는 기준 시각입니다.',
       status ENUM('active','cancelled','deleted') NOT NULL DEFAULT 'active',
       repeat_group_id VARCHAR(80) NULL,
       created_by VARCHAR(64) NULL,
       created_at DATETIME NOT NULL,
       updated_at DATETIME NOT NULL,
+      INDEX idx_studio_classes_branch_start (branch_id, start_at),
       INDEX idx_studio_classes_start (start_at),
       INDEX idx_studio_classes_status (status)
     )
   `);
   await pool.query(`ALTER TABLE studio_classes MODIFY status ENUM('active','cancelled','deleted') NOT NULL DEFAULT 'active'`);
   await pool.query(`ALTER TABLE studio_classes ADD COLUMN class_type ENUM('private','group','consulting','etc') NOT NULL DEFAULT 'group'`).catch((e) => { if (e.errno !== 1060) throw e; });
-
+  await pool.query(`ALTER TABLE studio_classes ADD COLUMN branch_id VARCHAR(80) NOT NULL DEFAULT 'branch-1' COMMENT '수업이 열리는 지점입니다. branch-1=장덕점, branch-2=효천점입니다.' AFTER id`).catch((e) => { if (e.errno !== 1060) throw e; });
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_member_profiles (
       user_id VARCHAR(64) PRIMARY KEY COMMENT '회원 로그인 계정(users.id)과 연결되는 값입니다. 한 회원당 스튜디오 운영 프로필은 하나만 가집니다.',
@@ -2289,6 +2534,7 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS studio_passes (
       id VARCHAR(80) PRIMARY KEY,
       user_id VARCHAR(64) NOT NULL,
+      branch_id VARCHAR(80) NOT NULL DEFAULT 'branch-1' COMMENT '이 수강권을 사용할 지점입니다. branch-1=장덕점, branch-2=효천점입니다.',
       pass_name VARCHAR(160) NOT NULL,
       pass_type ENUM('personal','duet','group') NOT NULL DEFAULT 'group',
       remaining_count INT NOT NULL DEFAULT 0,
@@ -2297,10 +2543,12 @@ async function initDatabase() {
       status ENUM('active','paused','transferred','refunded') NOT NULL DEFAULT 'active',
       created_at DATETIME NOT NULL,
       updated_at DATETIME NOT NULL,
+      INDEX idx_studio_passes_branch_user (branch_id, user_id),
       INDEX idx_studio_passes_user (user_id),
       INDEX idx_studio_passes_status (status)
     )
   `);
+  await pool.query(`ALTER TABLE studio_passes ADD COLUMN branch_id VARCHAR(80) NOT NULL DEFAULT 'branch-1' COMMENT '이 수강권을 사용할 지점입니다. branch-1=장덕점, branch-2=효천점입니다.' AFTER user_id`).catch((e) => { if (e.errno !== 1060) throw e; });
   if (!(await databaseColumnExists("studio_passes", "is_family_pass"))) {
     await pool.query(`
       ALTER TABLE studio_passes
@@ -2481,6 +2729,8 @@ async function initDatabase() {
       template_id VARCHAR(80) PRIMARY KEY,
       push_enabled TINYINT(1) NOT NULL DEFAULT 1,
       sms_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      kakao_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      kakao_template_code VARCHAR(120) NULL,
       message TEXT NOT NULL,
       param1 INT,
       param2 INT,
@@ -2488,6 +2738,9 @@ async function initDatabase() {
       updated_at DATETIME NOT NULL DEFAULT NOW()
     )
   `);
+
+  await pool.query(`ALTER TABLE studio_notification_templates ADD COLUMN kakao_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER sms_enabled`).catch((e) => { if (e.errno !== 1060) throw e; });
+  await pool.query(`ALTER TABLE studio_notification_templates ADD COLUMN kakao_template_code VARCHAR(120) NULL AFTER kakao_enabled`).catch((e) => { if (e.errno !== 1060) throw e; });
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_notices (
@@ -2545,6 +2798,27 @@ async function initDatabase() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_expenses (
+      id VARCHAR(80) PRIMARY KEY COMMENT '지출 기록 고유 번호입니다.',
+      branch_id VARCHAR(80) NOT NULL DEFAULT 'branch-1' COMMENT '지출이 발생한 지점입니다. branch-1=장덕점, branch-2=효천점입니다.',
+      expense_date DATETIME NOT NULL COMMENT '지출이 실제로 발생하거나 결제된 날짜와 시간입니다.',
+      category VARCHAR(80) NOT NULL DEFAULT '기타' COMMENT '지출 구분입니다. 급여, 소모품, 임대료, 기타처럼 분류합니다.',
+      title VARCHAR(200) NOT NULL COMMENT '지출 내역 이름입니다. 관리자가 목록에서 바로 알아볼 수 있게 적습니다.',
+      amount INT NOT NULL DEFAULT 0 COMMENT '지출 금액입니다.',
+      payment_method VARCHAR(40) NULL COMMENT '지출 결제 방법입니다. 카드, 계좌이체, 현금 등으로 기록합니다.',
+      installment_months VARCHAR(20) NULL COMMENT '카드 할부개월수입니다. 일시불이면 비워둘 수 있습니다.',
+      instructor_name VARCHAR(120) NULL COMMENT '특정 강사와 관련된 지출이면 강사명을 기록합니다.',
+      attachment_url VARCHAR(500) NULL COMMENT '영수증 또는 증빙 파일 주소입니다.',
+      memo TEXT NULL COMMENT '지출과 관련해 관리자가 남기는 참고 메모입니다.',
+      created_by VARCHAR(64) NULL COMMENT '지출을 등록한 관리자 회원 번호입니다.',
+      created_at DATETIME NOT NULL COMMENT '지출 기록이 생성된 날짜와 시간입니다.',
+      updated_at DATETIME NOT NULL COMMENT '지출 기록이 마지막으로 수정된 날짜와 시간입니다.',
+      INDEX idx_studio_expenses_date (expense_date),
+      INDEX idx_studio_expenses_branch_date (branch_id, expense_date)
+    ) COMMENT='필라테스 운영 중 발생한 지출 내역을 보관합니다. 급여, 소모품, 임대료처럼 매출 리포트에서 함께 확인할 비용을 기록합니다.'
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_lockers (
       id VARCHAR(80) PRIMARY KEY,
       locker_no VARCHAR(40) NOT NULL,
@@ -2582,9 +2856,26 @@ async function initDatabase() {
       status ENUM('pending','sent','failed') NOT NULL DEFAULT 'pending',
       scheduled_at DATETIME NULL,
       sent_at DATETIME NULL,
+      read_at DATETIME NULL,
       created_at DATETIME NOT NULL,
       INDEX idx_studio_notifications_user (user_id, created_at),
       INDEX idx_studio_notifications_status (status, scheduled_at)
+    )
+  `);
+  await pool.query(`ALTER TABLE studio_notifications ADD COLUMN read_at DATETIME NULL AFTER sent_at`).catch((e) => { if (e.errno !== 1060) throw e; });
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_message_templates (
+      id VARCHAR(80) PRIMARY KEY,
+      name VARCHAR(160) NOT NULL,
+      channel VARCHAR(20) NOT NULL DEFAULT 'sms',
+      title VARCHAR(160) NULL,
+      message TEXT NOT NULL,
+      template_code VARCHAR(120) NULL,
+      created_by VARCHAR(64) NULL,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      INDEX idx_studio_message_templates_channel (channel, updated_at)
     )
   `);
 
@@ -2602,6 +2893,52 @@ async function initDatabase() {
         FOREIGN KEY (notification_id) REFERENCES studio_notifications(id) ON DELETE CASCADE
     )
   `);
+
+  // 채널별 발송 상태를 별도로 보관해 일부 채널 실패 시 성공한 채널이 중복 발송되지 않게 합니다.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_notification_deliveries (
+      id VARCHAR(80) PRIMARY KEY,
+      notification_id VARCHAR(80) NOT NULL,
+      channel VARCHAR(20) NOT NULL,
+      recipient_user_id VARCHAR(64) NULL,
+      recipient_name TEXT NULL,
+      recipient_phone TEXT NULL,
+      template_code VARCHAR(120) NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      attempts INT NOT NULL DEFAULT 0,
+      next_attempt_at DATETIME NULL,
+      scheduled_at DATETIME NULL,
+      sent_at DATETIME NULL,
+      provider_message_id VARCHAR(180) NULL,
+      error_message VARCHAR(500) NULL,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      INDEX idx_notification_delivery_due (status, scheduled_at, next_attempt_at),
+      INDEX idx_notification_delivery_notification (notification_id),
+      CONSTRAINT fk_notification_delivery_notification
+        FOREIGN KEY (notification_id) REFERENCES studio_notifications(id) ON DELETE CASCADE
+    )
+  `);
+
+  // 한 회원이 여러 휴대폰에서 로그인할 수 있으므로 FCM 토큰을 기기 단위로 관리합니다.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS studio_push_devices (
+      id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      token VARCHAR(512) NOT NULL,
+      platform VARCHAR(20) NOT NULL DEFAULT 'android',
+      device_name VARCHAR(120) NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      last_seen_at DATETIME NOT NULL,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      UNIQUE KEY uq_studio_push_device_token (token),
+      INDEX idx_studio_push_device_user (user_id, is_active)
+    )
+  `);
+
+  // 과거 스키마의 채널 ENUM에는 카카오 알림톡이 없으므로 문자열 컬럼으로 확장합니다.
+  await pool.query(`ALTER TABLE studio_notification_logs MODIFY COLUMN channel VARCHAR(20) NOT NULL`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_instructor_hours (
@@ -2679,6 +3016,7 @@ async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_pass_products (
       id VARCHAR(80) PRIMARY KEY,
+      branch_id VARCHAR(80) NOT NULL DEFAULT 'branch-1' COMMENT '이 수강권 상품을 판매할 지점입니다. branch-1=장덕점, branch-2=효천점입니다.',
       name VARCHAR(160) NOT NULL COMMENT '수강권 상품명 (예: Vvip 1:1 10회)',
       pass_type ENUM('count','period') NOT NULL DEFAULT 'count' COMMENT '횟수제/기간제',
       class_type ENUM('private','group') NOT NULL DEFAULT 'private' COMMENT '프라이빗/그룹형',
@@ -2692,11 +3030,13 @@ async function initDatabase() {
       description TEXT NULL COMMENT '수강권 설명',
       created_at DATETIME NOT NULL,
       updated_at DATETIME NOT NULL,
+      INDEX idx_studio_pass_products_branch (branch_id, status),
       INDEX idx_studio_pass_products_status (status)
     ) COMMENT='스튜디오 수강권 상품 템플릿을 보관합니다.'
   `);
 
   // studio_pass_products 확장 컬럼
+  pool.query(`ALTER TABLE studio_pass_products ADD COLUMN branch_id VARCHAR(80) NOT NULL DEFAULT 'branch-1' COMMENT '이 수강권 상품을 판매할 지점입니다. branch-1=장덕점, branch-2=효천점입니다.' AFTER id`).catch(e => { if (e.errno !== 1060) throw e; });
   pool.query(`ALTER TABLE studio_pass_products ADD COLUMN is_trial TINYINT(1) NOT NULL DEFAULT 0`).catch(e => { if (e.errno !== 1060) throw e; });
   pool.query(`ALTER TABLE studio_pass_products ADD COLUMN cancel_count INT NOT NULL DEFAULT 0`).catch(e => { if (e.errno !== 1060) throw e; });
   pool.query(`ALTER TABLE studio_pass_products ADD COLUMN points INT NOT NULL DEFAULT 0`).catch(e => { if (e.errno !== 1060) throw e; });
@@ -2711,6 +3051,9 @@ async function initDatabase() {
 
   // studio_passes 에 pass_product_id 연결 컬럼 추가
   pool.query(`ALTER TABLE studio_passes ADD COLUMN pass_product_id VARCHAR(80) NULL`).catch(e => { if (e.errno !== 1060) throw e; });
+  pool.query(`ALTER TABLE studio_classes ADD INDEX idx_studio_classes_branch_start (branch_id, start_at)`).catch(e => { if (e.errno !== 1061) throw e; });
+  pool.query(`ALTER TABLE studio_passes ADD INDEX idx_studio_passes_branch_user (branch_id, user_id)`).catch(e => { if (e.errno !== 1061) throw e; });
+  pool.query(`ALTER TABLE studio_pass_products ADD INDEX idx_studio_pass_products_branch (branch_id, status)`).catch(e => { if (e.errno !== 1061) throw e; });
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_goods (
@@ -2748,11 +3091,13 @@ async function initDatabase() {
       start_date DATE NOT NULL,
       end_date DATE NOT NULL,
       reason VARCHAR(255) NULL,
+      processed_at DATETIME NULL,
       created_at DATETIME NOT NULL,
       INDEX idx_studio_pass_pauses_pass (pass_id),
       CONSTRAINT fk_studio_pass_pauses_pass FOREIGN KEY (pass_id) REFERENCES studio_passes(id) ON DELETE CASCADE
     )
   `);
+  await pool.query(`ALTER TABLE studio_pass_pauses ADD COLUMN processed_at DATETIME NULL AFTER reason`).catch((e) => { if (e.errno !== 1060) throw e; });
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_pass_transfers (
@@ -2783,6 +3128,8 @@ async function initDatabase() {
     )
   `);
 
+  // 모든 기본 테이블을 만든 뒤 버전별 구조 변경을 순서대로 적용합니다.
+  await runMigrations(pool);
   await purgeAllHardcodedSeedData();
   await encryptExistingPiiData();
   await dropUnusedSchemaObjects();
@@ -2818,32 +3165,11 @@ async function ensureInitialized() {
 export { ensureInitialized };
 
 // 함수 역할: DB 초기화가 끝난 뒤 SQL을 실행하고 결과 행 배열을 반환합니다.
-export async function query(sql, params = []) {
-  const [rows] = await pool.execute(sql, params);
-  return rows;
-}
+// query/queryOne은 트랜잭션 컨텍스트를 인식하는 databaseClient 구현을 사용합니다.
 
 // 함수 역할: SQL 조회 결과 중 첫 번째 행만 반환합니다.
-export async function queryOne(sql, params = []) {
-  const rows = await query(sql, params);
-  return rows[0] ?? null;
-}
 
 // 함수 역할: 트랜잭션 안에서 fn을 실행하고, 성공 시 커밋·실패 시 롤백합니다.
-export async function withTransaction(fn) {
-  const conn = await pool.getConnection();
-  await conn.beginTransaction();
-  try {
-    const result = await fn(conn);
-    await conn.commit();
-    return result;
-  } catch (error) {
-    await conn.rollback();
-    throw error;
-  } finally {
-    conn.release();
-  }
-}
 
 // 함수 역할: 서버 상태 확인을 위해 MySQL 연결이 살아 있는지 검사합니다.
 export async function pingDatabase() {

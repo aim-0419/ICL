@@ -1,0 +1,617 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/scripts/import-studiomate-xlsx.mjs",
+      "type": "file",
+      "name": "import-studiomate-xlsx.mjs",
+      "filePath": "backend/scripts/import-studiomate-xlsx.mjs",
+      "summary": "스튜디오메이트 엑셀(.xlsx) 파일을 파싱하여 회원, 수강권, 수업 데이터를 MySQL DB로 일괄 가져오는 마이그레이션 스크립트. ZIP 압축 해제 후 XML 파싱 방식으로 외부 의존성 없이 xlsx를 읽어 처리한다.",
+      "tags": ["script", "data-pipeline", "migration", "utility"],
+      "complexity": "complex",
+      "languageNotes": "외부 xlsx 라이브러리 없이 PowerShell을 활용한 ZIP 압축 해제 및 XML 정규식 파싱으로 엑셀 파일을 처리하는 독자적인 구현이다."
+    },
+    {
+      "id": "function:backend/scripts/import-studiomate-xlsx.mjs:findOrCreateUser",
+      "type": "function",
+      "name": "findOrCreateUser",
+      "filePath": "backend/scripts/import-studiomate-xlsx.mjs",
+      "lineRange": [204, 272],
+      "summary": "엑셀 행 데이터를 기반으로 사용자를 조회하거나 신규 생성하는 함수. 중복 방지를 위한 login_id 고유성 보장 로직 포함.",
+      "tags": ["data-pipeline", "migration", "utility"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/scripts/import-studiomate-xlsx.mjs:insertPass",
+      "type": "function",
+      "name": "insertPass",
+      "filePath": "backend/scripts/import-studiomate-xlsx.mjs",
+      "lineRange": [321, 385],
+      "summary": "엑셀 행에서 수강권 데이터를 추출하여 DB에 삽입하는 함수. 수강권 타입·상태·날짜 정규화 및 중복 방지 처리 포함.",
+      "tags": ["data-pipeline", "migration"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/scripts/import-studiomate-xlsx.mjs:importMembers",
+      "type": "function",
+      "name": "importMembers",
+      "filePath": "backend/scripts/import-studiomate-xlsx.mjs",
+      "lineRange": [387, 417],
+      "summary": "엑셀 전체 행을 순회하며 회원 일괄 가져오기를 실행하는 오케스트레이터 함수.",
+      "tags": ["data-pipeline", "migration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/scripts/import-studiomate-xlsx.mjs:importClasses",
+      "type": "function",
+      "name": "importClasses",
+      "filePath": "backend/scripts/import-studiomate-xlsx.mjs",
+      "lineRange": [433, 494],
+      "summary": "수업 데이터를 엑셀에서 읽어 강사 생성 및 수업 DB 삽입까지 처리하는 일괄 임포트 함수.",
+      "tags": ["data-pipeline", "migration"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/src/features/academy/service/asset.service.js",
+      "type": "file",
+      "name": "asset.service.js",
+      "filePath": "backend/src/features/academy/service/asset.service.js",
+      "summary": "아카데미 영상·자료 파일의 업로드 유효성 검사, 파일명 정규화, 로컬 디스크 저장 기능을 제공하는 서비스. 챕터별 영상 파일명 동기화 기능도 포함.",
+      "tags": ["service", "utility", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/academy/service/asset.service.js:saveAcademyAsset",
+      "type": "function",
+      "name": "saveAcademyAsset",
+      "filePath": "backend/src/features/academy/service/asset.service.js",
+      "lineRange": [101, 137],
+      "summary": "아카데미 자산 파일을 유효성 검사 후 디스크에 저장하고 저장 경로를 반환하는 주요 공개 함수.",
+      "tags": ["service", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/academy/service/asset.service.js:syncChapterVideoNames",
+      "type": "function",
+      "name": "syncChapterVideoNames",
+      "filePath": "backend/src/features/academy/service/asset.service.js",
+      "lineRange": [143, 197],
+      "summary": "챕터 목록과 실제 파일 시스템을 비교하여 영상 파일명을 챕터 순서에 맞게 재명명(rename)하는 동기화 함수.",
+      "tags": ["service", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/academy/service/qna.service.js",
+      "type": "file",
+      "name": "qna.service.js",
+      "filePath": "backend/src/features/academy/service/qna.service.js",
+      "summary": "아카데미 영상 Q&A 게시글 및 답변의 목록 조회, 생성, 삭제 비즈니스 로직을 담당하는 서비스. 답변 등록 시 이메일 알림 발송 포함.",
+      "tags": ["service", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/academy/service/qna.service.js:createAcademyQnaReply",
+      "type": "function",
+      "name": "createAcademyQnaReply",
+      "filePath": "backend/src/features/academy/service/qna.service.js",
+      "lineRange": [102, 150],
+      "summary": "Q&A 원글에 답변을 등록하고 원글 작성자에게 이메일 알림을 발송하는 함수.",
+      "tags": ["service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/academy/service/review.service.js",
+      "type": "file",
+      "name": "review.service.js",
+      "filePath": "backend/src/features/academy/service/review.service.js",
+      "summary": "아카데미 강의 수강 후기 목록 조회, 작성, 삭제 로직을 담당하는 서비스. 후기 작성 전 영상 구매 여부를 검증한다.",
+      "tags": ["service", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/academy/service/review.service.js:createAcademyReview",
+      "type": "function",
+      "name": "createAcademyReview",
+      "filePath": "backend/src/features/academy/service/review.service.js",
+      "lineRange": [77, 95],
+      "summary": "아카데미 강의 후기를 작성하는 함수. 사용자가 해당 영상을 구매했는지 사전 검증 후 저장.",
+      "tags": ["service", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/features/academy/service/video-progress.service.js",
+      "type": "file",
+      "name": "video-progress.service.js",
+      "filePath": "backend/src/features/academy/service/video-progress.service.js",
+      "summary": "아카데미 강의 영상의 전체 생명주기(영상 CRUD, 챕터 관리, 학습 진도, 수료증 발급, 수강 권한 검사, 일정 게시)를 처리하는 핵심 서비스 파일.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex",
+      "languageNotes": "1900줄이 넘는 단일 서비스 파일로, 아카데미 도메인의 영상·챕터·진도·수료증 로직을 모두 포함한다."
+    },
+    {
+      "id": "function:backend/src/features/academy/service/video-progress.service.js:createAcademyVideo",
+      "type": "function",
+      "name": "createAcademyVideo",
+      "filePath": "backend/src/features/academy/service/video-progress.service.js",
+      "lineRange": [1274, 1457],
+      "summary": "강의 영상 메타데이터, 챕터, 강사, 가격, 카테고리 등 전체 구조를 DB에 생성하는 복합 트랜잭션 함수.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/academy/service/video-progress.service.js:updateAcademyVideo",
+      "type": "function",
+      "name": "updateAcademyVideo",
+      "filePath": "backend/src/features/academy/service/video-progress.service.js",
+      "lineRange": [1460, 1639],
+      "summary": "기존 강의 영상의 메타데이터 및 챕터 구조를 업데이트하는 복합 트랜잭션 함수.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/academy/service/video-progress.service.js:saveAcademyChapterProgress",
+      "type": "function",
+      "name": "saveAcademyChapterProgress",
+      "filePath": "backend/src/features/academy/service/video-progress.service.js",
+      "lineRange": [1748, 1896],
+      "summary": "챕터별 학습 진도를 저장하고 전체 강의 완료 시 수료증 자동 발급 및 포인트 적립까지 처리하는 함수.",
+      "tags": ["service", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/academy/service/video-progress.service.js:hasAcademyVideoAccess",
+      "type": "function",
+      "name": "hasAcademyVideoAccess",
+      "filePath": "backend/src/features/academy/service/video-progress.service.js",
+      "lineRange": [1163, 1237],
+      "summary": "사용자가 특정 강의 영상에 접근 권한이 있는지 구매 이력·무료 공개·관리자 여부를 종합적으로 검사하는 함수.",
+      "tags": ["service", "validation"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/academy/service/video-progress.service.js:upsertAcademyVideoChapters",
+      "type": "function",
+      "name": "upsertAcademyVideoChapters",
+      "filePath": "backend/src/features/academy/service/video-progress.service.js",
+      "lineRange": [635, 735],
+      "summary": "강의 챕터 목록을 DB에 upsert하는 함수. 기존 챕터와 비교해 추가·수정·삭제를 트랜잭션 내에서 처리.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/src/features/admin/admin.controller.js",
+      "type": "file",
+      "name": "admin.controller.js",
+      "filePath": "backend/src/features/admin/admin.controller.js",
+      "summary": "관리자 API 전체 요청을 처리하는 컨트롤러. 대시보드, 회원 관리, 매출/환불 분석, 강의 관리, 영상 증정, 페이지 재정의 등 53개 핸들러 함수를 제공한다.",
+      "tags": ["api-handler", "middleware"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/admin/admin.controller.js:getSalesRefundInsights",
+      "type": "function",
+      "name": "getSalesRefundInsights",
+      "filePath": "backend/src/features/admin/admin.controller.js",
+      "lineRange": [562, 754],
+      "summary": "매출·환불 분석 인사이트를 집계하여 반환하는 대형 핸들러. 기간·상품 필터링 및 다차원 통계 처리 포함.",
+      "tags": ["api-handler", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/admin/admin.controller.js:refundOrder",
+      "type": "function",
+      "name": "refundOrder",
+      "filePath": "backend/src/features/admin/admin.controller.js",
+      "lineRange": [856, 982],
+      "summary": "관리자가 특정 주문에 대해 환불을 직접 처리하는 핸들러. PG사 결제 취소 및 수강권 회수까지 연동.",
+      "tags": ["api-handler", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/features/admin/admin.controller.js:giftVideos",
+      "type": "function",
+      "name": "giftVideos",
+      "filePath": "backend/src/features/admin/admin.controller.js",
+      "lineRange": [1092, 1145],
+      "summary": "관리자가 특정 사용자에게 강의 영상 접근 권한을 증정하는 핸들러.",
+      "tags": ["api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/features/admin/admin.controller.js:getDashboardUsers",
+      "type": "function",
+      "name": "getDashboardUsers",
+      "filePath": "backend/src/features/admin/admin.controller.js",
+      "lineRange": [441, 505],
+      "summary": "관리자 대시보드 회원 통계 데이터를 조회하여 반환하는 핸들러.",
+      "tags": ["api-handler"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/scripts/import-studiomate-xlsx.mjs",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/scripts/import-studiomate-xlsx.mjs",
+      "target": "file:backend/src/shared/security/password.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/scripts/import-studiomate-xlsx.mjs",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/scripts/import-studiomate-xlsx.mjs",
+      "target": "function:backend/scripts/import-studiomate-xlsx.mjs:findOrCreateUser",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/scripts/import-studiomate-xlsx.mjs",
+      "target": "function:backend/scripts/import-studiomate-xlsx.mjs:insertPass",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/scripts/import-studiomate-xlsx.mjs",
+      "target": "function:backend/scripts/import-studiomate-xlsx.mjs:importMembers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/scripts/import-studiomate-xlsx.mjs",
+      "target": "function:backend/scripts/import-studiomate-xlsx.mjs:importClasses",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/academy/service/asset.service.js",
+      "target": "function:backend/src/features/academy/service/asset.service.js:saveAcademyAsset",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/academy/service/asset.service.js",
+      "target": "function:backend/src/features/academy/service/asset.service.js:syncChapterVideoNames",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/academy/service/asset.service.js",
+      "target": "function:backend/src/features/academy/service/asset.service.js:saveAcademyAsset",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/academy/service/asset.service.js",
+      "target": "function:backend/src/features/academy/service/asset.service.js:syncChapterVideoNames",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/academy/service/qna.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/academy/service/qna.service.js",
+      "target": "file:backend/src/shared/email/email.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/academy/service/qna.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/academy/service/qna.service.js",
+      "target": "function:backend/src/features/academy/service/qna.service.js:createAcademyQnaReply",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/academy/service/qna.service.js",
+      "target": "function:backend/src/features/academy/service/qna.service.js:createAcademyQnaReply",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/academy/service/review.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/academy/service/review.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/academy/service/review.service.js",
+      "target": "file:backend/src/shared/utils/payload.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/academy/service/review.service.js",
+      "target": "function:backend/src/features/academy/service/review.service.js:createAcademyReview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/academy/service/review.service.js",
+      "target": "function:backend/src/features/academy/service/review.service.js:createAcademyReview",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "file:backend/src/features/academy/service/asset.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "function:backend/src/features/academy/service/video-progress.service.js:createAcademyVideo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "function:backend/src/features/academy/service/video-progress.service.js:updateAcademyVideo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "function:backend/src/features/academy/service/video-progress.service.js:saveAcademyChapterProgress",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "function:backend/src/features/academy/service/video-progress.service.js:hasAcademyVideoAccess",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "function:backend/src/features/academy/service/video-progress.service.js:upsertAcademyVideoChapters",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "function:backend/src/features/academy/service/video-progress.service.js:createAcademyVideo",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "function:backend/src/features/academy/service/video-progress.service.js:updateAcademyVideo",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "function:backend/src/features/academy/service/video-progress.service.js:saveAcademyChapterProgress",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "function:backend/src/features/academy/service/video-progress.service.js:hasAcademyVideoAccess",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/academy/service/video-progress.service.js",
+      "target": "function:backend/src/features/academy/service/video-progress.service.js:upsertAcademyVideoChapters",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/config/env.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/features/admin/admin.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/features/payments/payments.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/features/studio/studio.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/features/users/users.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/shared/middlewares/auth.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/shared/utils/date.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/shared/utils/normalize.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/shared/utils/payload.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "function:backend/src/features/admin/admin.controller.js:getSalesRefundInsights",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "function:backend/src/features/admin/admin.controller.js:refundOrder",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "function:backend/src/features/admin/admin.controller.js:giftVideos",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "function:backend/src/features/admin/admin.controller.js:getDashboardUsers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "function:backend/src/features/admin/admin.controller.js:getSalesRefundInsights",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "function:backend/src/features/admin/admin.controller.js:refundOrder",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "function:backend/src/features/admin/admin.controller.js:giftVideos",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "function:backend/src/features/admin/admin.controller.js:getDashboardUsers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/features/admin/admin.service.js",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.controller.js",
+      "target": "file:backend/src/features/payments/payments.service.js",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

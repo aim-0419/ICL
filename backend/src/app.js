@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { env } from "./config/env.js";
 import { academyRoutes } from "./features/academy/academy.routes.js";
 import { adminRoutes } from "./features/admin/admin.routes.js";
+import { getPageOverrides } from "./features/admin/admin.controller.js";
 import { authRoutes } from "./features/auth/auth.routes.js";
 import { brandRoutes } from "./features/brand/brand.routes.js";
 import { cartRoutes } from "./features/cart/cart.routes.js";
@@ -155,6 +156,7 @@ export function createApp() {
   app.use("/api/payments", paymentsRoutes);
   app.use("/api/community", communityRoutes);
   app.use("/api/admin", adminRoutes);
+  app.get("/api/page-overrides", getPageOverrides);
   app.use("/api/academy", academyRoutes);
   app.use("/api/brand", brandRoutes);
   app.use("/api/refunds", refundsRoutes);

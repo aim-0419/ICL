@@ -560,7 +560,7 @@ async function deleteOverrideFromDb(type, key) {
 // 함수 역할: 수정값 from DB 데이터를 외부/서버에서 가져옵니다.
 async function fetchOverridesFromDb() {
   try {
-    const res = await fetch("/api/admin/page-overrides", { credentials: "include" });
+    const res = await fetch("/api/page-overrides", { credentials: "include" });
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -1099,8 +1099,8 @@ export function AdminImageEditor() {
   }, [adminPageEditMode, isAdmin]);
 
   // DB에서 override를 불러와 localStorage와 병합한다 (DB가 원본).
+  // 로그인 여부와 무관하게 모든 유저가 페이지 수정 내용을 볼 수 있도록 공개 엔드포인트를 사용한다.
   useEffect(() => {
-    if (!isAdmin) return;
     // 백엔드 응답 형식: { overrides: { image: {...}, text: {...}, ... } }
     fetchOverridesFromDb().then((data) => {
       const grouped = data?.overrides;
@@ -1121,7 +1121,7 @@ export function AdminImageEditor() {
       // ref가 모두 갱신된 뒤 DOM에 재적용한다
       requestAnimationFrame(() => applyOverridesToPageRef.current?.());
     });
-  }, [isAdmin]);
+  }, []);
 
   // 인라인 편집 종료 시 현재 DOM 값과 저장소 값을 함께 정리한다.
   const finishInlineTextEditing = useCallback(

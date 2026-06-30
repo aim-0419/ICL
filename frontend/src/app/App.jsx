@@ -345,11 +345,9 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
-      {canUsePageEditor ? (
-        <Suspense fallback={null}>
-          <AdminImageEditor />
-        </Suspense>
-      ) : null}
+      <Suspense fallback={null}>
+        <AdminImageEditor />
+      </Suspense>
       <SiteFooter />
     </>
   );

@@ -26,6 +26,16 @@ INSERT  IGNORE INTO `admin_page_overrides` (`id`, `override_type`, `override_key
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
+--
+-- Dumping data for table `events`
+--
+
+LOCK TABLES `events` WRITE;
+/*!40000 ALTER TABLE `events` DISABLE KEYS */;
+INSERT  IGNORE INTO `events` (`id`, `title`, `status`, `start_date`, `end_date`, `likes`, `image`, `summary`) VALUES ('event-1776243072213-8a77b091','테스트용 이벤트 제목','진행중','2026-04-15','2026-04-17',0,'/uploads/community/images/1778198103704-db52db9e-bfe9-46fe-a7ae-e62d15981455.jpg','테스트용 설명');
+/*!40000 ALTER TABLE `events` ENABLE KEYS */;
+UNLOCK TABLES;
+
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
@@ -34,4 +44,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-06-30 19:31:08
+-- Dump completed on 2026-07-01

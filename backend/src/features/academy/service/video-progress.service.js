@@ -512,7 +512,12 @@ async function findFirstLearningStartedAt(userId, videoId) {
   return candidates.length ? candidates[0].toISOString() : "";
 }
 
-// 함수 역할: create 차시 요청 데이터 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
+// 함수 역할: 새 교육영상 등록 요청의 내부 호환용 영상 정보를 저장 가능한 형태로 정규화합니다.
+function getDefaultAcademyChapterTitle(chapterOrder = 1) {
+  const order = Math.max(1, Math.round(toNumber(chapterOrder, 1)));
+  return order === 1 ? "본편" : `영상 ${order}`;
+}
+
 function normalizeCreateChapterPayload(chaptersInput, fallbackVideoPath) {
   const rows = Array.isArray(chaptersInput) ? chaptersInput : [];
   const normalized = [];
@@ -523,7 +528,7 @@ function normalizeCreateChapterPayload(chaptersInput, fallbackVideoPath) {
 
     normalized.push({
       chapterOrder: index + 1,
-      title: toSafeText(row?.title) || `${index + 1}李⑥떆`,
+      title: toSafeText(row?.title) || getDefaultAcademyChapterTitle(index + 1),
       description: toSafeText(row?.description),
       videoPath,
       durationSec: Math.max(0, Math.round(toNumber(row?.durationSec))),
@@ -535,7 +540,7 @@ function normalizeCreateChapterPayload(chaptersInput, fallbackVideoPath) {
   if (!normalized.length && normalizedFallbackPath) {
     normalized.push({
       chapterOrder: 1,
-      title: "1李⑥떆",
+      title: getDefaultAcademyChapterTitle(1),
       description: "",
       videoPath: normalizedFallbackPath,
       durationSec: 0,
@@ -549,7 +554,7 @@ function normalizeCreateChapterPayload(chaptersInput, fallbackVideoPath) {
   }));
 }
 
-// 함수 역할: update 차시 요청 데이터 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
+// 함수 역할: 교육영상 수정 요청의 내부 호환용 영상 정보를 저장 가능한 형태로 정규화합니다.
 function normalizeUpdateChapterPayload(chaptersInput, existingChapters, fallbackVideoPath) {
   const rows = Array.isArray(chaptersInput) ? chaptersInput : [];
   const existingRows = Array.isArray(existingChapters) ? existingChapters : [];
@@ -568,7 +573,10 @@ function normalizeUpdateChapterPayload(chaptersInput, existingChapters, fallback
       normalizeAssetPath(existing?.videoUrl || "");
     if (!nextVideoPath) continue;
 
-    const title = toSafeText(row?.title) || toSafeText(existing?.title) || `${index + 1}李⑥떆`;
+    const title =
+      toSafeText(row?.title) ||
+      toSafeText(existing?.title) ||
+      getDefaultAcademyChapterTitle(index + 1);
     const description =
       row && Object.prototype.hasOwnProperty.call(row, "description")
         ? toSafeText(row?.description)
@@ -598,7 +606,7 @@ function normalizeUpdateChapterPayload(chaptersInput, existingChapters, fallback
     normalized.push({
       id: "",
       chapterOrder: 1,
-      title: "1李⑥떆",
+      title: getDefaultAcademyChapterTitle(1),
       description: "",
       videoPath: normalizedFallbackPath,
       durationSec: 0,
@@ -609,16 +617,16 @@ function normalizeUpdateChapterPayload(chaptersInput, existingChapters, fallback
   return normalized.map((chapter, index) => ({
     ...chapter,
     chapterOrder: index + 1,
-    title: toSafeText(chapter.title) || `${index + 1}李⑥떆`,
+    title: toSafeText(chapter.title) || getDefaultAcademyChapterTitle(index + 1),
   }));
 }
 
-// 함수 역할: 차시 ID 데이터를 새로 생성합니다.
+// 함수 역할: 내부 호환용 영상 ID 데이터를 새로 생성합니다.
 function createChapterId(videoId, chapterOrder) {
   return `${videoId}-ch-${chapterOrder}`;
 }
 
-// 함수 역할: unique 차시 ID 데이터를 새로 생성합니다.
+// 함수 역할: 기존 ID와 겹치지 않는 내부 호환용 영상 ID를 생성합니다.
 function createUniqueChapterId(videoId, chapterOrder, reservedIds) {
   const base = createChapterId(videoId, chapterOrder);
   if (!reservedIds.has(base)) return base;
@@ -631,7 +639,7 @@ function createUniqueChapterId(videoId, chapterOrder, reservedIds) {
   }
 }
 
-// 함수 역할: upsertAcademyVideoChapters 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
+// 함수 역할: 교육영상의 내부 호환용 영상 정보를 생성하거나 갱신합니다.
 async function upsertAcademyVideoChapters(videoId, chapters, existingChapters = []) {
   const normalizedVideoId = toSafeText(videoId);
   const rows = Array.isArray(chapters) ? chapters : [];
@@ -646,7 +654,7 @@ async function upsertAcademyVideoChapters(videoId, chapters, existingChapters = 
   const reservedIds = new Set(existingById.keys());
   const keptIds = new Set();
 
-  // chapter_order unique 충돌을 피하기 위해 기존 순서를 안전 구간으로 먼저 이동
+  // chapter_order unique 충돌을 피하기 위해 기존 순서를 임시 구간으로 먼저 이동합니다.
   await query(
     `UPDATE academy_video_chapters
      SET chapter_order = chapter_order + 1000
@@ -656,7 +664,7 @@ async function upsertAcademyVideoChapters(videoId, chapters, existingChapters = 
 
   for (const chapter of rows) {
     const currentOrder = Math.max(1, Math.round(toNumber(chapter?.chapterOrder, 1)));
-    const title = toSafeText(chapter?.title) || `${currentOrder}李⑥떆`;
+    const title = toSafeText(chapter?.title) || getDefaultAcademyChapterTitle(currentOrder);
     const description = toSafeText(chapter?.description);
     const videoPath = normalizeAssetPath(chapter?.videoPath || chapter?.videoUrl || "");
     if (!videoPath) continue;
@@ -734,7 +742,7 @@ async function upsertAcademyVideoChapters(videoId, chapters, existingChapters = 
   }
 }
 
-// 함수 역할: 차시 rows by 강의 영상 ids 목록을 조회해 반환합니다.
+// 함수 역할: 여러 교육영상의 내부 호환용 영상 목록을 조회합니다.
 async function listChapterRowsByVideoIds(videoIds) {
   if (!Array.isArray(videoIds) || !videoIds.length) return [];
   const placeholders = videoIds.map(() => "?").join(", ");
@@ -757,7 +765,7 @@ async function listChapterRowsByVideoIds(videoIds) {
   );
 }
 
-// 함수 역할: 기본값 차시 for 강의 영상 상태가 없을 때 생성해 항상 존재하도록 보장합니다.
+// 함수 역할: 기존 데이터에 내부 영상 정보가 없으면 기본 본편 정보를 생성합니다.
 async function ensureDefaultChapterForVideo(videoId) {
   const normalizedVideoId = toSafeText(videoId);
   if (!normalizedVideoId) return null;
@@ -804,10 +812,16 @@ async function ensureDefaultChapterForVideo(videoId) {
       duration_sec,
       is_preview,
       created_at
-    ) VALUES (?, ?, 1, '1李⑥떆', NULL, ?, 0, 0, COALESCE(?, NOW()))
+    ) VALUES (?, ?, 1, ?, NULL, ?, 0, 0, COALESCE(?, NOW()))
     ON DUPLICATE KEY UPDATE
       video_path = COALESCE(VALUES(video_path), video_path)`,
-    [chapterId, normalizedVideoId, videoRow.videoPath || null, videoRow.createdAt || null]
+    [
+      chapterId,
+      normalizedVideoId,
+      getDefaultAcademyChapterTitle(1),
+      videoRow.videoPath || null,
+      videoRow.createdAt || null,
+    ]
   );
 
   const created = await queryOne(

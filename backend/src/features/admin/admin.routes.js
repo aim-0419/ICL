@@ -41,6 +41,7 @@ import * as adminController from "./admin.controller.js";
 export const adminRoutes = Router();
 
 adminRoutes.get("/members", adminController.getMemberList);
+adminRoutes.post("/members", express.json(), adminController.createStudioMember);
 adminRoutes.put("/members/:userId/studio-profile", express.json(), adminController.updateStudioMemberProfile);
 adminRoutes.patch("/members/:userId/studio-status", express.json(), adminController.updateStudioMemberStatus);
 adminRoutes.get("/studio-staff", adminController.getStudioStaffProfiles);

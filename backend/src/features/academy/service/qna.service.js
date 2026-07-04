@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../../shared/db/mysql.js";
 import { sendQnaReplyNotification } from "../../../shared/email/email.service.js";
 import { decryptUserRow } from "../../../shared/security/pii.js";
+import { stripHtmlTags } from "../../../shared/security/html.js";
 
 // Q&A 목록 및 비밀글 가림 처리 로직
 // 함수 역할: 아카데미 Q&A 목록을 조회해 반환합니다.
@@ -84,8 +85,8 @@ export async function listMyAcademyQna(userId) {
 // 함수 역할: 아카데미 Q&A 게시글 데이터를 새로 생성합니다.
 export async function createAcademyQnaPost(userId, userName, videoId, title, content, isSecret = false) {
   const id = randomUUID();
-  const safeTitle = String(title || "").trim().slice(0, 200);
-  const safeContent = String(content || "").trim().slice(0, 3000);
+  const safeTitle = stripHtmlTags(title).slice(0, 200);
+  const safeContent = stripHtmlTags(content).slice(0, 3000);
   if (!safeTitle) throw new Error("질문 제목을 입력해 주세요.");
   if (!safeContent) throw new Error("질문 내용을 입력해 주세요.");
 
@@ -107,7 +108,7 @@ export async function createAcademyQnaReply(userId, userName, postId, content, i
   if (!post) throw new Error("질문을 찾을 수 없습니다.");
 
   const id = randomUUID();
-  const safeContent = String(content || "").trim().slice(0, 3000);
+  const safeContent = stripHtmlTags(content).slice(0, 3000);
   if (!safeContent) throw new Error("답변 내용을 입력해 주세요.");
 
   await query(

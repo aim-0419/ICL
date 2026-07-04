@@ -80,6 +80,16 @@ function resolveRequestIp(req) {
   return String(req.ip || req.socket?.remoteAddress || "").trim();
 }
 
+function decodeHeaderValue(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+  try {
+    return decodeURIComponent(rawValue);
+  } catch {
+    return rawValue;
+  }
+}
+
 // 함수 역할: 아카데미 강의 영상 데이터를 조회해 호출자에게 반환합니다.
 export async function getAcademyVideos(req, res, next) {
   try {
@@ -498,7 +508,7 @@ export async function uploadAcademyAsset(req, res, next) {
     const chapterOrder = String(req.query.chapterOrder || "").trim();
 
     const fileNameHeader = req.headers["x-file-name"];
-    const fileName = Array.isArray(fileNameHeader) ? fileNameHeader[0] : fileNameHeader;
+    const fileName = decodeHeaderValue(Array.isArray(fileNameHeader) ? fileNameHeader[0] : fileNameHeader);
 
     const mimeTypeHeader = req.headers["content-type"];
     const mimeType = Array.isArray(mimeTypeHeader) ? mimeTypeHeader[0] : mimeTypeHeader;
@@ -507,7 +517,8 @@ export async function uploadAcademyAsset(req, res, next) {
       kind,
       fileName,
       mimeType,
-      buffer: req.body,
+      stream: req,
+      contentLength: req.headers["content-length"],
       videoId,
       chapterOrder,
     });

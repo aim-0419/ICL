@@ -1,47 +1,59 @@
-/**
+﻿/**
  * [관리자 회원 목록 페이지]
  *
- * 스튜디오메이트 목록형 UI에 맞춰 통합 회원을 간결하게 표시합니다.
- * 세부 구분은 상단 탭과 필터로 확인합니다.
+ * 필라테스 관리용 회원 목록입니다.
+ * 교육영상 구매 이력과 별개로 스튜디오 수강권/출석/미수금/회원상태가 있는 회원만 표시합니다.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
+
+async function createAdminStudioMember(payload) {
+  const result = await apiRequest("/admin/members", { method: "POST", body: payload });
+  return result?.member || result;
+}
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { formatUserGradeLabel } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { downloadXlsx } from "../../../shared/utils/exportXlsx.js";
 import {
   createAdminMemberMemo,
   createAdminPass,
-  createStudioNotification,
+  listAdminPassTransactions,
   listAdminMemberMemos,
   listAdminPassesByUser,
   pauseAdminPass,
   requestStudioPassRefund,
   transferAdminPass,
   updateAdminPassStatus,
+  listAdminConsultations,
+  createAdminConsultation,
+  deleteAdminConsultation,
+  listAdminPassProducts,
+  listAdminGoods,
 } from "../../studio/api/studioApi.js";
-
-const NAV_ITEMS = [
-  { label: "일정", path: "/admin" },
-  { label: "수업", path: "/admin/classes" },
-  { label: "회원", path: "/admin/member-list", active: true },
-  { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/products" },
-  { label: "설정", path: "/admin/members" },
-  { label: "매출", path: "/admin/sales" },
-];
+import { DEFAULT_STUDIO_BRANCH_ID, STUDIO_BRANCHES, getStudioBranchName } from "../../studio/constants/studioBranches.js";
+import { SmsSendModal } from "../components/SmsSendModal.jsx";
+import "./AdminMemberListPage.css";
 
 const PAGE_SIZE = 10;
 
 const MEMBER_COLUMNS = [
   "이름",
   "전화번호",
-  "등록일",
+  "가입일",
   "최근출석일",
   "수강권",
   "상품",
   "앱연결",
+];
+
+const MEMBER_TABS = [
+  { id: "members", label: "회원" },
+  { id: "consulting", label: "상담고객" },
+  { id: "passHistory", label: "수강권 정보 변경이력" },
+  { id: "contracts", label: "전자계약서", beta: true },
 ];
 
 function formatDate(value) {
@@ -63,6 +75,35 @@ function formatCount(value) {
 function formatCurrency(value) {
   if (value === null || value === undefined || value === "") return "-";
   return `₩${Number(value || 0).toLocaleString()}`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function toDateInputValue(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10);
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function getPassTransactionTypeLabel(transaction) {
+  const deltaCount = Number(transaction?.deltaCount || 0);
+  if (String(transaction?.reason || "").includes("환불")) return "환불";
+  if (String(transaction?.reason || "").includes("양도")) return "양도";
+  if (deltaCount < 0) return "차감";
+  if (deltaCount > 0) return "충전";
+  return "변경";
 }
 
 function calcDaysLeft(expiresAt) {
@@ -163,9 +204,9 @@ function getPassSummary(member) {
 }
 
 function getProductSummary(member) {
-  const orderCount = Number(member?.orderCount || 0);
-  if (orderCount <= 0) return "-";
-  return `구매 ${orderCount.toLocaleString()}건`;
+  const totalArrears = Number(member?.totalArrears || 0);
+  if (totalArrears > 0) return `미수금 ${formatCurrency(totalArrears)}`;
+  return "-";
 }
 
 function getMemberStatus(member) {
@@ -177,11 +218,6 @@ function getMemberStatus(member) {
 
 function isCurrentPass(pass) {
   return getPassStatusLabel(pass).startsWith("사용중");
-}
-
-function toCsvCell(value) {
-  const text = String(value ?? "").replace(/\r?\n/g, " ");
-  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function FilterDropdown({ label, active, children }) {
@@ -317,7 +353,6 @@ export function AdminMemberListPage() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterUsageScope, setFilterUsageScope] = useState("studioManaged");
   const [filterGrade, setFilterGrade] = useState("");
   const [filterPass, setFilterPass] = useState("");
   const [filterNoVisit, setFilterNoVisit] = useState("");
@@ -331,13 +366,8 @@ export function AdminMemberListPage() {
   const [savingMemoUserId, setSavingMemoUserId] = useState("");
   const [memoMessage, setMemoMessage] = useState("");
   const [memberSettingsOpen, setMemberSettingsOpen] = useState(false);
-  const [notificationDraft, setNotificationDraft] = useState({
-    open: false,
-    title: "이끌림 필라테스 안내",
-    message: "",
-    targetMembers: [],
-  });
-  const [sendingNotification, setSendingNotification] = useState(false);
+  const [smsOpen, setSmsOpen] = useState(false);
+  const [smsReceivers, setSmsReceivers] = useState([]);
   const [detailMemberId, setDetailMemberId] = useState("");
   const [detailPasses, setDetailPasses] = useState([]);
   const [detailMemos, setDetailMemos] = useState([]);
@@ -371,6 +401,7 @@ export function AdminMemberListPage() {
     primaryInstructor: "",
   });
   const [passDraft, setPassDraft] = useState({
+    branchId: DEFAULT_STUDIO_BRANCH_ID,
     passName: "",
     passType: "group",
     totalCount: "10",
@@ -381,6 +412,63 @@ export function AdminMemberListPage() {
     installmentMonths: "",
     paymentNote: "",
   });
+  const [activeMemberTab, setActiveMemberTab] = useState("members");
+  const [showCreateMember, setShowCreateMember] = useState(false);
+  const [creatingMember, setCreatingMember] = useState(false);
+  const [createMemberDraft, setCreateMemberDraft] = useState({
+    name: "",
+    phone: "",
+    gender: "",
+    birthDate: "",
+    userGrade: "member",
+    primaryInstructor: "",
+    registeredAt: toDateInputValue(),
+    memo: "",
+  });
+  const [consultations, setConsultations] = useState([]);
+  const [consultLoading, setConsultLoading] = useState(false);
+  const [consultSearch, setConsultSearch] = useState("");
+  const [consultTypeFilter, setConsultTypeFilter] = useState("");
+  const [consultStaffFilter, setConsultStaffFilter] = useState("");
+  const [consultDraft, setConsultDraft] = useState({
+    type: "전화상담",
+    staff: currentUserName,
+    date: toDateInputValue(),
+    startTime: "15:10",
+    endTime: "15:40",
+    name: "",
+    phone: "",
+    memo: "",
+  });
+  const [passTransactions, setPassTransactions] = useState([]);
+  const [passHistoryLoading, setPassHistoryLoading] = useState(false);
+  const [passHistoryDate, setPassHistoryDate] = useState(toDateInputValue());
+  const [passHistorySearch, setPassHistorySearch] = useState("");
+  const [passHistoryStaff, setPassHistoryStaff] = useState("");
+
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [passModalStep, setPassModalStep] = useState(1);
+  const [passProducts, setPassProducts] = useState([]);
+  const [passProductsLoading, setPassProductsLoading] = useState(false);
+  const [passSearch, setPassSearch] = useState("");
+  const [passTabFilter, setPassTabFilter] = useState("");
+  const [selectedPassProduct, setSelectedPassProduct] = useState(null);
+  const [newMemberPassDraft, setNewMemberPassDraft] = useState({
+    startDate: toDateInputValue(),
+    expiresAt: "",
+    remainingCount: "",
+    amount: "",
+    paymentMethod: "card",
+    paymentNote: "",
+  });
+  const [newMemberPassConfig, setNewMemberPassConfig] = useState(null);
+
+  const [showGoodsModal, setShowGoodsModal] = useState(false);
+  const [goodsList, setGoodsList] = useState([]);
+  const [goodsLoading, setGoodsLoading] = useState(false);
+  const [goodsSearch, setGoodsSearch] = useState("");
+  const [goodsTabFilter, setGoodsTabFilter] = useState("");
+  const [newMemberGoodsConfig, setNewMemberGoodsConfig] = useState(null);
 
   async function loadMembers() {
     try {
@@ -398,8 +486,93 @@ export function AdminMemberListPage() {
     loadMembers();
   }, []);
 
+  async function loadConsultations() {
+    try {
+      setConsultLoading(true);
+      const items = await listAdminConsultations({
+        type: consultTypeFilter,
+        staffName: consultStaffFilter,
+        search: consultSearch,
+      });
+      setConsultations(items);
+    } catch {
+      setConsultations([]);
+    } finally {
+      setConsultLoading(false);
+    }
+  }
+
+  async function loadPassHistory() {
+    try {
+      setPassHistoryLoading(true);
+      const txs = await listAdminPassTransactions({ date: passHistoryDate, limit: 500 });
+      setPassTransactions(Array.isArray(txs) ? txs : []);
+    } catch {
+      setPassTransactions([]);
+    } finally {
+      setPassHistoryLoading(false);
+    }
+  }
+
+  async function handleSaveConsultation() {
+    const name = String(consultDraft.name || "").trim();
+    if (!name) {
+      setMemoMessage("이름을 입력해 주세요.");
+      return;
+    }
+    try {
+      setConsultLoading(true);
+      await createAdminConsultation({
+        type: consultDraft.type,
+        staffName: consultDraft.staff,
+        customerName: name,
+        customerPhone: consultDraft.phone,
+        consultDate: consultDraft.date,
+        startTime: consultDraft.startTime,
+        endTime: consultDraft.endTime,
+        memo: consultDraft.memo,
+      });
+      setConsultDraft({
+        type: "전화상담",
+        staff: currentUserName,
+        date: toDateInputValue(),
+        startTime: "15:10",
+        endTime: "15:40",
+        name: "",
+        phone: "",
+        memo: "",
+      });
+      await loadConsultations();
+      setMemoMessage("상담이 저장되었습니다.");
+    } catch (error) {
+      setMemoMessage(error.message || "상담 저장에 실패했습니다.");
+      setConsultLoading(false);
+    }
+  }
+
+  async function handleDeleteConsultation(id) {
+    if (!window.confirm("상담을 삭제하시겠습니까?")) return;
+    try {
+      await deleteAdminConsultation(id);
+      setConsultations((previous) => previous.filter((item) => item.id !== id));
+    } catch (error) {
+      setMemoMessage(error.message || "상담 삭제에 실패했습니다.");
+    }
+  }
+
+  useEffect(() => {
+    if (activeMemberTab === "consulting") loadConsultations();
+  }, [activeMemberTab, consultTypeFilter, consultStaffFilter, consultSearch]);
+
+  useEffect(() => {
+    if (activeMemberTab === "passHistory") loadPassHistory();
+  }, [activeMemberTab, passHistoryDate]);
+
   const managedMembers = useMemo(
-    () => members.filter((member) => !isAdminAccount(member)),
+    () =>
+      members
+        .filter((member) => !isAdminAccount(member) && isStudioManagedMember(member))
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ko-KR")),
     [members]
   );
 
@@ -412,18 +585,6 @@ export function AdminMemberListPage() {
     return counts;
   }, [managedMembers]);
 
-  const usageScopeCounts = useMemo(() => {
-    return managedMembers.reduce(
-      (acc, member) => {
-        const scope = getUsageScope(member);
-        acc.all += 1;
-        acc[scope] = (acc[scope] || 0) + 1;
-        return acc;
-      },
-      { all: 0, registered: 0, education: 0, studio: 0, both: 0 }
-    );
-  }, [managedMembers]);
-
   const passNames = useMemo(() => {
     const names = new Set();
     managedMembers.forEach((member) => (member.passes || []).forEach((pass) => names.add(pass.passName)));
@@ -433,30 +594,27 @@ export function AdminMemberListPage() {
   const filteredMembers = useMemo(() => {
     return managedMembers.filter((member) => {
       if (filterStatus && getMemberStatus(member) !== filterStatus) return false;
-      if (filterUsageScope === "studioManaged" && !isStudioManagedMember(member)) return false;
-      if (filterUsageScope && filterUsageScope !== "studioManaged" && getUsageScope(member) !== filterUsageScope) return false;
       if (filterGrade && member.userGrade !== filterGrade) return false;
       if (filterPass) {
-        if (filterPass === "그룹" || filterPass === "프라이빗") {
-          const type = filterPass === "그룹" ? "group" : "personal";
-          if (!(member.passes || []).some((pass) => pass.passName?.includes(filterPass) || pass.passType?.includes(type))) return false;
-        } else if (!(member.passes || []).some((pass) => pass.passName?.includes(filterPass))) {
-          return false;
-        }
+        const passes = Array.isArray(member.passes) ? member.passes : [];
+        const hasPass = passes.some((pass) => {
+          const passText = `${pass.passName || ""} ${getPassTypeLabel(pass.passType)}`;
+          return passText.includes(filterPass);
+        });
+        if (!hasPass) return false;
       }
       if (filterNoVisit) {
-        const days = calcDaysSinceVisit(member.lastVisitAt);
-        if (days === null || days < Number(filterNoVisit)) return false;
+        const daysSinceVisit = calcDaysSinceVisit(member.lastVisitAt);
+        if (daysSinceVisit === null || daysSinceVisit < Number(filterNoVisit)) return false;
       }
       if (filterDaysLeft) {
-        const ok = (member.passes || []).some((pass) => {
-          const left = calcDaysLeft(pass.expiresAt);
-          return left !== null && left <= Number(filterDaysLeft);
-        });
-        if (!ok) return false;
+        const pass = getPrimaryPass(member);
+        const daysLeft = calcDaysLeft(pass?.expiresAt);
+        if (daysLeft === null || daysLeft > Number(filterDaysLeft)) return false;
       }
       if (filterCountLeft) {
-        if (!(member.passes || []).some((pass) => Number(pass.remainingCount || 0) <= Number(filterCountLeft))) return false;
+        const pass = getPrimaryPass(member);
+        if (!pass || Number(pass.remainingCount || 0) > Number(filterCountLeft)) return false;
       }
       if (searchQuery.trim()) {
         const query = searchQuery.trim().toLowerCase();
@@ -465,11 +623,28 @@ export function AdminMemberListPage() {
       }
       return true;
     });
-  }, [managedMembers, filterStatus, filterUsageScope, filterGrade, filterPass, filterNoVisit, filterDaysLeft, filterCountLeft, searchQuery]);
+  }, [managedMembers, filterStatus, filterGrade, filterPass, filterNoVisit, filterDaysLeft, filterCountLeft, searchQuery]);
 
   const filteredRows = useMemo(() => buildMemberPassRows(filteredMembers), [filteredMembers]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 9) return Array.from({ length: totalPages }, (_, index) => index + 1);
+
+    const pageSet = new Set([1, totalPages]);
+    for (let pageNumber = safePage - 2; pageNumber <= safePage + 2; pageNumber += 1) {
+      if (pageNumber > 1 && pageNumber < totalPages) pageSet.add(pageNumber);
+    }
+
+    const pages = [...pageSet].sort((a, b) => a - b);
+    const items = [];
+    pages.forEach((pageNumber, index) => {
+      const previous = pages[index - 1];
+      if (previous && pageNumber - previous > 1) items.push(`ellipsis-${previous}-${pageNumber}`);
+      items.push(pageNumber);
+    });
+    return items;
+  }, [safePage, totalPages]);
   const pageRows = filteredRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const allChecked = pageRows.length > 0 && pageRows.every((row) => selectedIds.has(row.member.id));
 
@@ -493,7 +668,6 @@ export function AdminMemberListPage() {
 
 function resetFilters() {
     setFilterStatus("");
-    setFilterUsageScope("studioManaged");
     setFilterGrade("");
     setFilterPass("");
     setFilterNoVisit("");
@@ -558,7 +732,6 @@ function resetFilters() {
 
   function handleTopSearchChange(value) {
     setSearchQuery(value);
-    setFilterUsageScope("");
     setPage(1);
   }
 
@@ -642,52 +815,14 @@ function resetFilters() {
     }
   }
 
-  function sendManualNotification(targetMembers, defaultTitle = "이끌림 필라테스 안내") {
+  function sendManualNotification(targetMembers) {
     const targets = Array.isArray(targetMembers) ? targetMembers.filter(Boolean) : [];
     if (!targets.length) {
       setMemoMessage("알림을 보낼 회원이 없습니다.");
       return;
     }
-    setNotificationDraft({
-      open: true,
-      title: defaultTitle,
-      message: "",
-      targetMembers: targets,
-    });
-  }
-
-  async function submitManualNotification(event) {
-    event.preventDefault();
-    const targets = notificationDraft.targetMembers.filter(Boolean);
-    const message = notificationDraft.message.trim();
-    if (!targets.length) {
-      setMemoMessage("알림을 보낼 회원이 없습니다.");
-      return;
-    }
-    if (!message) {
-      setMemoMessage("알림 내용을 입력해 주세요.");
-      return;
-    }
-    try {
-      setSendingNotification(true);
-      await Promise.all(
-        targets.map((member) =>
-          createStudioNotification({
-            userId: member.id,
-            type: "manual",
-            title: notificationDraft.title.trim() || "이끌림 필라테스 안내",
-            message,
-            status: "pending",
-          })
-        )
-      );
-      setMemoMessage(`${targets.length}명에게 알림 기록을 저장했습니다. 문자 API 발송은 외부 연동 시 연결됩니다.`);
-      setNotificationDraft({ open: false, title: "이끌림 필라테스 안내", message: "", targetMembers: [] });
-    } catch (error) {
-      setMemoMessage(error.message || "알림 저장에 실패했습니다.");
-    } finally {
-      setSendingNotification(false);
-    }
+    setSmsReceivers(targets.map((m) => ({ phone: m.phone, name: m.name, userId: m.id })));
+    setSmsOpen(true);
   }
 
   function handleBulkBooking(member) {
@@ -742,6 +877,7 @@ function resetFilters() {
       setCreatingPass(true);
       const created = await createAdminPass({
         userId: member.id,
+        branchId: passDraft.branchId || DEFAULT_STUDIO_BRANCH_ID,
         passName,
         passType: passDraft.passType,
         totalCount,
@@ -762,6 +898,7 @@ function resetFilters() {
         )
       );
       setPassDraft({
+        branchId: DEFAULT_STUDIO_BRANCH_ID,
         passName: "",
         passType: "group",
         totalCount: "10",
@@ -868,28 +1005,21 @@ function resetFilters() {
     }
   }
 
-  function handleDownloadCsv() {
-    const headers = ["이름", "전화번호", "등록일", "최근출석일", "수강권", "상품", "앱연결", "스튜디오상태"];
+  function handleDownloadXlsx() {
+    const headers = ["이름", "전화번호", "가입일", "최근출석일", "수강권", "상품", "앱연결", "스튜디오상태"];
     const lines = filteredRows.map(({ member }) => [
       member.name || "",
       member.phone || "",
       formatDate(member.studioRegisteredAt || member.createdAt),
-      member.lastVisitAt ? formatDate(member.lastVisitAt) : "",
+      formatDate(member.lastVisitAt),
       getPassSummary(member),
       getProductSummary(member),
       member.appConnectionStatus === "connected" ? "연결" : "미연결",
       getStudioMemberStatusLabel(member.studioMemberStatus),
     ]);
-    const csv = [headers, ...lines].map((row) => row.map(toCsvCell).join(",")).join("\r\n");
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `studio-members-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    downloadXlsx(`studio-members-${new Date().toISOString().slice(0, 10)}.xlsx`, [
+      { name: "필라테스회원목록", rows: [headers, ...lines] },
+    ]);
   }
 
   async function handleChangeAppConnection(member, nextStatus) {
@@ -924,19 +1054,124 @@ function resetFilters() {
     }
   }
 
+  async function loadPassProductList() {
+    try {
+      setPassProductsLoading(true);
+      const products = await listAdminPassProducts();
+      setPassProducts(Array.isArray(products) ? products.filter((p) => !p.status || p.status === "active") : []);
+    } catch {
+      setPassProducts([]);
+    } finally {
+      setPassProductsLoading(false);
+    }
+  }
+
+  async function loadGoodsList() {
+    try {
+      setGoodsLoading(true);
+      const items = await listAdminGoods();
+      setGoodsList(Array.isArray(items) ? items.filter((g) => !g.status || g.status === "active") : []);
+    } catch {
+      setGoodsList([]);
+    } finally {
+      setGoodsLoading(false);
+    }
+  }
+
+  function openPassModal() {
+    setShowPassModal(true);
+    setPassModalStep(1);
+    setSelectedPassProduct(null);
+    setPassSearch("");
+    setPassTabFilter("");
+    loadPassProductList();
+  }
+
+  function openGoodsModal() {
+    setShowGoodsModal(true);
+    setGoodsSearch("");
+    setGoodsTabFilter("");
+    loadGoodsList();
+  }
+
+  function handleSelectPassProduct(product) {
+    setSelectedPassProduct(product);
+    const expiryMs = product.validDays ? Date.now() + Number(product.validDays) * 86400000 : null;
+    setNewMemberPassDraft({
+      startDate: createMemberDraft.registeredAt || toDateInputValue(),
+      expiresAt: expiryMs ? toDateInputValue(new Date(expiryMs)) : "",
+      remainingCount: String(product.totalCount || 0),
+      amount: String(product.price || 0),
+      paymentMethod: "card",
+      paymentNote: "",
+    });
+    setPassModalStep(2);
+  }
+
+  function handleConfirmPass() {
+    if (!selectedPassProduct) return;
+    setNewMemberPassConfig({ product: selectedPassProduct, draft: { ...newMemberPassDraft } });
+    setShowPassModal(false);
+  }
+
+  function handleSelectGoods(goods) {
+    setNewMemberGoodsConfig({ goods });
+    setShowGoodsModal(false);
+  }
+
+  async function handleCreateMemberSubmit() {
+    const name = String(createMemberDraft.name || "").trim();
+    if (!name) {
+      setMemoMessage("이름을 입력해 주세요.");
+      return;
+    }
+    try {
+      setCreatingMember(true);
+      setMemoMessage("");
+      const created = await createAdminStudioMember({
+        name,
+        phone: createMemberDraft.phone,
+        gender: createMemberDraft.gender,
+        birthDate: createMemberDraft.birthDate,
+        userGrade: createMemberDraft.userGrade,
+        primaryInstructor: createMemberDraft.primaryInstructor,
+        registeredAt: createMemberDraft.registeredAt,
+      });
+      if (newMemberPassConfig && created.id) {
+        const { product, draft } = newMemberPassConfig;
+        await createAdminPass({
+          userId: created.id,
+          branchId: product.branchId || DEFAULT_STUDIO_BRANCH_ID,
+          passName: product.name,
+          passType: product.passType,
+          totalCount: Number(product.totalCount || 0),
+          remainingCount: Number(draft.remainingCount || product.totalCount || 0),
+          expiresAt: draft.expiresAt || null,
+          amount: Number(draft.amount || 0),
+          paymentMethod: draft.paymentMethod,
+          installmentMonths: "",
+          paymentNote: draft.paymentNote,
+        }).catch(() => null);
+      }
+      setShowCreateMember(false);
+      setCreateMemberDraft({ name: "", phone: "", gender: "", birthDate: "", userGrade: "member", primaryInstructor: "", registeredAt: toDateInputValue(), memo: "" });
+      setNewMemberPassConfig(null);
+      setNewMemberGoodsConfig(null);
+      await loadMembers();
+      setMemoMessage(`${created.name || name} 회원이 등록되었습니다.`);
+    } catch (error) {
+      setMemoMessage(error.message || "회원 등록에 실패했습니다.");
+    } finally {
+      setCreatingMember(false);
+    }
+  }
+
   const statusOptions = [
     { value: "", label: `전체회원 (${statusCounts.전체}명)` },
     { value: "이용", label: `이용회원 (${statusCounts.이용 || 0}명)` },
     { value: "만료", label: `만료회원 (${statusCounts.만료 || 0}명)` },
     { value: "미결제", label: `미결제회원 (${statusCounts.미결제 || 0}명)` },
     { value: "수강권 없음", label: `수강권 없음 (${statusCounts["수강권 없음"] || 0}명)` },
-  ];
-
-  const usageScopeOptions = [
-    { value: "", label: `통합회원 전체 (${usageScopeCounts.all}명)` },
-    { value: "studioManaged", label: `스튜디오관리 (${(usageScopeCounts.studio || 0) + (usageScopeCounts.both || 0)}명)` },
-    { value: "studio", label: `스튜디오회원 (${usageScopeCounts.studio || 0}명)` },
-    { value: "both", label: `통합이용 (${usageScopeCounts.both || 0}명)` },
   ];
 
   const gradeOptions = [
@@ -955,12 +1190,6 @@ function resetFilters() {
     ...passNames.map((name) => ({ value: name, label: name })),
   ];
 
-  const usageScopeTabs = [
-    { value: "studioManaged", label: "스튜디오관리", count: (usageScopeCounts.studio || 0) + (usageScopeCounts.both || 0) },
-    { value: "", label: "전체", count: usageScopeCounts.all },
-    { value: "studio", label: "스튜디오회원", count: usageScopeCounts.studio || 0 },
-    { value: "both", label: "통합이용", count: usageScopeCounts.both || 0 },
-  ];
   const detailMember = useMemo(
     () => managedMembers.find((member) => member.id === detailMemberId) || null,
     [managedMembers, detailMemberId]
@@ -984,97 +1213,81 @@ function resetFilters() {
   }, [managedMembers, detailMember?.id, transferSearchQuery]);
 
   return (
-    <div className="admin-memberlist-app">
-      <header className="admin-schedule-topbar">
-        <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-          <span>ICL</span>
-        </button>
-        <nav className="admin-schedule-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.label} className={item.active ? "active" : ""} to={item.path}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="admin-schedule-search">
-          <span aria-hidden="true">이름 또는 전화번호로 검색</span>
-          <input
-            type="search"
-            placeholder="이름 또는 전화번호로 검색"
-            value={searchQuery}
-            onChange={(event) => handleTopSearchChange(event.target.value)}
-            onKeyDown={handleTopSearchKeyDown}
-          />
-        </div>
-        <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin/members")}>
-          {currentUserName}
-        </button>
-      </header>
+    <AdminLayout
+      appClass="admin-memberlist-app"
+      userName={currentUserName}
+      searchValue={searchQuery}
+      onSearchChange={(e) => handleTopSearchChange(e.target.value)}
+      onSearchKeyDown={handleTopSearchKeyDown}
+      onAddMember={() => navigate("/admin")}
+      showNotification
+    >
 
       <div className="admin-memberlist-body">
         <div className="admin-memberlist-title-row">
           <div className="admin-memberlist-tabs">
-            <h1 className="admin-memberlist-heading">회원</h1>
-            {usageScopeTabs.map((tab) => (
+            {MEMBER_TABS.map((tab) => (
               <button
-                key={tab.value || "all"}
+                key={tab.id}
                 type="button"
-                className={`admin-memberlist-scope-tab${filterUsageScope === tab.value ? " active" : ""}`}
-                onClick={() => {
-                  setFilterUsageScope(tab.value);
-                  setPage(1);
-                }}
+                className={`admin-memberlist-tab-btn${activeMemberTab === tab.id ? " active" : ""}`}
+                onClick={() => setActiveMemberTab(tab.id)}
               >
-                {tab.label} {tab.count}
+                {tab.label}
+                {tab.beta ? <em> Beta</em> : null}
               </button>
             ))}
           </div>
-          <div className="admin-memberlist-title-actions">
-            <span className="admin-memberlist-count-text">
-              필터링 회원 <strong>{filteredMembers.length}</strong>명
-            </span>
-            <span className="admin-memberlist-count-sep">|</span>
-            <span className="admin-memberlist-count-text">
-              표시 행 <strong>{filteredRows.length}</strong>건
-            </span>
-            <span className="admin-memberlist-count-sep">|</span>
-            <span className="admin-memberlist-count-text">
-              선택된 회원 <strong>{selectedIds.size}</strong>명
-            </span>
-            <button
-              type="button"
-              className="admin-classlist-btn"
-              onClick={() => sendManualNotification(filteredMembers)}
-            >
-              필터링 회원에게 ▾
-            </button>
-            <button
-              type="button"
-              className="admin-classlist-btn"
-              disabled={selectedIds.size === 0}
-              onClick={() => sendManualNotification(managedMembers.filter((member) => selectedIds.has(member.id)))}
-            >
-              선택된 회원에게 ▾
-            </button>
-            <button type="button" className="admin-classlist-btn primary" onClick={handleDownloadCsv}>엑셀다운로드</button>
-          </div>
+          {activeMemberTab === "members" ? (
+            <div className="admin-memberlist-title-actions">
+              <span className="admin-memberlist-count-text">
+                필터링 회원 <strong>{filteredMembers.length}</strong>명
+              </span>
+              <span className="admin-memberlist-count-sep">|</span>
+              <span className="admin-memberlist-count-text">
+                표시 행 <strong>{filteredRows.length}</strong>건
+              </span>
+              <span className="admin-memberlist-count-sep">|</span>
+              <span className="admin-memberlist-count-text">
+                선택된 회원 <strong>{selectedIds.size}</strong>명
+              </span>
+              <button
+                type="button"
+                className="admin-classlist-btn"
+                onClick={() => sendManualNotification(filteredMembers)}
+              >
+                필터링 회원에게 ▾
+              </button>
+              <button
+                type="button"
+                className="admin-classlist-btn"
+                disabled={selectedIds.size === 0}
+                onClick={() => sendManualNotification(managedMembers.filter((member) => selectedIds.has(member.id)))}
+              >
+                선택된 회원에게 ▾
+              </button>
+              <button type="button" className="admin-classlist-btn primary" onClick={handleDownloadXlsx}>엑셀다운로드</button>
+            </div>
+          ) : null}
         </div>
 
+        {activeMemberTab === "members" ? (
+        <>
         <div className="admin-memberlist-filterbar">
           <div className="admin-memberlist-filterbar-left">
             <ListDropdown
-              label={filterStatus ? statusOptions.find((option) => option.value === filterStatus)?.label.split("(")[0].trim() : `전체회원 (${statusCounts.전체}명)`}
+              label={filterStatus ? `${filterStatus}회원` : `전체회원 (${managedMembers.length}명)`}
               active={Boolean(filterStatus)}
               options={statusOptions}
               value={filterStatus}
               onChange={(value) => { setFilterStatus(value); setPage(1); }}
             />
             <ListDropdown
-              label={filterUsageScope ? usageScopeOptions.find((option) => option.value === filterUsageScope)?.label.split("(")[0].trim() : "통합회원 전체"}
-              active={Boolean(filterUsageScope)}
-              options={usageScopeOptions}
-              value={filterUsageScope}
-              onChange={(value) => { setFilterUsageScope(value); setPage(1); }}
+              label={filterPass || "전체수강권"}
+              active={Boolean(filterPass)}
+              options={passOptions}
+              value={filterPass}
+              onChange={(value) => { setFilterPass(value); setPage(1); }}
             />
             <ListDropdown
               label={filterGrade ? formatUserGradeLabel(filterGrade) : "회원등급 전체"}
@@ -1083,12 +1296,12 @@ function resetFilters() {
               value={filterGrade}
               onChange={(value) => { setFilterGrade(value); setPage(1); }}
             />
-            <ListDropdown
-              label={filterPass || "전체수강권"}
-              active={Boolean(filterPass)}
-              options={passOptions}
-              value={filterPass}
-              onChange={(value) => { setFilterPass(value); setPage(1); }}
+            <NumericDropdown
+              label="미방문일수"
+              unit="일"
+              mode="이상"
+              value={filterNoVisit}
+              onChange={(value) => { setFilterNoVisit(value); setPage(1); }}
             />
             <NumericDropdown
               label="잔여기간"
@@ -1103,13 +1316,6 @@ function resetFilters() {
               mode="이하"
               value={filterCountLeft}
               onChange={(value) => { setFilterCountLeft(value); setPage(1); }}
-            />
-            <NumericDropdown
-              label="미방문일수"
-              unit="일"
-              mode="이상"
-              value={filterNoVisit}
-              onChange={(value) => { setFilterNoVisit(value); setPage(1); }}
             />
             <button type="button" className="admin-memberlist-reset-btn" onClick={resetFilters} title="필터 초기화">↻</button>
             <button
@@ -1150,27 +1356,8 @@ function resetFilters() {
         {memberSettingsOpen ? (
           <div className="admin-member-settings-panel">
             <strong>회원 목록 설정</strong>
-            <button
-              type="button"
-              onClick={() => {
-                setFilterUsageScope("studioManaged");
-                setMemberSettingsOpen(false);
-                setPage(1);
-              }}
-            >
-              스튜디오 관리 대상만 보기
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFilterUsageScope("");
-                setMemberSettingsOpen(false);
-                setPage(1);
-              }}
-            >
-              통합 회원 전체 보기
-            </button>
-            <button type="button" onClick={handleDownloadCsv}>현재 목록 내려받기</button>
+            <p>현재 화면은 스튜디오 수강권, 출석, 미수금, 회원상태가 있는 필라테스 회원만 표시합니다.</p>
+            <button type="button" onClick={handleDownloadXlsx}>현재 목록 내려받기</button>
           </div>
         ) : null}
 
@@ -1191,7 +1378,7 @@ function resetFilters() {
                 <tr><td colSpan={MEMBER_COLUMNS.length + 1} className="admin-classlist-empty">불러오는 중입니다.</td></tr>
               ) : pageRows.length === 0 ? (
                 <tr><td colSpan={MEMBER_COLUMNS.length + 1} className="admin-classlist-empty">해당 조건의 회원이 없습니다.</td></tr>
-              ) : pageRows.map(({ member, pass, rowId }) => (
+              ) : pageRows.map(({ member, rowId }) => (
                 <tr
                   key={rowId}
                   className={`${selectedIds.has(member.id) ? "selected" : ""}${Number(member.totalArrears || 0) > 0 ? " has-arrears" : ""}`}
@@ -1202,13 +1389,21 @@ function resetFilters() {
                   </td>
                   <td>
                     <div className="admin-member-name-cell">
+                      <span className="admin-member-avatar" aria-hidden="true">
+                        <svg viewBox="0 0 40 40" role="img">
+                          <circle cx="20" cy="20" r="20" fill="#d7dee7" />
+                          <circle cx="20" cy="15" r="6" fill="#9eacba" />
+                          <path d="M8 34c2.6-7 6.8-10.5 12-10.5S29.4 27 32 34" fill="#9eacba" />
+                        </svg>
+                      </span>
                       <div>
                         <strong>{member.name || "-"}</strong>
                         <div className="admin-member-compact-badges">
-                          {["studio", "both"].includes(getUsageScope(member)) ? (
-                            <span className={`admin-member-scope-badge ${getUsageScope(member)}`}>
-                              {getUsageScopeLabel(member)}
-                            </span>
+                          <span className={`admin-member-scope-badge ${getUsageScope(member)}`}>
+                            {getUsageScopeLabel(member) || "필라테스회원"}
+                          </span>
+                          {member.studioMemberStatus === "expired" ? (
+                            <span className="admin-member-scope-badge expired">만료 회원</span>
                           ) : null}
                           <span className="admin-member-grade-badge">{formatUserGradeLabel(member.userGrade)}</span>
                         </div>
@@ -1220,15 +1415,28 @@ function resetFilters() {
                   </td>
                   <td>{member.phone || "-"}</td>
                   <td>{formatDate(member.studioRegisteredAt || member.createdAt)}</td>
-                  <td>{member.lastVisitAt ? formatDate(member.lastVisitAt) : "-"}</td>
+                  <td>{formatDate(member.lastVisitAt)}</td>
                   <td>
                     <div className="admin-member-pass-summary">
                       <strong>{getPassSummary(member)}</strong>
-                      <span>{pass ? getPassStatusLabel(pass) : "수강권 없음"}</span>
+                      {getPrimaryPass(member) ? (
+                        <span>{getStudioBranchName(getPrimaryPass(member)?.branchId)} · {getPassStatusLabel(getPrimaryPass(member))}</span>
+                      ) : (
+                        <span>수강권 없음</span>
+                      )}
                     </div>
                   </td>
                   <td>{getProductSummary(member)}</td>
-                  <td>{member.appConnectionStatus === "connected" ? "연결" : "미연결"}</td>
+                  <td onClick={(event) => event.stopPropagation()}>
+                    <button
+                      type="button"
+                      className={`admin-member-app-link ${member.appConnectionStatus === "connected" ? "connected" : ""}`}
+                      onClick={() => handleChangeAppConnection(member, member.appConnectionStatus === "connected" ? "not_connected" : "connected")}
+                      title={member.appConnectionStatus === "connected" ? "앱 연결 해제" : "앱 연결 처리"}
+                    >
+                      {member.appConnectionStatus === "connected" ? "연결" : "미연결"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1449,7 +1657,7 @@ function resetFilters() {
                   detailPasses.filter((pass) => showPreviousPasses ? !isCurrentPass(pass) : isCurrentPass(pass)).map((pass) => (
                     <article key={pass.id} className="admin-member-detail-pass-card">
                       <strong>{pass.passName || "수강권"}</strong>
-                      <span>{getPassStatusLabel(pass)}</span>
+                      <span>{getStudioBranchName(pass.branchId)} · {getPassStatusLabel(pass)}</span>
                       <p>잔여 {formatCount(pass.remainingCount)}회 / 전체 {formatCount(pass.totalCount)}회</p>
                       <p>만료 {pass.expiresAt ? formatDate(pass.expiresAt) : "만료일 없음"}</p>
                       {pass.payment ? (
@@ -1476,6 +1684,15 @@ function resetFilters() {
               </div>
               {showCreatePassForm ? (
                 <div className="admin-member-pass-create-form">
+                  <select
+                    value={passDraft.branchId || DEFAULT_STUDIO_BRANCH_ID}
+                    onChange={(event) => setPassDraft((previous) => ({ ...previous, branchId: event.target.value }))}
+                    aria-label="수강권 지점"
+                  >
+                    {STUDIO_BRANCHES.map((branch) => (
+                      <option key={branch.id} value={branch.id}>{branch.name}</option>
+                    ))}
+                  </select>
                   <input
                     type="text"
                     placeholder="수강권명"
@@ -1627,23 +1844,15 @@ function resetFilters() {
               <div className="admin-member-detail-section-head">
                 <div>
                   <h3>사용중인 상품</h3>
-                  <p>상품을 클릭하시면 상품의 이용내역을 확인하실 수 있습니다.</p>
+                  <p>스튜디오에서 별도 판매한 상품 이용내역을 확인합니다.</p>
                 </div>
                 <button type="button" onClick={() => setDetailTab("payments")}>이전 상품 보기</button>
               </div>
               <div className="admin-member-detail-card-row">
-                {Number(detailMember.orderCount || 0) > 0 ? (
-                  <article className="admin-member-detail-pass-card">
-                    <strong>교육 상품</strong>
-                    <span>{getProductSummary(detailMember)}</span>
-                    <p>이끌림 교육 사이트 구매 이력</p>
-                  </article>
-                ) : (
-                  <button type="button" className="admin-member-detail-create-card" onClick={() => navigate("/admin/products")}>
-                    <span>＋</span>
-                    <small>새로운 상품 만들기</small>
-                  </button>
-                )}
+                <button type="button" className="admin-member-detail-create-card" onClick={() => navigate("/admin/passes")}>
+                  <span>＋</span>
+                  <small>새로운 상품 만들기</small>
+                </button>
               </div>
             </div>
             </>
@@ -1692,12 +1901,6 @@ function resetFilters() {
                   ) : (
                     <p className="admin-member-detail-empty">수강권 결제 내역이 없습니다.</p>
                   )}
-                  {Number(detailMember.orderCount || 0) > 0 ? (
-                    <article>
-                      <small>교육상품</small>
-                      <p>{getProductSummary(detailMember)} · 상세 구매 내역은 교육 매출/회원 대시보드에서 확인합니다.</p>
-                    </article>
-                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -1741,66 +1944,769 @@ function resetFilters() {
 
         <div className="admin-classlist-pagination" style={{ marginTop: 20 }}>
           <button type="button" disabled={safePage <= 1} onClick={() => setPage((value) => value - 1)}>‹</button>
-          {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-            <button key={pageNumber} type="button" className={pageNumber === safePage ? "active" : ""} onClick={() => setPage(pageNumber)}>
-              {pageNumber}
-            </button>
-          ))}
+          {paginationItems.map((item) =>
+            typeof item === "number" ? (
+              <button key={item} type="button" className={item === safePage ? "active" : ""} onClick={() => setPage(item)}>
+                {item}
+              </button>
+            ) : (
+              <span key={item} className="admin-classlist-pagination-ellipsis">…</span>
+            )
+          )}
           <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((value) => value + 1)}>›</button>
           <span className="admin-classlist-perpage">{PAGE_SIZE}/page</span>
         </div>
+        </>
+        ) : null}
+
+        {activeMemberTab === "consulting" ? (
+          <div className="admin-consulting-panel">
+            <div className="admin-consulting-form-card">
+              <h3 className="admin-consulting-form-title">상담 등록</h3>
+              <div className="admin-consulting-form-grid">
+                <label className="admin-consulting-label">
+                  <span>상담유형</span>
+                  <select
+                    value={consultDraft.type}
+                    onChange={(e) => setConsultDraft((p) => ({ ...p, type: e.target.value }))}
+                  >
+                    <option value="전화상담">전화상담</option>
+                    <option value="방문상담">방문상담</option>
+                    <option value="온라인상담">온라인상담</option>
+                    <option value="문자상담">문자상담</option>
+                  </select>
+                </label>
+                <label className="admin-consulting-label">
+                  <span>담당스태프</span>
+                  <input
+                    type="text"
+                    value={consultDraft.staff}
+                    onChange={(e) => setConsultDraft((p) => ({ ...p, staff: e.target.value }))}
+                  />
+                </label>
+                <label className="admin-consulting-label">
+                  <span>상담일자</span>
+                  <input
+                    type="date"
+                    value={consultDraft.date}
+                    onChange={(e) => setConsultDraft((p) => ({ ...p, date: e.target.value }))}
+                  />
+                </label>
+                <div className="admin-consulting-time-row">
+                  <label className="admin-consulting-label">
+                    <span>시작시간</span>
+                    <input
+                      type="time"
+                      value={consultDraft.startTime}
+                      onChange={(e) => setConsultDraft((p) => ({ ...p, startTime: e.target.value }))}
+                    />
+                  </label>
+                  <span className="admin-consulting-time-sep">~</span>
+                  <label className="admin-consulting-label">
+                    <span>종료시간</span>
+                    <input
+                      type="time"
+                      value={consultDraft.endTime}
+                      onChange={(e) => setConsultDraft((p) => ({ ...p, endTime: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <label className="admin-consulting-label">
+                  <span>이름</span>
+                  <input
+                    type="text"
+                    placeholder="고객 이름"
+                    value={consultDraft.name}
+                    onChange={(e) => setConsultDraft((p) => ({ ...p, name: e.target.value }))}
+                  />
+                </label>
+                <label className="admin-consulting-label">
+                  <span>휴대폰번호</span>
+                  <input
+                    type="tel"
+                    placeholder="010-0000-0000"
+                    value={consultDraft.phone}
+                    onChange={(e) => setConsultDraft((p) => ({ ...p, phone: e.target.value }))}
+                  />
+                </label>
+                <label className="admin-consulting-label wide">
+                  <span>상담내용</span>
+                  <textarea
+                    rows={3}
+                    placeholder="상담 내용을 입력하세요"
+                    value={consultDraft.memo}
+                    onChange={(e) => setConsultDraft((p) => ({ ...p, memo: e.target.value }))}
+                  />
+                </label>
+              </div>
+              <div className="admin-consulting-form-actions">
+                <button
+                  type="button"
+                  className="admin-consulting-save-btn"
+                  disabled={consultLoading}
+                  onClick={handleSaveConsultation}
+                >
+                  저장
+                </button>
+                <button
+                  type="button"
+                  className="admin-consulting-cancel-btn"
+                  onClick={() => setConsultDraft({ type: "전화상담", staff: currentUserName, date: toDateInputValue(), startTime: "15:10", endTime: "15:40", name: "", phone: "", memo: "" })}
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+
+            <div className="admin-consulting-filterbar">
+              <select
+                value={consultTypeFilter}
+                onChange={(e) => setConsultTypeFilter(e.target.value)}
+              >
+                <option value="">유형 전체</option>
+                <option value="전화상담">전화상담</option>
+                <option value="방문상담">방문상담</option>
+                <option value="온라인상담">온라인상담</option>
+                <option value="문자상담">문자상담</option>
+              </select>
+              <input
+                type="text"
+                placeholder="담당스태프"
+                value={consultStaffFilter}
+                onChange={(e) => setConsultStaffFilter(e.target.value)}
+              />
+              <button type="button" className="admin-consulting-refresh-btn" onClick={loadConsultations} title="새로고침">↻</button>
+              <input
+                type="search"
+                className="admin-consulting-search"
+                placeholder="이름/전화번호/내용 검색"
+                value={consultSearch}
+                onChange={(e) => setConsultSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="admin-consulting-table-wrap">
+              <table className="admin-consulting-table">
+                <thead>
+                  <tr>
+                    <th>이름</th>
+                    <th>상담일자</th>
+                    <th>상담내용</th>
+                    <th>담당스태프</th>
+                    <th>관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {consultLoading ? (
+                    <tr><td colSpan={5} className="admin-classlist-empty">불러오는 중입니다.</td></tr>
+                  ) : consultations.length === 0 ? (
+                    <tr><td colSpan={5} className="admin-classlist-empty">등록된 상담 내역이 없습니다.</td></tr>
+                  ) : consultations.map((c) => (
+                    <tr key={c.id}>
+                      <td>
+                        <strong>{c.customerName || "-"}</strong>
+                        {c.customerPhone ? <small>{c.customerPhone}</small> : null}
+                      </td>
+                      <td>
+                        <div>{formatDate(c.consultDate)}</div>
+                        {c.startTime ? <small>{c.startTime}{c.endTime ? ` ~ ${c.endTime}` : ""}</small> : null}
+                      </td>
+                      <td>
+                        <span className={`admin-consult-type-badge type-${String(c.type || "").replace(/\s/g, "")}`}>{c.type || "-"}</span>
+                        {c.memo ? <span className="admin-consult-memo-text">{c.memo}</span> : null}
+                      </td>
+                      <td>{c.staffName || "-"}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="admin-consulting-del-btn"
+                          onClick={() => handleDeleteConsultation(c.id)}
+                        >
+                          삭제
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+
+        {activeMemberTab === "passHistory" ? (
+          <div className="admin-passhistory-panel">
+            <div className="admin-passhistory-filterbar">
+              <button
+                type="button"
+                className="admin-passhistory-nav-btn"
+                onClick={() => {
+                  const d = new Date(passHistoryDate);
+                  d.setDate(d.getDate() - 1);
+                  setPassHistoryDate(toDateInputValue(d));
+                }}
+              >‹</button>
+              <input
+                type="date"
+                className="admin-passhistory-date-input"
+                value={passHistoryDate}
+                onChange={(e) => setPassHistoryDate(e.target.value)}
+              />
+              <button
+                type="button"
+                className="admin-passhistory-nav-btn"
+                onClick={() => {
+                  const d = new Date(passHistoryDate);
+                  d.setDate(d.getDate() + 1);
+                  setPassHistoryDate(toDateInputValue(d));
+                }}
+              >›</button>
+              <button
+                type="button"
+                className="admin-passhistory-today-btn"
+                onClick={() => setPassHistoryDate(toDateInputValue())}
+              >오늘</button>
+              <input
+                type="text"
+                className="admin-passhistory-staff-input"
+                placeholder="변경 사유"
+                value={passHistoryStaff}
+                onChange={(e) => setPassHistoryStaff(e.target.value)}
+              />
+              <button type="button" className="admin-consulting-refresh-btn" onClick={loadPassHistory} title="새로고침">↻</button>
+              <input
+                type="search"
+                className="admin-passhistory-search"
+                placeholder="회원명/수강권명 검색"
+                value={passHistorySearch}
+                onChange={(e) => setPassHistorySearch(e.target.value)}
+              />
+            </div>
+
+            <div className="admin-passhistory-table-wrap">
+              <table className="admin-passhistory-table">
+                <thead>
+                  <tr>
+                    <th>변경일시</th>
+                    <th>변경한 사람</th>
+                    <th>회원명</th>
+                    <th>수강권명</th>
+                    <th>종류</th>
+                    <th>변경 전·후 내용</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {passHistoryLoading ? (
+                    <tr><td colSpan={6} className="admin-classlist-empty">불러오는 중입니다.</td></tr>
+                  ) : passTransactions.filter((tx) => {
+                    const staffQ = passHistoryStaff.toLowerCase();
+                    const searchQ = passHistorySearch.toLowerCase();
+                    if (staffQ && !String(tx.reason || tx.classTitle || "").toLowerCase().includes(staffQ)) return false;
+                    if (
+                      searchQ &&
+                      !String(tx.userName || "").toLowerCase().includes(searchQ) &&
+                      !String(tx.passName || "").toLowerCase().includes(searchQ) &&
+                      !String(tx.reason || "").toLowerCase().includes(searchQ)
+                    ) return false;
+                    return true;
+                  }).length === 0 ? (
+                    <tr><td colSpan={6} className="admin-classlist-empty">해당 날짜의 변경 이력이 없습니다.</td></tr>
+                  ) : passTransactions.filter((tx) => {
+                    const staffQ = passHistoryStaff.toLowerCase();
+                    const searchQ = passHistorySearch.toLowerCase();
+                    if (staffQ && !String(tx.reason || tx.classTitle || "").toLowerCase().includes(staffQ)) return false;
+                    if (
+                      searchQ &&
+                      !String(tx.userName || "").toLowerCase().includes(searchQ) &&
+                      !String(tx.passName || "").toLowerCase().includes(searchQ) &&
+                      !String(tx.reason || "").toLowerCase().includes(searchQ)
+                    ) return false;
+                    return true;
+                  }).map((tx) => (
+                    <tr key={tx.id}>
+                      <td>{formatDateTime(tx.createdAt)}</td>
+                      <td>관리자</td>
+                      <td>{tx.userName || "-"}</td>
+                      <td>{tx.passName || "-"}</td>
+                      <td><span className="admin-passkind-badge">{getPassTransactionTypeLabel(tx)}</span></td>
+                      <td>
+                        <strong>{tx.reason || tx.classTitle || "수강권 변경"}</strong>
+                        <small>변동 {Number(tx.deltaCount || 0).toLocaleString()}회</small>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+
+        {activeMemberTab === "contracts" ? (
+          <div className="admin-coming-soon-panel">
+            <div className="admin-coming-soon-inner">
+              <div className="admin-coming-soon-icon">📋</div>
+              <h3>전자계약서</h3>
+              <p>준비중입니다.</p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      <button className="admin-memberlist-floating-add" type="button" onClick={() => navigate("/admin/members")} title="회원 상세 관리">
+      <button className="admin-memberlist-floating-add" type="button" onClick={() => setShowCreateMember(true)} title="회원 등록">
         +
       </button>
 
-      {notificationDraft.open ? (
-        <div className="admin-member-modal-backdrop" role="presentation">
-          <form className="admin-member-notification-modal" onSubmit={submitManualNotification}>
-            <div>
-              <strong>회원 알림 기록</strong>
-              <p>
-                대상 {notificationDraft.targetMembers.length}명 · 문자 API 발송은 보류 상태라 현재는 알림 기록만 저장합니다.
-              </p>
+      {showCreateMember ? (
+        <div className="admin-create-member-overlay">
+          <div className="admin-create-member-body">
+            <div className="admin-create-member-hero">
+              <div className="admin-create-member-hero-left">
+                <input
+                  className="admin-create-member-name-input"
+                  type="text"
+                  placeholder="이름을 입력해주세요"
+                  value={createMemberDraft.name}
+                  onChange={(e) => setCreateMemberDraft((p) => ({ ...p, name: e.target.value }))}
+                  autoFocus
+                />
+                <div className="admin-create-member-fields">
+                  <div className="admin-create-member-field">
+                    <span>등록일</span>
+                    <input
+                      type="date"
+                      value={createMemberDraft.registeredAt}
+                      onChange={(e) => setCreateMemberDraft((p) => ({ ...p, registeredAt: e.target.value }))}
+                    />
+                  </div>
+                  <div className="admin-create-member-field">
+                    <span>회원등급</span>
+                    <select
+                      value={createMemberDraft.userGrade}
+                      onChange={(e) => setCreateMemberDraft((p) => ({ ...p, userGrade: e.target.value }))}
+                    >
+                      <option value="member">일반회원</option>
+                      <option value="vip">VIP</option>
+                      <option value="vvip">VVIP</option>
+                    </select>
+                  </div>
+                  <div className="admin-create-member-field">
+                    <span>휴대폰번호</span>
+                    <input
+                      type="tel"
+                      placeholder="휴대폰 번호"
+                      value={createMemberDraft.phone}
+                      onChange={(e) => setCreateMemberDraft((p) => ({ ...p, phone: e.target.value }))}
+                    />
+                  </div>
+                  <div className="admin-create-member-field">
+                    <span>성별</span>
+                    <select
+                      value={createMemberDraft.gender}
+                      onChange={(e) => setCreateMemberDraft((p) => ({ ...p, gender: e.target.value }))}
+                    >
+                      <option value="">선택안함</option>
+                      <option value="여성">여성</option>
+                      <option value="남성">남성</option>
+                    </select>
+                  </div>
+                  <div className="admin-create-member-field">
+                    <span>생년월일</span>
+                    <input
+                      type="date"
+                      placeholder="생년월일 (YYYY-MM-DD)"
+                      value={createMemberDraft.birthDate}
+                      onChange={(e) => setCreateMemberDraft((p) => ({ ...p, birthDate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="admin-create-member-field">
+                    <span>담당강사</span>
+                    <input
+                      type="text"
+                      placeholder="담당강사"
+                      value={createMemberDraft.primaryInstructor}
+                      onChange={(e) => setCreateMemberDraft((p) => ({ ...p, primaryInstructor: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="admin-create-member-avatar-col">
+                <div className="admin-create-member-avatar">
+                  <svg viewBox="0 0 80 80" aria-hidden="true">
+                    <circle cx="40" cy="40" r="40" fill="#d7dee7" />
+                    <circle cx="40" cy="30" r="14" fill="#9eacba" />
+                    <path d="M14 72c5-15 13-20 26-20s21 5 26 20" fill="#9eacba" />
+                  </svg>
+                </div>
+              </div>
             </div>
-            <label>
-              <span>제목</span>
-              <input
-                type="text"
-                value={notificationDraft.title}
-                onChange={(event) => setNotificationDraft((previous) => ({ ...previous, title: event.target.value }))}
-              />
-            </label>
-            <label>
-              <span>내용</span>
+
+            <div className="admin-create-member-section">
+              <h3>01. 사용중인 수강권</h3>
+              <p className="admin-create-member-section-desc">수강권을 등록해 주세요.</p>
+              <div className="admin-create-member-card-row">
+                {newMemberPassConfig ? (
+                  <div
+                    className="admin-create-member-selected-pass"
+                    style={{ background: newMemberPassConfig.product.color || "#4aa3ff" }}
+                  >
+                    <div className="admin-create-member-selected-pass-tags">
+                      {getPassTypeLabel(newMemberPassConfig.product.passType)}
+                    </div>
+                    <div className="admin-create-member-selected-pass-name">
+                      {newMemberPassConfig.product.name}
+                    </div>
+                    <div className="admin-create-member-selected-pass-meta">
+                      잔여 {newMemberPassConfig.draft.remainingCount}회 · 만료 {newMemberPassConfig.draft.expiresAt || "-"}
+                    </div>
+                    <button
+                      type="button"
+                      className="admin-create-member-selected-remove-btn"
+                      onClick={() => setNewMemberPassConfig(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="admin-create-member-plus-card"
+                    onClick={openPassModal}
+                  >
+                    <span>＋</span>
+                    <small>새로운 수강권 만들기</small>
+                  </button>
+                )}
+              </div>
+              {!newMemberPassConfig && (
+                <p className="admin-create-member-hint">회원 등록 후 수강권 탭에서 추가할 수 있습니다.</p>
+              )}
+            </div>
+
+            <div className="admin-create-member-section">
+              <h3>02. 사용중인 상품</h3>
+              <p className="admin-create-member-section-desc">상품을 등록해 주세요.</p>
+              <div className="admin-create-member-card-row">
+                {newMemberGoodsConfig ? (
+                  <div className="admin-create-member-selected-goods">
+                    <div className="admin-create-member-selected-goods-name">
+                      {newMemberGoodsConfig.goods.name}
+                    </div>
+                    <div className="admin-create-member-selected-goods-meta">
+                      {newMemberGoodsConfig.goods.goodsType === "rental" ? "대여" : "판매"} · {Number(newMemberGoodsConfig.goods.price || 0).toLocaleString()}원
+                    </div>
+                    <button
+                      type="button"
+                      className="admin-create-member-selected-remove-btn admin-create-member-selected-remove-btn--goods"
+                      onClick={() => setNewMemberGoodsConfig(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="admin-create-member-plus-card"
+                    onClick={openGoodsModal}
+                  >
+                    <span>＋</span>
+                    <small>새로운 상품 만들기</small>
+                  </button>
+                )}
+              </div>
+              {!newMemberGoodsConfig && (
+                <p className="admin-create-member-hint">회원 등록 후 상품을 추가할 수 있습니다.</p>
+              )}
+            </div>
+
+            <div className="admin-create-member-section">
+              <div className="admin-create-member-section-head">
+                <h3>03. 메모</h3>
+              </div>
               <textarea
-                rows={6}
-                value={notificationDraft.message}
-                placeholder="회원에게 남길 안내 내용을 입력해 주세요."
-                onChange={(event) => setNotificationDraft((previous) => ({ ...previous, message: event.target.value }))}
+                className="admin-create-member-memo-input"
+                rows={3}
+                placeholder="특이사항 메모"
+                value={createMemberDraft.memo}
+                onChange={(e) => setCreateMemberDraft((p) => ({ ...p, memo: e.target.value }))}
               />
-            </label>
-            <div className="admin-member-notification-targets">
-              {notificationDraft.targetMembers.slice(0, 8).map((member) => (
-                <span key={member.id}>{member.name || member.phone || member.id}</span>
-              ))}
-              {notificationDraft.targetMembers.length > 8 ? <span>+{notificationDraft.targetMembers.length - 8}</span> : null}
             </div>
-            <div className="admin-member-notification-actions">
-              <button
-                type="button"
-                onClick={() => setNotificationDraft({ open: false, title: "이끌림 필라테스 안내", message: "", targetMembers: [] })}
-              >
-                취소
-              </button>
-              <button type="submit" className="primary" disabled={sendingNotification}>
-                {sendingNotification ? "저장 중" : "알림 저장"}
-              </button>
-            </div>
-          </form>
+          </div>
+
+          <div className="admin-create-member-footer">
+            <button
+              type="button"
+              className="admin-create-member-back-btn"
+              onClick={() => setShowCreateMember(false)}
+            >
+              ‹ 뒤로가기
+            </button>
+            <button
+              type="button"
+              className="admin-create-member-submit-btn"
+              disabled={creatingMember}
+              onClick={handleCreateMemberSubmit}
+            >
+              {creatingMember ? "등록 중…" : "회원 등록 완료"}
+            </button>
+          </div>
         </div>
       ) : null}
-    </div>
+
+      {showPassModal ? (
+        <div className="reg-modal-overlay" onClick={() => setShowPassModal(false)}>
+          <div className="reg-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="reg-modal-header">
+              <span className="reg-modal-title">수강권 등록</span>
+              <div className="reg-modal-steps">
+                <span className={`reg-modal-step${passModalStep >= 1 ? " active" : ""}`}>1</span>
+                <span className="reg-modal-step-line" />
+                <span className={`reg-modal-step${passModalStep >= 2 ? " active" : ""}`}>2</span>
+                <span className="reg-modal-step-line" />
+                <span className={`reg-modal-step${passModalStep >= 3 ? " active" : ""}`}>3</span>
+              </div>
+              <button type="button" className="reg-modal-close" onClick={() => setShowPassModal(false)}>×</button>
+            </div>
+
+            {passModalStep === 1 && (
+              <div className="reg-modal-body">
+                <p className="reg-modal-subtitle">수강권을 선택해주세요</p>
+                <div className="reg-modal-search-wrap">
+                  <input
+                    type="search"
+                    placeholder="수강권명 검색"
+                    value={passSearch}
+                    onChange={(e) => setPassSearch(e.target.value)}
+                  />
+                </div>
+                <div className="reg-modal-tabs">
+                  {[
+                    { v: "", l: "전체" },
+                    { v: "personal", l: "프라이빗" },
+                    { v: "group", l: "그룹" },
+                    { v: "duet", l: "듀엣" },
+                    { v: "featured", l: "즐겨찾기" },
+                  ].map((t) => (
+                    <button
+                      key={t.v}
+                      type="button"
+                      className={passTabFilter === t.v ? "active" : ""}
+                      onClick={() => setPassTabFilter(t.v)}
+                    >
+                      {t.l}
+                    </button>
+                  ))}
+                </div>
+                <div className="reg-modal-grid">
+                  {passProductsLoading ? (
+                    <p className="reg-modal-empty">불러오는 중...</p>
+                  ) : passProducts
+                      .filter((p) => {
+                        if (passTabFilter === "personal") return p.passType === "personal";
+                        if (passTabFilter === "group") return p.passType === "group";
+                        if (passTabFilter === "duet") return p.passType === "duet";
+                        if (passTabFilter === "featured") return p.isFeatured;
+                        return true;
+                      })
+                      .filter((p) => !passSearch || String(p.name || "").toLowerCase().includes(passSearch.toLowerCase()))
+                      .length === 0 ? (
+                    <p className="reg-modal-empty">등록된 수강권이 없습니다.</p>
+                  ) : (
+                    passProducts
+                      .filter((p) => {
+                        if (passTabFilter === "personal") return p.passType === "personal";
+                        if (passTabFilter === "group") return p.passType === "group";
+                        if (passTabFilter === "duet") return p.passType === "duet";
+                        if (passTabFilter === "featured") return p.isFeatured;
+                        return true;
+                      })
+                      .filter((p) => !passSearch || String(p.name || "").toLowerCase().includes(passSearch.toLowerCase()))
+                      .map((p) => (
+                        <div key={p.id} className="reg-pass-card" onClick={() => handleSelectPassProduct(p)}>
+                          <div className="reg-pass-card-top" style={{ background: p.color || "#4aa3ff" }}>
+                            <div className="reg-pass-card-tags">
+                              {p.totalCount > 0 ? "횟수제" : "기간제"} · {getPassTypeLabel(p.passType)}
+                            </div>
+                            <div className="reg-pass-card-name">{p.name}</div>
+                            <div className="reg-pass-card-meta">
+                              {p.validDays ? `${p.validDays}일` : ""}{p.totalCount ? ` · ${p.totalCount}회` : ""}
+                            </div>
+                          </div>
+                          <div className="reg-pass-card-bottom">
+                            <span>판매 금액 {Number(p.price || 0).toLocaleString()}원</span>
+                            {p.totalCount > 0 && (
+                              <small>회당 {Math.round((p.price || 0) / p.totalCount).toLocaleString()}원</small>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {passModalStep === 2 && selectedPassProduct && (
+              <div className="reg-modal-body">
+                <p className="reg-modal-subtitle">수강권 정보를 입력해주세요</p>
+                <div className="reg-modal-selected-info">
+                  <span
+                    className="reg-modal-selected-badge"
+                    style={{ background: selectedPassProduct.color || "#4aa3ff" }}
+                  >
+                    {selectedPassProduct.name}
+                  </span>
+                </div>
+                <div className="reg-modal-form">
+                  <label>
+                    <span>시작일</span>
+                    <input
+                      type="date"
+                      value={newMemberPassDraft.startDate}
+                      onChange={(e) => setNewMemberPassDraft((p) => ({ ...p, startDate: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <span>만료일</span>
+                    <input
+                      type="date"
+                      value={newMemberPassDraft.expiresAt}
+                      onChange={(e) => setNewMemberPassDraft((p) => ({ ...p, expiresAt: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <span>잔여횟수</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newMemberPassDraft.remainingCount}
+                      onChange={(e) => setNewMemberPassDraft((p) => ({ ...p, remainingCount: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <span>결제금액</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newMemberPassDraft.amount}
+                      onChange={(e) => setNewMemberPassDraft((p) => ({ ...p, amount: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <span>결제방법</span>
+                    <select
+                      value={newMemberPassDraft.paymentMethod}
+                      onChange={(e) => setNewMemberPassDraft((p) => ({ ...p, paymentMethod: e.target.value }))}
+                    >
+                      <option value="card">카드</option>
+                      <option value="cash">현금</option>
+                      <option value="transfer">계좌이체</option>
+                      <option value="etc">기타</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>메모</span>
+                    <input
+                      type="text"
+                      placeholder="할부/메모"
+                      value={newMemberPassDraft.paymentNote}
+                      onChange={(e) => setNewMemberPassDraft((p) => ({ ...p, paymentNote: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <div className="reg-modal-actions">
+                  <button type="button" onClick={() => setPassModalStep(1)}>이전</button>
+                  <button type="button" className="primary" onClick={handleConfirmPass}>수강권 추가</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {showGoodsModal ? (
+        <div className="reg-modal-overlay" onClick={() => setShowGoodsModal(false)}>
+          <div className="reg-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="reg-modal-header">
+              <span className="reg-modal-title">상품 등록</span>
+              <div className="reg-modal-steps">
+                <span className="reg-modal-step active">1</span>
+                <span className="reg-modal-step-line" />
+                <span className="reg-modal-step">2</span>
+                <span className="reg-modal-step-line" />
+                <span className="reg-modal-step">3</span>
+              </div>
+              <button type="button" className="reg-modal-close" onClick={() => setShowGoodsModal(false)}>×</button>
+            </div>
+            <div className="reg-modal-body">
+              <p className="reg-modal-subtitle">상품을 선택해주세요</p>
+              <div className="reg-modal-search-wrap">
+                <input
+                  type="search"
+                  placeholder="상품명 검색"
+                  value={goodsSearch}
+                  onChange={(e) => setGoodsSearch(e.target.value)}
+                />
+              </div>
+              <div className="reg-modal-tabs">
+                {[
+                  { v: "", l: "전체" },
+                  { v: "sale", l: "판매" },
+                  { v: "rental", l: "대여" },
+                  { v: "featured", l: "즐겨찾기" },
+                ].map((t) => (
+                  <button
+                    key={t.v}
+                    type="button"
+                    className={goodsTabFilter === t.v ? "active" : ""}
+                    onClick={() => setGoodsTabFilter(t.v)}
+                  >
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+              <div className="reg-modal-grid">
+                {goodsLoading ? (
+                  <p className="reg-modal-empty">불러오는 중...</p>
+                ) : goodsList
+                    .filter((g) => {
+                      if (goodsTabFilter === "sale") return g.goodsType === "sale";
+                      if (goodsTabFilter === "rental") return g.goodsType === "rental";
+                      if (goodsTabFilter === "featured") return g.isFeatured;
+                      return true;
+                    })
+                    .filter((g) => !goodsSearch || String(g.name || "").toLowerCase().includes(goodsSearch.toLowerCase()))
+                    .length === 0 ? (
+                  <p className="reg-modal-empty">등록된 상품이 없습니다.</p>
+                ) : (
+                  goodsList
+                    .filter((g) => {
+                      if (goodsTabFilter === "sale") return g.goodsType === "sale";
+                      if (goodsTabFilter === "rental") return g.goodsType === "rental";
+                      if (goodsTabFilter === "featured") return g.isFeatured;
+                      return true;
+                    })
+                    .filter((g) => !goodsSearch || String(g.name || "").toLowerCase().includes(goodsSearch.toLowerCase()))
+                    .map((g) => (
+                      <div key={g.id} className="reg-pass-card" onClick={() => handleSelectGoods(g)}>
+                        <div className="reg-pass-card-top" style={{ background: g.color || "#7c5cbf" }}>
+                          <div className="reg-pass-card-tags">
+                            {g.goodsType === "rental" ? "대여" : "판매"}
+                          </div>
+                          <div className="reg-pass-card-name">{g.name}</div>
+                          <div className="reg-pass-card-meta">&nbsp;</div>
+                        </div>
+                        <div className="reg-pass-card-bottom">
+                          <span>가격 {Number(g.price || 0).toLocaleString()}원</span>
+                          {g.points > 0 && <small>포인트 {Number(g.points).toLocaleString()}P</small>}
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <SmsSendModal open={smsOpen} onClose={() => setSmsOpen(false)} receivers={smsReceivers} />
+    </AdminLayout>
   );
 }

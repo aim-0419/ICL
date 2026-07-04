@@ -2,12 +2,8 @@
 import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../../../shared/db/mysql.js";
 import { decryptUserRow, emailHash } from "../../../shared/security/pii.js";
-
-function parsePayload(raw) {
-  if (!raw) return {};
-  if (typeof raw === "object") return raw;
-  try { return JSON.parse(raw); } catch { return {}; }
-}
+import { stripHtmlTags } from "../../../shared/security/html.js";
+import { parsePayload } from "../../../shared/utils/payload.js";
 
 function extractProductIds(source) {
   const ids = new Set();
@@ -82,7 +78,7 @@ export async function listAcademyReviews(videoId) {
 export async function createAcademyReview(userId, userName, videoId, rating, content, isAdmin = false) {
   const id = randomUUID();
   const safeRating = Math.max(1, Math.min(5, Math.round(Number(rating) || 5)));
-  const safeContent = String(content || "").trim().slice(0, 1000);
+  const safeContent = stripHtmlTags(content).slice(0, 1000);
   if (!safeContent) throw new Error("리뷰 내용을 입력해 주세요.");
 
   if (!isAdmin) {

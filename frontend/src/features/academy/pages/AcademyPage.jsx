@@ -1,7 +1,7 @@
 ﻿// 파일 역할: 강의 목록과 관리자 강의 등록/수정 기능을 함께 제공하는 아카데미 페이지 컴포넌트입니다.
-import React, { useMemo, useRef, useState, useCallback } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { canRegisterLecture } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
@@ -19,6 +19,7 @@ import {
 const DEFAULT_CATEGORY_TABS = ["전체", "입문", "초급", "중급", "고급"];
 const LECTURE_CATEGORIES = ["입문", "초급", "중급", "고급"];
 const LECTURE_BADGES = ["", "New", "Hot"];
+const MAX_VIDEO_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024;
 
 // 함수 역할: 강의 등록 폼의 기본 입력값을 생성합니다.
 function createEmptyLectureForm() {
@@ -43,82 +44,64 @@ function toSafeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-// 함수 역할: 재생 시간 input to 초 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
-function parseDurationInputToSeconds(value) {
-  const text = String(value || "").trim();
-  if (!text) return { seconds: 0, error: "" };
+// 컴포넌트 역할: 교육영상 썸네일이 없거나 로딩 실패해도 카드가 깨져 보이지 않도록 대체 화면을 표시합니다.
+function AcademyVideoThumbnail({ video }) {
+  const [hasImageError, setHasImageError] = useState(false);
+  const title = video?.title || "교육 영상";
+  const imageSrc = resolveAcademyMediaUrl(video?.image);
+  const shouldShowImage = Boolean(imageSrc) && !hasImageError;
 
-  const normalized = text.replace(/\s+/g, "").replace(/：/g, ":");
-
-  // 하위 호환: 숫자만 입력하면 초 단위로 처리
-  if (/^\d+$/.test(normalized)) {
-    return {
-      seconds: Math.max(0, Math.round(Number(normalized))),
-      error: "",
-    };
-  }
-
-  // 권장 입력: 분:초 (예: 12:30)
-  const mmss = normalized.match(/^(\d+):(\d{1,2})$/);
-  if (mmss) {
-    const minutes = Number(mmss[1]);
-    const seconds = Number(mmss[2]);
-    if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || seconds >= 60) {
-      return { seconds: 0, error: "invalid" };
-    }
-    return { seconds: minutes * 60 + seconds, error: "" };
-  }
-
-  return { seconds: 0, error: "invalid" };
+  return (
+    <div className="academy-video-thumb">
+      {shouldShowImage ? (
+        <img
+          src={imageSrc}
+          alt={`${title} 썸네일`}
+          loading="lazy"
+          onError={() => setHasImageError(true)}
+        />
+      ) : (
+        <div className="academy-video-thumb-fallback" aria-label={`${title} 썸네일 없음`}>
+          <span>16:9</span>
+          <strong>{title}</strong>
+        </div>
+      )}
+    </div>
+  );
 }
 
-// 함수 역할: 강의 차시 입력 폼의 기본값을 생성합니다.
-function createEmptyChapter(index) {
+// 함수 역할: 교육 영상 1개 등록에 필요한 내부 영상 파일 상태를 생성합니다.
+function createEmptyVideoInput() {
   return {
-    key: `chapter-${Date.now()}-${index}`,
     id: "",
-    title: `${index + 1}차시`,
-    description: "",
-    durationSec: "",
-    isPreview: false,
+    durationSec: 0,
     existingVideoPath: "",
     file: null,
   };
 }
 
-// 함수 역할: 재생 시간 초 to input 값을 화면에 보여주기 좋은 문구로 변환합니다.
-function formatDurationSecondsToInput(secondsValue) {
+// 함수 역할: 재생 시간을 관리자 화면에 보여주기 좋은 문구로 변환합니다.
+function formatDurationSeconds(secondsValue) {
   const totalSec = Math.max(0, Math.round(Number(secondsValue) || 0));
+  if (!totalSec) return "--:--";
   const minutes = Math.floor(totalSec / 60);
   const seconds = totalSec % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
-// 함수 역할: 파일 name 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizeFileName(file) {
-  if (!(file instanceof File)) return "";
-  return String(file.name || "").trim();
-}
-
-// 함수 역할: extractMediaFileName 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
-function extractMediaFileName(pathValue) {
-  const source = String(pathValue || "").trim();
-  if (!source) return "";
-
-  const cleaned = source.split("#")[0].split("?")[0].replace(/\\/g, "/");
-  const segments = cleaned.split("/").filter(Boolean);
-  const baseName = segments.length ? segments[segments.length - 1] : cleaned;
-
-  try {
-    return decodeURIComponent(baseName);
-  } catch {
-    return baseName;
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+    return `${hours}시간 ${restMinutes}분 ${seconds}초`;
   }
+  return `${minutes}분 ${seconds}초`;
 }
 
-// 함수 역할: 기본값 차시 title 조건에 해당하는지 참/거짓으로 판별합니다.
-function isDefaultChapterTitle(value) {
-  return /^\d+\s*차시$/.test(String(value || "").trim());
+// 함수 역할: 업로드한 파일 크기를 사람이 읽기 좋은 단위로 변환합니다.
+function formatFileSize(bytes) {
+  const size = Number(bytes || 0);
+  if (!Number.isFinite(size) || size <= 0) return "--";
+  if (size < 1024) return `${size}B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)}KB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)}MB`;
+  return `${(size / 1024 / 1024 / 1024).toFixed(1)}GB`;
 }
 
 // 함수 역할: publish at to 폼 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
@@ -202,8 +185,13 @@ export function AcademyPage() {
   const [query, setQuery] = useState("");
 
   const [lectureForm, setLectureForm] = useState(createEmptyLectureForm());
-  const [chapterInputs, setChapterInputs] = useState([createEmptyChapter(0)]);
+  const [videoInput, setVideoInput] = useState(createEmptyVideoInput());
+  const [videoMeta, setVideoMeta] = useState({ durationSec: 0, fileSize: 0 });
+  const [isVideoDragActive, setIsVideoDragActive] = useState(false);
   const [imageFile, setImageFile] = useState(null);
+  const [autoThumbnailFile, setAutoThumbnailFile] = useState(null);
+  const [detailImageFile, setDetailImageFile] = useState(null);
+  const [detailText, setDetailText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState({ type: "", text: "" });
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
@@ -219,13 +207,15 @@ export function AcademyPage() {
     loading: false,
   });
 
-  const dragSrcIndexRef = useRef(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
-
   function resetLectureEditorState() {
     setLectureForm(createEmptyLectureForm());
-    setChapterInputs([createEmptyChapter(0)]);
+    setVideoInput(createEmptyVideoInput());
+    setVideoMeta({ durationSec: 0, fileSize: 0 });
+    setIsVideoDragActive(false);
     setImageFile(null);
+    setAutoThumbnailFile(null);
+    setDetailImageFile(null);
+    setDetailText("");
     setEditingVideoId("");
     setInstructorLookup({
       checked: false,
@@ -233,53 +223,6 @@ export function AcademyPage() {
       items: [],
       message: "",
       loading: false,
-    });
-  }
-
-  function handleChapterDragStart(index) {
-    dragSrcIndexRef.current = index;
-  }
-
-  function handleChapterDragOver(event, index) {
-    event.preventDefault();
-    if (dragOverIndex !== index) setDragOverIndex(index);
-  }
-
-  function handleChapterDrop(event, dropIndex) {
-    event.preventDefault();
-    const srcIndex = dragSrcIndexRef.current;
-    if (srcIndex === null || srcIndex === dropIndex) {
-      setDragOverIndex(null);
-      return;
-    }
-    setChapterInputs((prev) => {
-      const updated = [...prev];
-      const [moved] = updated.splice(srcIndex, 1);
-      updated.splice(dropIndex, 0, moved);
-      return updated.map((item, index) => ({
-        ...item,
-        title: isDefaultChapterTitle(item.title) ? `${index + 1}차시` : item.title,
-      }));
-    });
-    dragSrcIndexRef.current = null;
-    setDragOverIndex(null);
-  }
-
-  function handleChapterDragEnd() {
-    dragSrcIndexRef.current = null;
-    setDragOverIndex(null);
-  }
-
-  function moveChapter(index, direction) {
-    const targetIndex = index + direction;
-    setChapterInputs((prev) => {
-      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
-      const updated = [...prev];
-      [updated[index], updated[targetIndex]] = [updated[targetIndex], updated[index]];
-      return updated.map((item, i) => ({
-        ...item,
-        title: isDefaultChapterTitle(item.title) ? `${i + 1}차시` : item.title,
-      }));
     });
   }
 
@@ -332,17 +275,78 @@ export function AcademyPage() {
   }, [videos]);
   const isEditMode = Boolean(editingVideoId);
 
-  function updateChapter(index, patch) {
-    setChapterInputs((prev) =>
-      prev.map((item, itemIndex) =>
-        itemIndex === index
-          ? {
-              ...item,
-              ...patch,
-            }
-          : item
-      )
-    );
+  async function extractVideoMetadata(file) {
+    if (!(file instanceof File)) return { durationSec: 0, thumbnailFile: null };
+
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      const objectUrl = URL.createObjectURL(file);
+
+      function cleanup() {
+        URL.revokeObjectURL(objectUrl);
+        video.removeAttribute("src");
+        video.load();
+      }
+
+      video.preload = "metadata";
+      video.muted = true;
+      video.playsInline = true;
+
+      video.onloadedmetadata = () => {
+        const durationSec = Number.isFinite(video.duration) ? Math.max(0, Math.round(video.duration)) : 0;
+        const captureTime = Math.min(Math.max(0.1, durationSec > 2 ? 1 : 0.1), Math.max(0.1, video.duration || 0.1));
+
+        video.currentTime = captureTime;
+        video.onseeked = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = video.videoWidth || 1280;
+            canvas.height = video.videoHeight || 720;
+            const context = canvas.getContext("2d");
+            context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+              cleanup();
+              resolve({
+                durationSec,
+                thumbnailFile: blob ? new File([blob], `${file.name.replace(/\.[^.]+$/, "")}-thumbnail.jpg`, { type: "image/jpeg" }) : null,
+              });
+            }, "image/jpeg", 0.86);
+          } catch {
+            cleanup();
+            resolve({ durationSec, thumbnailFile: null });
+          }
+        };
+      };
+
+      video.onerror = () => {
+        cleanup();
+        resolve({ durationSec: 0, thumbnailFile: null });
+      };
+
+      video.src = objectUrl;
+    });
+  }
+
+  async function handleVideoFileSelected(file) {
+    if (!(file instanceof File)) return;
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!["mp4", "mov"].includes(extension || "")) {
+      setFormMessage({ type: "error", text: "영상 파일은 MP4 또는 MOV 형식만 등록할 수 있습니다." });
+      return;
+    }
+    if (file.size > MAX_VIDEO_UPLOAD_BYTES) {
+      setFormMessage({ type: "error", text: "영상 파일은 최대 5GB까지만 등록할 수 있습니다." });
+      return;
+    }
+
+    setFormMessage({ type: "", text: "" });
+    setVideoInput((prev) => ({ ...prev, file }));
+    setVideoMeta({ durationSec: 0, fileSize: file.size });
+
+    const metadata = await extractVideoMetadata(file);
+    setVideoInput((prev) => ({ ...prev, durationSec: metadata.durationSec }));
+    setVideoMeta({ durationSec: metadata.durationSec, fileSize: file.size });
+    setAutoThumbnailFile(metadata.thumbnailFile);
   }
 
   async function handleLookupInstructor() {
@@ -395,7 +399,7 @@ export function AcademyPage() {
     const hasPublishTime = Boolean(publishTime);
 
     if (!title) {
-      setFormMessage({ type: "error", text: "커리큘럼명을 입력해 주세요." });
+      setFormMessage({ type: "error", text: "영상 제목을 입력해 주세요." });
       return;
     }
 
@@ -408,55 +412,34 @@ export function AcademyPage() {
       setIsSubmitting(true);
       setFormMessage({ type: "", text: "" });
 
-      const uploadedImagePath = imageFile ? await uploadAcademyAsset(imageFile, "image") : "";
+      const thumbnailFile = imageFile || autoThumbnailFile;
+      const uploadedImagePath = thumbnailFile ? await uploadAcademyAsset(thumbnailFile, "image") : "";
+      const uploadedDetailImagePath = detailImageFile ? await uploadAcademyAsset(detailImageFile, "image") : "";
+      const detailDescription = String(detailText || "").trim();
 
       const pendingVideoId = isEditMode
         ? String(editingVideoId || lectureForm.id || "").trim()
         : crypto.randomUUID();
 
-      const uploadedChapters = [];
-      for (const [index, chapter] of chapterInputs.entries()) {
-        const normalizedTitle = String(chapter.title || "").trim();
-        const normalizedDescription = String(chapter.description || "").trim();
-        const normalizedDurationInput = String(chapter.durationSec || "").trim();
+      let resolvedVideoPath = String(videoInput.existingVideoPath || "").trim();
+      if (videoInput.file instanceof File) {
+        resolvedVideoPath = await uploadAcademyAsset(videoInput.file, "video", pendingVideoId, 1);
+      }
 
-        const parsedDuration = parseDurationInputToSeconds(chapter.durationSec);
-        if (parsedDuration.error) {
-          throw new Error(`${index + 1}차시 영상 길이는 분:초 형식으로 입력해 주세요. (예: 12:30)`);
-        }
+      if (!resolvedVideoPath) {
+        throw new Error("교육 영상 파일을 등록해 주세요.");
+      }
 
-        let resolvedVideoPath = String(chapter.existingVideoPath || "").trim();
-        if (chapter.file instanceof File) {
-          resolvedVideoPath = await uploadAcademyAsset(chapter.file, "video", pendingVideoId, index + 1);
-        }
-        if (!resolvedVideoPath) {
-          if (chapter.id) {
-            throw new Error(`${index + 1}차시의 기존 영상 경로를 찾을 수 없습니다. 영상 파일을 다시 선택해 주세요.`);
-          }
-          const hasManualInput =
-            Boolean(normalizedDescription) ||
-            Boolean(normalizedDurationInput) ||
-            Boolean(chapter.isPreview) ||
-            (normalizedTitle && !isDefaultChapterTitle(normalizedTitle));
-          if (hasManualInput) {
-            throw new Error(`${index + 1}차시 영상 파일을 등록해 주세요.`);
-          }
-          continue;
-        }
-
-        uploadedChapters.push({
-          ...(chapter.id ? { id: String(chapter.id) } : {}),
-          title: normalizedTitle || `${index + 1}차시`,
-          description: normalizedDescription,
-          durationSec: parsedDuration.seconds,
-          isPreview: Boolean(chapter.isPreview),
+      const uploadedChapters = [
+        {
+          ...(videoInput.id ? { id: String(videoInput.id) } : {}),
+          title,
+          description: String(lectureForm.description || "").trim(),
+          durationSec: Math.max(0, Math.round(Number(videoInput.durationSec || videoMeta.durationSec || 0))),
+          isPreview: false,
           videoPath: resolvedVideoPath,
-        });
-      }
-
-      if (!uploadedChapters.length) {
-        throw new Error("최소 1개 이상의 차시 영상을 등록해 주세요.");
-      }
+        },
+      ];
 
       if (isEditMode) {
         const updated = await updateAcademyVideo(editingVideoId, {
@@ -469,6 +452,8 @@ export function AcademyPage() {
           badge: lectureForm.badge,
           publishAt: hasPublishDate && hasPublishTime ? `${publishDate} ${publishTime}:00` : "",
           description: String(lectureForm.description || "").trim(),
+          detailDescription,
+          ...(uploadedDetailImagePath ? { detailImagePath: uploadedDetailImagePath } : {}),
           ...(uploadedImagePath ? { imagePath: uploadedImagePath } : {}),
           chapters: uploadedChapters,
           videoPath: uploadedChapters[0]?.videoPath || "",
@@ -478,7 +463,7 @@ export function AcademyPage() {
         resetLectureEditorState();
         setFormMessage({
           type: "success",
-          text: `커리큘럼 수정이 완료되었습니다. (${updated?.title || title})`,
+          text: `교육 영상 수정이 완료되었습니다. (${updated?.title || title})`,
         });
         return;
       }
@@ -494,6 +479,8 @@ export function AcademyPage() {
         badge: lectureForm.badge,
         publishAt: hasPublishDate && hasPublishTime ? `${publishDate} ${publishTime}:00` : "",
         description: String(lectureForm.description || "").trim(),
+        detailDescription,
+        detailImagePath: uploadedDetailImagePath,
         imagePath: uploadedImagePath,
         videoPath: uploadedChapters[0]?.videoPath || "",
         chapters: uploadedChapters,
@@ -503,12 +490,12 @@ export function AcademyPage() {
       resetLectureEditorState();
       setFormMessage({
         type: "success",
-        text: `커리큘럼 등록이 완료되었습니다. (${created?.title || title})`,
+        text: `교육 영상 등록이 완료되었습니다. (${created?.title || title})`,
       });
     } catch (error) {
       setFormMessage({
         type: "error",
-        text: error?.message || (isEditMode ? "커리큘럼 수정에 실패했습니다." : "커리큘럼 등록에 실패했습니다."),
+        text: error?.message || (isEditMode ? "교육 영상 수정에 실패했습니다." : "교육 영상 등록에 실패했습니다."),
       });
     } finally {
       setIsSubmitting(false);
@@ -519,19 +506,8 @@ export function AcademyPage() {
     const target = video || {};
     const publishInputs = parsePublishAtToForm(target.publishAt);
     const sourceChapters = Array.isArray(target.chapters) ? target.chapters : [];
-    const normalizedChapterInputs =
-      sourceChapters.length > 0
-        ? sourceChapters.map((chapter, index) => ({
-            key: String(chapter.id || `chapter-${Date.now()}-${index}`),
-            id: String(chapter.id || ""),
-            title: String(chapter.title || `${index + 1}차시`),
-            description: String(chapter.description || ""),
-            durationSec: formatDurationSecondsToInput(chapter.durationSec ?? chapter.duration),
-            isPreview: Boolean(chapter.isPreview),
-            existingVideoPath: String(chapter.videoUrl || chapter.videoPath || ""),
-            file: null,
-          }))
-        : [createEmptyChapter(0)];
+    const sourceVideo = sourceChapters[0] || {};
+    const durationSec = Math.max(0, Math.round(Number(sourceVideo.durationSec ?? sourceVideo.duration ?? 0)));
 
     setEditingVideoId(String(target.id || ""));
     setLectureForm({
@@ -547,8 +523,17 @@ export function AcademyPage() {
       publishTime: publishInputs.publishTime,
       description: String(target.description || ""),
     });
-    setChapterInputs(normalizedChapterInputs);
+    setVideoInput({
+      id: String(sourceVideo.id || ""),
+      durationSec,
+      existingVideoPath: String(sourceVideo.videoUrl || sourceVideo.videoPath || target.videoPath || ""),
+      file: null,
+    });
+    setVideoMeta({ durationSec, fileSize: 0 });
     setImageFile(null);
+    setAutoThumbnailFile(null);
+    setDetailImageFile(null);
+    setDetailText(String(target.detailDescription || target.detailText || ""));
     setInstructorLookup({
       checked: false,
       exactMatch: false,
@@ -565,7 +550,7 @@ export function AcademyPage() {
     const videoId = String(video?.id || "").trim();
     if (!videoId) return;
 
-    const confirmed = window.confirm(`"${video?.title || videoId}" 커리큘럼을 삭제하시겠습니까?`);
+    const confirmed = window.confirm(`"${video?.title || videoId}" 교육 영상을 삭제하시겠습니까?`);
     if (!confirmed) return;
 
     setDeletingVideoId(videoId);
@@ -577,9 +562,9 @@ export function AcademyPage() {
         resetLectureEditorState();
         setIsCreatePanelOpen(false);
       }
-      setFormMessage({ type: "success", text: "커리큘럼 삭제가 완료되었습니다." });
+      setFormMessage({ type: "success", text: "교육 영상 삭제가 완료되었습니다." });
     } catch (error) {
-      setFormMessage({ type: "error", text: error?.message || "커리큘럼 삭제에 실패했습니다." });
+      setFormMessage({ type: "error", text: error?.message || "교육 영상 삭제에 실패했습니다." });
     } finally {
       setDeletingVideoId("");
     }
@@ -592,8 +577,8 @@ export function AcademyPage() {
     const nextHidden = !Boolean(video?.isHidden);
     const confirmed = window.confirm(
       nextHidden
-        ? `"${video?.title || videoId}" 커리큘럼을 숨기시겠습니까?\n일반 회원 목록에서 보이지 않게 됩니다.`
-        : `"${video?.title || videoId}" 커리큘럼 숨김을 해제하시겠습니까?`
+        ? `"${video?.title || videoId}" 교육 영상을 숨기시겠습니까?\n일반 회원 목록에서 보이지 않게 됩니다.`
+        : `"${video?.title || videoId}" 교육 영상 숨김을 해제하시겠습니까?`
     );
     if (!confirmed) return;
 
@@ -608,12 +593,12 @@ export function AcademyPage() {
       }
       setFormMessage({
         type: "success",
-        text: nextHidden ? "커리큘럼을 숨김 처리했습니다." : "커리큘럼 숨김을 해제했습니다.",
+        text: nextHidden ? "교육 영상을 숨김 처리했습니다." : "교육 영상 숨김을 해제했습니다.",
       });
     } catch (error) {
       setFormMessage({
         type: "error",
-        text: error?.message || "커리큘럼 숨김 상태 변경에 실패했습니다.",
+        text: error?.message || "교육 영상 숨김 상태 변경에 실패했습니다.",
       });
     } finally {
       setVisibilityVideoId("");
@@ -621,13 +606,11 @@ export function AcademyPage() {
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="content-page academy-catalog-page">
+    <PageLayout mainClass="content-page academy-catalog-page">
         <section className="content-hero">
           <p className="section-kicker">ICL 교육 영상</p>
           <h1>교육 가이드 영상</h1>
-          <p className="section-text">입문부터 고급까지, 체계적인 커리큘럼을 확인해 보세요.</p>
+          <p className="section-text">입문부터 고급까지, 체계적인 교육 영상을 확인해 보세요.</p>
         </section>
 
         <section className="academy-catalog-toolbar">
@@ -653,7 +636,7 @@ export function AcademyPage() {
               <span className="visually-hidden">교육 영상 검색</span>
               <input
                 type="search"
-                placeholder="커리큘럼명 / 강사 검색"
+                placeholder="영상명 / 강사 검색"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
@@ -681,7 +664,7 @@ export function AcademyPage() {
                     });
                   }}
                 >
-                  {isCreatePanelOpen ? "커리큘럼 편집 닫기" : "커리큘럼 등록"}
+                  {isCreatePanelOpen ? "교육 영상 편집 닫기" : "교육 영상 등록"}
                 </button>
               </>
             ) : null}
@@ -691,7 +674,7 @@ export function AcademyPage() {
         {canCreateLecture && isReservedPanelOpen ? (
           <section className="dashboard-card academy-reserved-panel">
             <div className="academy-reserved-head">
-              <h2>예약 등록 커리큘럼</h2>
+              <h2>예약 등록 교육 영상</h2>
               <span className="academy-reserved-count">{reservedVideos.length}건</span>
             </div>
 
@@ -731,346 +714,371 @@ export function AcademyPage() {
                 ))}
               </div>
             ) : (
-              <p className="academy-admin-help-text">현재 예약 등록된 커리큘럼이 없습니다.</p>
+              <p className="academy-admin-help-text">현재 예약 등록된 교육 영상이 없습니다.</p>
             )}
           </section>
         ) : null}
 
         {canCreateLecture && isCreatePanelOpen ? (
-          <section className="dashboard-card academy-admin-create">
-            <h2>{isEditMode ? "커리큘럼 수정" : "커리큘럼 등록"}</h2>
-            <form className="admin-lecture-form" onSubmit={handleCreateLecture}>
-              <div className="academy-admin-form-grid">
-                <label>
-                  강의 ID (선택)
-                  <input
-                    type="text"
-                    value={lectureForm.id}
-                    disabled={isEditMode}
-                    onChange={(event) => setLectureForm((prev) => ({ ...prev, id: event.target.value }))}
-                    placeholder={isEditMode ? "수정 모드에서는 변경할 수 없습니다." : "비우면 자동 생성"}
-                  />
-                </label>
+          <section className="academy-admin-register">
+            <div className="academy-admin-register-head">
+              <div>
+                <h2>{isEditMode ? "교육 영상 수정" : "교육 영상 등록"}</h2>
+                <p>새로운 교육 영상을 등록하고 수강생들에게 제공해보세요.</p>
+              </div>
+              <nav aria-label="현재 위치">아카데미 &gt; 교육 영상 관리 &gt; {isEditMode ? "교육 영상 수정" : "교육 영상 등록"}</nav>
+            </div>
 
-                <label>
-                  커리큘럼명
-                  <input
-                    type="text"
-                    required
-                    value={lectureForm.title}
-                    onChange={(event) => setLectureForm((prev) => ({ ...prev, title: event.target.value }))}
-                  />
-                </label>
-
-                <div className="academy-admin-instructor-block">
-                  <span>강사명</span>
-                  <div className="academy-admin-instructor-row">
-                    <input
-                      type="text"
-                      value={lectureForm.instructor}
-                      onChange={(event) => {
-                        setLectureForm((prev) => ({ ...prev, instructor: event.target.value }));
-                        setInstructorLookup({
-                          checked: false,
-                          exactMatch: false,
-                          items: [],
-                          message: "",
-                          loading: false,
-                        });
-                      }}
-                      placeholder="강사명을 입력하고 조회"
-                    />
-                    <button
-                      type="button"
-                      className="ghost-button small-ghost academy-admin-instructor-check"
-                      onClick={handleLookupInstructor}
-                      disabled={instructorLookup.loading}
-                    >
-                      {instructorLookup.loading ? "조회 중..." : "조회"}
-                    </button>
-                    {instructorLookup.checked ? (
-                      <span
-                        className={`academy-admin-instructor-state ${
+            <form className="admin-lecture-form academy-register-form" onSubmit={handleCreateLecture}>
+              <section className="academy-register-section">
+                <div className="academy-register-section-title">
+                  <span aria-hidden="true">◎</span>
+                  <strong>기본 정보</strong>
+                </div>
+                <div className="academy-register-section-body academy-register-basic-grid">
+                  <div className="academy-admin-instructor-block academy-register-field">
+                    <span>강사명</span>
+                    <div className="academy-admin-instructor-row">
+                      <input
+                        type="text"
+                        value={lectureForm.instructor}
+                        onChange={(event) => {
+                          setLectureForm((prev) => ({ ...prev, instructor: event.target.value }));
+                          setInstructorLookup({
+                            checked: false,
+                            exactMatch: false,
+                            items: [],
+                            message: "",
+                            loading: false,
+                          });
+                        }}
+                        placeholder="강사명을 입력하고 조회"
+                      />
+                      <button
+                        type="button"
+                        className="academy-register-secondary-button academy-admin-instructor-check"
+                        onClick={handleLookupInstructor}
+                        disabled={instructorLookup.loading}
+                      >
+                        {instructorLookup.loading ? "조회 중..." : "조회"}
+                      </button>
+                      {instructorLookup.checked ? (
+                        <span
+                          className={`academy-admin-instructor-state ${
+                            instructorLookup.exactMatch ? "is-ok" : "is-miss"
+                          }`}
+                          title={instructorLookup.message}
+                          aria-label={instructorLookup.message}
+                        >
+                          {instructorLookup.exactMatch ? "✓" : "!"}
+                        </span>
+                      ) : null}
+                    </div>
+                    {instructorLookup.message ? (
+                      <small
+                        className={`academy-admin-instructor-message ${
                           instructorLookup.exactMatch ? "is-ok" : "is-miss"
                         }`}
-                        title={instructorLookup.message}
-                        aria-label={instructorLookup.message}
                       >
-                        {instructorLookup.exactMatch ? "✓" : "!"}
-                      </span>
+                        {instructorLookup.message}
+                      </small>
+                    ) : null}
+                    {instructorLookup.items.length > 0 ? (
+                      <div className="academy-admin-instructor-tags">
+                        {instructorLookup.items.map((name) => (
+                          <button
+                            key={name}
+                            type="button"
+                            className="academy-admin-instructor-tag"
+                            onClick={() => {
+                              setLectureForm((prev) => ({ ...prev, instructor: name }));
+                              setInstructorLookup((prev) => ({
+                                ...prev,
+                                checked: true,
+                                exactMatch: true,
+                                message: "등록된 강사명입니다.",
+                              }));
+                            }}
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
                     ) : null}
                   </div>
-                  {instructorLookup.message ? (
-                    <small
-                      className={`academy-admin-instructor-message ${
-                        instructorLookup.exactMatch ? "is-ok" : "is-miss"
-                      }`}
+
+                  <label className="academy-register-field">
+                    <span>카테고리</span>
+                    <select
+                      value={lectureForm.category}
+                      onChange={(event) => setLectureForm((prev) => ({ ...prev, category: event.target.value }))}
                     >
-                      {instructorLookup.message}
-                    </small>
-                  ) : null}
-                  {instructorLookup.items.length > 0 ? (
-                    <div className="academy-admin-instructor-tags">
-                      {instructorLookup.items.map((name) => (
-                        <button
-                          key={name}
-                          type="button"
-                          className="academy-admin-instructor-tag"
-                          onClick={() => {
-                            setLectureForm((prev) => ({ ...prev, instructor: name }));
-                            setInstructorLookup((prev) => ({
-                              ...prev,
-                              checked: true,
-                              exactMatch: true,
-                              message: "등록된 강사명입니다.",
-                            }));
-                          }}
-                        >
-                          {name}
-                        </button>
+                      {LECTURE_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
                       ))}
-                    </div>
-                  ) : null}
-                </div>
+                    </select>
+                  </label>
 
-                <label>
-                  카테고리
-                  <select
-                    value={lectureForm.category}
-                    onChange={(event) => setLectureForm((prev) => ({ ...prev, category: event.target.value }))}
-                  >
-                    {LECTURE_CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <label className="academy-register-field academy-register-price-field">
+                    <span>판매가</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={lectureForm.salePrice}
+                      onChange={(event) =>
+                        setLectureForm((prev) => ({
+                          ...prev,
+                          salePrice: event.target.value.replace(/[^0-9]/g, ""),
+                        }))
+                      }
+                      placeholder="판매가를 입력하세요"
+                    />
+                    <em>원</em>
+                  </label>
 
-                <label>
-                  판매가
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={lectureForm.salePrice}
-                    onChange={(event) =>
-                      setLectureForm((prev) => ({
-                        ...prev,
-                        salePrice: event.target.value.replace(/[^0-9]/g, ""),
-                      }))
-                    }
-                  />
-                </label>
+                  <label className="academy-register-field academy-register-price-field">
+                    <span>정가 (선택)</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={lectureForm.originalPrice}
+                      onChange={(event) =>
+                        setLectureForm((prev) => ({
+                          ...prev,
+                          originalPrice: event.target.value.replace(/[^0-9]/g, ""),
+                        }))
+                      }
+                      placeholder="정가를 입력하세요"
+                    />
+                    <em>원</em>
+                  </label>
 
-                <label>
-                  정가
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={lectureForm.originalPrice}
-                    onChange={(event) =>
-                      setLectureForm((prev) => ({
-                        ...prev,
-                        originalPrice: event.target.value.replace(/[^0-9]/g, ""),
-                      }))
-                    }
-                  />
-                </label>
+                  <label className="academy-register-field">
+                    <span>수강기간</span>
+                    <input
+                      type="text"
+                      value={lectureForm.period}
+                      onChange={(event) => setLectureForm((prev) => ({ ...prev, period: event.target.value }))}
+                      placeholder="수강기간을 입력하세요. 예: 90일"
+                    />
+                  </label>
 
-                <label>
-                  수강기간
-                  <input
-                    type="text"
-                    value={lectureForm.period}
-                    onChange={(event) => setLectureForm((prev) => ({ ...prev, period: event.target.value }))}
-                    placeholder="예: 90일"
-                  />
-                </label>
+                  <label className="academy-register-field">
+                    <span>예약 등록일자</span>
+                    <input
+                      type="date"
+                      value={lectureForm.publishDate}
+                      onChange={(event) => setLectureForm((prev) => ({ ...prev, publishDate: event.target.value }))}
+                    />
+                  </label>
 
-                <label>
-                  예약 등록일자
-                  <input
-                    type="date"
-                    value={lectureForm.publishDate}
-                    onChange={(event) => setLectureForm((prev) => ({ ...prev, publishDate: event.target.value }))}
-                  />
-                </label>
+                  <label className="academy-register-field">
+                    <span>배지</span>
+                    <select
+                      value={lectureForm.badge}
+                      onChange={(event) => setLectureForm((prev) => ({ ...prev, badge: event.target.value }))}
+                    >
+                      {LECTURE_BADGES.map((badge) => (
+                        <option key={badge || "none"} value={badge}>
+                          {badge || "배지를 선택하세요"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <label>
-                  예약 등록시간
-                  <input
-                    type="time"
-                    value={lectureForm.publishTime}
-                    onChange={(event) => setLectureForm((prev) => ({ ...prev, publishTime: event.target.value }))}
-                  />
-                </label>
+                  <label className="academy-register-field">
+                    <span>예약 등록시간</span>
+                    <input
+                      type="time"
+                      value={lectureForm.publishTime}
+                      onChange={(event) => setLectureForm((prev) => ({ ...prev, publishTime: event.target.value }))}
+                    />
+                  </label>
 
-                <label>
-                  배지
-                  <select
-                    value={lectureForm.badge}
-                    onChange={(event) => setLectureForm((prev) => ({ ...prev, badge: event.target.value }))}
-                  >
-                    {LECTURE_BADGES.map((badge) => (
-                      <option key={badge || "none"} value={badge}>
-                        {badge || "없음"}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  썸네일 이미지
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => setImageFile(event.target.files?.[0] || null)}
-                  />
-                </label>
-              </div>
-
-              <section className="academy-admin-chapter-section">
-                <div className="academy-admin-chapter-head">
-                  <strong>커리큘럼 차시 구성</strong>
-                  <button
-                    type="button"
-                    className="ghost-button small-ghost"
-                    onClick={() => setChapterInputs((prev) => [...prev, createEmptyChapter(prev.length)])}
-                  >
-                    차시 추가
-                  </button>
-                </div>
-
-                <div className="academy-admin-chapter-list">
-                  {chapterInputs.map((chapter, index) => {
-                    const currentFileName = extractMediaFileName(chapter.existingVideoPath);
-                    const replaceFileName = normalizeFileName(chapter.file);
-
-                    return (
-                      <div
-                        key={chapter.key}
-                        className={`academy-admin-chapter-row${dragOverIndex === index ? " is-drag-over" : ""}`}
-                        draggable
-                        onDragStart={() => handleChapterDragStart(index)}
-                        onDragOver={(e) => handleChapterDragOver(e, index)}
-                        onDrop={(e) => handleChapterDrop(e, index)}
-                        onDragEnd={handleChapterDragEnd}
-                      >
-                        <span className="chapter-drag-handle" title="드래그하여 순서 변경" aria-hidden="true">
-                          ⠿
-                        </span>
-                        <div className="chapter-order-controls">
-                          <button
-                            type="button"
-                            className="chapter-order-btn"
-                            onClick={() => moveChapter(index, -1)}
-                            disabled={index === 0}
-                            title="위로"
-                          >▲</button>
-                          <button
-                            type="button"
-                            className="chapter-order-btn"
-                            onClick={() => moveChapter(index, 1)}
-                            disabled={index === chapterInputs.length - 1}
-                            title="아래로"
-                          >▼</button>
-                        </div>
-                        <span className="chapter-order-badge">{index + 1}차시</span>
-                        <label>
-                          차시명
-                          <input
-                            type="text"
-                            value={chapter.title}
-                            onChange={(event) => updateChapter(index, { title: event.target.value })}
-                            placeholder={`${index + 1}차시`}
-                          />
-                        </label>
-
-                        <label>
-                          영상 길이(분:초)
-                          <input
-                            type="text"
-                            inputMode="text"
-                            value={chapter.durationSec}
-                            onChange={(event) =>
-                              updateChapter(index, { durationSec: event.target.value.replace(/[^0-9:：]/g, "") })
-                            }
-                            placeholder="예: 12:30"
-                          />
-                        </label>
-
-                        <label className="academy-admin-chapter-preview">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(chapter.isPreview)}
-                            onChange={(event) => updateChapter(index, { isPreview: event.target.checked })}
-                          />
-                          미리보기 허용
-                        </label>
-
-                        <label className="academy-admin-chapter-description">
-                          차시 설명
-                          <textarea
-                            rows={2}
-                            value={chapter.description}
-                            onChange={(event) => updateChapter(index, { description: event.target.value })}
-                          />
-                        </label>
-
-                        <label>
-                          영상 파일 {isEditMode ? "(선택: 교체 시)" : ""}
-                          <input
-                            type="file"
-                            accept="video/*"
-                            onChange={(event) => updateChapter(index, { file: event.target.files?.[0] || null })}
-                          />
-                          {isEditMode ? (
-                            <div className="academy-admin-file-status">
-                              <small className="academy-admin-file-name">현재 파일: {currentFileName || "없음"}</small>
-                              <small className="academy-admin-file-name">
-                                교체 파일: {replaceFileName || "선택 안함"}
-                              </small>
-                            </div>
-                          ) : replaceFileName ? (
-                            <small className="academy-admin-file-name">선택 파일: {replaceFileName}</small>
-                          ) : null}
-                        </label>
-
-                        <button
-                          type="button"
-                          className="academy-admin-chapter-remove"
-                          disabled={chapterInputs.length <= 1}
-                          onClick={() =>
-                            setChapterInputs((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-                          }
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    );
-                  })}
+                  <label className="academy-register-field academy-register-id-field">
+                    <span>강의 ID (선택)</span>
+                    <input
+                      type="text"
+                      value={lectureForm.id}
+                      disabled={isEditMode}
+                      onChange={(event) => setLectureForm((prev) => ({ ...prev, id: event.target.value }))}
+                      placeholder={isEditMode ? "수정 모드에서는 변경할 수 없습니다." : "비우면 자동 생성됩니다."}
+                    />
+                  </label>
                 </div>
               </section>
 
-              <label>
-                커리큘럼 소개
-                <textarea
-                  rows={4}
-                  value={lectureForm.description}
-                  onChange={(event) => setLectureForm((prev) => ({ ...prev, description: event.target.value }))}
-                />
-              </label>
+              <section className="academy-register-section">
+                <div className="academy-register-section-title">
+                  <span aria-hidden="true">▣</span>
+                  <strong>영상 정보</strong>
+                  <small>영상 1개를 업로드하면 길이와 파일 용량이 자동으로 입력됩니다.</small>
+                </div>
+                <div className="academy-register-section-body academy-register-video-grid">
+                  <div className="academy-register-video-left">
+                    <div className="academy-register-field">
+                      <span>영상 파일</span>
+                      <label
+                        className={`academy-register-upload-box academy-register-video-upload-box${isVideoDragActive ? " is-dragging" : ""}`}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          setIsVideoDragActive(true);
+                        }}
+                        onDragLeave={() => setIsVideoDragActive(false)}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          setIsVideoDragActive(false);
+                          handleVideoFileSelected(event.dataTransfer.files?.[0]);
+                        }}
+                      >
+                        <input
+                          type="file"
+                          accept=".mp4,.mov,video/mp4,video/quicktime"
+                          onChange={(event) => handleVideoFileSelected(event.target.files?.[0])}
+                        />
+                        <strong>{videoInput.file ? videoInput.file.name : "교육 영상을 업로드하세요"}</strong>
+                        <small>드래그 앤 드롭 또는 클릭해서 파일 선택 · MP4, MOV / 최대 5GB</small>
+                      </label>
+                    </div>
 
-              <p className="academy-admin-help-text">
-                수강기간은 구매일이 아니라 첫 영상 수강일을 기준으로 시작됩니다.
-              </p>
+                    <div className="academy-register-thumb-row">
+                      <div className="academy-register-field">
+                        <span>썸네일 이미지 (선택)</span>
+                        <label className="academy-register-thumbnail-box">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+                          />
+                          <span aria-hidden="true">▧</span>
+                          <small>{imageFile ? imageFile.name : "권장 사이즈: 1280x720px (16:9)"}</small>
+                        </label>
+                      </div>
+                      <div className="academy-register-thumb-actions">
+                        <label className="academy-register-secondary-button">
+                          썸네일 업로드
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+                          />
+                        </label>
+                        <button type="button" className="academy-register-secondary-button" onClick={() => setImageFile(null)}>
+                          기본 썸네일 사용
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <aside className="academy-register-upload-guide">
+                    <p>영상이 업로드되면 재생 시간과 썸네일이 자동으로 생성됩니다.</p>
+                    <p>썸네일을 업로드하지 않으면 영상 첫 프레임을 기본 썸네일로 사용합니다.</p>
+                    <p>안정적인 업로드를 위해 권장 업로드 사이즈는 1920x1080px (16:9) 입니다.</p>
+                  </aside>
+
+                  <div className="academy-register-video-meta">
+                    <strong>영상 정보 (자동 입력)</strong>
+                    <div>
+                      <label className="academy-register-field">
+                        <span>영상 길이</span>
+                        <input type="text" value={formatDurationSeconds(videoMeta.durationSec || videoInput.durationSec)} readOnly />
+                      </label>
+                      <label className="academy-register-field">
+                        <span>파일 용량</span>
+                        <input type="text" value={formatFileSize(videoMeta.fileSize || videoInput.file?.size)} readOnly />
+                      </label>
+                    </div>
+                  </div>
+
+                  <label className="academy-register-field academy-register-title-field">
+                    <span>영상 제목</span>
+                    <input
+                      type="text"
+                      required
+                      maxLength={100}
+                      value={lectureForm.title}
+                      onChange={(event) => setLectureForm((prev) => ({ ...prev, title: event.target.value }))}
+                      placeholder="영상 제목을 입력하세요"
+                    />
+                    <small>{String(lectureForm.title || "").length}/100</small>
+                  </label>
+                </div>
+              </section>
+
+              <section className="academy-register-section">
+                <div className="academy-register-section-title">
+                  <span aria-hidden="true">▦</span>
+                  <strong>영상 설명</strong>
+                </div>
+                <div className="academy-register-section-body">
+                  <label className="academy-register-field academy-register-description-field">
+                    <span>영상 설명</span>
+                    <textarea
+                      rows={4}
+                      maxLength={1000}
+                      value={lectureForm.description}
+                      onChange={(event) => setLectureForm((prev) => ({ ...prev, description: event.target.value }))}
+                      placeholder="영상에 대한 설명을 입력하세요."
+                    />
+                    <small>{String(lectureForm.description || "").length}/1000</small>
+                  </label>
+                </div>
+              </section>
+
+              <section className="academy-register-section">
+                <div className="academy-register-section-title">
+                  <span aria-hidden="true">▧</span>
+                  <strong>(선택) 추가 정보</strong>
+                </div>
+                <div className="academy-register-section-body academy-register-extra-grid">
+                  <label className="academy-register-field academy-register-detail-image">
+                    <span>상세 이미지 (선택)</span>
+                    <label className="academy-register-upload-box">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => setDetailImageFile(event.target.files?.[0] || null)}
+                      />
+                      <strong>이미지 업로드</strong>
+                      <small>{detailImageFile ? detailImageFile.name : "JPG, PNG 파일만 가능"}</small>
+                    </label>
+                  </label>
+                  <label className="academy-register-field academy-register-detail-copy">
+                    <span>상세 내용 (선택)</span>
+                    <textarea
+                      rows={3}
+                      maxLength={2000}
+                      value={detailText}
+                      onChange={(event) => setDetailText(event.target.value)}
+                      placeholder="교육 구성, 준비사항, 주의사항, 추천 대상 등을 입력하세요."
+                    />
+                    <small>{String(detailText || "").length}/2000</small>
+                  </label>
+                </div>
+              </section>
+
+              <p className="academy-admin-help-text">수강기간은 구매일이 아니라 첫 영상 수강일을 기준으로 시작됩니다.</p>
               <p className="academy-admin-help-text">예약 일시를 비워두면 즉시 등록됩니다.</p>
 
               {formMessage.text ? <p className={`admin-form-message ${formMessage.type}`}>{formMessage.text}</p> : null}
 
-              <button className="pill-button small" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (isEditMode ? "수정 중..." : "등록 중...") : isEditMode ? "커리큘럼 수정" : "커리큘럼 등록"}
-              </button>
+              <div className="academy-register-actions">
+                <button
+                  type="button"
+                  className="academy-register-cancel"
+                  onClick={() => {
+                    resetLectureEditorState();
+                    setIsCreatePanelOpen(false);
+                  }}
+                >
+                  취소
+                </button>
+                <button className="academy-register-submit" type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (isEditMode ? "수정 중..." : "등록 중...") : isEditMode ? "수정하기" : "등록하기"}
+                </button>
+              </div>
             </form>
           </section>
         ) : null}
@@ -1099,9 +1107,7 @@ export function AcademyPage() {
                     }
                   }}
                 >
-                  <div className="academy-video-thumb">
-                    <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} />
-                  </div>
+                  <AcademyVideoThumbnail video={video} />
                   <div className="academy-video-body">
                     <h3>{video.title}</h3>
                     <p className="academy-video-instructor">{video.instructor}</p>
@@ -1185,7 +1191,6 @@ export function AcademyPage() {
             </article>
           )}
         </section>
-      </main>
-    </div>
+    </PageLayout>
   );
 }

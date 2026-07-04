@@ -33,14 +33,14 @@ jobs:
             cd ../backend
             npm install
             if grep -q "^CORS_ORIGIN=" .env 2>/dev/null; then
-              sed -i 's|^CORS_ORIGIN=.*|CORS_ORIGIN=https://icl-pilates.com,http://localhost:5173|' .env
+              sed -i 's|^CORS_ORIGIN=.*|CORS_ORIGIN=https://icl-pilates.com,https://www.icl-pilates.com|' .env
             else
-              echo "CORS_ORIGIN=https://icl-pilates.com,http://localhost:5173" >> .env
+              echo "CORS_ORIGIN=https://icl-pilates.com,https://www.icl-pilates.com" >> .env
             fi
             if ! grep -q "^ACADEMY_PLAYBACK_TOKEN_SECRET=" .env 2>/dev/null; then
               echo "ACADEMY_PLAYBACK_TOKEN_SECRET=$(openssl rand -hex 32)" >> .env
             fi
-            pm2 describe icl-backend > /dev/null 2>&1 && pm2 restart icl-backend || pm2 start ~/ICL/backend/src/server.js --name icl-backend
+            pm2 describe icl-backend > /dev/null 2>&1 && pm2 restart icl-backend --update-env || pm2 start src/server.js --name icl-backend --cwd ~/ICL/backend --time
             pm2 save
             sudo cp ~/ICL/deploy/nginx-prod.conf /etc/nginx/sites-enabled/default
             sudo nginx -t && sudo nginx -s reload

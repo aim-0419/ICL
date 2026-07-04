@@ -1,0 +1,111 @@
+.sales-trend-chart {
+  margin-top: 14px;
+  min-height: 350px;
+  border: 1px solid rgba(98, 73, 35, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.sales-trend-chart__legend {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  align-items: center;
+}
+
+.sales-trend-chart__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #6f5a3b;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.sales-trend-chart__legend span::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.sales-trend-chart__legend .gross::before {
+  background: linear-gradient(180deg, #d7b46a 0%, #bc9353 100%);
+}
+
+.sales-trend-chart__legend .line::before {
+  background: linear-gradient(180deg, #8a6a3c 0%, #6f522d 100%);
+}
+
+.sales-trend-chart__svg-wrap {
+  min-height: 260px;
+  border: 1px solid rgba(98, 73, 35, 0.1);
+  border-radius: 12px;
+  background:
+    repeating-linear-gradient(
+      to top,
+      rgba(125, 98, 58, 0.06) 0,
+      rgba(125, 98, 58, 0.06) 1px,
+      transparent 1px,
+      transparent 20%
+    ),
+    rgba(255, 252, 246, 0.88);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.sales-trend-chart__svg {
+  display: block;
+  width: 100%;
+  min-width: 640px;
+  height: 260px;
+}
+
+.sales-trend-chart__grid {
+  stroke: rgba(98, 73, 35, 0.1);
+  stroke-dasharray: 4 6;
+}
+
+.sales-trend-chart__axis,
+.sales-trend-chart__label,
+.sales-trend-chart__sub {
+  fill: #7b6858;
+  font-family: inherit;
+}
+
+.sales-trend-chart__axis {
+  font-size: 11px;
+}
+
+.sales-trend-chart__label {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sales-trend-chart__sub {
+  font-size: 10px;
+  opacity: 0.78;
+}
+
+.sales-trend-chart__gross-bar {
+  fill: #c8aa7d;
+}
+
+.sales-trend-chart__net-line {
+  fill: none;
+  stroke: #6f5335;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.sales-trend-chart__net-dot {
+  fill: #fffaf3;
+  stroke: #6f5335;
+  stroke-width: 2.4;
+  vector-effect: non-scaling-stroke;
+}

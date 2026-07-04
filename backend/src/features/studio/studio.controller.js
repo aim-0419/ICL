@@ -18,43 +18,55 @@
  *  locker.read / locker.write  - 락커 조회·관리
  *  settings.write              - 운영 설정 변경
  */
-import * as authService from "../auth/auth.service.js";
-import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
 import * as studioService from "./studio.service.js";
+import { registerPushDevice, unregisterPushDevice } from "../sms/notification-dispatch.service.js";
+import * as studioAssetService from "./studio.asset.service.js";
+import { resolveSessionToken, resolveSessionUser, isAdminUser as isAdmin } from "../../shared/middlewares/auth.js";
+
+const SALES_PIN_UNLOCK_TTL_MS = 30 * 60 * 1000;
+const salesPinUnlocks = new Map();
+
+function getSalesPinUnlockKey(req, user) {
+  const token = resolveSessionToken(req);
+  return token || String(user?.id || "");
+}
+
+function markSalesPinUnlocked(req, user) {
+  const key = getSalesPinUnlockKey(req, user);
+  if (!key) return;
+  salesPinUnlocks.set(key, {
+    userId: String(user.id),
+    expiresAt: Date.now() + SALES_PIN_UNLOCK_TTL_MS,
+  });
+}
+
+function clearSalesPinUnlocks() {
+  salesPinUnlocks.clear();
+}
+
+async function requireSalesPinUnlocked(req, res, user) {
+  const pinState = await studioService.getSalesPin();
+  if (!pinState.hasPin) {
+    res.status(403).json({ code: "SALES_PIN_NOT_SET", message: "매출 비밀번호가 설정되어 있지 않습니다." });
+    return false;
+  }
+
+  const key = getSalesPinUnlockKey(req, user);
+  const entry = key ? salesPinUnlocks.get(key) : null;
+  if (entry && entry.userId === String(user.id) && entry.expiresAt > Date.now()) {
+    return true;
+  }
+
+  if (key) salesPinUnlocks.delete(key);
+  res.status(403).json({ code: "SALES_PIN_REQUIRED", message: "매출 비밀번호 확인이 필요합니다." });
+  return false;
+}
 
 // ─── 인증 헬퍼 함수들 ─────────────────────────────────────────────────────────
 
-/** HTTP 요청 쿠키에서 특정 이름의 값을 꺼냅니다. 없으면 빈 문자열을 반환합니다. */
-function getCookieValue(req, name) {
-  const cookieHeader = String(req.headers.cookie || "");
-  if (!cookieHeader) return "";
-  const cookieItem = cookieHeader
-    .split(";")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(`${name}=`));
-  if (!cookieItem) return "";
-  return decodeURIComponent(cookieItem.slice(name.length + 1));
-}
-
 /** 세션 쿠키의 토큰으로 DB에서 현재 로그인 사용자를 조회합니다. 로그아웃 상태면 null을 반환합니다. */
-async function getAuthUser(req) {
-  const token = getCookieValue(req, SESSION_COOKIE_NAME);
-  if (!token) return null;
-  return authService.findUserBySessionToken(token);
-}
-
-/** 사용자가 최고 관리자(admin0/admin1)인지 확인합니다. */
-function isAdmin(user) {
-  const role = String(user?.role || "").toLowerCase();
-  const grade = String(user?.userGrade || "").toLowerCase();
-  return user?.isAdmin === true || user?.isAdmin === 1 || role === "admin" || grade === "admin0" || grade === "admin1";
-}
-
-/** 사용자의 스튜디오 역할 코드(owner/manager/instructor 등)를 가져옵니다. */
-function getStudioRoleCode(user) {
-  const role = String(user?.role || "").trim().toLowerCase();
-  const grade = String(user?.userGrade || "").trim().toLowerCase();
-  return role || grade;
+function getAuthUser(req) {
+  return req.authUser || resolveSessionUser(req);
 }
 
 /**
@@ -64,7 +76,8 @@ function getStudioRoleCode(user) {
  */
 async function canAccessStudioAdmin(user, permissionCode) {
   if (isAdmin(user)) return true;
-  return studioService.isRoleAllowed(getStudioRoleCode(user), permissionCode);
+  const roleCode = await studioService.resolveUserStudioRole(user);
+  return studioService.isRoleAllowed(roleCode, permissionCode);
 }
 
 // ─── 회원용 API 핸들러 ────────────────────────────────────────────────────────
@@ -76,6 +89,7 @@ export async function listClasses(req, res, next) {
     const rows = await studioService.listClasses({
       from: String(req.query.from || "").trim(),
       to: String(req.query.to || "").trim(),
+      branchId: String(req.query.branchId || "").trim(),
       userId: String(user?.id || "").trim(),
     });
     res.json({ classes: rows });
@@ -90,9 +104,9 @@ export async function listMySummary(req, res, next) {
     const user = await getAuthUser(req);
     if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
     const [passes, bookings, passTransactions] = await Promise.all([
-      studioService.listMyPasses(String(user.id)),
-      studioService.listMyBookings(String(user.id)),
-      studioService.listMyPassTransactions(String(user.id)),
+      studioService.listMyPasses(String(user.id), String(req.query.branchId || "").trim()),
+      studioService.listMyBookings(String(user.id), String(req.query.branchId || "").trim()),
+      studioService.listMyPassTransactions(String(user.id), String(req.query.branchId || "").trim()),
     ]);
     res.json({ passes, bookings, passTransactions });
   } catch (error) {
@@ -146,7 +160,9 @@ export async function listAllBookings(req, res, next) {
     const from = String(req.query.from || "").trim();
     const to = String(req.query.to || "").trim();
     const status = String(req.query.status || "").trim();
-    const bookings = await studioService.listAllBookingsForAdmin({ from, to, status });
+    const branchId = String(req.query.branchId || "").trim();
+    const classStatus = String(req.query.classStatus || "").trim();
+    const bookings = await studioService.listAllBookingsForAdmin({ from, to, status, branchId, classStatus });
     res.json({ bookings });
   } catch (error) {
     next(error);
@@ -250,6 +266,7 @@ export async function listClassesForAdmin(req, res, next) {
       from: String(req.query.from || "").trim(),
       to: String(req.query.to || "").trim(),
       status: String(req.query.status || "").trim(),
+      branchId: String(req.query.branchId || "").trim(),
     });
     res.json({ classes: rows });
   } catch (error) {
@@ -317,6 +334,7 @@ export async function listPassTransactionsForAdmin(req, res, next) {
     if (!(await canAccessStudioAdmin(user, "pass.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
     const transactions = await studioService.listPassTransactionsForAdmin({
       limit: req.query?.limit,
+      date: req.query?.date,
     });
     res.json({ transactions });
   } catch (error) {
@@ -358,6 +376,287 @@ export async function saveBookingPolicy(req, res, next) {
   } catch (error) {
     next(error);
   }
+}
+
+export async function getStudioInfo(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const info = await studioService.getStudioInfo();
+    res.json({ info });
+  } catch (error) { next(error); }
+}
+
+export async function saveStudioInfo(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const info = await studioService.saveStudioInfo(req.body || {});
+    res.json({ info });
+  } catch (error) { next(error); }
+}
+
+export async function getRoomSettings(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const data = await studioService.getRoomSettings();
+    res.json(data);
+  } catch (error) { next(error); }
+}
+
+export async function saveRoomEnabled(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.saveRoomEnabled(req.body?.enabled);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function createRoom(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const room = await studioService.createRoom(req.body?.name);
+    res.json({ room });
+  } catch (error) { next(error); }
+}
+
+export async function deleteRoom(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.deleteRoom(req.params.roomId);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function updateRoom(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.updateRoom(req.params.roomId, req.body?.name);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function getRoleSettings(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    res.json(await studioService.getRoleSettings());
+  } catch (error) { next(error); }
+}
+
+export async function saveRoleEnabled(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.saveRoleEnabled(req.body?.enabled);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function createRole(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    res.json({ role: await studioService.createRole(req.body?.name) });
+  } catch (error) { next(error); }
+}
+
+export async function deleteRole(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.deleteRole(req.params.roleId);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function updateRole(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.updateRole(req.params.roleId, req.body?.name);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function getMemberGradeSettings(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    res.json(await studioService.getMemberGradeSettings());
+  } catch (error) { next(error); }
+}
+
+export async function saveMemberGradeEnabled(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.saveMemberGradeEnabled(req.body?.enabled);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function createMemberGrade(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    res.json({ grade: await studioService.createMemberGrade(req.body?.name, req.body?.color) });
+  } catch (error) { next(error); }
+}
+
+export async function deleteMemberGrade(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.deleteMemberGrade(req.params.gradeId);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function updateMemberGrade(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.updateMemberGrade(req.params.gradeId, req.body?.name, req.body?.color);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function listClassCategories(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    res.json({ categories: await studioService.listClassCategories() });
+  } catch (error) { next(error); }
+}
+
+export async function createClassCategory(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    res.json({ category: await studioService.createClassCategory(req.body?.name) });
+  } catch (error) { next(error); }
+}
+
+export async function deleteClassCategory(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.deleteClassCategory(req.params.categoryId);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function updateClassCategory(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    await studioService.updateClassCategory(req.params.categoryId, req.body?.name);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function getNotificationTemplates(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    res.json({ templates: await studioService.getNotificationTemplates() });
+  } catch (error) { next(error); }
+}
+
+export async function saveNotificationTemplate(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const { templateId } = req.params;
+    const { pushEnabled, smsEnabled, kakaoEnabled, kakaoTemplateCode, message, param1, param2, skipExpired } = req.body || {};
+    await studioService.saveNotificationTemplate(templateId, { pushEnabled, smsEnabled, kakaoEnabled, kakaoTemplateCode, message, param1, param2, skipExpired });
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+}
+
+export async function getSalesPinHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    res.json(await studioService.getSalesPin());
+  } catch (error) { next(error); }
+}
+
+export async function saveSalesPinHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const pin = req.body?.pin !== undefined ? String(req.body.pin) : null;
+    const result = await studioService.saveSalesPin(pin);
+    clearSalesPinUnlocks();
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
+export async function verifySalesPinHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "sales.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const result = await studioService.verifySalesPin(req.body?.pin);
+    markSalesPinUnlocked(req, user);
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
+export async function getStudioSalesReportHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "sales.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    if (!(await requireSalesPinUnlocked(req, res, user))) return;
+    res.json(await studioService.listStudioSalesReport({
+      from: String(req.query.from || "").trim(),
+      to: String(req.query.to || "").trim(),
+      branchId: String(req.query.branchId || "").trim(),
+    }));
+  } catch (error) { next(error); }
+}
+
+export async function createStudioExpenseHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "sales.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    if (!(await requireSalesPinUnlocked(req, res, user))) return;
+    res.status(201).json({ expense: await studioService.createStudioExpense(req.body || {}, user.id) });
+  } catch (error) { next(error); }
 }
 
 export async function addHoliday(req, res, next) {
@@ -408,6 +707,18 @@ export async function listClassCheckins(req, res, next) {
   }
 }
 
+export async function cancelCheckIn(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "checkin.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const row = await studioService.cancelCheckIn(String(req.params.checkinId || "").trim());
+    res.json(row);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function createArrears(req, res, next) {
   try {
     const user = await getAuthUser(req);
@@ -438,6 +749,21 @@ export async function listArrearsByUser(req, res, next) {
     if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
     if (!(await canAccessStudioAdmin(user, "member.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
     const rows = await studioService.listArrearsByUser(String(req.params.userId || "").trim());
+    res.json({ arrears: rows });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listArrears(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "member.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const rows = await studioService.listArrears({
+      status: String(req.query.status || "").trim(),
+      userId: String(req.query.userId || "").trim(),
+    });
     res.json({ arrears: rows });
   } catch (error) {
     next(error);
@@ -550,6 +876,99 @@ export async function listNotificationsByUser(req, res, next) {
   }
 }
 
+export async function markMyNotificationRead(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    const result = await studioService.markNotificationRead({
+      notificationId: req.params.notificationId,
+      userId: user.id,
+    });
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function markMyNotificationsRead(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    const result = await studioService.markAllNotificationsRead(user.id);
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listMessageTemplates(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "communication.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    res.json({ templates: await studioService.listMessageTemplates() });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createMessageTemplate(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "communication.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const row = await studioService.createMessageTemplate({ ...(req.body || {}), createdBy: user.id });
+    res.status(201).json({ template: row });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateMessageTemplate(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "communication.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const row = await studioService.updateMessageTemplate(req.params.templateId, req.body || {});
+    res.json({ template: row });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteMessageTemplate(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "communication.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    res.json(await studioService.deleteMessageTemplate(req.params.templateId));
+  } catch (error) {
+    next(error);
+  }
+}
+
+/** 로그인한 회원 앱의 FCM 토큰을 등록하거나 갱신합니다. */
+export async function registerMyPushDevice(req, res, next) {
+  try {
+    const userId = String(req.authUser?.id || "").trim();
+    const result = await registerPushDevice({ userId, ...(req.body || {}) });
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/** 로그아웃 또는 알림 해제 시 현재 기기의 FCM 토큰을 비활성화합니다. */
+export async function unregisterMyPushDevice(req, res, next) {
+  try {
+    const userId = String(req.authUser?.id || "").trim();
+    const result = await unregisterPushDevice({ userId, token: req.body?.token });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function listInstructorHours(req, res, next) {
   try {
     const user = await getAuthUser(req);
@@ -654,7 +1073,10 @@ export async function requestPassRefund(req, res, next) {
   try {
     const user = await getAuthUser(req);
     if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
-    const row = await studioService.requestPassRefund(req.body || {});
+    const row = await studioService.requestPassRefund({
+      ...(req.body || {}),
+      userId: String(user.id),
+    });
     res.status(201).json(row);
   } catch (error) {
     next(error);
@@ -688,4 +1110,113 @@ export async function resolvePassRefund(req, res, next) {
   } catch (error) {
     next(error);
   }
+}
+
+
+// ── 게시판 ──────────────────────────────────────────────────────────
+
+export async function listAdminNotices(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const { search, page, pageSize } = req.query;
+    const result = await studioService.listAdminNotices({
+      search,
+      page: Number(page) || 1,
+      pageSize: Math.min(100, Number(pageSize) || 20),
+    });
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
+export async function getAdminNoticeHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const notice = await studioService.getAdminNotice(req.params.noticeId);
+    res.json({ notice });
+  } catch (error) { next(error); }
+}
+
+export async function createAdminNoticeHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const notice = await studioService.createAdminNotice(user.id, req.body || {});
+    res.status(201).json({ notice });
+  } catch (error) { next(error); }
+}
+
+export async function updateAdminNoticeHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const notice = await studioService.updateAdminNotice(req.params.noticeId, req.body || {});
+    res.json({ notice });
+  } catch (error) { next(error); }
+}
+
+export async function deleteAdminNoticesHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+    const result = await studioService.deleteAdminNotices(ids);
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
+export async function uploadNoticeImageHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "settings.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const buffer = req.body;
+    if (!Buffer.isBuffer(buffer) || buffer.length === 0) return res.status(400).json({ message: "파일이 없습니다." });
+    const fileName = String(req.headers["x-file-name"] || "upload.jpg");
+    const mimeType = String(req.headers["content-type"] || "image/jpeg").split(";")[0].trim();
+    const url = await studioAssetService.uploadNoticeImage(buffer, fileName, mimeType);
+    res.json({ url });
+  } catch (error) { next(error); }
+}
+
+export async function listConsultationsHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "member.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const consultations = await studioService.listConsultations({
+      date: req.query?.date,
+      staffName: req.query?.staffName,
+      type: req.query?.type,
+      search: req.query?.search,
+      limit: req.query?.limit,
+    });
+    res.json({ consultations });
+  } catch (error) { next(error); }
+}
+
+export async function createConsultationHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "member.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const result = await studioService.createConsultation(req.body || {});
+    res.json({ consultation: result });
+  } catch (error) { next(error); }
+}
+
+export async function deleteConsultationHandler(req, res, next) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    if (!(await canAccessStudioAdmin(user, "member.write"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+    const result = await studioService.deleteConsultation(req.params?.consultationId);
+    res.json(result);
+  } catch (error) { next(error); }
 }

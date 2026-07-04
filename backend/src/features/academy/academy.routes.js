@@ -72,7 +72,6 @@ academyRoutes.patch("/videos/:videoId/visibility", express.json(), academyContro
 academyRoutes.post(
   "/uploads",
   academyController.requireAcademyUploadAdmin,
-  express.raw({ type: "application/octet-stream", limit: "1024mb" }),
   academyController.uploadAcademyAsset
 );
 

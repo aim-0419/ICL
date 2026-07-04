@@ -1,0 +1,519 @@
+/* 관리자 일정 화면: 헤더 정렬, 알림 아이콘, 캘린더 한 화면 맞춤 보정 */
+.admin-schedule-app {
+  grid-template-columns: minmax(0, 1fr) !important;
+  min-height: 100vh !important;
+  overflow: hidden;
+}
+
+.admin-schedule-rail {
+  display: none !important;
+}
+
+.admin-schedule-main {
+  min-height: 100vh;
+  grid-template-rows: auto auto auto minmax(0, 1fr) !important;
+  overflow: hidden;
+}
+
+.admin-schedule-topbar {
+  min-height: 66px !important;
+  grid-template-columns: 72px minmax(420px, 1fr) minmax(360px, 460px) 42px auto 42px !important;
+  gap: 12px !important;
+  padding: 0 30px !important;
+}
+
+.admin-schedule-logo {
+  width: 60px !important;
+}
+
+.admin-schedule-logo span {
+  width: 48px !important;
+  height: 48px !important;
+}
+
+.admin-schedule-search {
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+.admin-schedule-search span {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  letter-spacing: 0 !important;
+}
+
+.admin-schedule-search input {
+  width: 100% !important;
+  min-width: 0 !important;
+  white-space: nowrap;
+}
+
+.admin-schedule-notification-icon {
+  align-self: center;
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: #f3f7fb;
+  cursor: pointer;
+}
+
+.admin-schedule-notification-icon span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 15px;
+  height: 17px;
+  border: 2px solid #4b5561;
+  border-bottom: 0;
+  border-radius: 10px 10px 5px 5px;
+  transform: translate(-50%, -55%);
+}
+
+.admin-schedule-notification-icon span::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #4b5561;
+  transform: translateX(-50%);
+}
+
+.admin-schedule-notification-icon span::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 7px;
+  height: 2px;
+  border-radius: 999px;
+  background: #4b5561;
+  transform: translateX(-50%);
+}
+
+.admin-schedule-notification-icon:hover {
+  background: #e9f4ff;
+}
+
+.admin-schedule-toolbar,
+.admin-schedule-filterbar {
+  padding-left: 30px !important;
+  padding-right: 30px !important;
+}
+
+.admin-schedule-toolbar {
+  padding-top: 20px !important;
+}
+
+.admin-schedule-filterbar {
+  padding-top: 16px !important;
+  padding-bottom: 8px !important;
+}
+
+.admin-month-calendar {
+  height: calc(100vh - 212px) !important;
+  min-height: 0 !important;
+  padding: 0 30px 18px !important;
+  overflow: hidden !important;
+}
+
+.admin-month-weekdays {
+  height: 22px;
+}
+
+.admin-month-weekdays strong {
+  min-height: 22px !important;
+}
+
+.admin-month-grid {
+  height: calc(100% - 22px) !important;
+  grid-auto-rows: minmax(0, 1fr) !important;
+}
+
+.admin-month-cell {
+  min-height: 0 !important;
+  padding: 6px 6px 5px !important;
+  overflow: hidden !important;
+}
+
+.admin-month-day-number {
+  min-height: 20px !important;
+}
+
+.admin-month-events {
+  gap: 3px !important;
+  margin-top: 2px !important;
+}
+
+.admin-month-event {
+  min-height: 16px !important;
+  font-size: 0.67rem !important;
+}
+
+.admin-month-more {
+  min-height: 16px !important;
+  font-size: 0.67rem !important;
+}
+
+.admin-schedule-list-view {
+  height: calc(100vh - 212px) !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+}
+
+@media (max-height: 820px) {
+  .admin-schedule-topbar {
+    min-height: 60px !important;
+  }
+
+  .admin-schedule-toolbar {
+    padding-top: 14px !important;
+  }
+
+  .admin-schedule-filterbar {
+    padding-top: 10px !important;
+  }
+
+  .admin-month-calendar {
+    height: calc(100vh - 186px) !important;
+  }
+
+  .admin-schedule-list-view {
+    height: calc(100vh - 186px) !important;
+  }
+
+  .admin-month-event {
+    min-height: 16px !important;
+    padding-inline: 4px !important;
+    font-size: 0.64rem !important;
+  }
+}
+
+@media (max-width: 1180px) {
+  .admin-schedule-topbar {
+    grid-template-columns: 64px minmax(320px, 1fr) minmax(260px, 360px) 40px auto 40px !important;
+    gap: 8px !important;
+    padding-inline: 18px !important;
+  }
+
+  .admin-schedule-nav {
+    gap: 12px !important;
+  }
+
+  .admin-schedule-search {
+    min-width: 260px !important;
+  }
+}
+
+/* 관리자 일정 화면 정렬 보강: 헤더와 캘린더 조작부를 한 화면에서 더 안정적으로 보이게 정리합니다. */
+.admin-schedule-page .admin-schedule-main,
+.admin-schedule-main {
+  background: #fff !important;
+}
+
+.admin-schedule-page .admin-schedule-topbar,
+.admin-schedule-topbar {
+  min-height: 64px !important;
+  grid-template-columns: 56px minmax(0, 1fr) minmax(160px, 220px) 42px auto 42px !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 0 28px !important;
+  border-bottom: 1px solid #e6ebf1 !important;
+}
+
+.admin-schedule-page .admin-schedule-logo,
+.admin-schedule-logo {
+  width: 56px !important;
+  justify-content: center !important;
+}
+
+.admin-schedule-page .admin-schedule-logo span,
+.admin-schedule-logo span {
+  width: 48px !important;
+  height: 48px !important;
+}
+
+.admin-schedule-page .admin-schedule-nav,
+.admin-schedule-nav {
+  align-self: stretch !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 18px !important;
+  min-width: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+}
+
+.admin-schedule-page .admin-schedule-nav::-webkit-scrollbar,
+.admin-schedule-nav::-webkit-scrollbar {
+  display: none !important;
+}
+
+.admin-schedule-page .admin-schedule-nav a,
+.admin-schedule-nav a {
+  min-height: 64px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  white-space: nowrap !important;
+  font-size: 0.92rem !important;
+}
+
+.admin-schedule-page .admin-schedule-search,
+.admin-schedule-search {
+  height: 40px !important;
+  min-width: 0 !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: center !important;
+  padding: 0 14px !important;
+  border-radius: 10px !important;
+  background: #f4f7fa !important;
+}
+
+.admin-schedule-page .admin-schedule-search span,
+.admin-schedule-search span {
+  width: 34px !important;
+  color: #98a2b3 !important;
+  font-size: 0.92rem !important;
+  line-height: 1 !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+}
+
+.admin-schedule-page .admin-schedule-search input,
+.admin-schedule-search input {
+  height: 38px !important;
+  padding: 0 !important;
+  font-size: 0.92rem !important;
+}
+
+.admin-schedule-page .admin-schedule-add-member,
+.admin-schedule-add-member,
+.admin-schedule-page .admin-schedule-notification-icon,
+.admin-schedule-notification-icon {
+  width: 42px !important;
+  height: 42px !important;
+}
+
+.admin-schedule-page .admin-schedule-profile,
+.admin-schedule-profile {
+  min-width: 58px !important;
+  padding: 0 8px !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+}
+
+.admin-schedule-page .admin-schedule-toolbar,
+.admin-schedule-toolbar {
+  min-height: 62px !important;
+  padding: 16px 30px 6px !important;
+  align-items: center !important;
+  border-bottom: 0 !important;
+}
+
+.admin-schedule-page .admin-schedule-month-title,
+.admin-schedule-month-title {
+  gap: 8px !important;
+}
+
+.admin-schedule-page .admin-schedule-month-title h1,
+.admin-schedule-month-title h1 {
+  min-width: 150px !important;
+  font-size: 1.45rem !important;
+  letter-spacing: 0 !important;
+}
+
+.admin-schedule-page .admin-schedule-month-title button,
+.admin-schedule-month-title button,
+.admin-schedule-page .admin-schedule-calendar-setting,
+.admin-schedule-calendar-setting,
+.admin-schedule-page .admin-schedule-view-controls > button,
+.admin-schedule-view-controls > button,
+.admin-schedule-page .admin-schedule-view-tabs button,
+.admin-schedule-view-tabs button {
+  min-height: 34px !important;
+}
+
+.admin-schedule-page .admin-schedule-filterbar,
+.admin-schedule-filterbar {
+  display: grid !important;
+  grid-template-columns: minmax(170px, auto) minmax(360px, 1fr) auto !important;
+  align-items: end !important;
+  column-gap: 26px !important;
+  row-gap: 8px !important;
+  padding: 4px 30px 8px !important;
+  border-bottom: 1px solid #dfe5ec !important;
+}
+
+.admin-schedule-page .admin-schedule-category-tabs,
+.admin-schedule-category-tabs {
+  gap: 16px !important;
+  min-width: 0 !important;
+}
+
+.admin-schedule-page .admin-schedule-category-tabs button,
+.admin-schedule-category-tabs button {
+  min-height: 34px !important;
+  padding-bottom: 9px !important;
+  white-space: nowrap !important;
+}
+
+.admin-schedule-page .admin-schedule-view-controls,
+.admin-schedule-view-controls {
+  justify-content: flex-end !important;
+  gap: 7px !important;
+  min-width: 0 !important;
+}
+
+.admin-schedule-page .admin-schedule-view-controls > button,
+.admin-schedule-view-controls > button {
+  min-width: 40px !important;
+  padding: 0 12px !important;
+}
+
+.admin-schedule-page .admin-schedule-view-tabs button,
+.admin-schedule-view-tabs button {
+  min-width: 50px !important;
+  padding: 0 12px !important;
+}
+
+.admin-schedule-page .admin-month-calendar,
+.admin-month-calendar {
+  height: calc(100vh - 194px) !important;
+  padding: 0 30px 18px !important;
+}
+
+.admin-schedule-page .admin-month-weekdays,
+.admin-month-weekdays {
+  height: 24px !important;
+}
+
+.admin-schedule-page .admin-month-grid,
+.admin-month-grid {
+  height: calc(100% - 24px) !important;
+}
+
+.admin-schedule-page .admin-month-cell,
+.admin-month-cell {
+  padding: 6px 7px 5px !important;
+}
+
+.admin-schedule-page .admin-month-day-number,
+.admin-month-day-number {
+  min-height: 19px !important;
+  margin-bottom: 2px !important;
+}
+
+.admin-schedule-page .admin-month-event,
+.admin-month-event {
+  min-height: 17px !important;
+  font-size: 0.67rem !important;
+}
+
+@media (max-height: 820px) {
+  .admin-schedule-page .admin-schedule-topbar,
+  .admin-schedule-topbar {
+    min-height: 58px !important;
+  }
+
+  .admin-schedule-page .admin-schedule-nav a,
+  .admin-schedule-nav a {
+    min-height: 58px !important;
+  }
+
+  .admin-schedule-page .admin-schedule-toolbar,
+  .admin-schedule-toolbar {
+    min-height: 54px !important;
+    padding-top: 10px !important;
+    padding-bottom: 4px !important;
+  }
+
+  .admin-schedule-page .admin-schedule-filterbar,
+  .admin-schedule-filterbar {
+    padding-top: 2px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .admin-schedule-page .admin-month-calendar,
+  .admin-month-calendar {
+    height: calc(100vh - 172px) !important;
+  }
+}
+
+@media (max-width: 1500px) {
+  .admin-schedule-page .admin-schedule-topbar,
+  .admin-schedule-topbar {
+    grid-template-columns: 56px minmax(0, 1fr) minmax(220px, 340px) 42px auto 42px !important;
+    gap: 10px !important;
+  }
+
+  .admin-schedule-page .admin-schedule-nav,
+  .admin-schedule-nav {
+    gap: 14px !important;
+  }
+
+  .admin-schedule-page .admin-schedule-filterbar,
+  .admin-schedule-filterbar {
+    grid-template-columns: minmax(130px, auto) minmax(320px, 1fr) auto !important;
+    column-gap: 18px !important;
+  }
+}
+
+@media (max-width: 1320px) {
+  .admin-schedule-page .admin-schedule-topbar,
+  .admin-schedule-topbar {
+    grid-template-columns: 54px minmax(0, 1fr) minmax(170px, 240px) 40px auto 40px !important;
+    gap: 8px !important;
+  }
+
+  .admin-schedule-page .admin-schedule-search,
+  .admin-schedule-search {
+    display: grid !important;
+    padding: 0 12px !important;
+  }
+}
+
+@media (max-width: 1220px) {
+  .admin-schedule-page .admin-schedule-topbar,
+  .admin-schedule-topbar {
+    grid-template-columns: 54px minmax(0, 1fr) minmax(150px, 200px) 40px auto 40px !important;
+    gap: 8px !important;
+  }
+
+  .admin-schedule-page .admin-schedule-search,
+  .admin-schedule-search {
+    display: grid !important;
+    padding: 0 10px !important;
+  }
+
+  .admin-schedule-page .admin-schedule-filterbar,
+  .admin-schedule-filterbar {
+    grid-template-columns: 1fr !important;
+    align-items: start !important;
+  }
+
+  .admin-schedule-page .admin-schedule-view-controls,
+  .admin-schedule-view-controls {
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+    padding-bottom: 2px !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .admin-schedule-page .admin-schedule-topbar,
+  .admin-schedule-topbar {
+    grid-template-columns: 54px minmax(0, 1fr) 40px auto 40px !important;
+  }
+
+  .admin-schedule-page .admin-schedule-search,
+  .admin-schedule-search {
+    display: none !important;
+  }
+}

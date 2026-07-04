@@ -1,99 +1,91 @@
-# ICL Pilates — 이끌림 필라테스 플랫폼
+# ICL Pilates HOMEPAGE
 
-이끌림 필라테스의 홈페이지 및 스튜디오 관리 플랫폼입니다.  
-회원 관리, 수강권 판매, 아카데미, 강사·스태프 관리, 매출 분석 등 스튜디오 운영에 필요한 기능을 통합 제공합니다.
+이끌림 필라테스의 홈페이지, 교육영상, 관리자, 스튜디오 예약 관리 기능을 함께 제공하는 통합 웹 서비스입니다.
 
----
+## 주요 기능
+
+- 브랜드 홈페이지와 소개 페이지
+- 회원가입, 로그인, 마이페이지
+- 교육영상 목록, 구매, 재생, 진도 관리
+- 관리자 교육영상 등록, 수정, 삭제
+- 주문, 결제, 환불, 포인트 관리
+- 이벤트, 후기, 문의 게시판
+- 스튜디오메이트형 필라테스 일정, 예약, 수강권, 강사, 회원, 매출 관리
+- SMS, 카카오 알림톡, 앱 푸시 연동 준비 구조
 
 ## 기술 스택
 
 | 영역 | 기술 |
-|------|------|
+| --- | --- |
 | Frontend | React 18, Vite, React Router |
 | Backend | Node.js, Express |
-| Database | MySQL 8.4 |
+| Database | MySQL |
 | 결제 | PortOne V2 |
-| 배포 | EC2 (Ubuntu 24.04), Nginx, PM2 |
-| CI/CD | GitHub Actions (`merge` 브랜치 push → 자동 배포) |
-| 컨테이너 | Docker Compose (로컬 시연용) |
-
----
-
-## 주요 기능
-
-- **홈페이지** — 브랜드 소개, SNS 피드(유튜브·블로그·인스타그램) 연동
-- **아카데미** — 온라인 강의 판매, 동영상 재생, 수강 진도 관리
-- **스튜디오 관리** — 수업 일정, 강사·스태프 관리, 역할별 권한 설정
-- **회원 관리** — 회원 목록, 수강권 조회, 엑셀 다운로드
-- **수강권 & 결제** — PortOne V2 연동, 환불 처리
-- **매출 분석** — 기간별 매출 대시보드
-- **커뮤니티** — 공지사항, 게시글
-
----
+| 영상/이미지 | 서버 업로드, 보안 재생 링크 |
+| 배포 | EC2, nginx, PM2 |
+| 모바일 확장 | Capacitor 기반 앱 패키징 준비 |
 
 ## 디렉터리 구조
 
-```
+```text
 HomePage/
-├── frontend/
-│   ├── src/
-│   │   ├── app/              # 라우터, 전역 설정
-│   │   ├── features/
-│   │   │   ├── auth/         # 로그인, 회원가입, 비밀번호 찾기
-│   │   │   ├── home/         # 메인 홈페이지
-│   │   │   ├── academy/      # 아카데미 강의
-│   │   │   ├── admin/        # 스튜디오 관리자
-│   │   │   ├── studio/       # 스튜디오메이트 API
-│   │   │   ├── community/    # 커뮤니티
-│   │   │   ├── mypage/       # 마이페이지
-│   │   │   ├── payment/      # 결제 성공/실패
-│   │   │   ├── brand/        # 브랜드 소개
-│   │   │   └── cart/         # 장바구니
-│   │   └── shared/           # 공통 컴포넌트, 유틸, 스토어
-│   ├── public/assets/        # 이미지, 폰트 등 정적 파일
-│   └── styles.css            # 전역 스타일
+├── AGENTS.md
+├── QA_DEPLOY_CHECKLIST.md
+├── README.md
 ├── backend/
-│   └── src/
-│       ├── features/
-│       │   ├── auth/         # 인증 (JWT)
-│       │   ├── users/        # 회원
-│       │   ├── academy/      # 아카데미
-│       │   ├── admin/        # 관리자
-│       │   ├── studio/       # 스튜디오
-│       │   ├── products/     # 수강권 상품
-│       │   ├── orders/       # 주문
-│       │   ├── payments/     # 결제 (PortOne V2)
-│       │   ├── refunds/      # 환불
-│       │   ├── cart/         # 장바구니
-│       │   ├── community/    # 커뮤니티
-│       │   └── brand/        # 브랜드
-│       └── shared/           # DB, 미들웨어 등
-├── docker-compose.yml
-└── deploy/                   # 배포 스크립트
+│   ├── src/
+│   │   ├── app.js
+│   │   ├── server.js
+│   │   ├── config/
+│   │   ├── features/
+│   │   │   ├── academy/
+│   │   │   ├── admin/
+│   │   │   ├── auth/
+│   │   │   ├── brand/
+│   │   │   ├── cart/
+│   │   │   ├── community/
+│   │   │   ├── orders/
+│   │   │   ├── payments/
+│   │   │   ├── products/
+│   │   │   ├── refunds/
+│   │   │   ├── sms/
+│   │   │   ├── studio/
+│   │   │   └── users/
+│   │   └── shared/
+│   └── test/
+├── deploy/
+├── docs/
+└── frontend/
+    ├── src/
+    │   ├── app/
+    │   ├── features/
+    │   │   ├── academy/
+    │   │   ├── admin/
+    │   │   ├── auth/
+    │   │   ├── brand/
+    │   │   ├── cart/
+    │   │   ├── community/
+    │   │   ├── home/
+    │   │   ├── mypage/
+    │   │   ├── payment/
+    │   │   └── studio/
+    │   └── shared/
+    └── public/
 ```
 
----
+## 로컬 실행
 
-## 로컬 실행 (개발)
-
-### 사전 준비
-
-- Node.js 20+
-- MySQL 8.4 (로컬 또는 Docker)
-
-### Backend
+### 1. 백엔드
 
 ```bash
 cd backend
 npm install
-cp .env.example .env   # 환경변수 설정
 npm run dev
 ```
 
-- 기본 포트: `4000`
-- 헬스체크: `GET http://localhost:4000/api/health`
+기본 API 주소는 `http://localhost:4000`입니다.
 
-### Frontend
+### 2. 프론트엔드
 
 ```bash
 cd frontend
@@ -101,85 +93,89 @@ npm install
 npm run dev
 ```
 
-- 기본 포트: `5173`
+기본 프론트엔드 주소는 `http://localhost:5173`입니다.
 
----
+## 테스트
 
-## 환경변수 (backend/.env)
-
-`.env.example`을 복사해서 사용합니다.
-
-```env
-PORT=4000
-CORS_ORIGIN=http://localhost:5173
-
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=icl_pilates
-
-# PortOne V2 결제
-PORTONE_API_SECRET=your_portone_v2_api_secret
-
-# 동영상 재생 토큰
-ACADEMY_PLAYBACK_TOKEN_SECRET=replace_with_long_random_secret
-
-# 개인정보 암호화
-PII_ENCRYPTION_KEY=replace_with_long_random_encryption_key
-
-# 이메일 발송 (SMTP)
-SMTP_HOST=smtp.naver.com
-SMTP_PORT=465
-SMTP_USER=your_email@naver.com
-SMTP_PASS=your_email_password
-SMTP_FROM=이끌림 필라테스 <your_email@naver.com>
-SITE_URL=https://your-domain.com
-```
-
----
-
-## Docker 시연 (로컬 원클릭 실행)
+### 백엔드 테스트
 
 ```bash
-docker compose up --build
+cd backend
+npm run check
 ```
 
-| 항목 | 주소 |
-|------|------|
-| 데모 사이트 | http://localhost:8080 |
-| API 헬스체크 | http://localhost:8080/api/health |
-| MySQL 로컬 포트 | 3307 |
-
-**데모 관리자 계정** (Docker Compose 전용 자동 생성)
-
-```
-ID: demo-admin
-PW: demo-admin-1234
-```
-
-데이터를 초기화하려면:
+### 프론트엔드 빌드
 
 ```bash
-docker compose down -v
-docker compose up --build
+cd frontend
+npm run build
 ```
 
-> 운영 서버에서는 반드시 `DEMO_ADMIN_ENABLED=false`로 설정하거나 해당 환경변수를 제거하세요.
+### 배포 전 최소 검증 순서
 
----
+```bash
+cd backend
+npm run check
 
-## 배포
+cd ../frontend
+npm run build
+```
 
-- 서버: EC2 (Ubuntu 24.04) + Nginx 리버스 프록시 + PM2
-- `merge` 브랜치에 push하면 GitHub Actions가 자동으로 배포합니다.
+추가로 서버가 켜진 상태에서는 `/api/health`, `/uploads` 정적 경로, 주요 관리자/사용자 화면을 브라우저에서 직접 확인합니다.
 
----
+## 환경변수
 
-## 브랜치 전략
+운영 환경에서는 `backend/.env.example`을 기준으로 필요한 값을 설정합니다.
 
-| 브랜치 | 용도 |
-|--------|------|
-| `main` | 안정 버전 보관 |
-| `merge` | 운영 배포 대상 (push 시 자동 배포) |
-| `feature/*` | 기능 개발 |
+중요한 환경변수:
+
+- DB 접속 정보
+- PortOne 결제 키
+- PII 암호화 키
+- 교육영상 재생 토큰 키
+- SMTP 메일 설정
+- Aligo SMS 설정
+- 카카오 알림톡 설정
+- FCM 앱 푸시 설정
+- CORS 허용 도메인
+
+비밀번호, API 키, 토큰은 코드나 문서에 원문으로 기록하지 않습니다.
+
+## 작업 문서
+
+- `AGENTS.md`: Codex와 Claude Code가 따라야 하는 프로젝트 작업 지침
+- `QA_DEPLOY_CHECKLIST.md`: 배포 전 기능, 보안, UI, API, DB 점검 체크리스트
+
+## 개발 원칙
+
+- 기능을 추가할 때 기존 사용자 흐름을 깨지 않습니다.
+- UI에 보이는 버튼과 입력칸은 실제 기능과 연결합니다.
+- 관리자 기능과 일반 사용자 기능을 명확히 구분합니다.
+- 교육 회원과 스튜디오 회원의 데이터 의미를 혼동하지 않습니다.
+- 파일 업로드, 결제, 환불, 예약 기능은 실제 DB 반영까지 확인합니다.
+- 한글 문서와 주석은 UTF-8로 관리합니다.
+
+## 코드 정리 기준
+
+- 확실히 사용하지 않는 import, 변수, 함수만 제거합니다.
+- 컴포넌트와 API wrapper는 실제 라우트, 테스트, 호출부를 확인한 뒤 정리합니다.
+- `tmp/`, `qa-screenshots/`, `qa-artifacts/`, `frontend/test-results/`는 브라우저 테스트 산출물이므로 커밋하지 않습니다.
+- 임시 QA 스크립트에 테스트 계정이나 민감 정보가 들어간 경우 저장소에 남기지 않습니다.
+- 복잡한 권한, 결제, 환불, 예약, 업로드 로직에는 비개발자도 이해할 수 있는 한글 주석을 남깁니다.
+
+## 배포 전 확인
+
+배포 전에는 반드시 `QA_DEPLOY_CHECKLIST.md`를 기준으로 점검합니다.
+
+최소 확인 항목:
+
+- 프론트엔드 빌드 성공
+- 백엔드 테스트 성공
+- 로그인/로그아웃 정상
+- 관리자 권한 정상
+- 교육영상 구매/재생 정상
+- 필라테스 예약/취소 정상
+- 결제/환불 흐름 정상
+- 이미지/영상 업로드 정상
+- 모바일 주요 화면 깨짐 없음
+- 콘솔 및 네트워크 반복 오류 없음

@@ -348,7 +348,7 @@ export async function createOrder(payload, authUser = null) {
         Number(paidOrder.amount ?? 0),
         encryptPii(paidOrder.customerEmail ?? null),
         emailHash(paidOrder.customerEmail),
-        JSON.stringify(withoutStoredPii(paidOrder)),
+        JSON.stringify(scrubStoredPii(paidOrder)),
       ]
     );
 
@@ -358,4 +358,3 @@ export async function createOrder(payload, authUser = null) {
     return paidOrder;
   });
 }
-

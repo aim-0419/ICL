@@ -266,9 +266,26 @@ export async function listAllRefundRequests({ status = "" } = {}) {
     hasStatus ? [toSafeText(status)] : []
   );
 
-  return rows.map((row) => ({
+  const mapped = rows.map((row) => ({
     ...row,
     selectedProductIds: parseJson(row.selectedProductIds) || [],
+  }));
+
+  const allProductIds = [...new Set(mapped.flatMap((r) => r.selectedProductIds).filter(Boolean))];
+  const productNameMap = new Map();
+  if (allProductIds.length > 0) {
+    const placeholders = allProductIds.map(() => "?").join(",");
+    const productRows = await query(`SELECT id, name FROM products WHERE id IN (${placeholders})`, allProductIds);
+    productRows.forEach((p) => productNameMap.set(String(p.id), String(p.name || "")));
+  }
+
+  return mapped.map((r) => ({
+    ...r,
+    selectedProducts: r.selectedProductIds.map((id) => ({
+      id,
+      name: productNameMap.get(String(id)) || null,
+      deleted: !productNameMap.has(String(id)),
+    })),
   }));
 }
 

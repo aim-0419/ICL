@@ -1,25 +1,52 @@
-// 파일 역할: 프론트엔드에서 백엔드 API를 호출할 때 쓰는 공통 요청 함수를 제공합니다.
-// 상수 역할: 프론트엔드 API 호출의 기본 주소를 보관합니다.
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
-// 모든 API 호출이 이 함수를 거치도록 통일해 쿠키/JSON/에러 형식을 일관되게 맞춘다.
-// 함수 역할: 공통 옵션으로 API를 호출하고 실패 응답을 에러로 정리합니다.
+const pendingGetRequests = new Map();
+
+function getRequestKey(path, method) {
+  return `${method}:${API_BASE_URL}${path}`;
+}
+
+// 파일 역할: 프론트엔드의 모든 JSON API 요청을 공통 방식으로 처리합니다.
 export async function apiRequest(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: options.method || "GET",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+  const method = String(options.method || "GET").toUpperCase();
+  const requestKey = getRequestKey(path, method);
 
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data?.message || "서버 요청에 실패했습니다.");
+  // 같은 GET 요청이 동시에 여러 컴포넌트에서 발생하면 실제 네트워크 호출은 한 번만 보냅니다.
+  if (method === "GET" && pendingGetRequests.has(requestKey)) {
+    return pendingGetRequests.get(requestKey);
   }
 
-  return data;
+  const requestPromise = (async () => {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const error = new Error(data?.message || "서버 요청에 실패했습니다.");
+      error.status = response.status;
+      error.code = data?.code || "";
+      error.data = data;
+      throw error;
+    }
+
+    return data;
+  })();
+
+  if (method === "GET") {
+    pendingGetRequests.set(requestKey, requestPromise);
+    requestPromise.then(
+      () => pendingGetRequests.delete(requestKey),
+      () => pendingGetRequests.delete(requestKey)
+    );
+  }
+
+  return requestPromise;
 }

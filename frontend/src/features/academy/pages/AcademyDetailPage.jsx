@@ -101,19 +101,19 @@ const DETAIL_SUMMARY = {
   },
 };
 
-// 함수 역할: 대체값 차시 상황에 맞는 값을 계산하거나 선택합니다.
+// 함수 역할: 기존 데이터가 비어 있을 때 단일 영상 운영에 맞는 기본 재생 정보를 만듭니다.
 function resolveFallbackChapter(video) {
   return [
     {
       id: `${video.id}-ch-1`,
       chapterOrder: 1,
-      title: "1차시",
+      title: "본편",
       videoUrl: video.videoUrl || "",
     },
   ];
 }
 
-// 컴포넌트 역할: 선택한 강의의 상세 정보, 차시 목록, 후기, Q&A, 구매/수강 진입을 제공하는 페이지 컴포넌트입니다.
+// 컴포넌트 역할: 선택한 교육영상의 상세 정보, 후기, Q&A, 구매/수강 진입을 제공하는 페이지 컴포넌트입니다.
 export function AcademyDetailPage() {
   const { videoId } = useParams();
   const navigate = useNavigate();
@@ -220,7 +220,7 @@ export function AcademyDetailPage() {
             <div className="academy-video-tags">
               {showBadge ? <span className={`academy-tag academy-badge ${badgeTone}`}>{video.badge}</span> : null}
               <span className="academy-tag outline">{video.category}</span>
-              <span className="academy-tag outline">{chapters.length}차시</span>
+              <span className="academy-tag outline">{chapters.length > 1 ? `${chapters.length}개 영상` : "단일 영상"}</span>
             </div>
 
             <div className="academy-video-meta">
@@ -246,8 +246,8 @@ export function AcademyDetailPage() {
                 <dd>{video.period || detail.duration}</dd>
               </div>
               <div>
-                <dt>강의 수</dt>
-                <dd>{chapters.length}차시</dd>
+                <dt>영상 구성</dt>
+                <dd>{chapters.length > 1 ? `${chapters.length}개 영상` : "단일 영상"}</dd>
               </div>
               {totalDuration ? (
                 <div>
@@ -307,18 +307,19 @@ export function AcademyDetailPage() {
 
         <section className="academy-detail-extra">
           <article className="academy-detail-curriculum">
-            <h2>차시 구성</h2>
+            <h2>영상 정보</h2>
             <ul>
               {chapters.map((chapter) => (
                 <li key={chapter.id || `${video.id}-${chapter.chapterOrder}`}>
-                  {chapter.chapterOrder || 1}차시 · {chapter.title || "차시"}
+                  {chapters.length > 1 ? `영상 ${chapter.chapterOrder || 1} · ` : ""}
+                  {chapter.title || video.title || "본편"}
                 </li>
               ))}
             </ul>
           </article>
 
           <article className="academy-detail-curriculum">
-            <h2>커리큘럼 미리보기</h2>
+            <h2>교육 안내</h2>
             <ul>
               {detail.curriculum.map((item) => (
                 <li key={item}>{item}</li>

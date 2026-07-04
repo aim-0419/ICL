@@ -1,4 +1,4 @@
-/**
+﻿/**
  * [관리자 수업 일정 관리 페이지]
  *
  * 관리자가 수업 일정을 등록·수정·삭제하고 예약 현황을 확인하는 화면입니다.
@@ -15,7 +15,8 @@
  *  · 예약 정책: 예약 마감 시간, 취소 마감 시간, 당일 변경 허용 여부 설정
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
@@ -31,20 +32,10 @@ import {
   saveAdminBookingPolicy,
   updateAdminStudioClass,
 } from "../../studio/api/studioApi.js";
+import { DEFAULT_STUDIO_BRANCH_ID, STUDIO_BRANCHES, getStudioBranchName } from "../../studio/constants/studioBranches.js";
+import "./AdminSchedulePage.css";
 
 const WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
-
-const ADMIN_NAV_ITEMS = [
-  { label: "일정", path: "/admin", active: true },
-  { label: "수업", path: "/admin/classes" },
-  { label: "회원", path: "/admin/member-list" },
-  { label: "강사", path: "/admin/instructors" },
-  { label: "수강권", path: "/admin/products" },
-  { label: "메시지", path: "/community/inquiry" },
-  { label: "게시판", path: "/community/reviews", badge: "N" },
-  { label: "설정", path: "/admin/members" },
-  { label: "매출", path: "/admin/sales" },
-];
 
 const CATEGORY_TABS = [
   { value: "all", label: "전체" },
@@ -61,6 +52,7 @@ const VIEW_TABS = [
 ];
 
 const EMPTY_CLASS_FORM = {
+  branchId: DEFAULT_STUDIO_BRANCH_ID,
   title: "",
   instructorName: "",
   roomName: "",
@@ -161,6 +153,7 @@ function toClassForm(item) {
     durationMin: String(durationMin || 50),
     capacity: String(item.capacity || 6),
     repeatWeeks: "1",
+    branchId: item.branchId || DEFAULT_STUDIO_BRANCH_ID,
   };
 }
 
@@ -183,6 +176,7 @@ export function AdminSchedulePage() {
 
   const [currentMonth, setCurrentMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [category, setCategory] = useState("all");
+  const [selectedBranchId, setSelectedBranchId] = useState(DEFAULT_STUDIO_BRANCH_ID);
   const [viewMode, setViewMode] = useState("month");
   const [searchKeyword, setSearchKeyword] = useState("");
   const [classes, setClasses] = useState([]);
@@ -245,13 +239,19 @@ export function AdminSchedulePage() {
     const from = `${year}-${String(monthIndex + 1).padStart(2, "0")}-01 00:00:00`;
     const last = new Date(year, monthIndex + 1, 0).getDate();
     const to = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(last).padStart(2, "0")} 23:59:59`;
-    const rows = await listAdminStudioClasses({ from, to, status: "active" });
+    const rows = await listAdminStudioClasses({ from, to, status: "active", branchId: selectedBranchId });
     setClasses(rows);
   }
 
   useEffect(() => {
     loadClasses().catch(() => {});
-  }, [year, monthIndex]);
+  }, [year, monthIndex, selectedBranchId]);
+
+  useEffect(() => {
+    setSelectedClass(null);
+    setSelectedBookings([]);
+    setDayDetailPopup(null);
+  }, [selectedBranchId]);
 
   // 페이지 첫 진입 시 강사 목록과 회원 목록을 불러옵니다
   useEffect(() => {
@@ -307,6 +307,7 @@ export function AdminSchedulePage() {
   function openCreateClassModal(date = currentMonth) {
     setClassForm({
       ...EMPTY_CLASS_FORM,
+      branchId: selectedBranchId,
       date: toDateInputValue(date),
       instructorName: currentUserName !== "관리자" ? currentUserName : "",
     });
@@ -375,6 +376,7 @@ export function AdminSchedulePage() {
       const start = new Date(`${classForm.date}T${classForm.time}:00`);
       const end = new Date(start.getTime() + durationMin * 60000);
       const payload = {
+        branchId: classForm.branchId || selectedBranchId,
         classType,
         title,
         instructorName: classForm.instructorName.trim(),
@@ -547,38 +549,15 @@ export function AdminSchedulePage() {
   }
 
   return (
-    <div className="admin-schedule-app">
-      <aside className="admin-schedule-rail" aria-label="admin quick menu">
-        <button type="button" aria-label="notifications">알림</button>
-      </aside>
+    <AdminLayout
+      appClass="admin-schedule-app"
+      userName={currentUserName}
+      searchValue={searchKeyword}
+      onSearchChange={(e) => setSearchKeyword(e.target.value)}
+      onAddMember={() => navigate("/admin/member-list")}
+      showNotification={true}
+    >
       <main className="admin-schedule-main">
-        <header className="admin-schedule-topbar">
-          <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-            <span>ICL</span>
-          </button>
-          <nav className="admin-schedule-nav" aria-label="admin menu">
-            {ADMIN_NAV_ITEMS.map((item) => (
-              <Link key={`${item.label}-${item.path}`} className={item.active ? "active" : ""} to={item.path}>
-                {item.label}
-                {item.badge ? <em>{item.badge}</em> : null}
-              </Link>
-            ))}
-          </nav>
-          <div className="admin-schedule-search">
-            <span aria-hidden="true">검색</span>
-            <input
-              type="search"
-              value={searchKeyword}
-              placeholder="이름 또는 전화번호 검색"
-              onChange={(event) => setSearchKeyword(event.target.value)}
-            />
-          </div>
-          <button className="admin-schedule-add-member" type="button" aria-label="add member">+</button>
-          <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin/members")}>
-            {currentUserName}
-          </button>
-        </header>
-
         <section className="admin-schedule-toolbar">
           <div className="admin-schedule-month-title">
             <button type="button" onClick={() => moveMonth(-1)} aria-label="previous month">‹</button>
@@ -594,6 +573,18 @@ export function AdminSchedulePage() {
         </section>
 
         <section className="admin-schedule-filterbar">
+          <div className="admin-schedule-category-tabs" role="tablist" aria-label="지점 선택">
+            {STUDIO_BRANCHES.map((branch) => (
+              <button
+                key={branch.id}
+                type="button"
+                className={selectedBranchId === branch.id ? "active" : ""}
+                onClick={() => setSelectedBranchId(branch.id)}
+              >
+                {branch.name}
+              </button>
+            ))}
+          </div>
           <div className="admin-schedule-category-tabs" role="tablist" aria-label="category tabs">
             {CATEGORY_TABS.map((tab) => (
               <button key={tab.value} type="button" className={category === tab.value ? "active" : ""} onClick={() => setCategory(tab.value)}>
@@ -627,7 +618,8 @@ export function AdminSchedulePage() {
             <div className="admin-month-grid">
               {monthCells.map((cell) => {
                 const dayItems = scheduleByDate.get(cell.key) || [];
-                const visibleItems = dayItems.slice(0, 4);
+                const MAX_VISIBLE = dayItems.length > 4 ? 3 : 4;
+                const visibleItems = dayItems.slice(0, MAX_VISIBLE);
                 const hiddenCount = Math.max(0, dayItems.length - visibleItems.length);
                 const isToday =
                   cell.date.getFullYear() === today.getFullYear() &&
@@ -726,7 +718,10 @@ export function AdminSchedulePage() {
         {selectedClass ? (
           <section className="admin-card" style={{ marginTop: 16 }}>
             <div className="admin-schedule-booking-head">
-              <h2 className="admin-card-title">예약자 목록 - {selectedClass.title}</h2>
+              <h2 className="admin-card-title">
+                예약자 목록 - {selectedClass.title}
+                <small style={{ marginLeft: 8, color: "#7c6b5d", fontSize: 13 }}>{selectedClass.branchName || getStudioBranchName(selectedClass.branchId)}</small>
+              </h2>
               {bookingMemberId ? (
                 <button type="button" className="admin-schedule-instructor-button" disabled={busy} onClick={onBookSelectedMember}>
                   {bookingMember?.name ? `${bookingMember.name} 예약` : "선택 회원 예약"}
@@ -907,6 +902,18 @@ export function AdminSchedulePage() {
                     </div>
                   ) : null}
 
+                  <label>
+                    <span>지점</span>
+                    <select
+                      value={classForm.branchId || selectedBranchId}
+                      onChange={(e) => setClassForm((prev) => ({ ...prev, branchId: e.target.value }))}
+                    >
+                      {STUDIO_BRANCHES.map((branch) => (
+                        <option key={branch.id} value={branch.id}>{branch.name}</option>
+                      ))}
+                    </select>
+                  </label>
+
                   {/* 프라이빗·상담: 회원 검색 */}
                   {(classType === "private" || classType === "consulting") ? (
                     <div className="admin-schedule-instructor-field">
@@ -1052,11 +1059,12 @@ export function AdminSchedulePage() {
               <button type="button" onClick={() => setDayDetailPopup(null)}>×</button>
             </div>
             <div className="admin-day-detail-list">
-              {dayDetailPopup.items.map((item, idx) => (
+              {dayDetailPopup.items.map((item) => (
                 <button
                   key={item.id}
                   type="button"
-                  className={`admin-day-detail-row${idx % 2 === 0 ? " even" : ""}`}
+                  className="admin-day-detail-row"
+                  style={{ "--item-color": item.color || "#21d1ad" }}
                   onClick={() => { onSelectClass(item); setDayDetailPopup(null); }}
                 >
                   <time>{toHm(item.startAt)}</time>
@@ -1126,6 +1134,6 @@ export function AdminSchedulePage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </AdminLayout>
   );
 }

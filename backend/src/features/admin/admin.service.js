@@ -8,9 +8,19 @@ import {
   encryptPii,
   nameHash,
   normalizeName,
+  normalizeEmail,
   normalizePhone,
   phoneHash,
 } from "../../shared/security/pii.js";
+import { parsePayload } from "../../shared/utils/payload.js";
+import { hashPassword } from "../../shared/security/password.js";
+import { addDays, getMondayStart, parseDateFromYmd } from "../../shared/utils/date.js";
+import {
+  normalizeBirthYear,
+  normalizeAgeGroup,
+  resolveAgeGroupByBirthYear,
+  toSafeAmount as toAmount,
+} from "../../shared/utils/normalize.js";
 
 const USER_GRADES = ["admin0", "admin1", "member", "vip", "vvip"];
 const USER_GRADE_SET = new Set(USER_GRADES);
@@ -30,23 +40,6 @@ function normalizeUserGrade(value) {
     .toLowerCase();
 }
 
-// 함수 역할: 요청 데이터 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
-function parsePayload(payload) {
-  if (!payload) return {};
-  if (typeof payload === "object") return payload;
-  try {
-    return JSON.parse(payload);
-  } catch {
-    return {};
-  }
-}
-
-// 함수 역할: 금액 값으로 안전하게 변환합니다.
-function toAmount(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 // 함수 역할: 안전한 날짜 값으로 안전하게 변환합니다.
 function toSafeDate(value) {
   const date = value instanceof Date ? value : new Date(value);
@@ -61,16 +54,6 @@ function pad2(value) {
 // 함수 역할: day 키 값으로 안전하게 변환합니다.
 function toDayKey(date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
-
-// 함수 역할: monday start 데이터를 조회해 호출자에게 반환합니다.
-function getMondayStart(date) {
-  const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = copy.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  copy.setDate(copy.getDate() + diff);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
 }
 
 // 함수 역할: week 키 값으로 안전하게 변환합니다.
@@ -104,13 +87,6 @@ function getBucketKeyByPeriod(date, period) {
   return toYearKey(date);
 }
 
-// 함수 역할: addDays 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
-function addDays(date, days) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
 // 함수 역할: addMonths 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function addMonths(date, months) {
   return new Date(date.getFullYear(), date.getMonth() + months, 1);
@@ -127,30 +103,6 @@ function resolveSalesPeriod(value) {
     .trim()
     .toLowerCase();
   return SALES_PERIODS.includes(normalized) ? normalized : "month";
-}
-
-// 함수 역할: 날짜 from ymd 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
-function parseDateFromYmd(value) {
-  const normalized = String(value || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
-
-  const [yearText, monthText, dayText] = normalized.split("-");
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const parsed = new Date(year, month - 1, day);
-
-  if (
-    Number.isNaN(parsed.getTime()) ||
-    parsed.getFullYear() !== year ||
-    parsed.getMonth() !== month - 1 ||
-    parsed.getDate() !== day
-  ) {
-    return null;
-  }
-
-  parsed.setHours(0, 0, 0, 0);
-  return parsed;
 }
 
 // 함수 역할: floorDateToPeriod 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
@@ -193,7 +145,7 @@ function makeSalesBucketLabel(start, period) {
 }
 
 // 함수 역할: 매출 집계 구간 구조나 문구를 조립해 반환합니다.
-function buildSalesBuckets(period, startDateValue = "", endDateValue = "") {
+export function buildSalesBuckets(period, startDateValue = "", endDateValue = "") {
   const now = new Date();
   const startDate = parseDateFromYmd(startDateValue);
   const endDate = parseDateFromYmd(endDateValue);
@@ -320,6 +272,21 @@ function buildSalesBuckets(period, startDateValue = "", endDateValue = "") {
   };
 }
 
+export function summarizeSalesSeries(series = []) {
+  const rows = Array.isArray(series) ? series : [];
+  const periodGrossRevenue = rows.reduce((sum, item) => sum + toAmount(item?.grossRevenue), 0);
+  const periodNetRevenue = rows.reduce((sum, item) => sum + toAmount(item?.netRevenue), 0);
+  const periodRefundRevenue = rows.reduce((sum, item) => sum + toAmount(item?.refundRevenue), 0);
+  const periodOrderCount = rows.reduce((sum, item) => sum + toAmount(item?.orderCount), 0);
+  return {
+    periodGrossRevenue: Math.round(periodGrossRevenue),
+    periodNetRevenue: Math.round(periodNetRevenue),
+    periodRefundRevenue: Math.round(periodRefundRevenue),
+    periodOrderCount: Math.round(periodOrderCount),
+    averageOrderAmount: periodOrderCount > 0 ? Math.round(periodGrossRevenue / periodOrderCount) : 0,
+  };
+}
+
 // 함수 역할: 환불 금액 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveRefundAmount(payload) {
   const source = payload && typeof payload === "object" ? payload : {};
@@ -340,60 +307,6 @@ function resolveRefundAmount(payload) {
     })
   );
 }
-// 함수 역할: 이메일 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizeEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
-
-// 함수 역할: 출생 연도 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizeBirthYear(value) {
-  const text = String(value ?? "").trim();
-  if (!text) return null;
-
-  const year = Number.parseInt(text, 10);
-  const currentYear = new Date().getFullYear();
-  if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
-    return null;
-  }
-
-  return year;
-}
-
-// 함수 역할: 연령 그룹 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizeAgeGroup(value) {
-  const text = String(value || "")
-    .trim()
-    .replace(/\s+/g, "");
-  if (!text) return "";
-
-  if (text.includes("10")) return "10대 이하";
-  if (text.includes("20")) return "20대";
-  if (text.includes("30")) return "30대";
-  if (text.includes("40")) return "40대";
-  if (text.includes("50")) return "50대";
-  if (text.includes("60") || text.includes("70") || text.includes("80") || text.includes("90")) {
-    return "60대 이상";
-  }
-
-  return "";
-}
-
-// 함수 역할: 연령 그룹 by 출생 연도 상황에 맞는 값을 계산하거나 선택합니다.
-function resolveAgeGroupByBirthYear(birthYear) {
-  const year = normalizeBirthYear(birthYear);
-  if (!year) return "";
-
-  const age = Math.max(0, new Date().getFullYear() - year);
-  if (age <= 19) return "10대 이하";
-  if (age <= 29) return "20대";
-  if (age <= 39) return "30대";
-  if (age <= 49) return "40대";
-  if (age <= 59) return "50대";
-  return "60대 이상";
-}
-
 // 함수 역할: 주문 연령 그룹 상황에 맞는 값을 계산하거나 선택합니다.
 function resolveOrderAgeGroup(orderRow, payload, userBirthYearByEmail = new Map()) {
   const source = payload && typeof payload === "object" ? payload : {};
@@ -587,6 +500,7 @@ export async function listDashboardUsers() {
         DATE_FORMAT(withdrawn_at, '%Y-%m-%d %H:%i:%s') AS withdrawnAt,
         DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS createdAt
        FROM users
+       WHERE platform = 'education'
        ORDER BY created_at DESC`
     ),
     query(
@@ -1034,7 +948,7 @@ export async function getSalesDashboard(options = {}) {
   const range = buildSalesBuckets(period, startDateInput, endDateInput);
   const { buckets, periodStart, periodEnd, isCustomRange, startDate, endDate } = range;
 
-  const [orderRows, productRows, videoRows, userRows] = await Promise.all([
+  const [orderRows, productRows, videoRows, userRows, refundSummary] = await Promise.all([
     query(
       `SELECT
         id,
@@ -1060,6 +974,13 @@ export async function getSalesDashboard(options = {}) {
        FROM users
        WHERE email IS NOT NULL
          AND email <> ''`
+    ),
+    queryOne(
+      `SELECT
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pendingCount,
+        COALESCE(SUM(CASE WHEN status = 'pending' THEN requested_amount ELSE 0 END), 0) AS pendingAmount,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) AS approvedCount
+       FROM refund_requests`
     ),
   ]);
 
@@ -1251,10 +1172,13 @@ export async function getSalesDashboard(options = {}) {
     };
   });
 
-  const periodGrossRevenue = series.reduce((sum, item) => sum + item.grossRevenue, 0);
-  const periodNetRevenue = series.reduce((sum, item) => sum + item.netRevenue, 0);
-  const periodRefundRevenue = series.reduce((sum, item) => sum + item.refundRevenue, 0);
-  const periodOrderCount = series.reduce((sum, item) => sum + item.orderCount, 0);
+  const {
+    periodGrossRevenue,
+    periodNetRevenue,
+    periodRefundRevenue,
+    periodOrderCount,
+    averageOrderAmount,
+  } = summarizeSalesSeries(series);
 
   const videoSales = [...videoSalesMap.values()]
     .map((item) => {
@@ -1307,7 +1231,10 @@ export async function getSalesDashboard(options = {}) {
       periodNetRevenue: Math.round(periodNetRevenue),
       periodRefundRevenue: Math.round(periodRefundRevenue),
       periodOrderCount: Math.round(periodOrderCount),
-      averageOrderAmount: periodOrderCount > 0 ? Math.round(periodGrossRevenue / periodOrderCount) : 0,
+      averageOrderAmount,
+      pendingRefundCount: Math.round(toAmount(refundSummary?.pendingCount)),
+      pendingRefundAmount: Math.round(toAmount(refundSummary?.pendingAmount)),
+      approvedRefundCount: Math.round(toAmount(refundSummary?.approvedCount)),
     },
     range: {
       startDate,
@@ -1353,6 +1280,7 @@ export async function listMembersForAdmin() {
     query(
       `SELECT sp.id, sp.user_id AS userId, sp.pass_name AS passName,
               sp.pass_type AS passType, sp.remaining_count AS remainingCount,
+              sp.branch_id AS branchId,
               sp.reservable_count AS reservableCount,
               sp.cancellable_count AS cancellableCount,
               sp.total_count AS totalCount,
@@ -1609,6 +1537,54 @@ export async function updateStudioMemberProfile(userId, payload = {}) {
   };
 }
 
+export async function createStudioMember(payload = {}) {
+  const name = normalizeName(payload.name);
+  if (!name) {
+    const err = new Error("이름을 입력해 주세요.");
+    err.status = 400;
+    throw err;
+  }
+  const phone = normalizePhone(payload.phone) || "";
+  const userGrade = ["member", "vip", "vvip"].includes(String(payload.userGrade || "member")) ? String(payload.userGrade) : "member";
+  const gender = String(payload.gender || "").trim() || null;
+  const birthDate = String(payload.birthDate || "").trim() || null;
+  const primaryInstructor = String(payload.primaryInstructor || "").trim() || null;
+  const registeredAt = String(payload.registeredAt || "").trim() || null;
+
+  const id = `user-${randomUUID()}`;
+  const loginId = `studio-${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  const fakeEmail = `studio-${id}@studio.local`;
+  const passwordHash = await hashPassword(randomUUID());
+  const now = new Date();
+  const nowStr = now.toISOString().slice(0, 19).replace("T", " ");
+
+  await query(
+    `INSERT INTO users (id, login_id, name, email, email_hash, phone, name_hash, phone_hash, password, user_grade, account_status, created_at)
+     VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 'active', ?)`,
+    [
+      id,
+      loginId,
+      encryptPii(name),
+      fakeEmail,
+      phone ? encryptPii(phone) : null,
+      nameHash(name),
+      phone ? phoneHash(phone) : null,
+      passwordHash,
+      userGrade,
+      nowStr,
+    ]
+  );
+
+  await query(
+    `INSERT INTO studio_member_profiles
+       (user_id, app_connection_status, member_status, gender, birth_date, primary_instructor, registered_at, created_at, updated_at)
+     VALUES (?, 'not_connected', 'active', ?, ?, ?, ?, ?, ?)`,
+    [id, gender, birthDate, primaryInstructor, registeredAt ? `${registeredAt} 00:00:00` : nowStr, nowStr, nowStr]
+  );
+
+  return { id, name, phone, userGrade, gender, birthDate, primaryInstructor, registeredAt: registeredAt || nowStr.slice(0, 10) };
+}
+
 const STAFF_ROLES = new Set(["owner", "manager", "instructor"]);
 const STAFF_EMPLOYMENT_TYPES = new Set(["full_time", "part_time", "freelance"]);
 const STAFF_APP_STATUSES = new Set(["connected", "not_connected"]);
@@ -1637,12 +1613,15 @@ function normalizeStaffPayload(payload = {}) {
   const salaryType = STAFF_SALARY_TYPES.has(String(payload.salaryType || "").toLowerCase())
     ? String(payload.salaryType).toLowerCase()
     : "fixed";
+  const VALID_GENDERS = new Set(["male", "female"]);
+  const VALID_UNITS = new Set(["30min", "hour"]);
   return {
+    userId: String(payload.userId || "").trim() || null,
     name,
     roleCode,
     employmentType,
     phone: String(payload.phone || "").trim(),
-    appConnectionStatus,
+    appConnectionStatus: String(payload.userId || "").trim() ? "connected" : appConnectionStatus,
     color: String(payload.color || "#4aa3ff").trim() || "#4aa3ff",
     status,
     canManageSchedule: payload.canManageSchedule ? 1 : 0,
@@ -1654,12 +1633,20 @@ function normalizeStaffPayload(payload = {}) {
     hourlyWage: Math.max(0, Math.round(toAmount(payload.hourlyWage))),
     commissionRate: Math.max(0, Number(payload.commissionRate || 0)),
     memo: String(payload.memo || "").trim(),
+    birthDate: payload.birthDate ? String(payload.birthDate).trim() || null : null,
+    gender: VALID_GENDERS.has(String(payload.gender || "").toLowerCase()) ? String(payload.gender).toLowerCase() : null,
+    bio: String(payload.bio || "").trim() || null,
+    career: String(payload.career || "").trim() || null,
+    receiveAllNotifications: payload.receiveAllNotifications ? 1 : 0,
+    privateAmUnit: VALID_UNITS.has(String(payload.privateAmUnit || "")) ? String(payload.privateAmUnit) : "30min",
+    privatePmUnit: VALID_UNITS.has(String(payload.privatePmUnit || "")) ? String(payload.privatePmUnit) : "30min",
   };
 }
 
 function mapStaffRow(row = {}) {
   return {
     id: String(row.id || ""),
+    userId: String(row.userId || row.user_id || ""),
     name: String(row.name || ""),
     roleCode: String(row.roleCode || row.role_code || "instructor"),
     employmentType: String(row.employmentType || row.employment_type || "full_time"),
@@ -1676,6 +1663,13 @@ function mapStaffRow(row = {}) {
     hourlyWage: toAmount(row.hourlyWage ?? row.hourly_wage),
     commissionRate: Number(row.commissionRate ?? row.commission_rate ?? 0),
     memo: String(row.memo || ""),
+    birthDate: row.birthDate || row.birth_date || null,
+    gender: row.gender || null,
+    bio: row.bio || null,
+    career: row.career || null,
+    receiveAllNotifications: Boolean(row.receiveAllNotifications ?? row.receive_all_notifications),
+    privateAmUnit: String(row.privateAmUnit || row.private_am_unit || "30min"),
+    privatePmUnit: String(row.privatePmUnit || row.private_pm_unit || "30min"),
     createdAt: row.createdAt || row.created_at || null,
     updatedAt: row.updatedAt || row.updated_at || null,
     source: row.source || "profile",
@@ -1685,12 +1679,16 @@ function mapStaffRow(row = {}) {
 export async function listStudioStaffProfiles() {
   const rows = await query(
     `SELECT
-       id, name, role_code AS roleCode, employment_type AS employmentType, phone,
+       id, user_id AS userId, name, role_code AS roleCode, employment_type AS employmentType, phone,
        app_connection_status AS appConnectionStatus, color, status,
        can_manage_schedule AS canManageSchedule, can_view_members AS canViewMembers,
        can_manage_passes AS canManagePasses, can_view_sales AS canViewSales,
        salary_type AS salaryType, base_pay AS basePay, hourly_wage AS hourlyWage,
-       commission_rate AS commissionRate, memo, created_at AS createdAt, updated_at AS updatedAt
+       commission_rate AS commissionRate, memo,
+       birth_date AS birthDate, gender, bio, career,
+       receive_all_notifications AS receiveAllNotifications,
+       private_am_unit AS privateAmUnit, private_pm_unit AS privatePmUnit,
+       created_at AS createdAt, updated_at AS updatedAt
      FROM studio_staff_profiles
      WHERE status <> 'archived'
      ORDER BY FIELD(role_code, 'owner','manager','instructor'), name ASC`
@@ -1723,13 +1721,36 @@ export async function listStudioStaffProfiles() {
 export async function saveStudioStaffProfile(staffId, payload = {}) {
   const staff = normalizeStaffPayload(payload);
   const id = staffId ? String(staffId) : `staff-${randomUUID()}`;
+  if (staff.userId) {
+    const user = await queryOne(
+      `SELECT id FROM users WHERE id = ? AND account_status = 'active' LIMIT 1`,
+      [staff.userId],
+    );
+    if (!user?.id) {
+      const error = new Error("연결할 활성 로그인 계정을 찾을 수 없습니다.");
+      error.status = 404;
+      throw error;
+    }
+    const linkedProfile = await queryOne(
+      `SELECT id FROM studio_staff_profiles WHERE user_id = ? AND id <> ? LIMIT 1`,
+      [staff.userId, id],
+    );
+    if (linkedProfile?.id) {
+      const error = new Error("이미 다른 강사 또는 매니저에게 연결된 로그인 계정입니다.");
+      error.status = 409;
+      throw error;
+    }
+  }
   await query(
     `INSERT INTO studio_staff_profiles
-       (id, name, role_code, employment_type, phone, app_connection_status, color, status,
+       (id, user_id, name, role_code, employment_type, phone, app_connection_status, color, status,
         can_manage_schedule, can_view_members, can_manage_passes, can_view_sales,
-        salary_type, base_pay, hourly_wage, commission_rate, memo, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        salary_type, base_pay, hourly_wage, commission_rate, memo,
+        birth_date, gender, bio, career, receive_all_notifications,
+        private_am_unit, private_pm_unit, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
      ON DUPLICATE KEY UPDATE
+       user_id = VALUES(user_id),
        name = VALUES(name),
        role_code = VALUES(role_code),
        employment_type = VALUES(employment_type),
@@ -1746,9 +1767,17 @@ export async function saveStudioStaffProfile(staffId, payload = {}) {
        hourly_wage = VALUES(hourly_wage),
        commission_rate = VALUES(commission_rate),
        memo = VALUES(memo),
+       birth_date = VALUES(birth_date),
+       gender = VALUES(gender),
+       bio = VALUES(bio),
+       career = VALUES(career),
+       receive_all_notifications = VALUES(receive_all_notifications),
+       private_am_unit = VALUES(private_am_unit),
+       private_pm_unit = VALUES(private_pm_unit),
        updated_at = NOW()`,
     [
       id,
+      staff.userId,
       staff.name,
       staff.roleCode,
       staff.employmentType,
@@ -1765,16 +1794,27 @@ export async function saveStudioStaffProfile(staffId, payload = {}) {
       staff.hourlyWage,
       staff.commissionRate,
       staff.memo || null,
+      staff.birthDate || null,
+      staff.gender || null,
+      staff.bio || null,
+      staff.career || null,
+      staff.receiveAllNotifications,
+      staff.privateAmUnit,
+      staff.privatePmUnit,
     ]
   );
   const row = await queryOne(
     `SELECT
-       id, name, role_code AS roleCode, employment_type AS employmentType, phone,
+       id, user_id AS userId, name, role_code AS roleCode, employment_type AS employmentType, phone,
        app_connection_status AS appConnectionStatus, color, status,
        can_manage_schedule AS canManageSchedule, can_view_members AS canViewMembers,
        can_manage_passes AS canManagePasses, can_view_sales AS canViewSales,
        salary_type AS salaryType, base_pay AS basePay, hourly_wage AS hourlyWage,
-       commission_rate AS commissionRate, memo, created_at AS createdAt, updated_at AS updatedAt
+       commission_rate AS commissionRate, memo,
+       birth_date AS birthDate, gender, bio, career,
+       receive_all_notifications AS receiveAllNotifications,
+       private_am_unit AS privateAmUnit, private_pm_unit AS privatePmUnit,
+       created_at AS createdAt, updated_at AS updatedAt
      FROM studio_staff_profiles
      WHERE id = ? OR name = ?
      LIMIT 1`,
@@ -1791,6 +1831,318 @@ export async function archiveStudioStaffProfile(staffId) {
     [staffId]
   );
   return { id: staffId, status: "archived" };
+}
+
+export async function getStaffWorkHours(staffId) {
+  const rows = await query(
+    `SELECT weekday, start_time AS startTime, end_time AS endTime,
+            is_day_off AS isDayOff, break_start_time AS breakStartTime, break_end_time AS breakEndTime
+     FROM studio_staff_work_hours
+     WHERE staff_id = ?
+     ORDER BY weekday ASC`,
+    [staffId]
+  );
+  return Array.isArray(rows) ? rows.map((row) => ({
+    weekday: Number(row.weekday),
+    startTime: row.startTime || "",
+    endTime: row.endTime || "",
+    isDayOff: Boolean(row.isDayOff),
+    breakStartTime: row.breakStartTime || "",
+    breakEndTime: row.breakEndTime || "",
+  })) : [];
+}
+
+export async function saveStaffWorkHours(staffId, hoursArray) {
+  if (!Array.isArray(hoursArray) || !hoursArray.length) return [];
+  const validWeekdays = new Set([0, 1, 2, 3, 4, 5, 6]);
+  for (const entry of hoursArray) {
+    const weekday = Number(entry.weekday);
+    if (!validWeekdays.has(weekday)) continue;
+    const entryId = `wh-${staffId}-${weekday}`;
+    await query(
+      `INSERT INTO studio_staff_work_hours
+         (id, staff_id, weekday, start_time, end_time, is_day_off, break_start_time, break_end_time, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE
+         start_time = VALUES(start_time),
+         end_time = VALUES(end_time),
+         is_day_off = VALUES(is_day_off),
+         break_start_time = VALUES(break_start_time),
+         break_end_time = VALUES(break_end_time),
+         updated_at = NOW()`,
+      [
+        entryId,
+        staffId,
+        weekday,
+        entry.startTime || null,
+        entry.endTime || null,
+        entry.isDayOff ? 1 : 0,
+        entry.breakStartTime || null,
+        entry.breakEndTime || null,
+      ]
+    );
+  }
+  return getStaffWorkHours(staffId);
+}
+
+// ── 수강권 상품 ──────────────────────────────────────────────────────────────
+
+const VALID_PASS_TYPES = new Set(["count", "period"]);
+const VALID_CLASS_TYPES_PASS = new Set(["private", "group"]);
+const VALID_STUDIO_BRANCH_IDS = new Set(["branch-1", "branch-2"]);
+
+function normalizeStudioBranchId(value) {
+  const branchId = String(value || "").trim();
+  return VALID_STUDIO_BRANCH_IDS.has(branchId) ? branchId : "branch-1";
+}
+
+function normalizePassProduct(payload = {}) {
+  const name = String(payload.name || "").trim();
+  if (!name) { const e = new Error("수강권 이름을 입력해 주세요."); e.status = 400; throw e; }
+  return {
+    branchId: normalizeStudioBranchId(payload.branchId),
+    name,
+    passType: VALID_PASS_TYPES.has(String(payload.passType || "")) ? String(payload.passType) : "count",
+    classType: VALID_CLASS_TYPES_PASS.has(String(payload.classType || "")) ? String(payload.classType) : "group",
+    capacity: Math.max(1, Math.round(Number(payload.capacity || 1))),
+    totalCount: Math.max(0, Math.round(Number(payload.totalCount || 0))),
+    validDays: Math.max(1, Math.round(Number(payload.validDays || 30))),
+    price: Math.max(0, Math.round(Number(payload.price || 0))),
+    color: String(payload.color || "#4aa3ff").trim() || "#4aa3ff",
+    isFeatured: payload.isFeatured ? 1 : 0,
+    status: String(payload.status || "") === "inactive" ? "inactive" : "active",
+    description: String(payload.description || "").trim() || null,
+    isTrial: payload.isTrial ? 1 : 0,
+    cancelCount: Math.max(0, Math.round(Number(payload.cancelCount || 0))),
+    points: Math.max(0, Math.round(Number(payload.points || 0))),
+    usageLimitType: String(payload.usageLimitType || "") === "month" ? "month" : "week",
+    usageLimit: Math.max(0, Math.round(Number(payload.usageLimit || 0))),
+    autoDeduct: payload.autoDeduct ? 1 : 0,
+    classCategory: String(payload.classCategory || "").trim(),
+    sameDayChange: payload.sameDay ? 1 : 0,
+    sameDayChangeCount: Math.max(0, Math.round(Number(payload.sameDayCount || 0))),
+    bookingStartTime: String(payload.bookingStartTime || "").trim() || null,
+    bookingEndTime: String(payload.bookingEndTime || "").trim() || null,
+  };
+}
+
+function mapPassProductRow(row = {}) {
+  const price = Number(row.price || 0);
+  const totalCount = Number(row.totalCount ?? row.total_count ?? 0);
+  return {
+    id: String(row.id || ""),
+    branchId: String(row.branchId || row.branch_id || "branch-1"),
+    branchName: String(row.branchName || row.branch_name || (String(row.branchId || row.branch_id) === "branch-2" ? "효천점" : "장덕점")),
+    name: String(row.name || ""),
+    passType: String(row.passType || row.pass_type || "count"),
+    classType: String(row.classType || row.class_type || "group"),
+    capacity: Number(row.capacity || 1),
+    totalCount,
+    validDays: Number(row.validDays ?? row.valid_days ?? 30),
+    price,
+    pricePerSession: totalCount > 0 ? Math.round(price / totalCount) : 0,
+    color: String(row.color || "#4aa3ff"),
+    isFeatured: Boolean(row.isFeatured ?? row.is_featured),
+    status: String(row.status || "active"),
+    description: row.description || null,
+    isTrial: Boolean(row.isTrial ?? row.is_trial),
+    cancelCount: Number(row.cancelCount ?? row.cancel_count ?? 0),
+    points: Number(row.points ?? 0),
+    usageLimitType: String(row.usageLimitType || row.usage_limit_type || "week"),
+    usageLimit: Number(row.usageLimit ?? row.usage_limit ?? 0),
+    autoDeduct: Boolean(row.autoDeduct ?? row.auto_deduct),
+    classCategory: String(row.classCategory || row.class_category || ""),
+    sameDay: Boolean(row.sameDayChange ?? row.same_day_change),
+    sameDayCount: Number(row.sameDayChangeCount ?? row.same_day_change_count ?? 0),
+    bookingStartTime: row.bookingStartTime || row.booking_start_time || null,
+    bookingEndTime: row.bookingEndTime || row.booking_end_time || null,
+    createdAt: row.createdAt || row.created_at || null,
+    updatedAt: row.updatedAt || row.updated_at || null,
+  };
+}
+
+export async function listStudioPassProducts({ branchId = "" } = {}) {
+  const params = [];
+  let where = "";
+  if (branchId) {
+    where = "WHERE spp.branch_id = ?";
+    params.push(normalizeStudioBranchId(branchId));
+  }
+  const rows = await query(
+    `SELECT spp.id, spp.branch_id AS branchId,
+            COALESCE(b.name, CASE spp.branch_id WHEN 'branch-2' THEN '효천점' ELSE '장덕점' END) AS branchName,
+            spp.name, spp.pass_type AS passType, spp.class_type AS classType, spp.capacity,
+            spp.total_count AS totalCount, spp.valid_days AS validDays, spp.price,
+            spp.color, spp.is_featured AS isFeatured, spp.status, spp.description,
+            spp.is_trial AS isTrial, spp.cancel_count AS cancelCount, spp.points,
+            spp.usage_limit_type AS usageLimitType, spp.usage_limit AS usageLimit,
+            spp.auto_deduct AS autoDeduct, spp.class_category AS classCategory,
+            spp.same_day_change AS sameDayChange, spp.same_day_change_count AS sameDayChangeCount,
+            spp.booking_start_time AS bookingStartTime, spp.booking_end_time AS bookingEndTime,
+            spp.created_at AS createdAt, spp.updated_at AS updatedAt
+     FROM studio_pass_products spp
+     LEFT JOIN branches b ON b.id = spp.branch_id
+     ${where}
+     ORDER BY spp.is_featured DESC, spp.created_at DESC`,
+    params
+  );
+  return (Array.isArray(rows) ? rows : []).map(mapPassProductRow);
+}
+
+export async function saveStudioPassProduct(productId, payload = {}) {
+  const product = normalizePassProduct(payload);
+  const id = productId ? String(productId) : `pp-${randomUUID()}`;
+  await query(
+    `INSERT INTO studio_pass_products
+       (id, branch_id, name, pass_type, class_type, capacity, total_count, valid_days,
+        price, color, is_featured, status, description,
+        is_trial, cancel_count, points, usage_limit_type, usage_limit,
+        auto_deduct, class_category, same_day_change, same_day_change_count,
+        booking_start_time, booking_end_time,
+        created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       branch_id = VALUES(branch_id), name = VALUES(name), pass_type = VALUES(pass_type), class_type = VALUES(class_type),
+       capacity = VALUES(capacity), total_count = VALUES(total_count), valid_days = VALUES(valid_days),
+       price = VALUES(price), color = VALUES(color), is_featured = VALUES(is_featured),
+       status = VALUES(status), description = VALUES(description),
+       is_trial = VALUES(is_trial), cancel_count = VALUES(cancel_count), points = VALUES(points),
+       usage_limit_type = VALUES(usage_limit_type), usage_limit = VALUES(usage_limit),
+       auto_deduct = VALUES(auto_deduct), class_category = VALUES(class_category),
+       same_day_change = VALUES(same_day_change), same_day_change_count = VALUES(same_day_change_count),
+       booking_start_time = VALUES(booking_start_time), booking_end_time = VALUES(booking_end_time),
+       updated_at = NOW()`,
+    [id, product.branchId, product.name, product.passType, product.classType, product.capacity,
+     product.totalCount, product.validDays, product.price, product.color,
+     product.isFeatured, product.status, product.description,
+     product.isTrial, product.cancelCount, product.points,
+     product.usageLimitType, product.usageLimit,
+     product.autoDeduct, product.classCategory,
+     product.sameDayChange, product.sameDayChangeCount,
+     product.bookingStartTime, product.bookingEndTime]
+  );
+  const row = await queryOne(
+    `SELECT spp.id, spp.branch_id AS branchId,
+            COALESCE(b.name, CASE spp.branch_id WHEN 'branch-2' THEN '효천점' ELSE '장덕점' END) AS branchName,
+            spp.name, spp.pass_type AS passType, spp.class_type AS classType, spp.capacity,
+            spp.total_count AS totalCount, spp.valid_days AS validDays, spp.price,
+            spp.color, spp.is_featured AS isFeatured, spp.status, spp.description,
+            spp.is_trial AS isTrial, spp.cancel_count AS cancelCount, spp.points,
+            spp.usage_limit_type AS usageLimitType, spp.usage_limit AS usageLimit,
+            spp.auto_deduct AS autoDeduct, spp.class_category AS classCategory,
+            spp.same_day_change AS sameDayChange, spp.same_day_change_count AS sameDayChangeCount,
+            spp.booking_start_time AS bookingStartTime, spp.booking_end_time AS bookingEndTime,
+            spp.created_at AS createdAt, spp.updated_at AS updatedAt
+     FROM studio_pass_products spp
+     LEFT JOIN branches b ON b.id = spp.branch_id
+     WHERE spp.id = ? LIMIT 1`, [id]
+  );
+  return mapPassProductRow(row);
+}
+
+export async function deleteStudioPassProduct(productId) {
+  await query(`DELETE FROM studio_pass_products WHERE id = ?`, [productId]);
+  return { id: productId };
+}
+
+export async function listIssuedPassesByProduct(productId) {
+  const rows = await query(
+    `SELECT sp.id, sp.user_id AS userId, sp.branch_id AS branchId,
+            COALESCE(b.name, CASE sp.branch_id WHEN 'branch-2' THEN '효천점' ELSE '장덕점' END) AS branchName,
+            u.name AS userName, u.phone AS userPhone,
+            sp.pass_name AS passName, sp.pass_type AS passType,
+            sp.total_count AS totalCount, sp.remaining_count AS remainingCount,
+            DATE_FORMAT(sp.created_at, '%Y-%m-%d') AS issuedAt,
+            DATE_FORMAT(sp.expires_at, '%Y-%m-%d') AS expiresAt,
+            sp.status,
+            spp.amount, spp.payment_method AS paymentMethod,
+            DATE_FORMAT(spp.paid_at, '%Y-%m-%d') AS paidAt
+     FROM studio_passes sp
+     LEFT JOIN users u ON u.id = sp.user_id
+     LEFT JOIN branches b ON b.id = sp.branch_id
+     LEFT JOIN studio_pass_payments spp ON spp.pass_id = sp.id
+     WHERE sp.pass_product_id = ?
+     ORDER BY sp.created_at DESC`,
+    [productId]
+  );
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function extendIssuedPassesByProduct(productId, extendDays) {
+  const days = Math.max(1, Math.round(Number(extendDays) || 1));
+  const result = await query(
+    `UPDATE studio_passes
+     SET expires_at = DATE_ADD(COALESCE(expires_at, NOW()), INTERVAL ${days} DAY),
+         updated_at = NOW()
+     WHERE pass_product_id = ? AND status IN ('active', 'paused')`,
+    [productId]
+  );
+  return { extendedCount: result?.affectedRows ?? 0 };
+}
+
+// ── 스튜디오 상품 (판매/대여) ──────────────────────────────────
+
+function normalizeGoods(payload = {}) {
+  const name = String(payload.name || "").trim();
+  if (!name) { const e = new Error("상품명을 입력해 주세요."); e.status = 400; throw e; }
+  return {
+    name,
+    goodsType: String(payload.goodsType || "") === "rental" ? "rental" : "sale",
+    color: String(payload.color || "#4aa3ff").trim() || "#4aa3ff",
+    price: Math.max(0, Math.round(Number(payload.price || 0))),
+    points: Math.max(0, Math.round(Number(payload.points || 0))),
+    status: String(payload.status || "") === "inactive" ? "inactive" : "active",
+    description: String(payload.description || "").trim() || null,
+  };
+}
+
+function mapGoodsRow(row = {}) {
+  return {
+    id: String(row.id || ""),
+    name: String(row.name || ""),
+    goodsType: String(row.goodsType || row.goods_type || "sale"),
+    color: String(row.color || "#4aa3ff"),
+    price: Number(row.price || 0),
+    points: Number(row.points || 0),
+    status: String(row.status || "active"),
+    description: row.description || null,
+    createdAt: row.createdAt || row.created_at || null,
+    updatedAt: row.updatedAt || row.updated_at || null,
+  };
+}
+
+export async function listStudioGoods() {
+  const rows = await query(
+    `SELECT id, name, goods_type AS goodsType, color, price, points, status, description,
+            created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_goods ORDER BY created_at DESC`
+  );
+  return (Array.isArray(rows) ? rows : []).map(mapGoodsRow);
+}
+
+export async function saveStudioGoods(goodsId, payload = {}) {
+  const goods = normalizeGoods(payload);
+  const id = goodsId ? String(goodsId) : `gd-${randomUUID()}`;
+  await query(
+    `INSERT INTO studio_goods (id, name, goods_type, color, price, points, status, description, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       name=VALUES(name), goods_type=VALUES(goods_type), color=VALUES(color),
+       price=VALUES(price), points=VALUES(points), status=VALUES(status),
+       description=VALUES(description), updated_at=NOW()`,
+    [id, goods.name, goods.goodsType, goods.color, goods.price, goods.points, goods.status, goods.description]
+  );
+  const row = await queryOne(
+    `SELECT id, name, goods_type AS goodsType, color, price, points, status, description,
+            created_at AS createdAt, updated_at AS updatedAt
+     FROM studio_goods WHERE id = ? LIMIT 1`, [id]
+  );
+  return mapGoodsRow(row);
+}
+
+export async function deleteStudioGoods(goodsId) {
+  await query(`DELETE FROM studio_goods WHERE id = ?`, [goodsId]);
+  return { id: goodsId };
 }
 
 // 함수 역할: 회원 등급 데이터를 수정합니다.

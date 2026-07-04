@@ -38,12 +38,12 @@ function formatDateTime(value) {
   return date.toLocaleString("ko-KR");
 }
 
-// 함수 역할: 대체값 차시 상황에 맞는 값을 계산하거나 선택합니다.
+// 함수 역할: 기존 데이터가 비어 있을 때 단일 영상 운영에 맞는 기본 재생 정보를 만듭니다.
 function resolveFallbackChapter(video) {
   return {
     id: `${video.id}-ch-1`,
     chapterOrder: 1,
-    title: "1차시",
+    title: "본편",
     description: "",
     videoUrl: video.videoUrl || getAcademyPlaybackSourceByVideoId(video.id),
     durationSec: 0,
@@ -61,7 +61,17 @@ function formatSeconds(seconds) {
   return `${s}초`;
 }
 
-// 함수 역할: 최신 watched 차시 데이터를 조회해 호출자에게 반환합니다.
+function getAcademySegmentTitle(chapter, totalCount = 1) {
+  const order = Math.max(1, Number(chapter?.chapterOrder || 1));
+  const rawTitle = String(chapter?.title || "").trim();
+  const legacyOnlyPattern = new RegExp(`^${order}\\s*차시\\s*$`);
+  const legacyPrefixPattern = new RegExp(`^${order}\\s*차시\\s*[·:-]?\\s*`);
+  const cleanedTitle = rawTitle.replace(legacyPrefixPattern, "").trim();
+  const title = cleanedTitle || (legacyOnlyPattern.test(rawTitle) ? "" : rawTitle) || (order === 1 ? "본편" : `영상 ${order}`);
+  return totalCount > 1 ? `영상 ${order} · ${title}` : title;
+}
+
+// 함수 역할: 가장 최근에 시청한 영상 데이터를 조회해 호출자에게 반환합니다.
 function getLatestWatchedChapter(chapters) {
   const watched = chapters
     .filter((chapter) => chapter.lastWatchedAt)
@@ -163,7 +173,7 @@ function calcEnrollmentExpiry(orders, videoProductId, periodText) {
   return { type: "timed", expiryDate, expiryLabel, daysLeft };
 }
 
-// 컴포넌트 역할: 강의 영상을 재생하고 차시별 학습 진도를 저장하는 수강 플레이어 페이지 컴포넌트입니다.
+// 컴포넌트 역할: 교육영상을 재생하고 학습 진도를 저장하는 수강 플레이어 페이지 컴포넌트입니다.
 export function AcademyPlayerPage() {
   const { videoId } = useParams();
   const navigate = useNavigate();
@@ -321,7 +331,7 @@ export function AcademyPlayerPage() {
               ...chapter,
               id: chapterId,
               chapterOrder: Number(chapter.chapterOrder || index + 1),
-              title: String(chapter.title || `${index + 1}차시`),
+              title: String(chapter.title || (index === 0 ? "본편" : `영상 ${index + 1}`)),
               videoUrl:
                 chapter.videoUrl ||
                 chapter.videoPath ||
@@ -924,15 +934,22 @@ export function AcademyPlayerPage() {
             <h1>선택한 강의를 재생할 수 없습니다.</h1>
             <p className="section-text">수강 가능한 강의 목록에서 다시 선택해 주세요.</p>
             <div className="academy-player-list">
-              {playableVideos.map((video) => (
-                <Link key={video.id} className="academy-player-list-item" to={`/academy/player/${video.id}`}>
-                  <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} />
-                  <div>
-                    <strong>{video.title}</strong>
-                    <span>{video.progressPercent}% 학습</span>
-                  </div>
-                </Link>
-              ))}
+              {playableVideos.map((video) => {
+                const thumbnailUrl = resolveAcademyMediaUrl(video.image);
+                return (
+                  <Link key={video.id} className="academy-player-list-item" to={`/academy/player/${video.id}`}>
+                    {thumbnailUrl ? (
+                      <img src={thumbnailUrl} alt={video.title} />
+                    ) : (
+                      <span className="academy-player-list-thumb-placeholder" aria-hidden="true">16:9</span>
+                    )}
+                    <div>
+                      <strong>{video.title}</strong>
+                      <span>{video.progressPercent}% 학습</span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         </main>
@@ -1163,7 +1180,7 @@ export function AcademyPlayerPage() {
                 {lectureLastWatchedText ? ` · 마지막 수강 ${lectureLastWatchedText}` : ""}
               </p>
               <p className="academy-player-note">
-                현재 차시: {activeChapter.title} · 진도 {activeChapter.progressPercent}%
+                현재 영상: {getAcademySegmentTitle(activeChapter, activeVideo.chapters.length)} · 진도 {activeChapter.progressPercent}%
                 {activeChapter.completed ? " · 학습 완료" : ""}
                 {chapterLastWatchedText ? ` · 마지막 재생 ${chapterLastWatchedText}` : ""}
               </p>
@@ -1171,10 +1188,10 @@ export function AcademyPlayerPage() {
 
             {progressError ? <p className="academy-player-note">진도 동기화 알림: {progressError}</p> : null}
 
-            {/* 자동 다음 차시 카운트다운 */}
+            {/* 자동 다음 영상 카운트다운 */}
             {autoNextCountdown !== null ? (
               <div className="auto-next-bar">
-                <span>다음 차시 자동 재생 {autoNextCountdown}초 후...</span>
+                <span>다음 영상 자동 재생 {autoNextCountdown}초 후...</span>
                 <button type="button" className="ghost-button small-ghost" onClick={clearAutoNext}>
                   취소
                 </button>
@@ -1184,7 +1201,7 @@ export function AcademyPlayerPage() {
 
           <aside className="academy-player-sidebar">
             <section className="academy-player-chapter-board">
-              <h3>차시 목록</h3>
+              <h3>영상 목록</h3>
               <div className="academy-player-chapter-list">
                 {activeVideo.chapters.map((chapter) => {
                   const isActiveChapter = chapter.id === activeChapter.id;
@@ -1197,11 +1214,7 @@ export function AcademyPlayerPage() {
                       onClick={() => handleChapterClick(chapter)}
                     >
                       <div className="chapter-item-header">
-                        <strong>
-                          {chapter.title.startsWith(`${chapter.chapterOrder}차시`)
-                            ? chapter.title
-                            : `${chapter.chapterOrder}차시 · ${chapter.title}`}
-                        </strong>
+                        <strong>{getAcademySegmentTitle(chapter, activeVideo.chapters.length)}</strong>
                         <span className="chapter-item-right">
                           {isActiveChapter && (
                             <span className="chapter-playing-badge">▶ 재생 중</span>
@@ -1259,13 +1272,18 @@ export function AcademyPlayerPage() {
                       )
                     : null;
                   const videoTotalSec = calcCourseTotalSec(video.chapters || []);
+                  const thumbnailUrl = resolveAcademyMediaUrl(video.image);
                   return (
                     <Link
                       key={video.id}
                       className={`academy-player-list-item ${isActive ? "active" : ""}`}
                       to={`/academy/player/${video.id}`}
                     >
-                      <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} />
+                      {thumbnailUrl ? (
+                        <img src={thumbnailUrl} alt={video.title} />
+                      ) : (
+                        <span className="academy-player-list-thumb-placeholder" aria-hidden="true">16:9</span>
+                      )}
                       <div>
                         <strong>{video.title}</strong>
                         <span>

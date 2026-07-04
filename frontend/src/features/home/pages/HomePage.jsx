@@ -1,8 +1,8 @@
 ﻿// 파일 역할: 메인 홈 화면에서 브랜드 소개, 최신 소식, 추천 강의, 후기를 보여주는 페이지 컴포넌트입니다.
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
-import { canEditPage, isAdminStaff } from "../../../shared/auth/userRoles.js";
+import { canEditPage, getAdminLandingPath, isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { apiRequest } from "../../../shared/api/client.js";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
@@ -106,21 +106,12 @@ const SUNLIT_NAV_ITEMS = [
   { label: "메인", path: "/" },
   {
     label: "스튜디오",
-    path: "/ikleulrim/tour",
+    path: "/ikleulrim/instructors",
     children: [
-      { label: "소개", path: "/ikleulrim/intro" },
-      { label: "강사진", path: "/ikleulrim/instructors" },
-      { label: "둘러보기", path: "/ikleulrim/tour" },
-      { label: "오시는 길", path: "/ikleulrim/directions" },
-    ],
-  },
-  {
-    label: "프로그램",
-    path: "/ikleulrim/equipment",
-    children: [
+      { label: "이끌림 소개", path: "/ikleulrim/equipment" },
       { label: "수업 소개", path: "/ikleulrim/intro" },
-      { label: "장비 소개", path: "/ikleulrim/equipment" },
-      { label: "수업 문의", path: "/community/inquiry" },
+      { label: "강사진", path: "/ikleulrim/instructors" },
+      { label: "오시는 길", path: "/ikleulrim/directions" },
     ],
   },
   {
@@ -128,8 +119,6 @@ const SUNLIT_NAV_ITEMS = [
     path: "/academy",
     children: [
       { label: "교육 영상", path: "/academy" },
-      { label: "수강 문의", path: "/community/inquiry" },
-      { label: "마이페이지", path: "/mypage" },
     ],
   },
   {
@@ -138,7 +127,6 @@ const SUNLIT_NAV_ITEMS = [
     children: [
       { label: "후기", path: "/community/reviews" },
       { label: "문의하기", path: "/community/inquiry" },
-      { label: "이벤트", path: "/community/events" },
     ],
   },
   { label: "이벤트", path: "/community/events" },
@@ -146,7 +134,7 @@ const SUNLIT_NAV_ITEMS = [
 
 const SUNLIT_SERVICE_CARDS = [
   { icon: "bag", title: "수업 안내", text: "개인·그룹·듀엣", path: "/ikleulrim/intro" },
-  { icon: "calendar", title: "예약 안내", text: "간편한 예약 시스템", path: "/mypage#member-services" },
+  { icon: "calendar", title: "예약 안내", text: "간편한 예약 시스템", path: "/pilates/reservation" },
   { icon: "user", title: "강사진 소개", text: "전문 강사진", path: "/ikleulrim/instructors" },
   { icon: "studio", title: "스튜디오", text: "공간 & 시설 안내", path: "/ikleulrim/tour" },
   { icon: "thumb", title: "아카데미", text: "전문가 교육 과정", path: "/academy" },
@@ -461,13 +449,21 @@ export function HomePage() {
     description: "광주 이끌림 필라테스. 장덕점·효천점 운영, 전문 필라테스 교육 영상 판매. 입문부터 전문가 과정까지.",
   });
   const navigate = useNavigate();
+  const location = useLocation();
   const store = useAppStore();
   const currentUserDisplayName = getUserDisplayName(store.currentUser);
   const canOpenAdminDashboard = isAdminStaff(store.currentUser);
   const canEditHomePage = canEditPage(store.currentUser);
+
+  function handleReservationClick() {
+    if (!store.currentUser) return navigate("/login");
+    if (isAdminStaff(store.currentUser)) return navigate("/admin/studio");
+    navigate("/pilates/reservation");
+  }
   const [socialItems, setSocialItems] = useState(() => DEFAULT_SOCIAL_ITEMS);
   const [latestActiveEvent, setLatestActiveEvent] = useState(null);
   const [openSunlitNav, setOpenSunlitNav] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showRenewalPopup, setShowRenewalPopup] = useState(() => {
     try {
       const hideUntil = localStorage.getItem("renewal_popup_hide_until");
@@ -487,7 +483,21 @@ export function HomePage() {
     setShowRenewalPopup(false);
   }
 
+  function closeMobileNav() {
+    setMobileNavOpen(false);
+  }
+
+  useEffect(() => {
+    document.body.style.overflow = mobileNavOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileNavOpen]);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
+
   async function handleHomeLogout() {
+    closeMobileNav();
     try {
       await store.logoutUser();
     } finally {
@@ -662,13 +672,26 @@ export function HomePage() {
             </nav>
 
             <div className="sunlit-actions">
+              <button
+                className={`sunlit-admin-button accessibility-toggle${store.largeControlsEnabled ? " active" : ""}`}
+                type="button"
+                aria-pressed={store.largeControlsEnabled}
+                title="큰 글씨와 큰 버튼 전환"
+                onClick={() => store.setLargeControlsEnabled((current) => !current)}
+              >
+                가+
+              </button>
               {store.currentUser ? (
                 <>
                   <button className="sunlit-user-button" type="button" onClick={() => navigate("/mypage")}>
                     {currentUserDisplayName}님
                   </button>
                   {canOpenAdminDashboard ? (
-                    <button className="sunlit-admin-button" type="button" onClick={() => navigate("/admin")}>
+                    <button
+                      className="sunlit-admin-button"
+                      type="button"
+                      onClick={() => navigate(getAdminLandingPath(store.currentUser))}
+                    >
                       관리자 대시보드
                     </button>
                   ) : null}
@@ -697,16 +720,133 @@ export function HomePage() {
                   </button>
                 </>
               )}
-              <button className="sunlit-reserve" type="button" onClick={() => navigate("/mypage#member-services")}>
+              <button className="sunlit-reserve" type="button" onClick={handleReservationClick}>
                 수업 예약하기
               </button>
               <button className="sunlit-menu" type="button" onClick={() => navigate("/cart")} aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}>
-                <span />
-                <span />
-                <span />
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22">
+                  <path
+                    d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="10" cy="19" r="1.2" />
+                  <circle cx="17" cy="19" r="1.2" />
+                </svg>
+                {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
+              </button>
+            </div>
+
+            {/* 모바일: 장바구니 + 햄버거 버튼 */}
+            <div className="sunlit-mobile-right">
+              <button
+                className={`sunlit-mobile-accessibility accessibility-toggle${store.largeControlsEnabled ? " active" : ""}`}
+                type="button"
+                aria-pressed={store.largeControlsEnabled}
+                title="큰 글씨와 큰 버튼 전환"
+                onClick={() => store.setLargeControlsEnabled((current) => !current)}
+              >
+                가+
+              </button>
+              <button
+                type="button"
+                className="sunlit-menu"
+                onClick={() => navigate("/cart")}
+                aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22">
+                  <path
+                    d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="10" cy="19" r="1.2" />
+                  <circle cx="17" cy="19" r="1.2" />
+                </svg>
+                {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
+              </button>
+              <button
+                type="button"
+                className={`mobile-nav-toggle${mobileNavOpen ? " is-open" : ""}`}
+                onClick={() => setMobileNavOpen((prev) => !prev)}
+                aria-expanded={mobileNavOpen}
+                aria-label={mobileNavOpen ? "메뉴 닫기" : "메뉴 열기"}
+              >
+                <span /><span /><span />
               </button>
             </div>
           </header>
+
+          {/* 모바일 전체 메뉴 오버레이 */}
+          {mobileNavOpen ? (
+            <div className="mobile-nav-overlay" onClick={closeMobileNav}>
+              <nav className="mobile-nav-panel" onClick={(e) => e.stopPropagation()}>
+                <button type="button" className="mobile-nav-item" onClick={() => { navigate("/"); closeMobileNav(); }}>메인</button>
+
+                <div className="mobile-nav-group">
+                  <span className="mobile-nav-group-label">스튜디오</span>
+                  <button type="button" className="mobile-nav-sub" onClick={() => { navigate("/ikleulrim/equipment"); closeMobileNav(); }}>이끌림 소개</button>
+                  <button type="button" className="mobile-nav-sub" onClick={() => { navigate("/ikleulrim/intro"); closeMobileNav(); }}>수업 소개</button>
+                  <button type="button" className="mobile-nav-sub" onClick={() => { navigate("/ikleulrim/instructors"); closeMobileNav(); }}>강사진</button>
+                  <button type="button" className="mobile-nav-sub" onClick={() => { navigate("/ikleulrim/directions"); closeMobileNav(); }}>오시는 길</button>
+                </div>
+
+                <div className="mobile-nav-group">
+                  <span className="mobile-nav-group-label">아카데미</span>
+                  <button type="button" className="mobile-nav-sub" onClick={() => { navigate("/academy"); closeMobileNav(); }}>교육 영상</button>
+                </div>
+
+                <div className="mobile-nav-group">
+                  <span className="mobile-nav-group-label">커뮤니티</span>
+                  <button type="button" className="mobile-nav-sub" onClick={() => { navigate("/community/reviews"); closeMobileNav(); }}>후기</button>
+                  <button type="button" className="mobile-nav-sub" onClick={() => { navigate("/community/inquiry"); closeMobileNav(); }}>문의하기</button>
+                </div>
+
+                <button type="button" className="mobile-nav-item" onClick={() => { navigate("/community/events"); closeMobileNav(); }}>이벤트</button>
+
+                <div className="mobile-nav-auth">
+                  {store.currentUser ? (
+                    <>
+                      <button type="button" className="mobile-nav-auth-link" onClick={() => { navigate("/mypage"); closeMobileNav(); }}>
+                        {currentUserDisplayName}님 마이페이지
+                      </button>
+                      {canOpenAdminDashboard ? (
+                        <button type="button" className="mobile-nav-auth-link" onClick={() => { navigate(getAdminLandingPath(store.currentUser)); closeMobileNav(); }}>
+                          관리자 대시보드
+                        </button>
+                      ) : null}
+                      {canEditHomePage ? (
+                        <button
+                          type="button"
+                          className="mobile-nav-auth-link"
+                          onClick={() => {
+                            store.setAdminPageEditMode((current) => !current);
+                            closeMobileNav();
+                          }}
+                        >
+                          {store.adminPageEditMode ? "페이지 수정 ON" : "페이지 수정"}
+                        </button>
+                      ) : null}
+                      <button className="mobile-nav-auth-link mobile-nav-logout" type="button" onClick={handleHomeLogout}>
+                        로그아웃
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" className="mobile-nav-auth-link" onClick={() => { navigate("/login"); closeMobileNav(); }}>로그인</button>
+                      <button type="button" className="mobile-nav-auth-link mobile-nav-signup" onClick={() => { navigate("/signup"); closeMobileNav(); }}>회원가입</button>
+                    </>
+                  )}
+                </div>
+              </nav>
+            </div>
+          ) : null}
 
           <div className="sunlit-hero-copy">
             <span className="sunlit-plant-mark" aria-hidden="true" />
@@ -720,7 +860,7 @@ export function HomePage() {
               건강한 움직임을 설계합니다.
             </p>
             <div className="sunlit-hero-buttons">
-              <button className="sunlit-primary-button" type="button" onClick={() => navigate("/mypage#member-services")}>
+              <button className="sunlit-primary-button" type="button" onClick={handleReservationClick}>
                 수업 예약하기
               </button>
               <button className="sunlit-outline-button" type="button" onClick={() => navigate("/ikleulrim/tour")}>
@@ -731,10 +871,6 @@ export function HomePage() {
 
           <figure className="sunlit-hero-photo">
             <img src={HOME_IMAGES.hero} alt="자연광이 들어오는 이끌림 필라테스 메인 스튜디오" />
-            <figcaption>
-              <span>프라이빗 레슨 오픈</span>
-              <strong>PRIVATE PILATES CLASS</strong>
-            </figcaption>
           </figure>
         </section>
 
@@ -812,7 +948,15 @@ export function HomePage() {
                     자세히 보기 <span>→</span>
                   </a>
                 </div>
-                {itemIndex > 0 || item.image ? (
+                {item.source === "blog" ? (
+                  <div className="sunlit-news-platform-thumb sunlit-news-platform-thumb--blog">
+                    <img src="/assets/images/naver-blog-logo.webp" alt="Naver Blog" />
+                  </div>
+                ) : item.source === "instagram" ? (
+                  <div className="sunlit-news-platform-thumb sunlit-news-platform-thumb--instagram">
+                    <img src="/assets/images/instagram-logo.jpg" alt="Instagram" />
+                  </div>
+                ) : itemIndex > 0 || item.image ? (
                   <img src={item.image} alt={item.title} loading="lazy" onError={handleSocialThumbnailError} />
                 ) : null}
               </article>

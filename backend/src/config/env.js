@@ -1,9 +1,13 @@
-// 파일 역할: .env 값을 읽어 서버 실행에 필요한 환경 설정을 한곳으로 모읍니다.
 import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const backendEnvPath = path.resolve(__dirname, "../../.env");
 
-// 상수 역할: .env와 기본값을 합쳐 서버가 사용할 환경 설정 객체를 만듭니다.
+dotenv.config({ path: backendEnvPath });
+
+// 서버 전체에서 사용하는 환경변수를 한곳에서 읽고 기본값을 적용합니다.
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? 4000),
@@ -43,6 +47,19 @@ export const env = {
   demoAdminPassword: process.env.DEMO_ADMIN_PASSWORD ?? "",
   demoAdminEmail: process.env.DEMO_ADMIN_EMAIL ?? "demo-admin@icl.local",
   demoAdminName: process.env.DEMO_ADMIN_NAME ?? "Demo Admin",
+  aligoApiKey: process.env.ALIGO_API_KEY ?? "",
+  aligoUserId: process.env.ALIGO_USER_ID ?? "",
+  aligoSender: process.env.ALIGO_SENDER ?? "",
+  kakaoSenderKey: process.env.KAKAO_SENDER_KEY ?? "",
+  kakaoDefaultTemplate: process.env.KAKAO_DEFAULT_TEMPLATE ?? "",
+  notificationSchedulerEnabled: String(process.env.NOTIFICATION_SCHEDULER_ENABLED ?? "true")
+    .trim()
+    .toLowerCase() !== "false",
+  notificationSchedulerIntervalSec: Number(process.env.NOTIFICATION_SCHEDULER_INTERVAL_SEC ?? 30),
+  notificationMaxAttempts: Number(process.env.NOTIFICATION_MAX_ATTEMPTS ?? 10),
+  fcmProjectId: process.env.FCM_PROJECT_ID ?? "",
+  fcmClientEmail: process.env.FCM_CLIENT_EMAIL ?? "",
+  fcmPrivateKey: String(process.env.FCM_PRIVATE_KEY ?? "").replace(/\\n/g, "\n"),
 };
 
 if (env.nodeEnv === "production") {
@@ -52,7 +69,8 @@ if (env.nodeEnv === "production") {
     ["PII_ENCRYPTION_KEY", env.piiEncryptionKey],
     ["DB_PASSWORD", env.dbPassword],
   ];
-  const missing = required.filter(([, v]) => !v).map(([k]) => k);
+  const missing = required.filter(([, value]) => !value).map(([key]) => key);
+
   if (missing.length > 0) {
     throw new Error(`[startup] 필수 환경변수가 설정되지 않았습니다: ${missing.join(", ")}`);
   }

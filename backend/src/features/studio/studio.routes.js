@@ -75,3 +75,6 @@ studioRoutes.post("/admin/passes/transfer", express.json(), studioController.tra
 studioRoutes.post("/passes/refund-requests", express.json(), studioController.requestPassRefund);
 studioRoutes.get("/admin/pass-refunds", studioController.listAdminPassRefunds);
 studioRoutes.patch("/admin/pass-refunds/:refundId", express.json(), studioController.resolvePassRefund);
+studioRoutes.get("/admin/consultations", studioController.listConsultationsHandler);
+studioRoutes.post("/admin/consultations", express.json(), studioController.createConsultationHandler);
+studioRoutes.delete("/admin/consultations/:consultationId", studioController.deleteConsultationHandler);

@@ -4,8 +4,7 @@ import { Navigate } from "react-router-dom";
 import { isAdminStaff } from "../auth/userRoles.js";
 import { useAppStore } from "../store/AppContext.jsx";
 
-// 관리자0/관리자1만 접근 가능한 화면 보호 컴포넌트다.
-// 컴포넌트 역할: 관리자 권한이 없으면 홈으로 돌려보내고 권한이 있는 경우만 자식 화면을 보여줍니다.
+// 컴포넌트 역할: 관리자/스태프 권한이 없으면 마이페이지로 돌려보내고, 권한이 있으면 자식 화면을 보여줍니다.
 export function RequireAdminStaff({ children }) {
   const { currentUser, isAuthResolved } = useAppStore();
 

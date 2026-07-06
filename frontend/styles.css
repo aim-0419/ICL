@@ -5683,10 +5683,7 @@ video::-webkit-media-controls-fullscreen-button {
 .equipment-reference-hero-media {
   position: absolute;
   inset: 0;
-  background-image: url("/assets/images/brand/equipment-hero.jpg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: linear-gradient(135deg, rgba(248, 244, 238, 0.98), rgba(226, 214, 198, 0.82));
   transform: scale(1.02);
 }
 

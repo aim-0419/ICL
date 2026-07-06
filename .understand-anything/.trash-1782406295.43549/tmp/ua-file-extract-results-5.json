@@ -1,0 +1,2951 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 10,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "backend/src/features/academy/academy.controller.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 639,
+      "nonEmptyLines": 553,
+      "functions": [
+        {
+          "name": "requireAcademyUploadAdmin",
+          "startLine": 9,
+          "endLine": 27,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "resolveRequestIp",
+          "startLine": 30,
+          "endLine": 38,
+          "params": [
+            "req"
+          ]
+        },
+        {
+          "name": "getAcademyVideos",
+          "startLine": 41,
+          "endLine": 53,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "getAcademyVideoChapters",
+          "startLine": 56,
+          "endLine": 79,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "createAcademyPlaybackSession",
+          "startLine": 82,
+          "endLine": 105,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "heartbeatAcademyPlaybackSession",
+          "startLine": 108,
+          "endLine": 126,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "streamAcademyPlayback",
+          "startLine": 129,
+          "endLine": 156,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "getAcademyInstructors",
+          "startLine": 159,
+          "endLine": 177,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "getAcademyProgress",
+          "startLine": 180,
+          "endLine": 194,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "getMyAcademyCertificates",
+          "startLine": 197,
+          "endLine": 210,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "getMyAcademyCertificate",
+          "startLine": 212,
+          "endLine": 231,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "issueMyAcademyCertificate",
+          "startLine": 233,
+          "endLine": 247,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "saveAcademyProgress",
+          "startLine": 249,
+          "endLine": 291,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "saveAcademyChapterProgress",
+          "startLine": 294,
+          "endLine": 331,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "createAcademyVideo",
+          "startLine": 334,
+          "endLine": 352,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "updateAcademyVideoHandler",
+          "startLine": 355,
+          "endLine": 379,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "deleteAcademyVideoHandler",
+          "startLine": 382,
+          "endLine": 406,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "setAcademyVideoVisibilityHandler",
+          "startLine": 409,
+          "endLine": 434,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "uploadAcademyAsset",
+          "startLine": 437,
+          "endLine": 476,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "getLatestAcademyReviews",
+          "startLine": 481,
+          "endLine": 487,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "getAcademyReviews",
+          "startLine": 490,
+          "endLine": 498,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "createAcademyReview",
+          "startLine": 501,
+          "endLine": 520,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "deleteAcademyReview",
+          "startLine": 523,
+          "endLine": 534,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "getAcademyQna",
+          "startLine": 539,
+          "endLine": 552,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "getMyAcademyQna",
+          "startLine": 555,
+          "endLine": 568,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "createAcademyQnaPost",
+          "startLine": 571,
+          "endLine": 590,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "createAcademyQnaReply",
+          "startLine": 593,
+          "endLine": 611,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "deleteAcademyQnaPost",
+          "startLine": 614,
+          "endLine": 625,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        },
+        {
+          "name": "deleteAcademyQnaReply",
+          "startLine": 628,
+          "endLine": 639,
+          "params": [
+            "req",
+            "res",
+            "next"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "requireAcademyUploadAdmin",
+          "line": 9,
+          "isDefault": false
+        },
+        {
+          "name": "getAcademyVideos",
+          "line": 41,
+          "isDefault": false
+        },
+        {
+          "name": "getAcademyVideoChapters",
+          "line": 56,
+          "isDefault": false
+        },
+        {
+          "name": "createAcademyPlaybackSession",
+          "line": 82,
+          "isDefault": false
+        },
+        {
+          "name": "heartbeatAcademyPlaybackSession",
+          "line": 108,
+          "isDefault": false
+        },
+        {
+          "name": "streamAcademyPlayback",
+          "line": 129,
+          "isDefault": false
+        },
+        {
+          "name": "getAcademyInstructors",
+          "line": 159,
+          "isDefault": false
+        },
+        {
+          "name": "getAcademyProgress",
+          "line": 180,
+          "isDefault": false
+        },
+        {
+          "name": "getMyAcademyCertificates",
+          "line": 197,
+          "isDefault": false
+        },
+        {
+          "name": "getMyAcademyCertificate",
+          "line": 212,
+          "isDefault": false
+        },
+        {
+          "name": "issueMyAcademyCertificate",
+          "line": 233,
+          "isDefault": false
+        },
+        {
+          "name": "saveAcademyProgress",
+          "line": 249,
+          "isDefault": false
+        },
+        {
+          "name": "saveAcademyChapterProgress",
+          "line": 294,
+          "isDefault": false
+        },
+        {
+          "name": "createAcademyVideo",
+          "line": 334,
+          "isDefault": false
+        },
+        {
+          "name": "updateAcademyVideoHandler",
+          "line": 355,
+          "isDefault": false
+        },
+        {
+          "name": "deleteAcademyVideoHandler",
+          "line": 382,
+          "isDefault": false
+        },
+        {
+          "name": "setAcademyVideoVisibilityHandler",
+          "line": 409,
+          "isDefault": false
+        },
+        {
+          "name": "uploadAcademyAsset",
+          "line": 437,
+          "isDefault": false
+        },
+        {
+          "name": "getLatestAcademyReviews",
+          "line": 481,
+          "isDefault": false
+        },
+        {
+          "name": "getAcademyReviews",
+          "line": 490,
+          "isDefault": false
+        },
+        {
+          "name": "createAcademyReview",
+          "line": 501,
+          "isDefault": false
+        },
+        {
+          "name": "deleteAcademyReview",
+          "line": 523,
+          "isDefault": false
+        },
+        {
+          "name": "getAcademyQna",
+          "line": 539,
+          "isDefault": false
+        },
+        {
+          "name": "getMyAcademyQna",
+          "line": 555,
+          "isDefault": false
+        },
+        {
+          "name": "createAcademyQnaPost",
+          "line": 571,
+          "isDefault": false
+        },
+        {
+          "name": "createAcademyQnaReply",
+          "line": 593,
+          "isDefault": false
+        },
+        {
+          "name": "deleteAcademyQnaPost",
+          "line": 614,
+          "isDefault": false
+        },
+        {
+          "name": "deleteAcademyQnaReply",
+          "line": 628,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "requireAcademyUploadAdmin",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 11
+        },
+        {
+          "caller": "requireAcademyUploadAdmin",
+          "callee": "res.status(401).json",
+          "lineNumber": 13
+        },
+        {
+          "caller": "requireAcademyUploadAdmin",
+          "callee": "res.status",
+          "lineNumber": 13
+        },
+        {
+          "caller": "requireAcademyUploadAdmin",
+          "callee": "canManageAcademy",
+          "lineNumber": 17
+        },
+        {
+          "caller": "requireAcademyUploadAdmin",
+          "callee": "res.status(403).json",
+          "lineNumber": 18
+        },
+        {
+          "caller": "requireAcademyUploadAdmin",
+          "callee": "res.status",
+          "lineNumber": 18
+        },
+        {
+          "caller": "requireAcademyUploadAdmin",
+          "callee": "next",
+          "lineNumber": 23
+        },
+        {
+          "caller": "requireAcademyUploadAdmin",
+          "callee": "next",
+          "lineNumber": 25
+        },
+        {
+          "caller": "resolveRequestIp",
+          "callee": "String(req.headers[\"x-forwarded-for\"] || \"\")\n    .split(\",\")\n    .map((item) => item.trim())\n    .filter",
+          "lineNumber": 31
+        },
+        {
+          "caller": "resolveRequestIp",
+          "callee": "String(req.headers[\"x-forwarded-for\"] || \"\")\n    .split(\",\")\n    .map",
+          "lineNumber": 31
+        },
+        {
+          "caller": "resolveRequestIp",
+          "callee": "String(req.headers[\"x-forwarded-for\"] || \"\")\n    .split",
+          "lineNumber": 31
+        },
+        {
+          "caller": "resolveRequestIp",
+          "callee": "String",
+          "lineNumber": 31
+        },
+        {
+          "caller": "resolveRequestIp",
+          "callee": "item.trim",
+          "lineNumber": 33
+        },
+        {
+          "caller": "resolveRequestIp",
+          "callee": "String(req.ip || req.socket?.remoteAddress || \"\").trim",
+          "lineNumber": 37
+        },
+        {
+          "caller": "resolveRequestIp",
+          "callee": "String",
+          "lineNumber": 37
+        },
+        {
+          "caller": "getAcademyVideos",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 43
+        },
+        {
+          "caller": "getAcademyVideos",
+          "callee": "canManageAcademy",
+          "lineNumber": 44
+        },
+        {
+          "caller": "getAcademyVideos",
+          "callee": "academyService.listAcademyVideos",
+          "lineNumber": 45
+        },
+        {
+          "caller": "getAcademyVideos",
+          "callee": "res.json",
+          "lineNumber": 49
+        },
+        {
+          "caller": "getAcademyVideos",
+          "callee": "next",
+          "lineNumber": 51
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "String(req.params.videoId || \"\").trim",
+          "lineNumber": 58
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "String",
+          "lineNumber": 58
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "res.status(400).json",
+          "lineNumber": 60
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "res.status",
+          "lineNumber": 60
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 64
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "canManageAcademy",
+          "lineNumber": 65
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "academyService.isAcademyVideoVisibleForPublic",
+          "lineNumber": 67
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "res.status(404).json",
+          "lineNumber": 69
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "res.status",
+          "lineNumber": 69
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "academyService.listAcademyChaptersByVideoId",
+          "lineNumber": 74
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "res.json",
+          "lineNumber": 75
+        },
+        {
+          "caller": "getAcademyVideoChapters",
+          "callee": "next",
+          "lineNumber": 77
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 84
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "String(req.body?.videoId || \"\").trim",
+          "lineNumber": 85
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "String",
+          "lineNumber": 85
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "String(req.body?.chapterId || \"\").trim",
+          "lineNumber": 86
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "String",
+          "lineNumber": 86
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "res.status(400).json",
+          "lineNumber": 89
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "res.status",
+          "lineNumber": 89
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "academyPlaybackService.issueAcademyPlaybackSession",
+          "lineNumber": 93
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "resolveRequestIp",
+          "lineNumber": 97
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "String",
+          "lineNumber": 98
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "res.json",
+          "lineNumber": 101
+        },
+        {
+          "caller": "createAcademyPlaybackSession",
+          "callee": "next",
+          "lineNumber": 103
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 110
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "String(req.body?.token || \"\").trim",
+          "lineNumber": 111
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "String",
+          "lineNumber": 111
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "res.status(400).json",
+          "lineNumber": 113
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "res.status",
+          "lineNumber": 113
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "academyPlaybackService.heartbeatAcademyPlaybackSession",
+          "lineNumber": 117
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "res.json",
+          "lineNumber": 122
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "next",
+          "lineNumber": 124
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 131
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "String(req.params.chapterId || \"\").trim",
+          "lineNumber": 132
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "String",
+          "lineNumber": 132
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "String(req.query?.token || \"\").trim",
+          "lineNumber": 133
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "String",
+          "lineNumber": 133
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "res.status(400).json",
+          "lineNumber": 135
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "res.status",
+          "lineNumber": 135
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "academyPlaybackService.resolveAcademyPlaybackStream",
+          "lineNumber": 139
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "res.setHeader",
+          "lineNumber": 145
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "res.setHeader",
+          "lineNumber": 146
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "res.setHeader",
+          "lineNumber": 147
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "res.type",
+          "lineNumber": 149
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "res.sendFile",
+          "lineNumber": 152
+        },
+        {
+          "caller": "streamAcademyPlayback",
+          "callee": "next",
+          "lineNumber": 154
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 161
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "res.status(401).json",
+          "lineNumber": 163
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "res.status",
+          "lineNumber": 163
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "canManageAcademy",
+          "lineNumber": 167
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "res.status(403).json",
+          "lineNumber": 168
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "res.status",
+          "lineNumber": 168
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "String(req.query?.q || \"\").trim",
+          "lineNumber": 172
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "String",
+          "lineNumber": 172
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "res.json",
+          "lineNumber": 173
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "academyService.listAcademyInstructors",
+          "lineNumber": 173
+        },
+        {
+          "caller": "getAcademyInstructors",
+          "callee": "next",
+          "lineNumber": 175
+        },
+        {
+          "caller": "getAcademyProgress",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 182
+        },
+        {
+          "caller": "getAcademyProgress",
+          "callee": "res.status(401).json",
+          "lineNumber": 184
+        },
+        {
+          "caller": "getAcademyProgress",
+          "callee": "res.status",
+          "lineNumber": 184
+        },
+        {
+          "caller": "getAcademyProgress",
+          "callee": "academyService.listAcademyProgressByUserId",
+          "lineNumber": 188
+        },
+        {
+          "caller": "getAcademyProgress",
+          "callee": "academyService.listAcademyChapterProgressByUserId",
+          "lineNumber": 189
+        },
+        {
+          "caller": "getAcademyProgress",
+          "callee": "res.json",
+          "lineNumber": 190
+        },
+        {
+          "caller": "getAcademyProgress",
+          "callee": "next",
+          "lineNumber": 192
+        },
+        {
+          "caller": "getMyAcademyCertificates",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 199
+        },
+        {
+          "caller": "getMyAcademyCertificates",
+          "callee": "res.status(401).json",
+          "lineNumber": 201
+        },
+        {
+          "caller": "getMyAcademyCertificates",
+          "callee": "res.status",
+          "lineNumber": 201
+        },
+        {
+          "caller": "getMyAcademyCertificates",
+          "callee": "academyService.listAcademyCertificatesByUserId",
+          "lineNumber": 205
+        },
+        {
+          "caller": "getMyAcademyCertificates",
+          "callee": "res.json",
+          "lineNumber": 206
+        },
+        {
+          "caller": "getMyAcademyCertificates",
+          "callee": "next",
+          "lineNumber": 208
+        },
+        {
+          "caller": "getMyAcademyCertificate",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 214
+        },
+        {
+          "caller": "getMyAcademyCertificate",
+          "callee": "res.status(401).json",
+          "lineNumber": 216
+        },
+        {
+          "caller": "getMyAcademyCertificate",
+          "callee": "res.status",
+          "lineNumber": 216
+        },
+        {
+          "caller": "getMyAcademyCertificate",
+          "callee": "String(req.params.certificateId || \"\").trim",
+          "lineNumber": 220
+        },
+        {
+          "caller": "getMyAcademyCertificate",
+          "callee": "String",
+          "lineNumber": 220
+        },
+        {
+          "caller": "getMyAcademyCertificate",
+          "callee": "academyService.getAcademyCertificateByIdForUser",
+          "lineNumber": 221
+        },
+        {
+          "caller": "getMyAcademyCertificate",
+          "callee": "res.status(404).json",
+          "lineNumber": 223
+        },
+        {
+          "caller": "getMyAcademyCertificate",
+          "callee": "res.status",
+          "lineNumber": 223
+        },
+        {
+          "caller": "getMyAcademyCertificate",
+          "callee": "res.json",
+          "lineNumber": 227
+        },
+        {
+          "caller": "getMyAcademyCertificate",
+          "callee": "next",
+          "lineNumber": 229
+        },
+        {
+          "caller": "issueMyAcademyCertificate",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 235
+        },
+        {
+          "caller": "issueMyAcademyCertificate",
+          "callee": "res.status(401).json",
+          "lineNumber": 237
+        },
+        {
+          "caller": "issueMyAcademyCertificate",
+          "callee": "res.status",
+          "lineNumber": 237
+        },
+        {
+          "caller": "issueMyAcademyCertificate",
+          "callee": "String(req.params.videoId || \"\").trim",
+          "lineNumber": 241
+        },
+        {
+          "caller": "issueMyAcademyCertificate",
+          "callee": "String",
+          "lineNumber": 241
+        },
+        {
+          "caller": "issueMyAcademyCertificate",
+          "callee": "academyService.issueAcademyCertificateForCompletedLecture",
+          "lineNumber": 242
+        },
+        {
+          "caller": "issueMyAcademyCertificate",
+          "callee": "res.status(201).json",
+          "lineNumber": 243
+        },
+        {
+          "caller": "issueMyAcademyCertificate",
+          "callee": "res.status",
+          "lineNumber": 243
+        },
+        {
+          "caller": "issueMyAcademyCertificate",
+          "callee": "next",
+          "lineNumber": 245
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 251
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "res.status(401).json",
+          "lineNumber": 253
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "res.status",
+          "lineNumber": 253
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "String(req.params.videoId || \"\").trim",
+          "lineNumber": 257
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "String",
+          "lineNumber": 257
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "res.status(400).json",
+          "lineNumber": 259
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "res.status",
+          "lineNumber": 259
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "String(req.body?.chapterId || \"\").trim",
+          "lineNumber": 263
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "String",
+          "lineNumber": 263
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "academyService.hasAcademyVideoAccess",
+          "lineNumber": 264
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "res.status(403).json",
+          "lineNumber": 267
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "res.status",
+          "lineNumber": 267
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "academyService.hasAcademyPreviewChapterAccess",
+          "lineNumber": 271
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "res.status(403).json",
+          "lineNumber": 273
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "res.status",
+          "lineNumber": 273
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "academyService.saveAcademyProgress",
+          "lineNumber": 278
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "res.json",
+          "lineNumber": 287
+        },
+        {
+          "caller": "saveAcademyProgress",
+          "callee": "next",
+          "lineNumber": 289
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 296
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "res.status(401).json",
+          "lineNumber": 298
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "res.status",
+          "lineNumber": 298
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "String(req.params.videoId || \"\").trim",
+          "lineNumber": 302
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "String",
+          "lineNumber": 302
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "String(req.params.chapterId || \"\").trim",
+          "lineNumber": 303
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "String",
+          "lineNumber": 303
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "res.status(400).json",
+          "lineNumber": 305
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "res.status",
+          "lineNumber": 305
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "academyService.hasAcademyVideoAccess",
+          "lineNumber": 309
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "academyService.hasAcademyPreviewChapterAccess",
+          "lineNumber": 311
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "res.status(403).json",
+          "lineNumber": 313
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "res.status",
+          "lineNumber": 313
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "academyService.saveAcademyChapterProgress",
+          "lineNumber": 318
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "res.json",
+          "lineNumber": 327
+        },
+        {
+          "caller": "saveAcademyChapterProgress",
+          "callee": "next",
+          "lineNumber": 329
+        },
+        {
+          "caller": "createAcademyVideo",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 336
+        },
+        {
+          "caller": "createAcademyVideo",
+          "callee": "res.status(401).json",
+          "lineNumber": 338
+        },
+        {
+          "caller": "createAcademyVideo",
+          "callee": "res.status",
+          "lineNumber": 338
+        },
+        {
+          "caller": "createAcademyVideo",
+          "callee": "canManageAcademy",
+          "lineNumber": 342
+        },
+        {
+          "caller": "createAcademyVideo",
+          "callee": "res.status(403).json",
+          "lineNumber": 343
+        },
+        {
+          "caller": "createAcademyVideo",
+          "callee": "res.status",
+          "lineNumber": 343
+        },
+        {
+          "caller": "createAcademyVideo",
+          "callee": "academyService.createAcademyVideo",
+          "lineNumber": 347
+        },
+        {
+          "caller": "createAcademyVideo",
+          "callee": "res.status(201).json",
+          "lineNumber": 348
+        },
+        {
+          "caller": "createAcademyVideo",
+          "callee": "res.status",
+          "lineNumber": 348
+        },
+        {
+          "caller": "createAcademyVideo",
+          "callee": "next",
+          "lineNumber": 350
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 357
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "res.status(401).json",
+          "lineNumber": 359
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "res.status",
+          "lineNumber": 359
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "canManageAcademy",
+          "lineNumber": 363
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "res.status(403).json",
+          "lineNumber": 364
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "res.status",
+          "lineNumber": 364
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "String(req.params.videoId || \"\").trim",
+          "lineNumber": 368
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "String",
+          "lineNumber": 368
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "res.status(400).json",
+          "lineNumber": 370
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "res.status",
+          "lineNumber": 370
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "academyService.updateAcademyVideo",
+          "lineNumber": 374
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "res.json",
+          "lineNumber": 375
+        },
+        {
+          "caller": "updateAcademyVideoHandler",
+          "callee": "next",
+          "lineNumber": 377
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 384
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "res.status(401).json",
+          "lineNumber": 386
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "res.status",
+          "lineNumber": 386
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "canManageAcademy",
+          "lineNumber": 390
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "res.status(403).json",
+          "lineNumber": 391
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "res.status",
+          "lineNumber": 391
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "String(req.params.videoId || \"\").trim",
+          "lineNumber": 395
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "String",
+          "lineNumber": 395
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "res.status(400).json",
+          "lineNumber": 397
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "res.status",
+          "lineNumber": 397
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "academyService.deleteAcademyVideo",
+          "lineNumber": 401
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "res.json",
+          "lineNumber": 402
+        },
+        {
+          "caller": "deleteAcademyVideoHandler",
+          "callee": "next",
+          "lineNumber": 404
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 411
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "res.status(401).json",
+          "lineNumber": 413
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "res.status",
+          "lineNumber": 413
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "canManageAcademy",
+          "lineNumber": 417
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "res.status(403).json",
+          "lineNumber": 418
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "res.status",
+          "lineNumber": 418
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "String(req.params.videoId || \"\").trim",
+          "lineNumber": 422
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "String",
+          "lineNumber": 422
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "res.status(400).json",
+          "lineNumber": 424
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "res.status",
+          "lineNumber": 424
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "Boolean",
+          "lineNumber": 428
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "academyService.setAcademyVideoHidden",
+          "lineNumber": 429
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "res.json",
+          "lineNumber": 430
+        },
+        {
+          "caller": "setAcademyVideoVisibilityHandler",
+          "callee": "next",
+          "lineNumber": 432
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 439
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "res.status(401).json",
+          "lineNumber": 441
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "res.status",
+          "lineNumber": 441
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "canManageAcademy",
+          "lineNumber": 445
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "res.status(403).json",
+          "lineNumber": 446
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "res.status",
+          "lineNumber": 446
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "String(req.query.kind || \"\")\n      .trim()\n      .toLowerCase",
+          "lineNumber": 450
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "String(req.query.kind || \"\")\n      .trim",
+          "lineNumber": 450
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "String",
+          "lineNumber": 450
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "String(req.query.videoId || \"\").trim",
+          "lineNumber": 454
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "String",
+          "lineNumber": 454
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "String(req.query.chapterOrder || \"\").trim",
+          "lineNumber": 455
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "String",
+          "lineNumber": 455
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "Array.isArray",
+          "lineNumber": 458
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "Array.isArray",
+          "lineNumber": 461
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "academyService.saveAcademyAsset",
+          "lineNumber": 463
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "res.status(201).json",
+          "lineNumber": 472
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "res.status",
+          "lineNumber": 472
+        },
+        {
+          "caller": "uploadAcademyAsset",
+          "callee": "next",
+          "lineNumber": 474
+        },
+        {
+          "caller": "getLatestAcademyReviews",
+          "callee": "Math.min",
+          "lineNumber": 483
+        },
+        {
+          "caller": "getLatestAcademyReviews",
+          "callee": "Math.max",
+          "lineNumber": 483
+        },
+        {
+          "caller": "getLatestAcademyReviews",
+          "callee": "Number",
+          "lineNumber": 483
+        },
+        {
+          "caller": "getLatestAcademyReviews",
+          "callee": "academyService.listLatestAcademyReviews",
+          "lineNumber": 484
+        },
+        {
+          "caller": "getLatestAcademyReviews",
+          "callee": "res.json",
+          "lineNumber": 485
+        },
+        {
+          "caller": "getLatestAcademyReviews",
+          "callee": "next",
+          "lineNumber": 486
+        },
+        {
+          "caller": "getAcademyReviews",
+          "callee": "academyService.listAcademyReviews",
+          "lineNumber": 493
+        },
+        {
+          "caller": "getAcademyReviews",
+          "callee": "res.json",
+          "lineNumber": 494
+        },
+        {
+          "caller": "getAcademyReviews",
+          "callee": "next",
+          "lineNumber": 496
+        },
+        {
+          "caller": "createAcademyReview",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 503
+        },
+        {
+          "caller": "createAcademyReview",
+          "callee": "res.status(401).json",
+          "lineNumber": 504
+        },
+        {
+          "caller": "createAcademyReview",
+          "callee": "res.status",
+          "lineNumber": 504
+        },
+        {
+          "caller": "createAcademyReview",
+          "callee": "academyService.createAcademyReview",
+          "lineNumber": 508
+        },
+        {
+          "caller": "createAcademyReview",
+          "callee": "canManageAcademy",
+          "lineNumber": 514
+        },
+        {
+          "caller": "createAcademyReview",
+          "callee": "res.status(201).json",
+          "lineNumber": 516
+        },
+        {
+          "caller": "createAcademyReview",
+          "callee": "res.status",
+          "lineNumber": 516
+        },
+        {
+          "caller": "createAcademyReview",
+          "callee": "next",
+          "lineNumber": 518
+        },
+        {
+          "caller": "deleteAcademyReview",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 525
+        },
+        {
+          "caller": "deleteAcademyReview",
+          "callee": "res.status(401).json",
+          "lineNumber": 526
+        },
+        {
+          "caller": "deleteAcademyReview",
+          "callee": "res.status",
+          "lineNumber": 526
+        },
+        {
+          "caller": "deleteAcademyReview",
+          "callee": "academyService.deleteAcademyReview",
+          "lineNumber": 529
+        },
+        {
+          "caller": "deleteAcademyReview",
+          "callee": "canManageAcademy",
+          "lineNumber": 529
+        },
+        {
+          "caller": "deleteAcademyReview",
+          "callee": "res.json",
+          "lineNumber": 530
+        },
+        {
+          "caller": "deleteAcademyReview",
+          "callee": "next",
+          "lineNumber": 532
+        },
+        {
+          "caller": "getAcademyQna",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 541
+        },
+        {
+          "caller": "getAcademyQna",
+          "callee": "academyService.listAcademyQna",
+          "lineNumber": 543
+        },
+        {
+          "caller": "getAcademyQna",
+          "callee": "canManageAcademy",
+          "lineNumber": 546
+        },
+        {
+          "caller": "getAcademyQna",
+          "callee": "res.json",
+          "lineNumber": 548
+        },
+        {
+          "caller": "getAcademyQna",
+          "callee": "next",
+          "lineNumber": 550
+        },
+        {
+          "caller": "getMyAcademyQna",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 557
+        },
+        {
+          "caller": "getMyAcademyQna",
+          "callee": "res.status(401).json",
+          "lineNumber": 559
+        },
+        {
+          "caller": "getMyAcademyQna",
+          "callee": "res.status",
+          "lineNumber": 559
+        },
+        {
+          "caller": "getMyAcademyQna",
+          "callee": "academyService.listMyAcademyQna",
+          "lineNumber": 563
+        },
+        {
+          "caller": "getMyAcademyQna",
+          "callee": "res.json",
+          "lineNumber": 564
+        },
+        {
+          "caller": "getMyAcademyQna",
+          "callee": "next",
+          "lineNumber": 566
+        },
+        {
+          "caller": "createAcademyQnaPost",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 573
+        },
+        {
+          "caller": "createAcademyQnaPost",
+          "callee": "res.status(401).json",
+          "lineNumber": 574
+        },
+        {
+          "caller": "createAcademyQnaPost",
+          "callee": "res.status",
+          "lineNumber": 574
+        },
+        {
+          "caller": "createAcademyQnaPost",
+          "callee": "academyService.createAcademyQnaPost",
+          "lineNumber": 578
+        },
+        {
+          "caller": "createAcademyQnaPost",
+          "callee": "Boolean",
+          "lineNumber": 584
+        },
+        {
+          "caller": "createAcademyQnaPost",
+          "callee": "res.status(201).json",
+          "lineNumber": 586
+        },
+        {
+          "caller": "createAcademyQnaPost",
+          "callee": "res.status",
+          "lineNumber": 586
+        },
+        {
+          "caller": "createAcademyQnaPost",
+          "callee": "next",
+          "lineNumber": 588
+        },
+        {
+          "caller": "createAcademyQnaReply",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 595
+        },
+        {
+          "caller": "createAcademyQnaReply",
+          "callee": "res.status(401).json",
+          "lineNumber": 596
+        },
+        {
+          "caller": "createAcademyQnaReply",
+          "callee": "res.status",
+          "lineNumber": 596
+        },
+        {
+          "caller": "createAcademyQnaReply",
+          "callee": "academyService.createAcademyQnaReply",
+          "lineNumber": 600
+        },
+        {
+          "caller": "createAcademyQnaReply",
+          "callee": "canManageAcademy",
+          "lineNumber": 605
+        },
+        {
+          "caller": "createAcademyQnaReply",
+          "callee": "res.status(201).json",
+          "lineNumber": 607
+        },
+        {
+          "caller": "createAcademyQnaReply",
+          "callee": "res.status",
+          "lineNumber": 607
+        },
+        {
+          "caller": "createAcademyQnaReply",
+          "callee": "next",
+          "lineNumber": 609
+        },
+        {
+          "caller": "deleteAcademyQnaPost",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 616
+        },
+        {
+          "caller": "deleteAcademyQnaPost",
+          "callee": "res.status(401).json",
+          "lineNumber": 617
+        },
+        {
+          "caller": "deleteAcademyQnaPost",
+          "callee": "res.status",
+          "lineNumber": 617
+        },
+        {
+          "caller": "deleteAcademyQnaPost",
+          "callee": "academyService.deleteAcademyQnaPost",
+          "lineNumber": 620
+        },
+        {
+          "caller": "deleteAcademyQnaPost",
+          "callee": "canManageAcademy",
+          "lineNumber": 620
+        },
+        {
+          "caller": "deleteAcademyQnaPost",
+          "callee": "res.json",
+          "lineNumber": 621
+        },
+        {
+          "caller": "deleteAcademyQnaPost",
+          "callee": "next",
+          "lineNumber": 623
+        },
+        {
+          "caller": "deleteAcademyQnaReply",
+          "callee": "getAuthenticatedUser",
+          "lineNumber": 630
+        },
+        {
+          "caller": "deleteAcademyQnaReply",
+          "callee": "res.status(401).json",
+          "lineNumber": 631
+        },
+        {
+          "caller": "deleteAcademyQnaReply",
+          "callee": "res.status",
+          "lineNumber": 631
+        },
+        {
+          "caller": "deleteAcademyQnaReply",
+          "callee": "academyService.deleteAcademyQnaReply",
+          "lineNumber": 634
+        },
+        {
+          "caller": "deleteAcademyQnaReply",
+          "callee": "canManageAcademy",
+          "lineNumber": 634
+        },
+        {
+          "caller": "deleteAcademyQnaReply",
+          "callee": "res.json",
+          "lineNumber": 635
+        },
+        {
+          "caller": "deleteAcademyQnaReply",
+          "callee": "next",
+          "lineNumber": 637
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 28,
+        "functionCount": 29,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "backend/src/features/academy/academy.playback.service.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "exports": [
+        {
+          "name": "issueAcademyPlaybackSession",
+          "line": 2,
+          "isDefault": false
+        },
+        {
+          "name": "heartbeatAcademyPlaybackSession",
+          "line": 2,
+          "isDefault": false
+        },
+        {
+          "name": "resolveAcademyPlaybackStream",
+          "line": 2,
+          "isDefault": false
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "backend/src/features/academy/academy.routes.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 89,
+      "nonEmptyLines": 85,
+      "exports": [
+        {
+          "name": "academyRoutes",
+          "line": 50,
+          "isDefault": false
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "backend/src/features/academy/academy.service.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 2,
+      "nonEmptyLines": 2,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "backend/src/features/academy/playback/constants.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 25,
+      "nonEmptyLines": 20,
+      "exports": [
+        {
+          "name": "PLAYBACK_SESSION_STATUS",
+          "line": 5,
+          "isDefault": false
+        },
+        {
+          "name": "HEARTBEAT_INTERVAL_SEC",
+          "line": 12,
+          "isDefault": false
+        },
+        {
+          "name": "PLAYBACK_TOKEN_TTL_SEC",
+          "line": 15,
+          "isDefault": false
+        },
+        {
+          "name": "PLAYBACK_TOKEN_SECRET",
+          "line": 24,
+          "isDefault": false
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 4,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "backend/src/features/academy/playback/file-path.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 58,
+      "nonEmptyLines": 47,
+      "functions": [
+        {
+          "name": "normalizePathCase",
+          "startLine": 11,
+          "endLine": 13,
+          "params": [
+            "value"
+          ]
+        },
+        {
+          "name": "isPathInsideRoot",
+          "startLine": 16,
+          "endLine": 20,
+          "params": [
+            "targetPath",
+            "rootPath"
+          ]
+        },
+        {
+          "name": "resolveAcademyVideoFilePath",
+          "startLine": 24,
+          "endLine": 47,
+          "params": [
+            "assetPath"
+          ]
+        },
+        {
+          "name": "resolveVideoMimeType",
+          "startLine": 51,
+          "endLine": 57,
+          "params": [
+            "filePath"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "resolveAcademyVideoFilePath",
+          "line": 24,
+          "isDefault": false
+        },
+        {
+          "name": "resolveVideoMimeType",
+          "line": 51,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "normalizePathCase",
+          "callee": "path.normalize(String(value || \"\")).toLowerCase",
+          "lineNumber": 12
+        },
+        {
+          "caller": "normalizePathCase",
+          "callee": "path.normalize",
+          "lineNumber": 12
+        },
+        {
+          "caller": "normalizePathCase",
+          "callee": "String",
+          "lineNumber": 12
+        },
+        {
+          "caller": "isPathInsideRoot",
+          "callee": "normalizePathCase",
+          "lineNumber": 17
+        },
+        {
+          "caller": "isPathInsideRoot",
+          "callee": "normalizePathCase",
+          "lineNumber": 18
+        },
+        {
+          "caller": "isPathInsideRoot",
+          "callee": "target.startsWith",
+          "lineNumber": 19
+        },
+        {
+          "caller": "resolveAcademyVideoFilePath",
+          "callee": "toSafeText",
+          "lineNumber": 25
+        },
+        {
+          "caller": "resolveAcademyVideoFilePath",
+          "callee": "/^https?:\\/\\//i.test",
+          "lineNumber": 27
+        },
+        {
+          "caller": "resolveAcademyVideoFilePath",
+          "callee": "normalizedPath.startsWith",
+          "lineNumber": 35
+        },
+        {
+          "caller": "resolveAcademyVideoFilePath",
+          "callee": "normalizedPath.replace",
+          "lineNumber": 39
+        },
+        {
+          "caller": "resolveAcademyVideoFilePath",
+          "callee": "path.resolve",
+          "lineNumber": 40
+        },
+        {
+          "caller": "resolveAcademyVideoFilePath",
+          "callee": "isPathInsideRoot",
+          "lineNumber": 42
+        },
+        {
+          "caller": "resolveVideoMimeType",
+          "callee": "path.extname(String(filePath || \"\")).toLowerCase",
+          "lineNumber": 52
+        },
+        {
+          "caller": "resolveVideoMimeType",
+          "callee": "path.extname",
+          "lineNumber": 52
+        },
+        {
+          "caller": "resolveVideoMimeType",
+          "callee": "String",
+          "lineNumber": 52
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 2,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "backend/src/features/academy/playback/helpers.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 32,
+      "nonEmptyLines": 27,
+      "functions": [
+        {
+          "name": "toSafeText",
+          "startLine": 4,
+          "endLine": 6,
+          "params": [
+            "value"
+          ]
+        },
+        {
+          "name": "createHttpError",
+          "startLine": 10,
+          "endLine": 15,
+          "params": [
+            "status",
+            "message"
+          ]
+        },
+        {
+          "name": "buildWatermarkText",
+          "startLine": 19,
+          "endLine": 31,
+          "params": [
+            "user",
+            "chapter"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "toSafeText",
+          "line": 4,
+          "isDefault": false
+        },
+        {
+          "name": "createHttpError",
+          "line": 10,
+          "isDefault": false
+        },
+        {
+          "name": "buildWatermarkText",
+          "line": 19,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "toSafeText",
+          "callee": "String(value || \"\").trim",
+          "lineNumber": 5
+        },
+        {
+          "caller": "toSafeText",
+          "callee": "String",
+          "lineNumber": 5
+        },
+        {
+          "caller": "buildWatermarkText",
+          "callee": "toSafeText",
+          "lineNumber": 21
+        },
+        {
+          "caller": "buildWatermarkText",
+          "callee": "toSafeText",
+          "lineNumber": 22
+        },
+        {
+          "caller": "buildWatermarkText",
+          "callee": "toSafeText",
+          "lineNumber": 23
+        },
+        {
+          "caller": "buildWatermarkText",
+          "callee": "toSafeText",
+          "lineNumber": 24
+        },
+        {
+          "caller": "buildWatermarkText",
+          "callee": "toSafeText",
+          "lineNumber": 26
+        },
+        {
+          "caller": "buildWatermarkText",
+          "callee": "Math.max",
+          "lineNumber": 27
+        },
+        {
+          "caller": "buildWatermarkText",
+          "callee": "Math.round",
+          "lineNumber": 27
+        },
+        {
+          "caller": "buildWatermarkText",
+          "callee": "Number",
+          "lineNumber": 27
+        },
+        {
+          "caller": "buildWatermarkText",
+          "callee": "[label, curriculum, chapterLabel].filter(Boolean).join",
+          "lineNumber": 30
+        },
+        {
+          "caller": "buildWatermarkText",
+          "callee": "[label, curriculum, chapterLabel].filter",
+          "lineNumber": 30
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 3,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "backend/src/features/academy/playback/service.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 220,
+      "nonEmptyLines": 190,
+      "functions": [
+        {
+          "name": "assertValidSessionState",
+          "startLine": 27,
+          "endLine": 58,
+          "params": [
+            "sessionRow",
+            "tokenPayload"
+          ]
+        },
+        {
+          "name": "issueAcademyPlaybackSession",
+          "startLine": 62,
+          "endLine": 149,
+          "params": []
+        },
+        {
+          "name": "heartbeatAcademyPlaybackSession",
+          "startLine": 153,
+          "endLine": 171,
+          "params": []
+        },
+        {
+          "name": "resolveAcademyPlaybackStream",
+          "startLine": 175,
+          "endLine": 219,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "issueAcademyPlaybackSession",
+          "line": 62,
+          "isDefault": false
+        },
+        {
+          "name": "heartbeatAcademyPlaybackSession",
+          "line": 153,
+          "isDefault": false
+        },
+        {
+          "name": "resolveAcademyPlaybackStream",
+          "line": 175,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "assertValidSessionState",
+          "callee": "createHttpError",
+          "lineNumber": 29
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "createHttpError",
+          "lineNumber": 33
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "createHttpError",
+          "lineNumber": 37
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "toSafeText",
+          "lineNumber": 41
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "toSafeText",
+          "lineNumber": 41
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "toSafeText",
+          "lineNumber": 42
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "toSafeText",
+          "lineNumber": 42
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "toSafeText",
+          "lineNumber": 43
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "toSafeText",
+          "lineNumber": 43
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "createHttpError",
+          "lineNumber": 45
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "Date.now",
+          "lineNumber": 48
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "Number",
+          "lineNumber": 49
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "new Date(sessionRow.expiresAt).getTime",
+          "lineNumber": 50
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "Number.isFinite",
+          "lineNumber": 51
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "Number.isFinite",
+          "lineNumber": 51
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "createHttpError",
+          "lineNumber": 52
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "toSafeText",
+          "lineNumber": 55
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "toSafeText",
+          "lineNumber": 55
+        },
+        {
+          "caller": "assertValidSessionState",
+          "callee": "createHttpError",
+          "lineNumber": 56
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "toSafeText",
+          "lineNumber": 69
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "toSafeText",
+          "lineNumber": 70
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "createHttpError",
+          "lineNumber": 72
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "markExpiredPlaybackSessions",
+          "lineNumber": 75
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "getAcademyPlaybackChapter",
+          "lineNumber": 77
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "createHttpError",
+          "lineNumber": 79
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "toSafeText",
+          "lineNumber": 82
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "createHttpError",
+          "lineNumber": 83
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "hasAcademyVideoAccess",
+          "lineNumber": 86
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "hasAcademyPreviewChapterAccess",
+          "lineNumber": 88
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "createHttpError",
+          "lineNumber": 90
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "toSafeText",
+          "lineNumber": 94
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "revokeConcurrentSessionsByUser",
+          "lineNumber": 96
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "randomUUID",
+          "lineNumber": 99
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "randomUUID().replace",
+          "lineNumber": 100
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "randomUUID",
+          "lineNumber": 100
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "Date.now",
+          "lineNumber": 101
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "query",
+          "lineNumber": 103
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "toSafeText(ipAddress).slice",
+          "lineNumber": 126
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "toSafeText",
+          "lineNumber": 126
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "toSafeText(userAgent).slice",
+          "lineNumber": 127
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "toSafeText",
+          "lineNumber": 127
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "signPlaybackToken",
+          "lineNumber": 132
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "Math.floor",
+          "lineNumber": 138
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "expiresAt.getTime",
+          "lineNumber": 138
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "encodeURIComponent",
+          "lineNumber": 144
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "encodeURIComponent",
+          "lineNumber": 144
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "expiresAt.toISOString",
+          "lineNumber": 145
+        },
+        {
+          "caller": "issueAcademyPlaybackSession",
+          "callee": "buildWatermarkText",
+          "lineNumber": 147
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "markExpiredPlaybackSessions",
+          "lineNumber": 154
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "verifyPlaybackToken",
+          "lineNumber": 156
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "createHttpError",
+          "lineNumber": 158
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "toSafeText",
+          "lineNumber": 161
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "getPlaybackSessionById",
+          "lineNumber": 162
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "assertValidSessionState",
+          "lineNumber": 163
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "touchPlaybackSession",
+          "lineNumber": 164
+        },
+        {
+          "caller": "heartbeatAcademyPlaybackSession",
+          "callee": "new Date(session.expiresAt).toISOString",
+          "lineNumber": 169
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "markExpiredPlaybackSessions",
+          "lineNumber": 176
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "toSafeText",
+          "lineNumber": 178
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "verifyPlaybackToken",
+          "lineNumber": 179
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "createHttpError",
+          "lineNumber": 181
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "createHttpError",
+          "lineNumber": 185
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "toSafeText",
+          "lineNumber": 188
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "getPlaybackSessionById",
+          "lineNumber": 189
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "assertValidSessionState",
+          "lineNumber": 190
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "getAcademyPlaybackChapter",
+          "lineNumber": 192
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "toSafeText",
+          "lineNumber": 193
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "createHttpError",
+          "lineNumber": 194
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "resolveAcademyVideoFilePath",
+          "lineNumber": 197
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "createHttpError",
+          "lineNumber": 199
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "stat",
+          "lineNumber": 204
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "createHttpError",
+          "lineNumber": 206
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "touchPlaybackSession",
+          "lineNumber": 209
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "resolveVideoMimeType",
+          "lineNumber": 213
+        },
+        {
+          "caller": "resolveAcademyPlaybackStream",
+          "callee": "Number",
+          "lineNumber": 214
+        }
+      ],
+      "metrics": {
+        "importCount": 7,
+        "exportCount": 3,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "backend/src/features/academy/playback/session.repository.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 76,
+      "nonEmptyLines": 69,
+      "functions": [
+        {
+          "name": "markExpiredPlaybackSessions",
+          "startLine": 8,
+          "endLine": 16,
+          "params": []
+        },
+        {
+          "name": "revokeConcurrentSessionsByUser",
+          "startLine": 21,
+          "endLine": 39,
+          "params": [
+            "userId"
+          ]
+        },
+        {
+          "name": "getPlaybackSessionById",
+          "startLine": 43,
+          "endLine": 64,
+          "params": [
+            "sessionId"
+          ]
+        },
+        {
+          "name": "touchPlaybackSession",
+          "startLine": 68,
+          "endLine": 75,
+          "params": [
+            "sessionId"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "markExpiredPlaybackSessions",
+          "line": 8,
+          "isDefault": false
+        },
+        {
+          "name": "revokeConcurrentSessionsByUser",
+          "line": 21,
+          "isDefault": false
+        },
+        {
+          "name": "getPlaybackSessionById",
+          "line": 43,
+          "isDefault": false
+        },
+        {
+          "name": "touchPlaybackSession",
+          "line": 68,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "markExpiredPlaybackSessions",
+          "callee": "query",
+          "lineNumber": 9
+        },
+        {
+          "caller": "revokeConcurrentSessionsByUser",
+          "callee": "toSafeText",
+          "lineNumber": 22
+        },
+        {
+          "caller": "revokeConcurrentSessionsByUser",
+          "callee": "toSafeText",
+          "lineNumber": 25
+        },
+        {
+          "caller": "revokeConcurrentSessionsByUser",
+          "callee": "query",
+          "lineNumber": 27
+        },
+        {
+          "caller": "getPlaybackSessionById",
+          "callee": "queryOne",
+          "lineNumber": 44
+        },
+        {
+          "caller": "touchPlaybackSession",
+          "callee": "query",
+          "lineNumber": 69
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 4,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "backend/src/features/academy/playback/token.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 72,
+      "nonEmptyLines": 59,
+      "functions": [
+        {
+          "name": "encodeBase64Url",
+          "startLine": 7,
+          "endLine": 9,
+          "params": [
+            "value"
+          ]
+        },
+        {
+          "name": "encodeBufferBase64Url",
+          "startLine": 12,
+          "endLine": 14,
+          "params": [
+            "buffer"
+          ]
+        },
+        {
+          "name": "decodeBase64Url",
+          "startLine": 17,
+          "endLine": 19,
+          "params": [
+            "value"
+          ]
+        },
+        {
+          "name": "signPayloadBase64",
+          "startLine": 22,
+          "endLine": 24,
+          "params": [
+            "payloadBase64"
+          ]
+        },
+        {
+          "name": "signPlaybackToken",
+          "startLine": 28,
+          "endLine": 33,
+          "params": [
+            "payload"
+          ]
+        },
+        {
+          "name": "verifyPlaybackToken",
+          "startLine": 37,
+          "endLine": 71,
+          "params": [
+            "token"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "signPlaybackToken",
+          "line": 28,
+          "isDefault": false
+        },
+        {
+          "name": "verifyPlaybackToken",
+          "line": 37,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "encodeBase64Url",
+          "callee": "Buffer.from(String(value), \"utf8\").toString",
+          "lineNumber": 8
+        },
+        {
+          "caller": "encodeBase64Url",
+          "callee": "Buffer.from",
+          "lineNumber": 8
+        },
+        {
+          "caller": "encodeBase64Url",
+          "callee": "String",
+          "lineNumber": 8
+        },
+        {
+          "caller": "encodeBufferBase64Url",
+          "callee": "Buffer.from(buffer).toString",
+          "lineNumber": 13
+        },
+        {
+          "caller": "encodeBufferBase64Url",
+          "callee": "Buffer.from",
+          "lineNumber": 13
+        },
+        {
+          "caller": "decodeBase64Url",
+          "callee": "Buffer.from(String(value || \"\"), \"base64url\").toString",
+          "lineNumber": 18
+        },
+        {
+          "caller": "decodeBase64Url",
+          "callee": "Buffer.from",
+          "lineNumber": 18
+        },
+        {
+          "caller": "decodeBase64Url",
+          "callee": "String",
+          "lineNumber": 18
+        },
+        {
+          "caller": "signPayloadBase64",
+          "callee": "createHmac(\"sha256\", PLAYBACK_TOKEN_SECRET).update(payloadBase64).digest",
+          "lineNumber": 23
+        },
+        {
+          "caller": "signPayloadBase64",
+          "callee": "createHmac(\"sha256\", PLAYBACK_TOKEN_SECRET).update",
+          "lineNumber": 23
+        },
+        {
+          "caller": "signPayloadBase64",
+          "callee": "createHmac",
+          "lineNumber": 23
+        },
+        {
+          "caller": "signPlaybackToken",
+          "callee": "encodeBase64Url",
+          "lineNumber": 29
+        },
+        {
+          "caller": "signPlaybackToken",
+          "callee": "JSON.stringify",
+          "lineNumber": 29
+        },
+        {
+          "caller": "signPlaybackToken",
+          "callee": "signPayloadBase64",
+          "lineNumber": 30
+        },
+        {
+          "caller": "signPlaybackToken",
+          "callee": "encodeBufferBase64Url",
+          "lineNumber": 31
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "toSafeText",
+          "lineNumber": 38
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "raw.includes",
+          "lineNumber": 39
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "raw.split",
+          "lineNumber": 40
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "Buffer.from",
+          "lineNumber": 45
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "signPayloadBase64",
+          "lineNumber": 50
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "timingSafeEqual",
+          "lineNumber": 52
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "JSON.parse",
+          "lineNumber": 56
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "decodeBase64Url",
+          "lineNumber": 56
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "toSafeText",
+          "lineNumber": 61
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "toSafeText",
+          "lineNumber": 62
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "toSafeText",
+          "lineNumber": 63
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "toSafeText",
+          "lineNumber": 64
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "toSafeText",
+          "lineNumber": 65
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "Number",
+          "lineNumber": 66
+        },
+        {
+          "caller": "verifyPlaybackToken",
+          "callee": "Number.isFinite",
+          "lineNumber": 68
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 2,
+        "functionCount": 6,
+        "classCount": 0
+      }
+    }
+  ]
+}

@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { resolveAcademyMediaUrl } from "../../academy/api/academyApi.js";
 import { requestExternalPayment } from "../../payment/lib/requestExternalPayment.js";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
 const PAYMENT_METHODS = [
@@ -227,9 +227,7 @@ export function CartPage() {
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader subpage />
-      <main className="dashboard-page cart-checkout-page">
+    <PageLayout subpage mainClass="dashboard-page cart-checkout-page">
         <section className="dashboard-hero cart-hero">
           <p className="section-kicker">장바구니 결제</p>
           <h1>장바구니</h1>
@@ -417,7 +415,6 @@ export function CartPage() {
             </aside>
           </section>
         )}
-      </main>
-    </div>
+    </PageLayout>
   );
 }

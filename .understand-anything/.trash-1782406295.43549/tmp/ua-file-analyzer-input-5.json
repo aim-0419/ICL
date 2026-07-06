@@ -1,0 +1,52 @@
+{
+  "projectRoot": "C:\\Users\\eldorado\\Desktop\\폴더\\회사 폴더\\HomePage",
+  "batchFiles": [
+    {"path": "backend/src/features/academy/academy.controller.js", "language": "javascript", "sizeLines": 639, "fileCategory": "code"},
+    {"path": "backend/src/features/academy/academy.playback.service.js", "language": "javascript", "sizeLines": 6, "fileCategory": "code"},
+    {"path": "backend/src/features/academy/academy.routes.js", "language": "javascript", "sizeLines": 89, "fileCategory": "code"},
+    {"path": "backend/src/features/academy/academy.service.js", "language": "javascript", "sizeLines": 2, "fileCategory": "code"},
+    {"path": "backend/src/features/academy/playback/constants.js", "language": "javascript", "sizeLines": 25, "fileCategory": "code"},
+    {"path": "backend/src/features/academy/playback/file-path.js", "language": "javascript", "sizeLines": 58, "fileCategory": "code"},
+    {"path": "backend/src/features/academy/playback/helpers.js", "language": "javascript", "sizeLines": 32, "fileCategory": "code"},
+    {"path": "backend/src/features/academy/playback/service.js", "language": "javascript", "sizeLines": 220, "fileCategory": "code"},
+    {"path": "backend/src/features/academy/playback/session.repository.js", "language": "javascript", "sizeLines": 76, "fileCategory": "code"},
+    {"path": "backend/src/features/academy/playback/token.js", "language": "javascript", "sizeLines": 72, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "backend/src/features/academy/academy.controller.js": [
+      "backend/src/features/academy/academy.playback.service.js",
+      "backend/src/features/academy/academy.service.js",
+      "backend/src/shared/middlewares/auth.js"
+    ],
+    "backend/src/features/academy/academy.playback.service.js": [],
+    "backend/src/features/academy/academy.routes.js": [
+      "backend/src/features/academy/academy.controller.js"
+    ],
+    "backend/src/features/academy/academy.service.js": [],
+    "backend/src/features/academy/playback/constants.js": [
+      "backend/src/config/env.js"
+    ],
+    "backend/src/features/academy/playback/file-path.js": [
+      "backend/src/features/academy/playback/helpers.js"
+    ],
+    "backend/src/features/academy/playback/helpers.js": [],
+    "backend/src/features/academy/playback/service.js": [
+      "backend/src/features/academy/academy.service.js",
+      "backend/src/features/academy/playback/constants.js",
+      "backend/src/features/academy/playback/file-path.js",
+      "backend/src/features/academy/playback/helpers.js",
+      "backend/src/features/academy/playback/session.repository.js",
+      "backend/src/features/academy/playback/token.js",
+      "backend/src/shared/db/mysql.js"
+    ],
+    "backend/src/features/academy/playback/session.repository.js": [
+      "backend/src/features/academy/playback/constants.js",
+      "backend/src/features/academy/playback/helpers.js",
+      "backend/src/shared/db/mysql.js"
+    ],
+    "backend/src/features/academy/playback/token.js": [
+      "backend/src/features/academy/playback/constants.js",
+      "backend/src/features/academy/playback/helpers.js"
+    ]
+  }
+}

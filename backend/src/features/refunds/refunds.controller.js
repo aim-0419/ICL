@@ -1,47 +1,11 @@
 // 파일 역할: 환불 API 요청을 검증하고 서비스 호출 결과를 HTTP 응답으로 변환합니다.
-import * as authService from "../auth/auth.service.js";
 import * as refundsService from "./refunds.service.js";
-import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
-
-// 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
-function getCookieValue(req, name) {
-  const cookieHeader = String(req.headers.cookie || "");
-  const item = cookieHeader
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${name}=`));
-  return item ? decodeURIComponent(item.slice(name.length + 1)) : "";
-}
-
-// 함수 역할: 인증된 회원 데이터를 조회해 호출자에게 반환합니다.
-async function getAuthenticatedUser(req) {
-  const token = getCookieValue(req, SESSION_COOKIE_NAME);
-  if (!token) return null;
-  return authService.findUserBySessionToken(token);
-}
-
-// 함수 역할: 회원 등급 상황에 맞는 값을 계산하거나 선택합니다.
-function resolveUserGrade(user) {
-  const grade = String(user?.userGrade || "").trim().toLowerCase();
-  if (grade === "admin0" || grade === "admin1") return grade;
-
-  const role = String(user?.role || "").trim().toLowerCase();
-  const adminFlag = user?.isAdmin === true || user?.isAdmin === 1 || user?.isAdmin === "1";
-  if (adminFlag || role === "admin") return "admin0";
-
-  return "member";
-}
-
-// 함수 역할: 관리자 조건에 해당하는지 참/거짓으로 판별합니다.
-function isAdmin(user) {
-  const grade = resolveUserGrade(user);
-  return grade === "admin0" || grade === "admin1";
-}
+import { resolveSessionUser, isAdminUser } from "../../shared/middlewares/auth.js";
 
 // 함수 역할: requestRefund 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function requestRefund(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
@@ -68,7 +32,7 @@ export async function requestRefund(req, res, next) {
 // 함수 역할: my 환불 requests 데이터를 조회해 호출자에게 반환합니다.
 export async function getMyRefundRequests(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
@@ -84,12 +48,12 @@ export async function getMyRefundRequests(req, res, next) {
 // 함수 역할: adminListRefundRequests 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function adminListRefundRequests(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
     }
-    if (!isAdmin(authUser)) {
+    if (!isAdminUser(authUser)) {
       res.status(403).json({ message: "관리자 권한이 필요합니다." });
       return;
     }
@@ -105,12 +69,12 @@ export async function adminListRefundRequests(req, res, next) {
 // 함수 역할: adminApproveRefundRequest 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function adminApproveRefundRequest(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
     }
-    if (!isAdmin(authUser)) {
+    if (!isAdminUser(authUser)) {
       res.status(403).json({ message: "관리자 권한이 필요합니다." });
       return;
     }
@@ -130,12 +94,12 @@ export async function adminApproveRefundRequest(req, res, next) {
 // 함수 역할: adminRejectRefundRequest 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 export async function adminRejectRefundRequest(req, res, next) {
   try {
-    const authUser = await getAuthenticatedUser(req);
+    const authUser = await resolveSessionUser(req);
     if (!authUser?.id) {
       res.status(401).json({ message: "로그인이 필요합니다." });
       return;
     }
-    if (!isAdmin(authUser)) {
+    if (!isAdminUser(authUser)) {
       res.status(403).json({ message: "관리자 권한이 필요합니다." });
       return;
     }

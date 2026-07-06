@@ -226,3 +226,18 @@ export function encryptedUserValues({ name, email, phone, birthYear }) {
     nameHash: nameHash(safeName),
   };
 }
+
+// 결제/환불 payload에서 PII 필드를 제거합니다.
+export function scrubStoredPii(payload) {
+  if (!payload || typeof payload !== "object") return {};
+  const next = { ...payload };
+  delete next.customerEmail;
+  delete next.customerBirthYear;
+  delete next.birthYear;
+  if (next.customer && typeof next.customer === "object") {
+    next.customer = { ...next.customer };
+    delete next.customer.email;
+    delete next.customer.birthYear;
+  }
+  return next;
+}

@@ -14,7 +14,8 @@
  */
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
+import { AdminDashboardNav } from "../components/AdminDashboardNav.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
 import { listAdminPassRefunds, resolveStudioPassRefund } from "../../studio/api/studioApi.js";
 import { formatDateTime, formatCurrency } from "../../../shared/utils/format.js";
@@ -192,26 +193,10 @@ export function AdminRefundPage() {
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="dashboard-page admin-dashboard-page">
-        <section className="admin-dashboard-switch">
-          <Link className="admin-dashboard-switch-link" to="/admin">
-            일정 관리
-          </Link>
-          <Link className="admin-dashboard-switch-link" to="/admin/members">
-            회원 관리
-          </Link>
-          <Link className="admin-dashboard-switch-link" to="/admin/products">
-            상품 관리
-          </Link>
-          <Link className="admin-dashboard-switch-link active" to="/admin/refunds">
-            환불 관리
-          </Link>
-          <Link className="admin-dashboard-switch-link" to="/admin/sales">
-            매출 대시보드
-          </Link>
-        </section>
+    <>
+      <PageLayout mainClass="dashboard-page admin-dashboard-page">
+        <AdminDashboardNav active="refunds" />
+        
 
         <section className="dashboard-hero mypage-hero-card">
           <p className="section-kicker">관리자 대시보드</p>
@@ -284,14 +269,34 @@ export function AdminRefundPage() {
                             <span className="refund-request-amount">{formatCurrency(request.requestedAmount)}</span>
                           </div>
 
-                          <div className="refund-request-meta">
-                            <span>주문ID: {request.orderId}</span>
-                            <span>신청자: {request.customerEmail || "-"}</span>
-                            <span>신청일: {formatDateTime(request.createdAt)}</span>
-                            {request.resolvedAt ? <span>처리일: {formatDateTime(request.resolvedAt)}</span> : null}
-                            <span>주문 금액: {formatCurrency(request.orderAmount)}</span>
-                            <span>환불 상품: {selectedCount}개</span>
-                          </div>
+                          <dl className="refund-request-meta">
+                            <div className="refund-meta-row">
+                              <dt>신청자</dt>
+                              <dd>{request.customerEmail || "-"}</dd>
+                            </div>
+                            <div className="refund-meta-row">
+                              <dt>주문 ID</dt>
+                              <dd className="refund-meta-id">{request.orderId}</dd>
+                            </div>
+                            <div className="refund-meta-row">
+                              <dt>신청일</dt>
+                              <dd>{formatDateTime(request.createdAt)}</dd>
+                            </div>
+                            {request.resolvedAt ? (
+                              <div className="refund-meta-row">
+                                <dt>처리일</dt>
+                                <dd>{formatDateTime(request.resolvedAt)}</dd>
+                              </div>
+                            ) : null}
+                            <div className="refund-meta-row">
+                              <dt>주문 금액</dt>
+                              <dd>{formatCurrency(request.orderAmount)}</dd>
+                            </div>
+                            <div className="refund-meta-row">
+                              <dt>환불 상품</dt>
+                              <dd>{selectedCount}개</dd>
+                            </div>
+                          </dl>
 
                           {request.reason ? (
                             <p className="refund-request-reason">신청 사유: {request.reason}</p>
@@ -409,7 +414,7 @@ export function AdminRefundPage() {
 
           </section>
         </section>
-      </main>
+      </PageLayout>
 
       {actionModal ? (
         <div className="refund-modal-backdrop" onClick={closeModal}>
@@ -487,6 +492,6 @@ export function AdminRefundPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

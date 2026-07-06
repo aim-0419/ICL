@@ -1,0 +1,13 @@
+{
+  "createdAt": "2026-06-29T00:06:36.947Z",
+  "admin": {
+    "id": "user-39622f2a-2dbd-4bb7-bc94-8f3d6eeafe6e",
+    "loginId": "jhs3110",
+    "token": "qa-cee29bd0-68ee-4330-9230-5eeeef04025d-8fd45fd0a2b560122ae2b78805b08cad98bb5a419609d9ec"
+  },
+  "user": {
+    "id": "user-5629cc02-7d03-46f0-ac09-d859dcef49b8",
+    "loginId": "studio_01099574006",
+    "token": "qa-c22e908f-066e-4127-8989-a2feedc253cf-692d941501a20707cca4dbc0ce4f72ce55256c187ea4a104"
+  }
+}

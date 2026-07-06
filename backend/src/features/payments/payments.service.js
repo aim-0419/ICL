@@ -2,21 +2,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "../../config/env.js";
 import { query, queryOne } from "../../shared/db/mysql.js";
-import { decryptPii, emailHash, encryptPii } from "../../shared/security/pii.js";
+import { decryptPii, emailHash, encryptPii, normalizeEmail, scrubStoredPii } from "../../shared/security/pii.js";
+import { toSafeAmount as toAmountNumber } from "../../shared/utils/normalize.js";
 
 const WEBHOOK_TIMESTAMP_TOLERANCE_SEC = 60 * 5;
-
-// 함수 역할: 금액 number 값으로 안전하게 변환합니다.
-function toAmountNumber(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function normalizeEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
 
 function normalizeId(value) {
   return String(value || "").trim();
@@ -152,20 +141,6 @@ function parseStoredPayload(value) {
   } catch {
     return {};
   }
-}
-
-function scrubStoredPii(payload) {
-  if (!payload || typeof payload !== "object") return {};
-  const next = { ...payload };
-  delete next.customerEmail;
-  delete next.customerBirthYear;
-  delete next.birthYear;
-  if (next.customer && typeof next.customer === "object") {
-    next.customer = { ...next.customer };
-    delete next.customer.email;
-    delete next.customer.birthYear;
-  }
-  return next;
 }
 
 // 함수 역할: paid 금액에서 필요한 항목만 골라냅니다.
@@ -308,8 +283,8 @@ export async function confirmPayment(payload, authUser = null) {
     throw error;
   }
 
-  await query(
-    `INSERT INTO payment_confirmations (
+  const insertResult = await query(
+    `INSERT IGNORE INTO payment_confirmations (
       order_id,
       payment_id,
       user_id,
@@ -319,16 +294,7 @@ export async function confirmPayment(payload, authUser = null) {
       status,
       payment_payload,
       confirmed_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    ON DUPLICATE KEY UPDATE
-      payment_id = VALUES(payment_id),
-      user_id = VALUES(user_id),
-      customer_email = VALUES(customer_email),
-      customer_email_hash = VALUES(customer_email_hash),
-      amount = VALUES(amount),
-      status = VALUES(status),
-      payment_payload = VALUES(payment_payload),
-      confirmed_at = NOW()`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
     [
       orderId,
       paymentId,
@@ -341,6 +307,26 @@ export async function confirmPayment(payload, authUser = null) {
     ]
   );
 
+  if (Number(insertResult?.affectedRows || 0) === 0) {
+    const current = await queryOne(
+      `SELECT order_id AS orderId, payment_id AS paymentId, user_id AS userId, amount
+       FROM payment_confirmations
+       WHERE order_id = ? OR payment_id = ?
+       LIMIT 1`,
+      [orderId, paymentId],
+    );
+    const isSameConfirmation = current
+      && String(current.orderId) === orderId
+      && String(current.paymentId) === paymentId
+      && String(current.userId) === userId
+      && Number(current.amount) === paidAmount;
+    if (!isSameConfirmation) {
+      const error = new Error("이미 다른 주문·회원·금액에 연결된 결제입니다.");
+      error.status = 409;
+      throw error;
+    }
+  }
+
   return {
     approved: true,
     approvedAt: new Date().toISOString(),
@@ -351,9 +337,9 @@ export async function confirmPayment(payload, authUser = null) {
   };
 }
 
-async function recordWebhookEvent({ webhookId, eventType, paymentId, rawBody, status, message }) {
-  await query(
-    `INSERT INTO payment_webhook_events (
+export async function claimWebhookEvent({ webhookId, eventType, paymentId, rawBody }) {
+  const insertResult = await query(
+    `INSERT IGNORE INTO payment_webhook_events (
       webhook_id,
       event_type,
       payment_id,
@@ -364,25 +350,57 @@ async function recordWebhookEvent({ webhookId, eventType, paymentId, rawBody, st
       processed_at,
       last_seen_at,
       attempts
-    ) VALUES (?, ?, ?, ?, ?, ?, NOW(), IF(? IN ('processed', 'ignored', 'skipped'), NOW(), NULL), NOW(), 1)
-    ON DUPLICATE KEY UPDATE
-      event_type = VALUES(event_type),
-      payment_id = VALUES(payment_id),
-      payload = VALUES(payload),
-      process_status = VALUES(process_status),
-      process_message = VALUES(process_message),
-      processed_at = IF(VALUES(process_status) IN ('processed', 'ignored', 'skipped'), NOW(), processed_at),
-      last_seen_at = NOW(),
-      attempts = attempts + 1`,
+    ) VALUES (?, ?, ?, ?, 'processing', '', NOW(), NULL, NOW(), 1)`,
     [
       webhookId,
+      eventType || "",
+      paymentId || null,
+      encryptPii(rawBody || "{}"),
+    ],
+  );
+  if (Number(insertResult?.affectedRows || 0) === 1) return { claimed: true, retry: false };
+
+  const retryResult = await query(
+    `UPDATE payment_webhook_events
+     SET event_type = ?, payment_id = ?, payload = ?, process_status = 'processing',
+         process_message = '', processed_at = NULL, last_seen_at = NOW(), attempts = attempts + 1
+     WHERE webhook_id = ? AND process_status = 'failed'`,
+    [eventType || "", paymentId || null, encryptPii(rawBody || "{}"), webhookId],
+  );
+  if (Number(retryResult?.affectedRows || 0) === 1) return { claimed: true, retry: true };
+
+  await query(
+    `UPDATE payment_webhook_events
+     SET last_seen_at = NOW(), attempts = attempts + 1
+     WHERE webhook_id = ? AND process_status <> 'failed'`,
+    [webhookId],
+  );
+
+  const existing = await queryOne(
+    `SELECT process_status AS processStatus, attempts
+     FROM payment_webhook_events
+     WHERE webhook_id = ?
+     LIMIT 1`,
+    [webhookId],
+  );
+  return { claimed: false, status: existing?.processStatus || "unknown", attempts: Number(existing?.attempts || 0) };
+}
+
+async function recordWebhookEvent({ webhookId, eventType, paymentId, rawBody, status, message }) {
+  await query(
+    `UPDATE payment_webhook_events
+     SET event_type = ?, payment_id = ?, payload = ?, process_status = ?, process_message = ?,
+         processed_at = IF(? IN ('processed', 'ignored', 'skipped'), NOW(), NULL), last_seen_at = NOW()
+     WHERE webhook_id = ?`,
+    [
       eventType || "",
       paymentId || null,
       encryptPii(rawBody || "{}"),
       status,
       String(message || "").slice(0, 500),
       status,
-    ]
+      webhookId,
+    ],
   );
 }
 
@@ -449,76 +467,100 @@ export async function handlePortoneWebhook({ rawBody, headers } = {}) {
   const eventType = String(webhook?.type || "").trim();
   const paymentId = normalizeId(webhook?.data?.paymentId || webhook?.paymentId);
 
-  if (!eventType || !eventType.startsWith("Transaction.")) {
-    await recordWebhookEvent({
+  const claim = await claimWebhookEvent({ webhookId, eventType, paymentId, rawBody: rawBodyText });
+  if (!claim.claimed) {
+    return {
+      ok: true,
+      duplicate: true,
       webhookId,
-      eventType,
-      paymentId,
-      rawBody: rawBodyText,
-      status: "ignored",
-      message: "지원하지 않는 웹훅 이벤트입니다.",
-    });
-    return { ok: true, ignored: true, type: eventType || "unknown" };
+      previousStatus: claim.status,
+      attempts: claim.attempts,
+    };
   }
 
-  if (!paymentId) {
-    await recordWebhookEvent({
-      webhookId,
-      eventType,
-      paymentId: "",
-      rawBody: rawBodyText,
-      status: "ignored",
-      message: "paymentId 없는 결제 웹훅입니다.",
-    });
-    return { ok: true, ignored: true, type: eventType };
-  }
-
-  let payment = null;
   try {
-    payment = await getPortonePayment(paymentId);
-  } catch (error) {
-    if (error.status === 404) {
+
+    if (!eventType || !eventType.startsWith("Transaction.")) {
       await recordWebhookEvent({
         webhookId,
         eventType,
         paymentId,
         rawBody: rawBodyText,
-        status: "skipped",
-        message: "PortOne 결제 단건 조회 결과가 없습니다.",
+        status: "ignored",
+        message: "지원하지 않는 웹훅 이벤트입니다.",
       });
-      return { ok: true, skipped: true, type: eventType, paymentId };
+      return { ok: true, ignored: true, type: eventType || "unknown" };
     }
+
+    if (!paymentId) {
+      await recordWebhookEvent({
+        webhookId,
+        eventType,
+        paymentId: "",
+        rawBody: rawBodyText,
+        status: "ignored",
+        message: "paymentId 없는 결제 웹훅입니다.",
+      });
+      return { ok: true, ignored: true, type: eventType };
+    }
+
+    let payment = null;
+    try {
+      payment = await getPortonePayment(paymentId);
+    } catch (error) {
+      if (error.status === 404) {
+        await recordWebhookEvent({
+          webhookId,
+          eventType,
+          paymentId,
+          rawBody: rawBodyText,
+          status: "skipped",
+          message: "PortOne 결제 단건 조회 결과가 없습니다.",
+        });
+        return { ok: true, skipped: true, type: eventType, paymentId };
+      }
+      throw error;
+    }
+
+    const status = String(pickStatus(payment) || "").toUpperCase();
+    const paidAmount = Math.round(pickPaidAmount(payment));
+    const paymentStatus = toPaymentStatus(status);
+
+    await syncExistingPaymentConfirmation({ paymentId, payment, status, paidAmount });
+    const orderSyncStatus = await syncExistingOrderStatus({
+      paymentId,
+      status,
+      paymentStatus,
+      paidAmount,
+    });
+
+    await recordWebhookEvent({
+      webhookId,
+      eventType,
+      paymentId,
+      rawBody: rawBodyText,
+      status: "processed",
+      message: `${status || "UNKNOWN"} / ${orderSyncStatus}`,
+    });
+
+    return {
+      ok: true,
+      type: eventType,
+      paymentId,
+      status,
+      orderSyncStatus,
+    };
+  } catch (error) {
+    await recordWebhookEvent({
+      webhookId,
+      eventType,
+      paymentId,
+      rawBody: rawBodyText,
+      status: "failed",
+      message: error?.message || "웹훅 처리 중 오류가 발생했습니다.",
+    });
     throw error;
   }
-
-  const status = String(pickStatus(payment) || "").toUpperCase();
-  const paidAmount = Math.round(pickPaidAmount(payment));
-  const paymentStatus = toPaymentStatus(status);
-
-  await syncExistingPaymentConfirmation({ paymentId, payment, status, paidAmount });
-  const orderSyncStatus = await syncExistingOrderStatus({
-    paymentId,
-    status,
-    paymentStatus,
-    paidAmount,
-  });
-
-  await recordWebhookEvent({
-    webhookId,
-    eventType,
-    paymentId,
-    rawBody: rawBodyText,
-    status: "processed",
-    message: `${status || "UNKNOWN"} / ${orderSyncStatus}`,
-  });
-
-  return {
-    ok: true,
-    type: eventType,
-    paymentId,
-    status,
-    orderSyncStatus,
-  };
 }
 
 export async function validateConfirmedPaymentForOrder(conn, input = {}) {

@@ -1,7 +1,7 @@
 ﻿// 파일 역할: 선택한 강의의 상세 정보, 차시 목록, 후기, Q&A, 구매/수강 진입을 제공하는 페이지 컴포넌트입니다.
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { getDiscountRate } from "../data/academyVideos.js";
@@ -167,9 +167,7 @@ export function AcademyDetailPage() {
 
   if (!video) {
     return (
-      <div className="site-shell">
-        <SiteHeader />
-        <main className="content-page academy-detail-page">
+      <PageLayout mainClass="content-page academy-detail-page">
           <section className="academy-empty-state">
             <h3>강의 정보를 찾을 수 없습니다.</h3>
             <p>목록으로 돌아가 다른 교육 영상을 확인해 주세요.</p>
@@ -177,8 +175,7 @@ export function AcademyDetailPage() {
               목록으로 돌아가기
             </Link>
           </section>
-        </main>
-      </div>
+        </PageLayout>
     );
   }
 
@@ -203,9 +200,7 @@ export function AcademyDetailPage() {
   const hasPurchased = purchasedIds.has(String(video.productId || video.id));
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="content-page academy-detail-page">
+    <PageLayout mainClass="content-page academy-detail-page">
         <section className="academy-detail-head">
           <p className="section-kicker">아카데미 상세보기</p>
           <h1>{video.title}</h1>
@@ -401,7 +396,6 @@ export function AcademyDetailPage() {
             )}
           </div>
         </section>
-      </main>
-    </div>
+    </PageLayout>
   );
 }

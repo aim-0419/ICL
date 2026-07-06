@@ -4,9 +4,45 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Check and test backend
+        working-directory: backend
+        run: npm run check
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
   deploy:
+    needs: verify
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
@@ -27,6 +63,12 @@ jobs:
             cd ~/ICL
             git fetch origin main
             git reset --hard origin/main
+            if [ -f ~/ICL/backend/.env ]; then
+              DB_USER=$(grep "^DB_USER=" ~/ICL/backend/.env | cut -d= -f2)
+              DB_PASS=$(grep "^DB_PASSWORD=" ~/ICL/backend/.env | cut -d= -f2)
+              DB_NAME=$(grep "^DB_NAME=" ~/ICL/backend/.env | cut -d= -f2)
+              mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < ~/ICL/deploy/seed-overrides.sql 2>/dev/null || true
+            fi
             cd frontend
             npm install
             npm run build

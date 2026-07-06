@@ -32,6 +32,7 @@ import {
   saveAcademyProgress as saveAcademyProgressApi,
 } from "../../features/academy/api/academyApi.js";
 import { canEditPage } from "../auth/userRoles.js";
+import { unregisterCurrentPushDevice } from "../notifications/pushNotifications.js";
 
 const AppContext = createContext(null);
 
@@ -111,6 +112,14 @@ export function AppProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
   const [userPoints, setUserPoints] = useState(0);
+  const [largeControlsEnabled, setLargeControlsEnabled] = useState(() => {
+    try { return localStorage.getItem("icl_large_controls_v1") === "1"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("large-controls", largeControlsEnabled);
+    try { localStorage.setItem("icl_large_controls_v1", largeControlsEnabled ? "1" : "0"); } catch {}
+  }, [largeControlsEnabled]);
 
   async function refreshProducts() {
     const rows = await apiRequest("/products");
@@ -409,6 +418,7 @@ export function AppProvider({ children }) {
 
   async function logoutUser() {
     try {
+      await unregisterCurrentPushDevice();
       await apiRequest("/auth/logout", { method: "POST" });
     } catch {
       // 로그아웃 API 실패 시에도 클라이언트 상태는 비웁니다.
@@ -423,11 +433,11 @@ export function AppProvider({ children }) {
     }
   }
 
-  async function withdrawMe(phone) {
+  async function withdrawMe(phone, currentPassword) {
     // 회원 탈퇴 완료 후 전역 사용자 상태 초기화 처리
     const result = await apiRequest("/users/me/withdraw", {
       method: "POST",
-      body: { phone },
+      body: { phone, currentPassword },
     });
 
     setCurrentUser(null);
@@ -573,6 +583,8 @@ export function AppProvider({ children }) {
         buildOrderId,
         userPoints,
         refreshPoints,
+        largeControlsEnabled,
+        setLargeControlsEnabled,
       }}
     >
       {children}

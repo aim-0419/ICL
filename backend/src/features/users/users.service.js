@@ -8,7 +8,10 @@ import {
   decryptUserRow,
   emailHash,
   encryptedUserValues,
+  normalizeEmail,
+  normalizePhone,
 } from "../../shared/security/pii.js";
+import { normalizeBirthYear } from "../../shared/utils/normalize.js";
 
 // 인증 및 탈퇴 보관 정책 상수 정의
 const EMAIL_VERIFICATION_EXPIRES_MS = 1000 * 60 * 5;
@@ -20,34 +23,6 @@ const ACCOUNT_STATUS_WITHDRAWN = "withdrawn";
 // 이메일/휴대폰 인증 임시 상태 저장소
 const emailVerificationStore = new Map();
 const withdrawPhoneVerificationStore = new Map();
-
-// 함수 역할: 전화번호 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizePhone(value) {
-  return String(value || "")
-    .replace(/\D/g, "")
-    .trim();
-}
-
-// 함수 역할: 출생 연도 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizeBirthYear(value) {
-  const text = String(value ?? "").trim();
-  if (!text) return null;
-
-  const year = Number.parseInt(text, 10);
-  const currentYear = new Date().getFullYear();
-  if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
-    return null;
-  }
-
-  return year;
-}
-
-// 함수 역할: 이메일 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
-function normalizeEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
 
 // 함수 역할: generateVerificationCode 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function generateVerificationCode() {
@@ -536,19 +511,29 @@ export async function withdrawMyAccount(userId, payload = {}) {
     };
   }
 
-  const registeredPhone = normalizePhone(user.phone);
-  const requestedPhone = normalizePhone(payload?.phone || registeredPhone);
+  const currentPassword = String(payload?.currentPassword || "").trim();
 
-  if (!registeredPhone || requestedPhone !== registeredPhone) {
-    const error = new Error("등록된 휴대폰 번호로 본인 인증을 완료해 주세요.");
-    error.status = 400;
-    throw error;
-  }
+  if (currentPassword) {
+    if (!(await verifyPassword(currentPassword, user.password))) {
+      const error = new Error("비밀번호가 일치하지 않습니다.");
+      error.status = 401;
+      throw error;
+    }
+  } else {
+    const registeredPhone = normalizePhone(user.phone);
+    const requestedPhone = normalizePhone(payload?.phone || registeredPhone);
 
-  if (!isWithdrawPhoneVerified(userId, registeredPhone)) {
-    const error = new Error("탈퇴 전 휴대폰 인증이 필요합니다.");
-    error.status = 400;
-    throw error;
+    if (!registeredPhone || requestedPhone !== registeredPhone) {
+      const error = new Error("등록된 휴대폰 번호로 본인 인증을 완료해 주세요.");
+      error.status = 400;
+      throw error;
+    }
+
+    if (!isWithdrawPhoneVerified(userId, registeredPhone)) {
+      const error = new Error("탈퇴 전 휴대폰 인증이 필요합니다.");
+      error.status = 400;
+      throw error;
+    }
   }
 
   await query(

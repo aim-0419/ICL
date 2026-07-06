@@ -8,7 +8,7 @@
  */
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
 
@@ -454,9 +454,7 @@ export function SignupPage() {
   const activeTerms = termsModal ? TERMS_CONTENT[termsModal] : null;
 
   return (
-    <div className="site-shell">
-      <SiteHeader subpage />
-
+    <>
       {activeTerms && (
         <div
           onClick={() => setTermsModal(null)}
@@ -516,7 +514,7 @@ export function SignupPage() {
           </div>
         </div>
       )}
-      <main className="auth-page">
+      <PageLayout subpage mainClass="auth-page">
         <section className="auth-card signup-auth-card">
           <p className="section-kicker">회원가입</p>
           <h1>회원가입</h1>
@@ -729,7 +727,7 @@ export function SignupPage() {
             </button>
           </form>
         </section>
-      </main>
-    </div>
+      </PageLayout>
+    </>
   );
 }

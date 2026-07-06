@@ -1,7 +1,7 @@
 ﻿// 파일 역할: 강의 영상을 재생하고 차시별 학습 진도를 저장하는 수강 플레이어 페이지 컴포넌트입니다.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { 
@@ -855,23 +855,18 @@ export function AcademyPlayerPage() {
 
   if (isProgressLoading && playableVideos.length === 0) {
     return (
-      <div className="site-shell">
-        <SiteHeader />
-        <main className="content-page academy-player-page">
+      <PageLayout mainClass="content-page academy-player-page">
           <section className="academy-player-empty">
             <p className="section-kicker">교육 영상 플레이어</p>
             <h1>학습 정보를 불러오는 중입니다.</h1>
           </section>
-        </main>
-      </div>
+        </PageLayout>
     );
   }
 
   if (playableVideos.length === 0) {
     return (
-      <div className="site-shell">
-        <SiteHeader />
-        <main className="content-page academy-player-page">
+      <PageLayout mainClass="content-page academy-player-page">
           <section className="academy-player-empty">
             <p className="section-kicker">교육 영상 플레이어</p>
             <h1>수강 가능한 강의가 없습니다.</h1>
@@ -885,8 +880,7 @@ export function AcademyPlayerPage() {
               </button>
             </div>
           </section>
-        </main>
-      </div>
+        </PageLayout>
     );
   }
 
@@ -899,9 +893,7 @@ export function AcademyPlayerPage() {
     );
     if (expiry?.type === "timed" && expiry.daysLeft <= 0) {
       return (
-        <div className="site-shell">
-          <SiteHeader />
-          <main className="content-page academy-player-page">
+        <PageLayout mainClass="content-page academy-player-page">
             <section className="academy-player-empty">
               <p className="section-kicker">수강 기한 만료</p>
               <h1>수강 기한이 종료되었습니다.</h1>
@@ -918,17 +910,14 @@ export function AcademyPlayerPage() {
                 </button>
               </div>
             </section>
-          </main>
-        </div>
+          </PageLayout>
       );
     }
   }
 
   if (!canPlay || !activeChapter) {
     return (
-      <div className="site-shell">
-        <SiteHeader />
-        <main className="content-page academy-player-page">
+      <PageLayout mainClass="content-page academy-player-page">
           <section className="academy-player-empty">
             <p className="section-kicker">수강 권한</p>
             <h1>선택한 강의를 재생할 수 없습니다.</h1>
@@ -952,8 +941,7 @@ export function AcademyPlayerPage() {
               })}
             </div>
           </section>
-        </main>
-      </div>
+        </PageLayout>
     );
   }
 
@@ -986,9 +974,8 @@ export function AcademyPlayerPage() {
   const watermarkPositionClass = WATERMARK_POSITION_CLASSES[watermarkPositionIndex];
 
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="content-page academy-player-page">
+    <>
+      <PageLayout mainClass="content-page academy-player-page">
         <section className="content-hero academy-player-hero">
           <p className="section-kicker">교육 영상 플레이어</p>
           <h1>{activeVideo.title}</h1>
@@ -1450,7 +1437,7 @@ export function AcademyPlayerPage() {
             )}
           </div>
         </section>
-      </main>
+      </PageLayout>
 
       {resumeDialog ? (
         <div className="resume-dialog-overlay" onClick={() => setResumeDialog(null)}>
@@ -1478,6 +1465,6 @@ export function AcademyPlayerPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

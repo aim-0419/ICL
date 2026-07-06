@@ -36,9 +36,13 @@
 // 파일 역할: 관리자 관련 API 경로와 컨트롤러를 Express Router에 연결합니다.
 import express, { Router } from "express";
 import * as adminController from "./admin.controller.js";
+import { requireAdminOrStudioStaff } from "../../shared/middlewares/auth.js";
 
 // 라우터 역할: 관리자 라우터는 해당 기능의 API 경로와 컨트롤러 함수를 연결합니다.
 export const adminRoutes = Router();
+
+// 관리자 API는 개별 컨트롤러 검사와 별개로 라우터 입구에서도 관리자 인증을 강제합니다.
+adminRoutes.use(requireAdminOrStudioStaff);
 
 adminRoutes.get("/members", adminController.getMemberList);
 adminRoutes.post("/members", express.json(), adminController.createStudioMember);
@@ -48,6 +52,18 @@ adminRoutes.get("/studio-staff", adminController.getStudioStaffProfiles);
 adminRoutes.post("/studio-staff", express.json(), adminController.createStudioStaffProfile);
 adminRoutes.put("/studio-staff/:staffId", express.json(), adminController.updateStudioStaffProfile);
 adminRoutes.delete("/studio-staff/:staffId", adminController.deleteStudioStaffProfile);
+adminRoutes.get("/studio-staff/:staffId/work-hours", adminController.getStudioStaffWorkHours);
+adminRoutes.put("/studio-staff/:staffId/work-hours", express.json(), adminController.saveStudioStaffWorkHours);
+adminRoutes.get("/pass-products", adminController.getStudioPassProducts);
+adminRoutes.post("/pass-products", express.json(), adminController.createStudioPassProduct);
+adminRoutes.put("/pass-products/:productId", express.json(), adminController.updateStudioPassProduct);
+adminRoutes.delete("/pass-products/:productId", adminController.deleteStudioPassProduct);
+adminRoutes.get("/pass-products/:productId/issued", adminController.getIssuedPassesByProduct);
+adminRoutes.post("/pass-products/:productId/extend-issued", express.json(), adminController.extendIssuedPassesByProduct);
+adminRoutes.get("/goods", adminController.getStudioGoods);
+adminRoutes.post("/goods", express.json(), adminController.createStudioGoods);
+adminRoutes.put("/goods/:goodsId", express.json(), adminController.updateStudioGoods);
+adminRoutes.delete("/goods/:goodsId", adminController.deleteStudioGoods);
 adminRoutes.get("/dashboard/users", adminController.getDashboardUsers);
 adminRoutes.get("/dashboard/users/:userId/progress", adminController.getDashboardUserLearning);
 adminRoutes.get("/dashboard/lectures/progress", adminController.getDashboardLectureProgress);
@@ -60,6 +76,8 @@ adminRoutes.post("/orders/:orderId/refund", express.json(), adminController.refu
 adminRoutes.post("/lectures", adminController.createLecture);
 
 adminRoutes.post("/users/:userId/video-grants", express.json(), adminController.giftVideos);
+adminRoutes.get("/video-grants", adminController.listAllVideoGrants);
+adminRoutes.patch("/video-grants/:grantId", express.json(), adminController.updateVideoGrantDuration);
 adminRoutes.get("/users/:userId/video-grants", adminController.listVideoGrants);
 adminRoutes.delete("/users/:userId/video-grants/:videoId", adminController.revokeVideoGrant);
 

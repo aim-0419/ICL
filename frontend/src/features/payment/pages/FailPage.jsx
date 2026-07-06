@@ -6,7 +6,7 @@
  */
 import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 
 // 함수 역할: 실패 사유 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizeFailReason(rawValue) {
@@ -33,9 +33,7 @@ export function FailPage() {
   const code = String(params.get("code") || "").trim();
 
   return (
-    <div className="site-shell">
-      <SiteHeader subpage />
-      <main className="content-page payment-result-page">
+    <PageLayout subpage mainClass="content-page payment-result-page">
         <section className="payment-result-card payment-result-fail">
           <div className="payment-result-copy">
             <p className="section-kicker">결제 실패</p>
@@ -60,7 +58,6 @@ export function FailPage() {
             </div>
           </div>
         </section>
-      </main>
-    </div>
+    </PageLayout>
   );
 }

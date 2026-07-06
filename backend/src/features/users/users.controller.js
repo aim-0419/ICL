@@ -3,24 +3,9 @@ import * as authService from "../auth/auth.service.js";
 import * as usersService from "./users.service.js";
 import { query } from "../../shared/db/mysql.js";
 import { SESSION_COOKIE_NAME } from "../../shared/constants.js";
-
-// 요청 쿠키에서 특정 값 추출 유틸리티
-// 함수 역할: 쿠키 값 데이터를 조회해 호출자에게 반환합니다.
-function getCookieValue(req, name) {
-  const cookieHeader = String(req.headers.cookie || "");
-  if (!cookieHeader) return "";
-
-  const cookieItem = cookieHeader
-    .split(";")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(`${name}=`));
-
-  if (!cookieItem) return "";
-  return decodeURIComponent(cookieItem.slice(name.length + 1));
-}
+import { resolveSessionToken, isAdminUser } from "../../shared/middlewares/auth.js";
 
 // 로그아웃/탈퇴 시 세션 쿠키 제거 처리
-// 함수 역할: clearSessionCookie 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
 function clearSessionCookie(res) {
   const secure = process.env.NODE_ENV === "production";
   res.clearCookie(SESSION_COOKIE_NAME, {
@@ -31,10 +16,9 @@ function clearSessionCookie(res) {
   });
 }
 
-// 인증 사용자 강제 조회 및 실패 응답 처리
-// 함수 역할: required 인증 회원 데이터를 조회해 호출자에게 반환합니다.
+// 인증 사용자 강제 조회 및 실패 응답 처리 (세션 만료 시 쿠키도 제거)
 async function getRequiredAuthUser(req, res) {
-  const token = getCookieValue(req, SESSION_COOKIE_NAME);
+  const token = resolveSessionToken(req);
   if (!token) {
     res.status(401).json({ message: "로그인이 필요합니다." });
     return null;
@@ -48,15 +32,6 @@ async function getRequiredAuthUser(req, res) {
   }
 
   return authUser;
-}
-
-function isAdminUser(user) {
-  const grade = String(user?.userGrade || "").trim().toLowerCase();
-  if (grade === "admin0" || grade === "admin1") return true;
-
-  const role = String(user?.role || "").trim().toLowerCase();
-  const adminFlag = user?.isAdmin === true || user?.isAdmin === 1 || user?.isAdmin === "1";
-  return role === "admin" || role === "admin1" || adminFlag;
 }
 
 // 함수 역할: 회원 데이터를 조회해 호출자에게 반환합니다.

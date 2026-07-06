@@ -1,33 +1,9 @@
 // 파일 역할: 환불 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { randomUUID } from "node:crypto";
 import { query, queryOne, withTransaction } from "../../shared/db/mysql.js";
-import { decryptPii, emailHash, encryptPii } from "../../shared/security/pii.js";
+import { decryptPii, emailHash, encryptPii, scrubStoredPii } from "../../shared/security/pii.js";
 import { cancelPortonePayment } from "../payments/payments.service.js";
-
-// 함수 역할: json 문자열이나 페이로드를 코드에서 쓰기 쉬운 구조로 파싱합니다.
-function parseJson(value) {
-  if (!value) return null;
-  if (typeof value === "object") return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function scrubStoredPii(payload) {
-  if (!payload || typeof payload !== "object") return {};
-  const next = { ...payload };
-  delete next.customerEmail;
-  delete next.customerBirthYear;
-  delete next.birthYear;
-  if (next.customer && typeof next.customer === "object") {
-    next.customer = { ...next.customer };
-    delete next.customer.email;
-    delete next.customer.birthYear;
-  }
-  return next;
-}
+import { parseJson } from "../../shared/utils/payload.js";
 
 // 함수 역할: 안전한 텍스트 값으로 안전하게 변환합니다.
 function toSafeText(value) {
@@ -268,6 +244,7 @@ export async function listAllRefundRequests({ status = "" } = {}) {
 
   const mapped = rows.map((row) => ({
     ...row,
+    customerEmail: toSafeText(decryptPii(row.customerEmail)).toLowerCase(),
     selectedProductIds: parseJson(row.selectedProductIds) || [],
   }));
 

@@ -1,0 +1,593 @@
+{
+  "nodes": [
+    {
+      "id": "file:backend/src/shared/db/database-client.js",
+      "type": "file",
+      "name": "database-client.js",
+      "filePath": "backend/src/shared/db/database-client.js",
+      "summary": "MySQL 커넥션 풀 클라이언트를 생성하는 팩토리 모듈. `createDatabaseClient` 함수 하나를 export한다.",
+      "tags": ["service", "factory", "singleton"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/shared/db/database-client.js:createDatabaseClient",
+      "type": "function",
+      "name": "createDatabaseClient",
+      "filePath": "backend/src/shared/db/database-client.js",
+      "lineRange": [7, 43],
+      "summary": "MySQL 커넥션 풀 설정을 받아 연결을 생성하고 query/queryOne/withTransaction 인터페이스를 반환하는 팩토리 함수.",
+      "tags": ["factory", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/shared/db/migrations.js",
+      "type": "file",
+      "name": "migrations.js",
+      "filePath": "backend/src/shared/db/migrations.js",
+      "summary": "DB 스키마 마이그레이션 정의 배열과 마이그레이션 실행 함수를 포함하는 모듈. 버전 추적으로 누락된 마이그레이션만 실행한다.",
+      "tags": ["database", "migration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/shared/db/migrations.js:runMigrations",
+      "type": "function",
+      "name": "runMigrations",
+      "filePath": "backend/src/shared/db/migrations.js",
+      "lineRange": [103, 133],
+      "summary": "미적용 마이그레이션 목록을 순서대로 실행하고 버전 테이블에 완료 이력을 기록하는 함수.",
+      "tags": ["database", "migration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/shared/db/mysql.js",
+      "type": "file",
+      "name": "mysql.js",
+      "filePath": "backend/src/shared/db/mysql.js",
+      "summary": "프로젝트 전역 MySQL 싱글톤 클라이언트 모듈. 스키마 초기화, 마이그레이션 실행, 시드 데이터, PII 암호화, 쿼리 헬퍼(query/queryOne/withTransaction)를 모두 제공하는 중앙 DB 레이어.",
+      "tags": ["service", "singleton", "database"],
+      "complexity": "complex",
+      "languageNotes": "3114줄의 단일 파일로 스키마 DDL, 컬럼 코멘트 마이그레이션, PII 재암호화, 시드 데이터 등 DB 초기화 전체가 포함되어 있다."
+    },
+    {
+      "id": "function:backend/src/shared/db/mysql.js:initDatabase",
+      "type": "function",
+      "name": "initDatabase",
+      "filePath": "backend/src/shared/db/mysql.js",
+      "lineRange": [1455, 3088],
+      "summary": "전체 DB 스키마(테이블, 인덱스, 코멘트, 마이그레이션, 시드)를 초기화하는 핵심 함수. 1600줄 이상의 DDL을 실행한다.",
+      "tags": ["database", "migration"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/shared/db/mysql.js:ensureInitialized",
+      "type": "function",
+      "name": "ensureInitialized",
+      "filePath": "backend/src/shared/db/mysql.js",
+      "lineRange": [3091, 3100],
+      "summary": "DB가 초기화되지 않은 경우 initDatabase를 호출하여 싱글톤 방식으로 초기화를 보장하는 함수.",
+      "tags": ["singleton", "database"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/shared/db/mysql.js:encryptExistingPiiData",
+      "type": "function",
+      "name": "encryptExistingPiiData",
+      "filePath": "backend/src/shared/db/mysql.js",
+      "lineRange": [1277, 1282],
+      "summary": "기존 평문 PII 데이터 전체를 암호화로 변환하는 배치 암호화 함수.",
+      "tags": ["security", "database"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/shared/email/email.service.js",
+      "type": "file",
+      "name": "email.service.js",
+      "filePath": "backend/src/shared/email/email.service.js",
+      "summary": "Nodemailer 기반 이메일 발송 서비스. 인증 코드, 구매 확인, Q&A 답변 알림, 문의 답변 알림 이메일 템플릿을 제공한다.",
+      "tags": ["service", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/shared/email/email.service.js:sendPurchaseConfirmation",
+      "type": "function",
+      "name": "sendPurchaseConfirmation",
+      "filePath": "backend/src/shared/email/email.service.js",
+      "lineRange": [140, 254],
+      "summary": "구매 완료 후 주문 상세 내역을 HTML 형태로 구성하여 이메일로 발송하는 함수.",
+      "tags": ["service", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/src/shared/email/email.service.js:sendEmailVerificationCode",
+      "type": "function",
+      "name": "sendEmailVerificationCode",
+      "filePath": "backend/src/shared/email/email.service.js",
+      "lineRange": [117, 137],
+      "summary": "회원가입/이메일 변경 시 인증 코드를 이메일로 발송하는 함수.",
+      "tags": ["service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/shared/security/password.js",
+      "type": "file",
+      "name": "password.js",
+      "filePath": "backend/src/shared/security/password.js",
+      "summary": "bcrypt를 사용한 비밀번호 해싱 및 검증 유틸리티 모듈. isPasswordHash, hashPassword, verifyPassword 세 함수를 제공한다.",
+      "tags": ["security", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/shared/security/password.js:hashPassword",
+      "type": "function",
+      "name": "hashPassword",
+      "filePath": "backend/src/shared/security/password.js",
+      "lineRange": [14, 18],
+      "summary": "평문 비밀번호를 bcrypt로 해싱하여 반환하는 함수.",
+      "tags": ["security", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/src/shared/security/password.js:verifyPassword",
+      "type": "function",
+      "name": "verifyPassword",
+      "filePath": "backend/src/shared/security/password.js",
+      "lineRange": [20, 42],
+      "summary": "평문 비밀번호와 저장된 해시를 비교하여 인증하는 함수. 레거시 MD5 해시도 처리한다.",
+      "tags": ["security", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/src/shared/security/pii.js",
+      "type": "file",
+      "name": "pii.js",
+      "filePath": "backend/src/shared/security/pii.js",
+      "summary": "개인정보(PII) 암호화/복호화, 해시, 정규화 유틸리티 모듈. AES-256-GCM 암호화와 SHA-256 HMAC 해시를 이용해 이름·이메일·전화번호 등을 보호한다.",
+      "tags": ["security", "utility"],
+      "complexity": "complex",
+      "languageNotes": "환경 변수 기반의 키 관리와 레거시 키 재암호화 지원이 포함된 AES-256-GCM 구현이다."
+    },
+    {
+      "id": "function:backend/src/shared/security/pii.js:encryptPii",
+      "type": "function",
+      "name": "encryptPii",
+      "filePath": "backend/src/shared/security/pii.js",
+      "lineRange": [86, 105],
+      "summary": "평문 PII 값을 AES-256-GCM으로 암호화하여 저장 가능한 문자열로 반환하는 함수.",
+      "tags": ["security", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/shared/security/pii.js:decryptPii",
+      "type": "function",
+      "name": "decryptPii",
+      "filePath": "backend/src/shared/security/pii.js",
+      "lineRange": [108, 122],
+      "summary": "암호화된 PII 값을 복호화하여 원래 평문으로 반환하는 함수.",
+      "tags": ["security", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/shared/security/pii.js:decryptUserRow",
+      "type": "function",
+      "name": "decryptUserRow",
+      "filePath": "backend/src/shared/security/pii.js",
+      "lineRange": [187, 201],
+      "summary": "DB에서 조회한 사용자 행의 암호화된 PII 필드를 일괄 복호화하여 반환하는 함수.",
+      "tags": ["security", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:backend/src/shared/security/pii.js:scrubStoredPii",
+      "type": "function",
+      "name": "scrubStoredPii",
+      "filePath": "backend/src/shared/security/pii.js",
+      "lineRange": [231, 243],
+      "summary": "탈퇴 사용자의 PII 데이터를 DB에서 완전히 제거(스크럽)하는 함수.",
+      "tags": ["security", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/shared/utils/date.js",
+      "type": "file",
+      "name": "date.js",
+      "filePath": "backend/src/shared/utils/date.js",
+      "summary": "날짜 연산 유틸리티 모듈. 날짜 더하기, 한 주 월요일 시작일 계산, YMD 문자열 파싱 기능을 제공한다.",
+      "tags": ["utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/shared/utils/normalize.js",
+      "type": "file",
+      "name": "normalize.js",
+      "filePath": "backend/src/shared/utils/normalize.js",
+      "summary": "출생년도 정규화, 연령대 분류, 금액 안전 변환 등 데이터 정규화 유틸리티 함수를 제공하는 모듈.",
+      "tags": ["utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/src/shared/utils/payload.js",
+      "type": "file",
+      "name": "payload.js",
+      "filePath": "backend/src/shared/utils/payload.js",
+      "summary": "DB에 JSON 형식으로 저장된 페이로드를 안전하게 파싱하는 유틸리티 모듈. parsePayload와 parseJson 두 함수를 제공한다.",
+      "tags": ["utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/test/admin-sales.test.js",
+      "type": "file",
+      "name": "admin-sales.test.js",
+      "filePath": "backend/test/admin-sales.test.js",
+      "summary": "관리자 매출 버킷 빌더(buildSalesBuckets) 함수의 단위 테스트. 기간별 버킷 생성 결과를 검증한다.",
+      "tags": ["test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/test/database-client.test.js",
+      "type": "file",
+      "name": "database-client.test.js",
+      "filePath": "backend/test/database-client.test.js",
+      "summary": "DB 클라이언트 팩토리(createDatabaseClient)의 쿼리/트랜잭션 인터페이스를 인메모리 페이크로 테스트하는 단위 테스트.",
+      "tags": ["test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/test/integration/studio-booking.mysql.test.js",
+      "type": "file",
+      "name": "studio-booking.mysql.test.js",
+      "filePath": "backend/test/integration/studio-booking.mysql.test.js",
+      "summary": "실제 MySQL 연결을 사용하여 스튜디오 수업 예약 플로우(생성-예약-취소-결제)를 검증하는 통합 테스트.",
+      "tags": ["test"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/test/studio-class-rules.test.js",
+      "type": "file",
+      "name": "studio-class-rules.test.js",
+      "filePath": "backend/test/studio-class-rules.test.js",
+      "summary": "studio.class-rules.js의 수업 입력 정규화 및 예약 상태 결정 로직을 테스트하는 단위 테스트.",
+      "tags": ["test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/test/studio-refund-rules.test.js",
+      "type": "file",
+      "name": "studio-refund-rules.test.js",
+      "filePath": "backend/test/studio-refund-rules.test.js",
+      "summary": "studio.refund-rules.js의 수강권 환불 요청 정규화 로직을 테스트하는 단위 테스트.",
+      "tags": ["test"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:backend/src/shared/db/database-client.js",
+      "target": "function:backend/src/shared/db/database-client.js:createDatabaseClient",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/db/database-client.js",
+      "target": "function:backend/src/shared/db/database-client.js:createDatabaseClient",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/db/migrations.js",
+      "target": "function:backend/src/shared/db/migrations.js:runMigrations",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/db/migrations.js",
+      "target": "function:backend/src/shared/db/migrations.js:runMigrations",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "file:backend/src/config/env.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "file:backend/src/shared/db/database-client.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "file:backend/src/shared/db/migrations.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "file:backend/src/shared/security/password.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "file:backend/src/shared/security/pii.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "function:backend/src/shared/db/mysql.js:initDatabase",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "function:backend/src/shared/db/mysql.js:ensureInitialized",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "function:backend/src/shared/db/mysql.js:encryptExistingPiiData",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "function:backend/src/shared/db/mysql.js:ensureInitialized",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "function:backend/src/shared/db/database-client.js:createDatabaseClient",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/db/mysql.js",
+      "target": "function:backend/src/shared/db/migrations.js:runMigrations",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/email/email.service.js",
+      "target": "file:backend/src/config/env.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/email/email.service.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/email/email.service.js",
+      "target": "function:backend/src/shared/email/email.service.js:sendPurchaseConfirmation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/email/email.service.js",
+      "target": "function:backend/src/shared/email/email.service.js:sendEmailVerificationCode",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/email/email.service.js",
+      "target": "function:backend/src/shared/email/email.service.js:sendPurchaseConfirmation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/email/email.service.js",
+      "target": "function:backend/src/shared/email/email.service.js:sendEmailVerificationCode",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/security/password.js",
+      "target": "function:backend/src/shared/security/password.js:hashPassword",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/security/password.js",
+      "target": "function:backend/src/shared/security/password.js:verifyPassword",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/security/password.js",
+      "target": "function:backend/src/shared/security/password.js:hashPassword",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/security/password.js",
+      "target": "function:backend/src/shared/security/password.js:verifyPassword",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/security/pii.js",
+      "target": "file:backend/src/config/env.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/security/pii.js",
+      "target": "function:backend/src/shared/security/pii.js:encryptPii",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/security/pii.js",
+      "target": "function:backend/src/shared/security/pii.js:decryptPii",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/security/pii.js",
+      "target": "function:backend/src/shared/security/pii.js:decryptUserRow",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/security/pii.js",
+      "target": "function:backend/src/shared/security/pii.js:scrubStoredPii",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:backend/src/shared/security/pii.js",
+      "target": "function:backend/src/shared/security/pii.js:encryptPii",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/security/pii.js",
+      "target": "function:backend/src/shared/security/pii.js:decryptPii",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/security/pii.js",
+      "target": "function:backend/src/shared/security/pii.js:decryptUserRow",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/src/shared/security/pii.js",
+      "target": "function:backend/src/shared/security/pii.js:scrubStoredPii",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:backend/test/admin-sales.test.js",
+      "target": "file:backend/src/features/admin/admin.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/admin/admin.service.js",
+      "target": "file:backend/test/admin-sales.test.js",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/test/database-client.test.js",
+      "target": "file:backend/src/shared/db/database-client.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/shared/db/database-client.js",
+      "target": "file:backend/test/database-client.test.js",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/test/integration/studio-booking.mysql.test.js",
+      "target": "file:backend/src/features/admin/admin.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/test/integration/studio-booking.mysql.test.js",
+      "target": "file:backend/src/features/payments/payments.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/test/integration/studio-booking.mysql.test.js",
+      "target": "file:backend/src/features/studio/studio.service.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/test/integration/studio-booking.mysql.test.js",
+      "target": "file:backend/src/shared/db/mysql.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.service.js",
+      "target": "file:backend/test/integration/studio-booking.mysql.test.js",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/test/studio-class-rules.test.js",
+      "target": "file:backend/src/features/studio/studio.class-rules.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.class-rules.js",
+      "target": "file:backend/test/studio-class-rules.test.js",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:backend/test/studio-refund-rules.test.js",
+      "target": "file:backend/src/features/studio/studio.refund-rules.js",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:backend/src/features/studio/studio.refund-rules.js",
+      "target": "file:backend/test/studio-refund-rules.test.js",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

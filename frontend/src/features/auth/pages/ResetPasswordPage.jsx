@@ -7,7 +7,7 @@
  */
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
 // 컴포넌트 역할: 회원 비밀번호 재설정 흐름을 처리하는 페이지 컴포넌트입니다.
@@ -70,9 +70,7 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="site-shell">
-      <SiteHeader subpage />
-      <main className="auth-page">
+    <PageLayout subpage mainClass="auth-page">
         <section className="auth-card">
           <p className="section-kicker">비밀번호 재설정</p>
           <h1>비밀번호 찾기</h1>
@@ -160,7 +158,6 @@ export function ResetPasswordPage() {
             <Link to="/find-id">아이디 찾기</Link>
           </div>
         </section>
-      </main>
-    </div>
+    </PageLayout>
   );
 }

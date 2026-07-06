@@ -1,7 +1,8 @@
 ﻿// 파일 역할: 관리자가 특정 회원에게 강의 수강권을 지급하거나 회수하는 페이지 컴포넌트입니다.
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
-import { SiteHeader } from "../../../shared/components/SiteHeader.jsx";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { PageLayout } from "../../../shared/components/PageLayout.jsx";
+import { AdminDashboardNav } from "../components/AdminDashboardNav.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { apiRequest } from "../../../shared/api/client.js";
 import { resolveAcademyMediaUrl } from "../../academy/api/academyApi.js";
@@ -14,12 +15,15 @@ const DURATION_OPTIONS = [
   { value: "unlimited", label: "무제한" },
 ];
 
-// 함수 역할: 날짜 시간 값을 화면에 보여주기 좋은 문구로 변환합니다.
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(String(value).replace(" ", "T"));
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleString("ko-KR");
+}
+
+function isGrantExpired(expiresAt) {
+  return Boolean(expiresAt) && new Date(String(expiresAt).replace(" ", "T")) < new Date();
 }
 
 // 컴포넌트 역할: 관리자가 특정 회원에게 강의 수강권을 지급하거나 회수하는 페이지 컴포넌트입니다.
@@ -28,9 +32,10 @@ export function AdminVideoGiftPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const store = useAppStore();
-
+  const hasRecipient = Boolean(userId);
   const userName = String(location.state?.userName || "");
   const userEmail = String(location.state?.userEmail || "");
+  const recipientLabel = userName || userEmail || userId || "선택한 회원";
 
   const allVideos = useMemo(
     () => (Array.isArray(store.academyVideos) ? store.academyVideos : []),
@@ -41,41 +46,79 @@ export function AdminVideoGiftPage() {
   const [durationType, setDurationType] = useState("unlimited");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState(hasRecipient ? "gift" : "history");
+  const [grantHistory, setGrantHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [historyUpdatingId, setHistoryUpdatingId] = useState("");
 
-  const [grants, setGrants] = useState([]);
-  const [grantsLoading, setGrantsLoading] = useState(true);
-  const [revoking, setRevoking] = useState("");
-
-  const grantedVideoIds = useMemo(() => new Set(grants.map((g) => String(g.videoId))), [grants]);
-
-  const ungrantedVideos = useMemo(
-    () => allVideos.filter((v) => !grantedVideoIds.has(String(v.id))),
-    [allVideos, grantedVideoIds]
+  const isAllSelected = allVideos.length > 0 && selectedIds.size === allVideos.length;
+  const selectedVideos = useMemo(
+    () => allVideos.filter((video) => selectedIds.has(String(video.id))),
+    [allVideos, selectedIds]
   );
-
-  async function loadGrants() {
+  const selectedDurationLabel =
+    DURATION_OPTIONS.find((option) => option.value === durationType)?.label || durationType;
+  async function loadGrantHistory() {
     try {
-      setGrantsLoading(true);
-      const result = await apiRequest(`/admin/users/${encodeURIComponent(userId)}/video-grants`);
-      setGrants(Array.isArray(result?.grants) ? result.grants : []);
-    } catch {
-      setGrants([]);
+      setHistoryLoading(true);
+      setHistoryError("");
+      const result = await apiRequest("/admin/video-grants");
+      setGrantHistory(Array.isArray(result?.grants) ? result.grants : []);
+    } catch (error) {
+      setHistoryError(error.message || "영상 선물 내역을 불러오지 못했습니다.");
+      setGrantHistory([]);
     } finally {
-      setGrantsLoading(false);
+      setHistoryLoading(false);
+    }
+  }
+
+  async function handleHistoryDurationChange(grantId, nextDurationType) {
+    const previousHistory = grantHistory;
+
+    setGrantHistory((current) =>
+      current.map((grant) =>
+        grant.id === grantId ? { ...grant, durationType: nextDurationType } : grant
+      )
+    );
+    setHistoryUpdatingId(grantId);
+    setHistoryError("");
+
+    try {
+      const result = await apiRequest(`/admin/video-grants/${encodeURIComponent(grantId)}`, {
+        method: "PATCH",
+        body: { durationType: nextDurationType },
+      });
+      const updatedGrant = result?.grant || {};
+      setGrantHistory((current) =>
+        current.map((grant) =>
+          grant.id === grantId
+            ? {
+                ...grant,
+                durationType: updatedGrant.durationType || nextDurationType,
+                expiresAt: updatedGrant.expiresAt ?? null,
+              }
+            : grant
+        )
+      );
+    } catch (error) {
+      setGrantHistory(previousHistory);
+      setHistoryError(error.message || "선물 기간을 수정하지 못했습니다.");
+    } finally {
+      setHistoryUpdatingId("");
     }
   }
 
   useEffect(() => {
-    loadGrants();
-  }, [userId]);
-
-  const isAllSelected = ungrantedVideos.length > 0 && selectedIds.size === ungrantedVideos.length;
+    if (activeTab === "history") loadGrantHistory();
+  }, [activeTab]);
 
   function toggleSelectAll() {
     if (isAllSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(ungrantedVideos.map((v) => String(v.id))));
+      setSelectedIds(new Set(allVideos.map((v) => String(v.id))));
     }
   }
 
@@ -91,12 +134,20 @@ export function AdminVideoGiftPage() {
     });
   }
 
-  async function handleSubmit() {
+  function handleSubmit() {
+    if (!hasRecipient) {
+      setMessage({ type: "error", text: "회원 목록에서 선물할 회원을 먼저 선택해 주세요." });
+      return;
+    }
     if (!selectedIds.size) {
       setMessage({ type: "error", text: "선물할 영상을 하나 이상 선택해 주세요." });
       return;
     }
+    setMessage({ type: "", text: "" });
+    setShowConfirm(true);
+  }
 
+  async function handleConfirmSubmit() {
     setSubmitting(true);
     setMessage({ type: "", text: "" });
 
@@ -108,7 +159,8 @@ export function AdminVideoGiftPage() {
 
       setMessage({ type: "success", text: result?.message || "영상이 선물되었습니다." });
       setSelectedIds(new Set());
-      await loadGrants();
+      setShowConfirm(false);
+      if (activeTab === "history") await loadGrantHistory();
     } catch (error) {
       setMessage({ type: "error", text: error.message || "선물 처리에 실패했습니다." });
     } finally {
@@ -116,68 +168,43 @@ export function AdminVideoGiftPage() {
     }
   }
 
-  async function handleRevoke(videoId, videoTitle) {
-    const confirmed = window.confirm(`"${videoTitle}" 선물을 취소하시겠습니까?`);
-    if (!confirmed) return;
-
-    setRevoking(videoId);
-    setMessage({ type: "", text: "" });
-
-    try {
-      const result = await apiRequest(
-        `/admin/users/${encodeURIComponent(userId)}/video-grants/${encodeURIComponent(videoId)}`,
-        { method: "DELETE" }
-      );
-      setMessage({ type: "success", text: result?.message || "선물이 취소되었습니다." });
-      await loadGrants();
-    } catch (error) {
-      setMessage({ type: "error", text: error.message || "선물 취소에 실패했습니다." });
-    } finally {
-      setRevoking("");
-    }
-  }
-
   return (
-    <div className="site-shell">
-      <SiteHeader />
-      <main className="dashboard-page admin-dashboard-page">
-        <section className="admin-dashboard-switch">
-          <Link className="admin-dashboard-switch-link" to="/admin">
-            일정 관리
-          </Link>
-          <Link className="admin-dashboard-switch-link active" to="/admin/members">
-            회원 관리
-          </Link>
-          <Link className="admin-dashboard-switch-link" to="/admin/products">
-            상품 관리
-          </Link>
-          <Link className="admin-dashboard-switch-link" to="/admin/refunds">
-            환불 관리
-          </Link>
-          <Link className="admin-dashboard-switch-link" to="/admin/sales">
-            매출 대시보드
-          </Link>
-        </section>
+    <>
+      <PageLayout mainClass="dashboard-page admin-dashboard-page">
+        <AdminDashboardNav active="gifts" />
 
         <section className="dashboard-hero mypage-hero-card">
           <p className="section-kicker">관리자 대시보드</p>
           <h1>영상 선물하기</h1>
-          <div className="mypage-identity-row">
-            {userName ? <span className="mypage-identity-chip">{userName}</span> : null}
-            {userEmail ? <span className="mypage-identity-chip">{userEmail}</span> : null}
-          </div>
         </section>
 
         <section className="admin-dashboard-grid">
           <section className="dashboard-card admin-members-panel">
             <div className="admin-members-toolbar">
-              <h2>영상 선택</h2>
+              <div className="admin-member-tabs">
+                {hasRecipient ? (
+                  <button
+                    type="button"
+                    className={`admin-member-tab${activeTab === "gift" ? " active" : ""}`}
+                    onClick={() => setActiveTab("gift")}
+                  >
+                    영상 선물하기
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={`admin-member-tab${activeTab === "history" ? " active" : ""}`}
+                  onClick={() => setActiveTab("history")}
+                >
+                  선물 내역
+                </button>
+              </div>
               <button
                 type="button"
                 className="ghost-button small-ghost"
-                onClick={() => navigate(-1)}
+                onClick={() => (hasRecipient ? navigate(-1) : navigate("/admin"))}
               >
-                ← 회원 목록으로
+                ← 회원 관리로
               </button>
             </div>
 
@@ -185,8 +212,70 @@ export function AdminVideoGiftPage() {
               <p className={`admin-form-message ${message.type}`}>{message.text}</p>
             ) : null}
 
-            {ungrantedVideos.length === 0 && !grantsLoading ? (
-              <p className="admin-empty-copy">선물할 수 있는 영상이 없습니다. 이미 모든 영상이 선물되었습니다.</p>
+            {activeTab === "history" ? (
+              <div className="video-gift-history-panel">
+                {historyLoading ? <p className="admin-empty-copy">영상 선물 내역을 불러오는 중입니다...</p> : null}
+                {!historyLoading && historyError ? <p className="admin-empty-copy error">{historyError}</p> : null}
+                {!historyLoading && !historyError && grantHistory.length === 0 ? (
+                  <p className="admin-empty-copy">아직 영상 선물 내역이 없습니다.</p>
+                ) : null}
+                {!historyLoading && !historyError && grantHistory.length > 0 ? (
+                  <div className="video-gift-history-table-wrap">
+                    <table className="video-gift-history-table">
+                      <thead>
+                        <tr>
+                          <th>회원</th>
+                          <th>영상명</th>
+                          <th>기간</th>
+                          <th>상태</th>
+                          <th>만료일</th>
+                          <th>선물일</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {grantHistory.map((grant) => {
+                          const expired = isGrantExpired(grant.expiresAt);
+                          return (
+                            <tr key={grant.id}>
+                              <td>
+                                <strong>{grant.userName || grant.loginId || grant.userId}</strong>
+                                {grant.userEmail ? <span>{grant.userEmail}</span> : null}
+                              </td>
+                              <td>{grant.title || grant.videoId}</td>
+                              <td>
+                                <select
+                                  className="video-gift-duration-select"
+                                  aria-label={`${grant.userName || grant.loginId || "회원"} 선물 영상 이용 기간`}
+                                  value={grant.durationType || "unlimited"}
+                                  disabled={historyUpdatingId === grant.id}
+                                  onChange={(event) =>
+                                    handleHistoryDurationChange(grant.id, event.target.value)
+                                  }
+                                >
+                                  {DURATION_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td>
+                                <span className={expired ? "video-grant-status expired" : "video-grant-status active"}>
+                                  {expired ? "만료" : "이용 중"}
+                                </span>
+                              </td>
+                              <td>{grant.expiresAt ? formatDateTime(grant.expiresAt) : "무제한"}</td>
+                              <td>{formatDateTime(grant.createdAt)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </div>
+            ) : allVideos.length === 0 ? (
+              <p className="admin-empty-copy">선물할 수 있는 영상이 없습니다.</p>
             ) : (
               <>
                 <div className="video-gift-controls">
@@ -196,11 +285,10 @@ export function AdminVideoGiftPage() {
                       checked={isAllSelected}
                       onChange={toggleSelectAll}
                     />
-                    <span>전체 선택 ({ungrantedVideos.length}개)</span>
+                    <span>전체 선택 ({allVideos.length}개)</span>
                   </label>
-
                   <div className="video-gift-duration-group">
-                    <span className="video-gift-duration-label">이용 기간</span>
+                    <span className="video-gift-duration-label">선물 기간</span>
                     {DURATION_OPTIONS.map((option) => (
                       <label key={option.value} className="video-gift-duration-option">
                         <input
@@ -217,7 +305,7 @@ export function AdminVideoGiftPage() {
                 </div>
 
                 <div className="video-gift-list">
-                  {ungrantedVideos.map((video) => {
+                  {allVideos.map((video) => {
                     const isSelected = selectedIds.has(String(video.id));
                     return (
                       <label
@@ -277,67 +365,47 @@ export function AdminVideoGiftPage() {
               </>
             )}
           </section>
-
-          <section className="dashboard-card admin-lecture-report-panel">
-            <div className="admin-members-toolbar">
-              <h2>선물한 영상</h2>
-              <span className="admin-range-caption">
-                {grantsLoading ? "불러오는 중..." : `${grants.length}개`}
-              </span>
-            </div>
-
-            {!grantsLoading && grants.length === 0 ? (
-              <p className="admin-empty-copy">아직 선물한 영상이 없습니다.</p>
-            ) : (
-              <div className="video-gift-granted-list">
-                {grants.map((grant) => {
-                  const isExpired =
-                    grant.expiresAt && new Date(grant.expiresAt) < new Date();
-                  const isRevokingThis = revoking === String(grant.videoId);
-
-                  return (
-                    <article
-                      key={grant.id}
-                      className={`admin-learning-card video-grant-card ${isExpired ? "is-expired" : ""}`}
-                    >
-                      <div className="admin-learning-head">
-                        <strong>{grant.title || grant.videoId}</strong>
-                        <span className={isExpired ? "video-grant-status expired" : "video-grant-status active"}>
-                          {isExpired ? "만료됨" : "이용 중"}
-                        </span>
-                      </div>
-                      <div className="admin-learning-meta">
-                        {grant.instructor ? <span>강사 {grant.instructor}</span> : null}
-                        {grant.category ? <span>카테고리 {grant.category}</span> : null}
-                        <span>
-                          이용 기간{" "}
-                          {DURATION_OPTIONS.find((o) => o.value === grant.durationType)?.label ||
-                            grant.durationType}
-                        </span>
-                        <span>
-                          만료일{" "}
-                          {grant.expiresAt ? formatDateTime(grant.expiresAt) : "무제한"}
-                        </span>
-                        <span>선물일 {formatDateTime(grant.createdAt)}</span>
-                      </div>
-                      <div className="admin-member-actions-row">
-                        <button
-                          type="button"
-                          className="ghost-button small-ghost"
-                          disabled={isRevokingThis}
-                          onClick={() => handleRevoke(grant.videoId, grant.title || grant.videoId)}
-                        >
-                          {isRevokingThis ? "취소 중..." : "선물 취소"}
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
         </section>
-      </main>
-    </div>
+      </PageLayout>
+      {showConfirm ? (
+        <div className="video-gift-confirm-backdrop" role="presentation">
+          <section className="video-gift-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="video-gift-confirm-title">
+            <div className="video-gift-confirm-head">
+              <h2 id="video-gift-confirm-title">영상 선물 확인</h2>
+              <button type="button" aria-label="닫기" onClick={() => setShowConfirm(false)} disabled={submitting}>
+                ×
+              </button>
+            </div>
+            <dl className="video-gift-confirm-summary">
+              <div>
+                <dt>받는 회원</dt>
+                <dd>{recipientLabel}</dd>
+              </div>
+              <div>
+                <dt>선물 기간</dt>
+                <dd>{selectedDurationLabel}</dd>
+              </div>
+              <div>
+                <dt>선택 영상</dt>
+                <dd>{selectedVideos.length}개</dd>
+              </div>
+            </dl>
+            <div className="video-gift-confirm-list">
+              {selectedVideos.map((video) => (
+                <p key={video.id}>{video.title || video.id}</p>
+              ))}
+            </div>
+            <div className="video-gift-confirm-actions">
+              <button type="button" className="ghost-button small-ghost" onClick={() => setShowConfirm(false)} disabled={submitting}>
+                취소
+              </button>
+              <button type="button" className="pill-button" onClick={handleConfirmSubmit} disabled={submitting}>
+                {submitting ? "선물 중..." : "최종 확인"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </>
   );
 }

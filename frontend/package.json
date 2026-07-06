@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test e2e/smoke.spec.js",
     "test:e2e:ui": "playwright test --ui",
     "cap:sync": "vite build && npx cap sync && node scripts/configure-push-native.mjs",
     "cap:android": "npm run cap:sync && npx cap open android",

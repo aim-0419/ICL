@@ -13,6 +13,9 @@ pnpm-debug.log*
 .env
 .env.*
 !backend/.env.example
+!backend/.env.test.example
+!frontend/.env.example
+!frontend/.env.test.example
 
 # OS / Editor
 .DS_Store
@@ -29,6 +32,12 @@ frontend/_tmp_davenue_intro.html
 
 # Uploaded media
 backend/uploads/
+backend/uploads-test/
+backend/uploads/e2e-test/
+
+# Local upload archives / backups
+/backend/uploads.zip
+/backend/uploads/*.zip
 
 # Capacitor native projects (generated — do not commit)
 frontend/ios/
@@ -42,6 +51,7 @@ chrome-cdp-profile*/
 chrome-qa-profile*/
 frontend/playwright-report/
 frontend/test-results/
+.tmp-e2e-logs/
 frontend/frontend/
 frontend/tmp-*.png
 test_*.mjs

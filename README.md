@@ -30,7 +30,6 @@
 ```text
 HomePage/
 ├── AGENTS.md
-├── QA_DEPLOY_CHECKLIST.md
 ├── README.md
 ├── backend/
 │   ├── src/
@@ -55,6 +54,10 @@ HomePage/
 │   └── test/
 ├── deploy/
 ├── docs/
+│   ├── WORKFLOW.md
+│   ├── PROJECT_RULES.md
+│   ├── TASK.md
+│   └── QA_DEPLOY_CHECKLIST.md
 └── frontend/
     ├── src/
     │   ├── app/
@@ -144,7 +147,10 @@ npm run build
 ## 작업 문서
 
 - `AGENTS.md`: Codex와 Claude Code가 따라야 하는 프로젝트 작업 지침
-- `QA_DEPLOY_CHECKLIST.md`: 배포 전 기능, 보안, UI, API, DB 점검 체크리스트
+- `docs/WORKFLOW.md`: `테스트 진행해` 명령 실행 시 따르는 1단계~17단계 자동 워크플로우
+- `docs/PROJECT_RULES.md`: 프로젝트 고유 개발, QA, 보안, 권한, UI, DB, API 규칙
+- `docs/TASK.md`: 현재 작업 상태와 자동 실행 모드
+- `docs/QA_DEPLOY_CHECKLIST.md`: 배포 전 기능, 보안, UI, API, DB 점검 체크리스트
 
 ## 개발 원칙
 
@@ -165,7 +171,7 @@ npm run build
 
 ## 배포 전 확인
 
-배포 전에는 반드시 `QA_DEPLOY_CHECKLIST.md`를 기준으로 점검합니다.
+배포 전에는 반드시 `docs/QA_DEPLOY_CHECKLIST.md`를 기준으로 점검합니다.
 
 최소 확인 항목:
 

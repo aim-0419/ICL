@@ -185,3 +185,24 @@ npm run build
 - 이미지/영상 업로드 정상
 - 모바일 주요 화면 깨짐 없음
 - 콘솔 및 네트워크 반복 오류 없음
+
+## main 브랜치 자동 배포 주의사항
+
+이 프로젝트는 `main` 브랜치 반영 시 GitHub Actions 배포 워크플로우가 실행될 수 있습니다.
+따라서 `main` 브랜치로 직접 push하거나 PR을 merge하는 행위는 운영 배포 승인으로 취급합니다.
+
+`main` merge 전에는 반드시 다음을 확인합니다.
+
+- 운영 `.env`와 GitHub Secrets
+- 운영 DB migration 필요 여부
+- `studio_staff_profiles.user_id` 운영 DB 반영 여부
+- nginx `/api` 프록시와 `/uploads` 정적 경로
+- PM2 restart/reload 방식
+- 실제 운영 `UPLOAD_ROOT`
+- Email/SMS/Kakao/FCM/Payment 운영 allow flag
+- scheduler 운영 정책
+- 결제/환불 sandbox 또는 제한 검증
+- 배포 후 smoke test 계획
+- rollback 계획
+
+`homepage_test` 기준 테스트 통과는 개발/테스트 환경 검증 결과이며, 운영 배포 가능 판정을 의미하지 않습니다.

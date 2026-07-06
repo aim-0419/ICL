@@ -1170,3 +1170,42 @@ ALLOW_E2E_DATA_MUTATION=true
 - seed는 transaction으로 실행하고 실패 시 rollback한다.
 - 운영 DB, 기존 개발 DB, 실제 사용자 데이터에는 환불 seed를 실행하지 않는다.
 - 전체 테스트 전에는 환불 seed count를 보고하되 이메일, 전화번호, 비밀번호, 결제키 같은 민감정보는 출력하지 않는다.
+
+## main 브랜치 자동 배포 주의사항
+
+### Main Branch Auto Deployment Warning
+
+이 프로젝트는 GitHub Actions 배포 워크플로우가 `main` 브랜치 반영을 기준으로 동작할 수 있다.
+따라서 `main` 브랜치로 직접 push하거나 PR을 merge하는 행위는 단순 코드 병합이 아니라 운영 배포 승인으로 간주한다.
+
+### main merge 금지 조건
+
+아래 항목 중 하나라도 확인되지 않았으면 `main` merge 또는 `main` push를 진행하지 않는다.
+
+- 운영 `.env` 검토 전
+- 운영 DB migration 필요 여부 확인 전
+- `studio_staff_profiles.user_id` 운영 DB 반영 여부 확인 전
+- nginx `/api` 프록시 확인 전
+- nginx `/uploads` 정적 서빙 또는 프록시 확인 전
+- PM2 restart/reload 방식 확인 전
+- GitHub Actions deploy workflow 확인 전
+- 실제 운영 `UPLOAD_ROOT` 확인 전
+- Email/SMS/Kakao/FCM/Payment allow flag 운영 설정 확인 전
+- scheduler 운영 정책 확인 전
+- 결제/환불 sandbox 또는 제한 검증 전
+- 배포 후 smoke test 계획 수립 전
+- rollback 계획 수립 전
+
+### PR 병합 전 권장 흐름
+
+1. `merge` 브랜치에서 Draft PR을 생성한다.
+2. PR 설명에 테스트 환경, 테스트 수준, 미확인 항목, 운영 배포 주의사항을 명시한다.
+3. 운영 환경변수, DB migration, nginx, PM2, uploads, 외부 발송/결제, scheduler, rollback 계획을 별도로 검토한다.
+4. GitHub Actions가 main 병합 시 어떤 작업을 수행하는지 확인한다.
+5. 운영 배포 담당자의 명시적 승인 후에만 main 병합을 진행한다.
+
+### 테스트 수준과 배포 판단
+
+- `homepage_test` 기준 Level 1-4 테스트가 통과해도 운영 배포 가능을 의미하지 않는다.
+- main 병합 전에는 Level 5 Staging/배포 환경 검증과 Level 6 운영 안정성 검증 계획을 확인한다.
+- Staging 또는 운영 환경에서 `/api`, `/uploads`, 이미지/영상 경로, 외부 연동, 결제/환불, scheduler, rollback을 확인하기 전에는 “운영 배포 가능”으로 보고하지 않는다.

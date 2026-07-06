@@ -430,3 +430,183 @@ seed 결과:
 
 - 프리플라이트를 재실행해 전체 테스트 blocker가 줄었는지 확인한다.
 - 전체 E2E 전에는 외부 발송/결제 차단 상태와 Playwright 실행 방식을 다시 확인한다.
+
+## origin/merge push 이후 main 병합 전 상태
+
+현재 상태:
+
+- `origin/merge` push 완료
+- 로컬 `merge`와 `origin/merge` 동기화 완료
+- `main` push 및 `main` merge는 아직 진행하지 않음
+- 운영 배포는 진행하지 않음
+- 전체 테스트는 `homepage_test` 테스트 전용 환경 기준으로 통과
+- `main` 브랜치 반영은 GitHub Actions 자동 배포를 트리거할 수 있음
+- 따라서 `main` merge는 운영 배포 승인으로 간주해야 함
+
+main merge 전 필수 확인:
+
+- 운영 `.env` 검토
+- 운영 DB migration 필요 여부 확인
+- `studio_staff_profiles.user_id` 운영 DB 반영 여부 확인
+- nginx `/api` 프록시 확인
+- nginx `/uploads` 정적 서빙 또는 프록시 확인
+- PM2 restart/reload 방식 확인
+- GitHub Actions deploy workflow 확인
+- 실제 운영 `UPLOAD_ROOT` 확인
+- Email/SMS/Kakao/FCM/Payment allow flag 운영 설정 확인
+- scheduler 운영 정책 확인
+- 결제/환불 sandbox 또는 제한 검증
+- 배포 후 smoke test 계획
+- rollback 계획
+
+권장 다음 단계:
+
+- GitHub에서 `merge` -> `main` Draft PR 생성
+- PR 설명에 테스트 환경, 테스트 수준, 미확인 항목, 운영 배포 주의사항 명시
+- 운영 배포 담당자 승인 전 main merge 금지
+
+## PR 제목 추천
+
+Preferred:
+
+- `chore: prepare integrated studio/admin update for staging review`
+
+Alternatives:
+
+- `feat: integrate studio, admin, security, and E2E test updates`
+- `chore: prepare merge branch changes for deployment review`
+
+## PR 본문 초안
+
+```md
+## Summary
+
+This PR prepares the integrated homepage, academy, admin, studio management, security hardening, and E2E test environment updates for review.
+
+Key areas included:
+
+- AI workflow and QA documentation reorganization
+- Safe test environment and Playwright E2E scaffolding
+- Backend startup safety guards
+- External side effect guards for email, SMS, Kakao, FCM, and PortOne calls
+- Studio management and admin safety fixes
+- Test DB bootstrap and E2E seed scripts
+- Frontend auth guard cleanup, SEO text cleanup, and missing asset fallback
+
+## Deployment Trigger Warning
+
+Merging this PR into `main` may trigger GitHub Actions deployment.
+
+Do not merge into `main` until production deployment readiness is confirmed.
+
+Before merge, confirm:
+
+- Production `.env` values
+- Production DB migration requirements
+- `studio_staff_profiles.user_id` production DB migration status
+- nginx `/api` proxy
+- nginx `/uploads` static serving or proxy
+- PM2 restart/reload process
+- GitHub Actions deploy workflow behavior
+- Production `UPLOAD_ROOT`
+- Email/SMS/Kakao/FCM/Payment allow flags
+- Scheduler production policy
+- Payment/refund sandbox or limited production verification
+- Post-deploy smoke test plan
+- Rollback plan
+
+## Test Environment Validation
+
+Validated using test-only environment:
+
+- DB: `homepage_test`
+- `NODE_ENV=test`
+- `TEST_SAFE_MODE=true`
+- `DB_INIT_MODE=safe`
+- `ALLOW_E2E_DATA_MUTATION=true`
+- `UPLOAD_ROOT=uploads-test`
+- External Email/SMS/Kakao/FCM/Payment calls blocked
+- Scheduler disabled
+
+No production DB, production API, production URL, production upload folder, or production external service call was used during E2E validation.
+
+## Test Results
+
+Completed:
+
+- Level 1 static analysis
+- Level 2 build/execution verification
+- Level 3 API/DB validation on `homepage_test`
+- Level 4 browser E2E validation with Playwright
+
+Not completed:
+
+- Level 5 staging/production deployment verification
+- Level 6 operational stability verification
+- Real payment/refund production verification
+- Real external notification delivery verification
+- Production mobile device validation
+- Load testing
+
+## Important Notes
+
+- `main` merge should be treated as production deployment approval.
+- This PR should preferably be opened as a Draft PR first.
+- Do not merge until production environment checks are complete.
+- Actual `.env`, upload files, DB dumps, logs, secrets, keys, and tokens must not be included.
+
+## DB / Migration Notice
+
+The test DB was patched for:
+
+- `studio_staff_profiles.user_id`
+
+Before production deployment, confirm whether production DB requires the same schema migration.
+
+Do not rely on startup auto-migration for production schema changes.
+
+## Risk
+
+Medium to High until production deployment checks are completed, because this branch contains backend safety guards, studio/admin updates, E2E scaffolding, and deployment-relevant documentation.
+
+## Deployment Recommendation
+
+1. Open Draft PR from `merge` to `main`.
+2. Review changed files and deployment workflow.
+3. Verify production env, DB migration, nginx, PM2, uploads, scheduler, external integrations, and rollback.
+4. Run staging or controlled deployment smoke test if possible.
+5. Merge only after explicit production deployment approval.
+```
+
+## Files changed 리뷰 체크리스트
+
+우선 검토 파일:
+
+- `.github/workflows/deploy.yml`
+- `deploy/nginx-prod.conf`
+- `frontend/nginx.conf`
+- `backend/src/config/env.js`
+- `backend/src/shared/db/mysql.js`
+- `backend/src/server.js`
+- `backend/src/app.js`
+- `backend/src/features/payments/payments.service.js`
+- `backend/src/shared/email/email.service.js`
+- `backend/src/features/sms/*`
+- `backend/src/features/studio/*`
+- `backend/scripts/bootstrap-test-db.js`
+- `backend/scripts/seed-e2e-test-data.js`
+- `docs/QA_DEPLOY_CHECKLIST.md`
+- `.gitignore`
+- `.env.example / .env.test.example`
+
+리뷰 포인트:
+
+- 실제 secret 포함 여부
+- 운영 URL 하드코딩 여부
+- 운영 DB 자동 변경 가능성
+- 외부 발송/결제 실제 호출 가능성
+- main merge 자동 배포 트리거 여부
+- uploads 운영 경로 영향
+- scheduler 운영 영향
+- nginx `/api`와 `/uploads`
+- PM2 restart/reload 방식

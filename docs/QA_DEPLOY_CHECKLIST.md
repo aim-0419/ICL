@@ -317,3 +317,109 @@
 - [ ] 단일 `refunds` 테이블 부재를 배포 blocker로 오판하지 않는다.
 - [ ] E2E 테스트 DB에는 `e2e_` prefix 환불 요청 데이터가 준비되어 있다.
 - [ ] 실제 결제/환불 외부 API 호출은 테스트 환경에서 차단되어 있다.
+
+## 34. main 자동 배포 및 운영 배포 승인 체크리스트
+
+### Git / Branch
+
+- [ ] 현재 PR base가 `main`인지 확인했다.
+- [ ] `main` merge가 GitHub Actions 운영 배포를 트리거할 수 있음을 확인했다.
+- [ ] `merge` 브랜치 변경사항만 PR에 포함되는지 확인했다.
+- [ ] `git diff --name-status origin/main...origin/merge` 기준 예상 파일만 포함된다.
+- [ ] 실제 `.env`, DB dump, uploads, 로그, secret/key/token/password 파일이 포함되지 않는다.
+
+### GitHub Actions
+
+- [ ] `.github/workflows/deploy.yml` 트리거 조건을 확인했다.
+- [ ] `push` 또는 PR merge to `main` 시 실행되는 job을 확인했다.
+- [ ] 배포 job이 어느 서버와 어떤 경로에 배포하는지 확인했다.
+- [ ] 배포 중 실패 시 rollback 또는 수동 복구 절차를 확인했다.
+- [ ] GitHub Secrets에 운영 secret이 안전하게 저장되어 있는지 확인했다.
+
+### Backend env
+
+- [ ] 운영 `NODE_ENV=production` 설정을 확인했다.
+- [ ] 운영 `DB_INIT_MODE=safe` 또는 운영 DB 자동 변경 차단을 확인했다.
+- [ ] 운영 DB 접속 정보가 Git에 포함되지 않는다.
+- [ ] 운영 `UPLOAD_ROOT`가 실제 운영 업로드 경로와 일치한다.
+- [ ] 운영 CORS 허용 도메인이 실제 서비스 도메인으로 제한된다.
+- [ ] `TEST_SAFE_MODE`가 운영에서 테스트 용도로 잘못 켜지지 않는다.
+
+### External side effects
+
+- [ ] 운영 이메일 발송 허용 여부를 명시적으로 확인했다.
+- [ ] 운영 SMS 발송 허용 여부를 명시적으로 확인했다.
+- [ ] 운영 카카오 알림톡 발송 허용 여부를 명시적으로 확인했다.
+- [ ] 운영 FCM Push 발송 허용 여부를 명시적으로 확인했다.
+- [ ] 운영 PortOne 결제/환불 호출 허용 여부를 명시적으로 확인했다.
+- [ ] 결제/환불은 sandbox 또는 제한된 운영 검수 절차를 거쳤다.
+
+### Scheduler
+
+- [ ] Academy publish scheduler 운영 정책을 확인했다.
+- [ ] Notification scheduler 운영 정책을 확인했다.
+- [ ] 서버 재시작 직후 자동 발송 또는 자동 DB 변경이 발생하지 않는지 확인했다.
+- [ ] scheduler 로그에서 민감정보가 출력되지 않는지 확인했다.
+
+### Uploads / Static files
+
+- [ ] 운영 nginx가 `/uploads`를 정적 서빙하거나 백엔드로 안전하게 프록시한다.
+- [ ] 운영 업로드 폴더가 배포 시 덮어써지지 않는다.
+- [ ] 이미지/영상 업로드 용량 제한이 프론트, 백엔드, nginx에서 일치한다.
+- [ ] 업로드 파일 직접 접근 범위와 권한을 확인했다.
+- [ ] 테스트용 `uploads-test`가 운영에서 사용되지 않는다.
+
+### DB / Migration
+
+- [ ] 운영 DB 백업을 완료했다.
+- [ ] 운영 DB migration 필요 여부를 확인했다.
+- [ ] `studio_staff_profiles.user_id` 컬럼 운영 반영 필요 여부를 확인했다.
+- [ ] 운영 DB에 자동 `DROP`, `DELETE`, `TRUNCATE`, destructive migration이 실행되지 않는다.
+- [ ] 스키마 변경이 필요하면 별도 승인된 수동 migration 절차로 진행한다.
+- [ ] migration 후 rollback 또는 복구 절차를 문서화했다.
+
+### Post-deploy smoke test
+
+- [ ] 배포 후 홈 화면 접속을 확인한다.
+- [ ] 로그인/로그아웃을 확인한다.
+- [ ] 관리자 대시보드 접근을 확인한다.
+- [ ] 교육영상 목록/상세/재생 경로를 확인한다.
+- [ ] 필라테스 일정/예약 화면 접속을 확인한다.
+- [ ] 이미지/영상 `/uploads` 경로를 확인한다.
+- [ ] 주요 API 200/401/403 응답을 확인한다.
+- [ ] 브라우저 Console Error와 Network Error를 확인한다.
+- [ ] 502, 500 반복 오류가 없는지 확인한다.
+- [ ] PM2 로그와 nginx 로그를 확인한다.
+
+## 35. PR 변경 파일 리뷰 체크리스트
+
+### 우선 검토 파일
+
+- [ ] `.github/workflows/deploy.yml`
+- [ ] `deploy/nginx-prod.conf`
+- [ ] `frontend/nginx.conf`
+- [ ] `backend/src/config/env.js`
+- [ ] `backend/src/shared/db/mysql.js`
+- [ ] `backend/src/server.js`
+- [ ] `backend/src/app.js`
+- [ ] `backend/src/features/payments/payments.service.js`
+- [ ] `backend/src/shared/email/email.service.js`
+- [ ] `backend/src/features/sms/*`
+- [ ] `backend/src/features/studio/*`
+- [ ] `backend/scripts/bootstrap-test-db.js`
+- [ ] `backend/scripts/seed-e2e-test-data.js`
+- [ ] `docs/QA_DEPLOY_CHECKLIST.md`
+- [ ] `.gitignore`
+- [ ] `.env.example / .env.test.example`
+
+### 리뷰 포인트
+
+- [ ] 실제 secret이 포함되지 않는다.
+- [ ] 운영 URL이 코드에 하드코딩되지 않는다.
+- [ ] 운영 DB 자동 schema/data 변경 가능성이 없다.
+- [ ] 외부 발송과 결제/환불 실제 호출은 명시적 운영 설정에서만 가능하다.
+- [ ] `main` merge가 자동 배포를 트리거한다는 점이 PR에 명시되어 있다.
+- [ ] uploads 운영 경로에 미치는 영향을 확인했다.
+- [ ] scheduler 운영 영향과 기본값을 확인했다.
+- [ ] nginx `/api`와 `/uploads` 설정을 확인했다.
+- [ ] PM2 restart/reload 방식과 로그 위치를 확인했다.

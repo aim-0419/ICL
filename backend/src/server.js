@@ -8,12 +8,17 @@ const app = createApp();
 
 ensureInitialized()
   .then(() => {
-    startAcademyPublishScheduler();
+    if (env.academyPublishSchedulerEnabled && !env.testSafeMode) {
+      startAcademyPublishScheduler();
+    } else {
+      console.log("[academy-scheduler] disabled by safety settings");
+    }
+
     app.listen(env.port, () => {
       console.log(`[backend] API server running at http://localhost:${env.port}`);
     });
   })
   .catch((error) => {
-    console.error("[backend] DB initialization failed, aborting startup", error);
+    console.error("[backend] DB initialization failed, aborting startup:", error?.message || error);
     process.exit(1);
   });

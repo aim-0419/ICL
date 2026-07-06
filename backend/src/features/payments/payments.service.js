@@ -191,7 +191,22 @@ function pickStatus(portonePayment) {
 }
 
 // 함수 역할: portone 결제 데이터를 조회해 호출자에게 반환합니다.
+function createPaymentProviderDisabledError() {
+  const error = new Error("외부 결제/환불 호출이 안전 설정으로 비활성화되어 있습니다.");
+  error.status = 503;
+  error.code = "PAYMENT_EXTERNAL_CALL_DISABLED";
+  return error;
+}
+
+function assertExternalPaymentCallsAllowed() {
+  if (env.testSafeMode || !env.allowExternalPaymentCalls) {
+    throw createPaymentProviderDisabledError();
+  }
+}
+
 async function getPortonePayment(paymentId) {
+  assertExternalPaymentCallsAllowed();
+
   if (!env.portoneApiSecret) {
     const error = new Error("PORTONE_API_SECRET 값이 설정되지 않았습니다.");
     error.status = 500;
@@ -596,6 +611,8 @@ export async function markPaymentConfirmationConsumed(conn, orderId) {
 
 // 함수 역할: portone 결제 권한이 있는지 참/거짓으로 판별합니다.
 export async function cancelPortonePayment(paymentId, reason, cancelAmount = null) {
+  assertExternalPaymentCallsAllowed();
+
   if (!env.portoneApiSecret) {
     const error = new Error("PORTONE_API_SECRET 값이 설정되지 않았습니다.");
     error.status = 500;

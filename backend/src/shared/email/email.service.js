@@ -30,8 +30,17 @@ function getTransporter() {
 }
 
 // 함수 역할: 이메일을 발송합니다. SMTP 설정이 없으면 로그만 남기고 건너뜁니다.
+function canSendExternalEmail() {
+  return !env.testSafeMode && env.allowExternalEmailSend;
+}
+
 export async function sendEmail(to, subject, html) {
-  if (!to) return;
+  if (!to) return { skipped: true, reason: "NO_RECIPIENT" };
+  if (!canSendExternalEmail()) {
+    console.info("[email] send skipped by safety settings:", subject);
+    return { skipped: true, reason: "EMAIL_SEND_DISABLED" };
+  }
+
   const t = getTransporter();
   if (!t) {
     console.warn("[email] SMTP 미설정 - 발송 건너뜀:", subject, "->", maskEmailAddress(to));

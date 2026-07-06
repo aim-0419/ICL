@@ -3,17 +3,25 @@
 export function notFoundHandler(req, res, next) {
   res.status(404).json({
     message: "Route not found",
-    path: req.originalUrl,
+    path: req.path,
+    requestId: req.requestId,
   });
 }
 
 // 함수 역할: 컨트롤러나 서비스에서 전달된 에러를 HTTP 상태 코드와 메시지로 변환합니다.
 export function errorHandler(error, req, res, next) {
-  const status = error.status ?? 500;
-  const isInternal = !error.status || error.status >= 500;
-  const message =
-    isInternal && process.env.NODE_ENV === "production"
-      ? "Internal server error"
-      : (error.message ?? "Internal server error");
-  res.status(status).json({ message });
+  const status = Number(error.status ?? error.statusCode ?? 500);
+  const safeStatus = Number.isFinite(status) && status >= 400 && status <= 599 ? status : 500;
+  const isInternal = safeStatus >= 500;
+  const message = isInternal ? "Internal server error" : (error.message ?? "요청을 처리할 수 없습니다.");
+  const code =
+    typeof error.code === "string" && !error.code.startsWith("ER_")
+      ? error.code
+      : undefined;
+
+  res.status(safeStatus).json({
+    message,
+    ...(code ? { code } : {}),
+    requestId: req.requestId,
+  });
 }

@@ -1,7 +1,8 @@
 import { mkdir, open, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
+
+import { env } from "../../../config/env.js";
 
 const FILE_EXTENSIONS = {
   image: new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]),
@@ -23,9 +24,7 @@ export const ACADEMY_IMAGE_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
 export const ACADEMY_VIDEO_UPLOAD_MAX_BYTES = 5 * 1024 * 1024 * 1024;
 
 const HEADER_BYTES_TO_VALIDATE = 32;
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BACKEND_ROOT = path.resolve(__dirname, "../../../..");
-const UPLOAD_ROOT = path.resolve(BACKEND_ROOT, "uploads", "academy");
+const UPLOAD_ROOT = path.resolve(env.uploadRootPath, "academy");
 
 function createHttpError(message, status = 400) {
   const error = new Error(message);

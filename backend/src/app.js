@@ -1,7 +1,5 @@
 import cors from "cors";
 import express from "express";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { env } from "./config/env.js";
 import { academyRoutes } from "./features/academy/academy.routes.js";
@@ -23,8 +21,7 @@ import { errorHandler, notFoundHandler } from "./shared/middlewares/error-handle
 import { createRateLimiter } from "./shared/middlewares/rate-limit.js";
 import { requestContext } from "./shared/middlewares/request-context.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadRoot = path.resolve(__dirname, "..", "uploads");
+const uploadRoot = env.uploadRootPath;
 const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const apiWriteRateLimiter = createRateLimiter({
   windowMs: 60_000,

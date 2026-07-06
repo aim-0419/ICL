@@ -25,7 +25,7 @@ async function runSchedulerTick() {
       console.log(`[academy-scheduler] published reserved curriculum: ${publishedCount} item(s)`);
     }
   } catch (error) {
-    console.error("[academy-scheduler] publish tick failed", error);
+    console.error("[academy-scheduler] publish tick failed:", error?.message || error);
   } finally {
     isRunning = false;
   }
@@ -33,8 +33,8 @@ async function runSchedulerTick() {
 
 // 함수 역할: 아카데미 publish scheduler 동작을 시작합니다.
 export function startAcademyPublishScheduler() {
-  if (!env.academyPublishSchedulerEnabled) {
-    console.log("[academy-scheduler] disabled by config");
+  if (env.testSafeMode || !env.academyPublishSchedulerEnabled) {
+    console.log("[academy-scheduler] disabled by safety settings");
     return;
   }
 

@@ -1,7 +1,8 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
+
+import { env } from "../../config/env.js";
 
 const FILE_EXTENSIONS = {
   image: new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]),
@@ -19,9 +20,7 @@ const MIME_TO_EXTENSION = {
   "video/x-m4v": ".m4v",
 };
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BACKEND_ROOT = path.resolve(__dirname, "../../..");
-const UPLOAD_ROOT = path.resolve(BACKEND_ROOT, "uploads", "community");
+const UPLOAD_ROOT = path.resolve(env.uploadRootPath, "community");
 const COMMUNITY_UPLOAD_PREFIX = "/uploads/community/";
 
 function sanitizeFileName(name) {
@@ -132,8 +131,8 @@ function resolveCommunityAssetPath(assetPath) {
   const normalized = String(assetPath || "").trim();
   if (!normalized.startsWith(COMMUNITY_UPLOAD_PREFIX)) return "";
 
-  const relativePath = normalized.replace(/^\/+/, "");
-  const targetPath = path.resolve(BACKEND_ROOT, relativePath);
+  const relativePath = normalized.slice(COMMUNITY_UPLOAD_PREFIX.length);
+  const targetPath = path.resolve(UPLOAD_ROOT, relativePath);
   const relativeFromRoot = path.relative(UPLOAD_ROOT, targetPath);
   if (!relativeFromRoot || relativeFromRoot.startsWith("..") || path.isAbsolute(relativeFromRoot)) {
     return "";

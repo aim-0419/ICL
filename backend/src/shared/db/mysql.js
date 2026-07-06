@@ -1,14 +1,14 @@
 /**
  * 데이터베이스(MySQL) 설정 및 스키마 관리
  * - mysql2/promise 기반 커넥션 풀 생성 및 공통 query/queryOne 헬퍼 제공
- * - 서버 기동 시 initializeDatabase()를 호출해 스키마 자동 초기화 (마이그레이션 도구 불필요)
+ * - 기본 safe 모드에서는 서버 기동 시 DB 스키마/데이터 변경을 수행하지 않음
  *
  * 스키마 관리 방식:
  * - CREATE TABLE IF NOT EXISTS로 테이블을 생성
  * - 이후 ALTER TABLE로 누락 컬럼을 개별 추가 (기존 테이블 보호)
  * - ensureUtf8mb4TableCollation(): 모든 테이블의 문자셋을 utf8mb4로 통일
  * - repairLegacyMojibakeData(): 과거 latin1 인코딩으로 저장된 한글 깨짐 데이터 복구
- * - purgeWithdrawnUsers(): 탈퇴 후 파기 기한이 지난 회원 데이터 자동 삭제
+ * - purgeWithdrawnUsers(): 명시적으로 허용된 경우에만 탈퇴 회원 파기 대상 데이터를 정리
  *
  * 테이블 목록 (30개):
  * users, sessions, email_verifications              → 인증·회원
@@ -31,7 +31,7 @@
  *
  * 시드 데이터: 없음 (모든 데이터는 관리자 패널로 직접 등록)
  */
-// 파일 역할: MySQL 연결 풀, 스키마 자동 보정, 기본 데이터 시드, 공통 query 헬퍼를 담당합니다.
+// 파일 역할: MySQL 연결 풀, 스키마 안전장치, 공통 query 헬퍼를 담당합니다.
 import mysql from "mysql2/promise";
 import { env } from "../../config/env.js";
 import { createDatabaseClient } from "./database-client.js";
@@ -52,8 +52,8 @@ import {
   shouldReencryptPii,
 } from "../security/pii.js";
 
-// 이 파일은 MySQL 연결, 테이블 보정, 기본 시드 데이터 주입까지 함께 담당한다.
-// 별도 마이그레이션 도구 없이 앱 시작 시 필요한 스키마를 맞추는 구조다.
+// 이 파일은 MySQL 연결, 테이블 보정, 기본 데이터 주입 경로를 함께 다룹니다.
+// 서버 시작 시에는 기본적으로 safe 모드라 DB 변경 작업을 수행하지 않습니다.
 
 const pool = mysql.createPool({
   host: env.dbHost,
@@ -75,6 +75,129 @@ export const withTransaction = databaseClient.withTransaction;
 export const closeDatabase = () => pool.end();
 
 let initPromise = null;
+
+const STARTUP_SCHEMA_BOOTSTRAP_MODE = "bootstrap";
+
+function normalizeSqlText(sql) {
+  if (typeof sql === "string") return sql;
+  if (sql && typeof sql.sql === "string") return sql.sql;
+  return "";
+}
+
+function normalizeSqlKeywordText(sql) {
+  return normalizeSqlText(sql)
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/--.*$/gm, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+}
+
+function isProductionRuntime() {
+  return String(env.nodeEnv ?? "").trim().toLowerCase() === "production";
+}
+
+function isStartupSchemaBootstrapMode() {
+  return String(env.dbInitMode ?? "safe").trim().toLowerCase() === STARTUP_SCHEMA_BOOTSTRAP_MODE;
+}
+
+function canRunStartupSchemaBootstrap() {
+  return (
+    !isProductionRuntime() &&
+    isStartupSchemaBootstrapMode() &&
+    env.allowStartupSchemaBootstrap === true
+  );
+}
+
+function canRunStartupSchemaAlter() {
+  return canRunStartupSchemaBootstrap() && env.allowStartupSchemaAlter === true;
+}
+
+function canRunStartupDataRepair() {
+  return canRunStartupSchemaBootstrap() && env.allowStartupDataRepair === true;
+}
+
+function canRunStartupDestructiveTask(taskFlag) {
+  return (
+    canRunStartupSchemaBootstrap() &&
+    env.allowDestructiveMigrations === true &&
+    taskFlag === true
+  );
+}
+
+function canRunStartupSchemaMaintenance() {
+  return canRunStartupSchemaAlter();
+}
+
+function canRunStartupDataPurge() {
+  return canRunStartupDestructiveTask(env.allowStartupDataPurge);
+}
+
+function canRunStartupSchemaDrop() {
+  return canRunStartupDestructiveTask(env.allowStartupSchemaDrop);
+}
+
+function canRunStartupUserPurge() {
+  return canRunStartupDestructiveTask(env.allowStartupUserPurge);
+}
+
+function logStartupSafetySkip(taskName) {
+  console.info(`[db:init:safety] skipped ${taskName}; startup DB work is disabled`);
+}
+
+function canRunStartupSql(sql) {
+  const normalized = normalizeSqlKeywordText(sql);
+  if (!normalized) return true;
+  if (/^CREATE\s+TABLE\b/.test(normalized)) return canRunStartupSchemaBootstrap();
+  if (/^ALTER\s+TABLE\b/.test(normalized)) {
+    if (/\bDROP\b/.test(normalized)) return canRunStartupSchemaDrop();
+    return canRunStartupSchemaAlter();
+  }
+  if (/^CREATE\s+(UNIQUE\s+)?INDEX\b/.test(normalized)) return canRunStartupSchemaAlter();
+  if (/^UPDATE\b/.test(normalized)) return canRunStartupDataRepair();
+  if (/^(INSERT|REPLACE)\b/.test(normalized)) return canRunStartupDataRepair();
+  if (/^DELETE\s+(\w+\s+)?FROM\b/.test(normalized)) return canRunStartupDataPurge();
+  if (/^CREATE\b/.test(normalized)) return false;
+  if (/^ALTER\b/.test(normalized)) return false;
+  if (/^DROP\b/.test(normalized)) return canRunStartupSchemaDrop();
+  if (/^RENAME\b/.test(normalized)) return canRunStartupSchemaDrop();
+  if (/^TRUNCATE\b/.test(normalized)) return canRunStartupSchemaDrop();
+  return true;
+}
+
+function createStartupNoopQueryResult(sql) {
+  const normalized = normalizeSqlKeywordText(sql);
+  if (/^(UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE|INSERT|REPLACE|RENAME)\b/.test(normalized)) {
+    return [{ affectedRows: 0, changedRows: 0, warningStatus: 0, insertId: 0 }, []];
+  }
+  return [[], []];
+}
+
+function installStartupSqlGuard() {
+  const originalQuery = pool.query.bind(pool);
+  const originalExecute = pool.execute.bind(pool);
+
+  pool.query = async (sql, params) => {
+    if (!canRunStartupSql(sql)) {
+      logStartupSafetySkip(`startup SQL: ${normalizeSqlKeywordText(sql).slice(0, 120)}`);
+      return createStartupNoopQueryResult(sql);
+    }
+    return originalQuery(sql, params);
+  };
+
+  pool.execute = async (sql, params) => {
+    if (!canRunStartupSql(sql)) {
+      logStartupSafetySkip(`startup SQL: ${normalizeSqlKeywordText(sql).slice(0, 120)}`);
+      return createStartupNoopQueryResult(sql);
+    }
+    return originalExecute(sql, params);
+  };
+
+  return () => {
+    pool.query = originalQuery;
+    pool.execute = originalExecute;
+  };
+}
 
 // 테이블 역할 설명은 DB 관리 도구에서 바로 확인할 수 있도록 MySQL TABLE COMMENT로 반영합니다.
 const SCHEMA_TABLE_COMMENTS = {
@@ -665,6 +788,7 @@ const EXTRA_SCHEMA_COLUMN_COMMENTS = {
     is_allowed: "해당 권한 허용 여부 (1=허용, 0=차단)",
   },
   studio_staff_profiles: {
+    user_id: "로그인 계정(users.id)과 연결되는 스튜디오 직원 계정입니다. 관리자/강사 권한 확인에 사용합니다.",
     id: "강사/스태프 고유 번호",
     name: "강사 또는 스태프 이름",
     role_code: "역할 코드 (owner=오너, manager=매니저, instructor=강사)",
@@ -1037,7 +1161,7 @@ async function applySchemaTableComments() {
     try {
       await pool.query(`ALTER TABLE ${escapeSqlId(tableName)} COMMENT = '${escapeSqlString(commentText)}'`);
     } catch (error) {
-      console.warn(`[db] table comment update skipped: ${tableName}`, error?.message || error);
+      console.warn(`[db] table comment update skipped: ${tableName}`, error?.message || "unknown error");
     }
   }
 }
@@ -1075,7 +1199,7 @@ async function applySchemaColumnComments() {
           `ALTER TABLE ${escapeSqlId(tableName)} MODIFY COLUMN ${escapeSqlId(columnName)} ${definition}`
         );
       } catch (error) {
-        console.warn(`[db] column comment update skipped: ${key}`, error?.message || error);
+        console.warn(`[db] column comment update skipped: ${key}`, error?.message || "unknown error");
       }
     }
   }
@@ -1083,6 +1207,11 @@ async function applySchemaColumnComments() {
 
 // 함수 역할: unused 스키마 objects에서 더 이상 쓰지 않는 항목을 제거합니다.
 async function dropUnusedSchemaObjects() {
+  if (!canRunStartupSchemaDrop()) {
+    logStartupSafetySkip("schema drop cleanup");
+    return;
+  }
+
   // birth_year는 개인정보 암호화 전환 전에 쓰던 평문 출생연도 컬럼입니다.
   // encryptExistingUserPii()가 birth_year_encrypted로 값을 옮긴 뒤에는 더 이상 코드에서 조회하지 않으므로 제거합니다.
   const hasPlainBirthYear = await databaseColumnExists("users", "birth_year");
@@ -1094,6 +1223,11 @@ async function dropUnusedSchemaObjects() {
 
 // 함수 역할: 이전에 시드로 삽입된 하드코딩 데이터를 DB에서 일괄 제거합니다.
 async function purgeAllHardcodedSeedData() {
+  if (!canRunStartupDataPurge()) {
+    logStartupSafetySkip("hardcoded seed data purge");
+    return;
+  }
+
   const productIds = [
     "video-1","video-2","video-3","video-4","video-5",
     "video-6","video-7","video-8","video-9","video-10",
@@ -1303,6 +1437,11 @@ async function encryptExistingPiiData() {
 }
 
 async function purgeExpiredWithdrawnUsers() {
+  if (!canRunStartupUserPurge()) {
+    logStartupSafetySkip("withdrawn user purge");
+    return;
+  }
+
   // 탈퇴 보관 기간 만료 사용자 조회 및 연관 데이터 정리 처리
   const [rows] = await pool.query(
     `SELECT id
@@ -1385,7 +1524,7 @@ async function ensureUtf8mb4TableCollation() {
         `ALTER TABLE ${escapeSqlId(tableName)} CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
       );
     } catch (error) {
-      console.warn(`[db] failed to convert collation for ${tableName}`, error?.message || error);
+    console.warn(`[db] failed to convert collation for ${tableName}`, error?.message || "unknown error");
     }
   }
 }
@@ -1473,7 +1612,7 @@ async function seedDemoAdminIfEnabled() {
   );
 }
 
-async function initDatabase() {
+async function runStartupDatabaseInitialization() {
   // users 테이블은 서비스 확장 과정에서 컬럼이 늘어났기 때문에,
   // 존재 여부를 확인하면서 점진적으로 스키마를 보정한다.
   await pool.query(`
@@ -1757,7 +1896,11 @@ async function initDatabase() {
       `UPDATE sessions SET expires_at = DATE_ADD(created_at, INTERVAL 14 DAY) WHERE expires_at IS NULL`
     );
   }
-  await pool.query(`DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < NOW()`);
+  if (canRunStartupDataPurge()) {
+    await pool.query(`DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at < NOW()`);
+  } else {
+    logStartupSafetySkip("expired session cleanup");
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS email_verifications (
@@ -1798,14 +1941,18 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE email_verifications ADD COLUMN first_sent_at DATETIME NULL`);
   }
 
-  await pool.query(`DELETE FROM email_verifications WHERE expires_at < NOW() OR email_hash IS NULL`);
-  await pool.query(`
-    DELETE ev1 FROM email_verifications ev1
-    INNER JOIN email_verifications ev2
-      ON ev1.email_hash = ev2.email_hash
-      AND ev1.email <> ev2.email
-      AND ev1.expires_at <= ev2.expires_at
-  `);
+  if (canRunStartupDataPurge()) {
+    await pool.query(`DELETE FROM email_verifications WHERE expires_at < NOW() OR email_hash IS NULL`);
+    await pool.query(`
+      DELETE ev1 FROM email_verifications ev1
+      INNER JOIN email_verifications ev2
+        ON ev1.email_hash = ev2.email_hash
+        AND ev1.email <> ev2.email
+        AND ev1.expires_at <= ev2.expires_at
+    `);
+  } else {
+    logStartupSafetySkip("email verification cleanup");
+  }
   const [evEmailHashIndexRows] = await pool.query(
     `SELECT COUNT(*) AS count
      FROM INFORMATION_SCHEMA.STATISTICS
@@ -1813,8 +1960,10 @@ async function initDatabase() {
        AND TABLE_NAME = 'email_verifications'
        AND INDEX_NAME = 'ux_email_verifications_email_hash'`
   );
-  if (Number(evEmailHashIndexRows?.[0]?.count ?? 0) === 0) {
+  if (Number(evEmailHashIndexRows?.[0]?.count ?? 0) === 0 && canRunStartupSchemaMaintenance()) {
     await pool.query(`ALTER TABLE email_verifications ADD UNIQUE INDEX ux_email_verifications_email_hash (email_hash)`);
+  } else if (Number(evEmailHashIndexRows?.[0]?.count ?? 0) === 0) {
+    logStartupSafetySkip("email verification unique index creation");
   }
 
   await pool.query(`
@@ -2359,6 +2508,7 @@ async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS instructors (
       id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NULL,
       name VARCHAR(120) NOT NULL,
       role VARCHAR(120) NOT NULL,
       intro TEXT NOT NULL,
@@ -2460,9 +2610,13 @@ async function initDatabase() {
       updated_at DATETIME NOT NULL
     )
   `);
-  await pool.query(
-    `DELETE FROM login_rate_limits WHERE blocked_until IS NOT NULL AND blocked_until < DATE_SUB(NOW(), INTERVAL 1 DAY)`
-  );
+  if (canRunStartupDataPurge()) {
+    await pool.query(
+      `DELETE FROM login_rate_limits WHERE blocked_until IS NOT NULL AND blocked_until < DATE_SUB(NOW(), INTERVAL 1 DAY)`
+    );
+  } else {
+    logStartupSafetySkip("login rate limit cleanup");
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS signup_rate_limits (
@@ -2472,9 +2626,13 @@ async function initDatabase() {
       updated_at DATETIME NOT NULL
     )
   `);
-  await pool.query(
-    `DELETE FROM signup_rate_limits WHERE window_start < DATE_SUB(NOW(), INTERVAL 2 HOUR)`
-  );
+  if (canRunStartupDataPurge()) {
+    await pool.query(
+      `DELETE FROM signup_rate_limits WHERE window_start < DATE_SUB(NOW(), INTERVAL 2 HOUR)`
+    );
+  } else {
+    logStartupSafetySkip("signup rate limit cleanup");
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_classes (
@@ -2986,10 +3144,13 @@ async function initDatabase() {
       memo TEXT NULL,
       created_at DATETIME NOT NULL,
       updated_at DATETIME NOT NULL,
+      INDEX idx_studio_staff_profiles_user_id (user_id),
       INDEX idx_studio_staff_profiles_status (status, role_code),
       UNIQUE KEY uq_studio_staff_profiles_name (name)
     ) COMMENT='스튜디오 운영자가 관리하는 강사·매니저 프로필과 앱연결, 권한, 급여 기준을 보관합니다.'
   `);
+  await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN user_id VARCHAR(64) NULL AFTER id`).catch((e) => { if (e.errno !== 1060) throw e; });
+  await pool.query(`ALTER TABLE studio_staff_profiles ADD INDEX idx_studio_staff_profiles_user_id (user_id)`).catch((e) => { if (e.errno !== 1061) throw e; });
   await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN birth_date DATE NULL`).catch((e) => { if (e.errno !== 1060) throw e; });
   await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN gender ENUM('male','female') NULL`).catch((e) => { if (e.errno !== 1060) throw e; });
   await pool.query(`ALTER TABLE studio_staff_profiles ADD COLUMN bio TEXT NULL`).catch((e) => { if (e.errno !== 1060) throw e; });
@@ -3150,9 +3311,17 @@ async function initDatabase() {
   `);
 
   // 모든 기본 테이블을 만든 뒤 버전별 구조 변경을 순서대로 적용합니다.
-  await runMigrations(pool);
+  if (canRunStartupSchemaMaintenance()) {
+    await runMigrations(pool);
+  } else {
+    logStartupSafetySkip("startup migrations");
+  }
   await purgeAllHardcodedSeedData();
-  await encryptExistingPiiData();
+  if (canRunStartupSchemaMaintenance()) {
+    await encryptExistingPiiData();
+  } else {
+    logStartupSafetySkip("legacy PII data repair");
+  }
   await dropUnusedSchemaObjects();
   const [emailHashIndexRows] = await pool.query(
     `SELECT COUNT(*) AS count
@@ -3161,17 +3330,37 @@ async function initDatabase() {
        AND TABLE_NAME = 'users'
        AND INDEX_NAME = 'ux_users_email_hash'`
   );
-  if (Number(emailHashIndexRows?.[0]?.count ?? 0) === 0) {
+  if (Number(emailHashIndexRows?.[0]?.count ?? 0) === 0 && canRunStartupSchemaMaintenance()) {
     await pool.query(`ALTER TABLE users ADD UNIQUE INDEX ux_users_email_hash (email_hash)`);
+  } else if (Number(emailHashIndexRows?.[0]?.count ?? 0) === 0) {
+    logStartupSafetySkip("user email hash unique index creation");
   }
-  await ensureUtf8mb4TableCollation();
-  await repairLegacyMojibakeData();
-  await applySchemaTableComments();
-  await applySchemaColumnComments();
+  if (canRunStartupSchemaMaintenance()) {
+    await ensureUtf8mb4TableCollation();
+    await repairLegacyMojibakeData();
+    await applySchemaTableComments();
+    await applySchemaColumnComments();
+  } else {
+    logStartupSafetySkip("startup schema maintenance");
+  }
   await purgeExpiredWithdrawnUsers();
 }
 
 // 함수 역할: DB 초기화가 한 번만 실행되도록 보장합니다.
+async function initDatabase() {
+  if (!canRunStartupSchemaBootstrap()) {
+    logStartupSafetySkip("startup schema bootstrap");
+    return;
+  }
+
+  const restoreStartupSqlGuard = installStartupSqlGuard();
+  try {
+    await runStartupDatabaseInitialization();
+  } finally {
+    restoreStartupSqlGuard();
+  }
+}
+
 async function ensureInitialized() {
   // 여러 요청이 동시에 들어와도 초기화는 한 번만 실행되도록 Promise를 공유한다.
   if (!initPromise) {

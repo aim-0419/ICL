@@ -1,11 +1,11 @@
 // 파일 역할: 아카데미 영상 보안 재생을 위한 세션, 토큰, 파일 경로 처리 로직을 담당합니다.
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+
+import { env } from "../../../config/env.js";
 import { toSafeText } from "./helpers.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BACKEND_ROOT = path.resolve(__dirname, "../../../..");
-const ACADEMY_VIDEO_UPLOAD_ROOT = path.resolve(BACKEND_ROOT, "uploads", "academy", "videos");
+const ACADEMY_VIDEO_UPLOAD_PREFIX = "/uploads/academy/videos/";
+const ACADEMY_VIDEO_UPLOAD_ROOT = path.resolve(env.uploadRootPath, "academy", "videos");
 
 // 함수 역할: 경로 case 입력값을 저장/비교하기 쉬운 표준 형태로 정규화합니다.
 function normalizePathCase(value) {
@@ -32,12 +32,12 @@ export function resolveAcademyVideoFilePath(assetPath) {
     }
   }
 
-  if (!normalizedPath.startsWith("/uploads/academy/videos/")) {
+  if (!normalizedPath.startsWith(ACADEMY_VIDEO_UPLOAD_PREFIX)) {
     return "";
   }
 
-  const relative = normalizedPath.replace(/^\/+/, "");
-  const absolute = path.resolve(BACKEND_ROOT, relative);
+  const relative = normalizedPath.slice(ACADEMY_VIDEO_UPLOAD_PREFIX.length);
+  const absolute = path.resolve(ACADEMY_VIDEO_UPLOAD_ROOT, relative);
 
   if (!isPathInsideRoot(absolute, ACADEMY_VIDEO_UPLOAD_ROOT)) {
     return "";
@@ -55,4 +55,3 @@ export function resolveVideoMimeType(filePath) {
   if (ext === ".webm") return "video/webm";
   return "application/octet-stream";
 }
-

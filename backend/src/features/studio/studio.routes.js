@@ -29,6 +29,10 @@ export const studioRoutes = Router();
 // ─── 회원용 라우트 ─────────────────────────────────────────────────────────────
 studioRoutes.get("/classes", studioController.listClasses);
 studioRoutes.get("/me/summary", studioController.listMySummary);
+studioRoutes.post("/me/push-devices", express.json(), studioController.registerMyPushDevice);
+studioRoutes.delete("/me/push-devices", express.json(), studioController.unregisterMyPushDevice);
+studioRoutes.patch("/me/notifications/:notificationId/read", studioController.markMyNotificationRead);
+studioRoutes.patch("/me/notifications/read", studioController.markMyNotificationsRead);
 studioRoutes.post("/classes/:classId/book", studioController.bookClass);
 studioRoutes.post("/classes/:classId/cancel", studioController.cancelMyBooking);
 
@@ -75,6 +79,21 @@ studioRoutes.post("/admin/passes/transfer", express.json(), studioController.tra
 studioRoutes.post("/passes/refund-requests", express.json(), studioController.requestPassRefund);
 studioRoutes.get("/admin/pass-refunds", studioController.listAdminPassRefunds);
 studioRoutes.patch("/admin/pass-refunds/:refundId", express.json(), studioController.resolvePassRefund);
+studioRoutes.get("/admin/settings/sales-pin", studioController.getSalesPinHandler);
+studioRoutes.put("/admin/settings/sales-pin", express.json(), studioController.saveSalesPinHandler);
+studioRoutes.post("/admin/settings/sales-pin/verify", express.json(), studioController.verifySalesPinHandler);
+studioRoutes.get("/admin/sales", studioController.getStudioSalesReportHandler);
+studioRoutes.post("/admin/expenses", express.json(), studioController.createStudioExpenseHandler);
 studioRoutes.get("/admin/consultations", studioController.listConsultationsHandler);
 studioRoutes.post("/admin/consultations", express.json(), studioController.createConsultationHandler);
 studioRoutes.delete("/admin/consultations/:consultationId", studioController.deleteConsultationHandler);
+studioRoutes.get("/admin/notices", studioController.listAdminNotices);
+studioRoutes.post(
+  "/admin/notices/upload-image",
+  express.raw({ type: ["image/jpeg", "image/png", "image/webp"], limit: "10mb" }),
+  studioController.uploadNoticeImageHandler
+);
+studioRoutes.post("/admin/notices", express.json(), studioController.createAdminNoticeHandler);
+studioRoutes.get("/admin/notices/:noticeId", studioController.getAdminNoticeHandler);
+studioRoutes.put("/admin/notices/:noticeId", express.json(), studioController.updateAdminNoticeHandler);
+studioRoutes.delete("/admin/notices", express.json(), studioController.deleteAdminNoticesHandler);

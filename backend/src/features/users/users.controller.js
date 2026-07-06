@@ -110,7 +110,7 @@ export async function requestEmailVerification(req, res, next) {
 
     const result = await usersService.requestEmailVerificationCode(authUser.id, req.body?.email);
     res.json({
-      message: "인증번호를 발송했습니다. (개발환경에서는 응답에 debugCode가 포함됩니다.)",
+      message: "인증번호를 발송했습니다.",
       ...result,
     });
   } catch (error) {
@@ -147,7 +147,7 @@ export async function requestWithdrawPhoneVerification(req, res, next) {
 
     const result = await usersService.requestWithdrawPhoneVerificationCode(authUser.id, req.body?.phone);
     res.json({
-      message: "휴대폰 인증번호를 발송했습니다. (개발환경에서는 응답에 debugCode가 포함됩니다.)",
+      message: "휴대폰 인증번호를 발송했습니다.",
       ...result,
     });
   } catch (error) {

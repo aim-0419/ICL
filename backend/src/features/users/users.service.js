@@ -343,16 +343,10 @@ export async function requestEmailVerificationCode(userId, email) {
   const expiresMinutes = Math.floor(EMAIL_VERIFICATION_EXPIRES_MS / 60000);
   void sendEmailVerificationCode(normalizedEmail, code, expiresMinutes);
 
-  console.info("[email-verification] code generated", {
-    userId,
-    email: maskEmail(normalizedEmail),
-    expiresAt: new Date(expiresAt).toISOString(),
-  });
-
   return {
     email: normalizedEmail,
     expiresInSeconds: Math.floor(EMAIL_VERIFICATION_EXPIRES_MS / 1000),
-    ...(env.nodeEnv === "production" ? {} : { debugCode: code }),
+    ...(env.debugVerificationCodes ? { debugCode: code } : {}),
   };
 }
 
@@ -447,16 +441,10 @@ export async function requestWithdrawPhoneVerificationCode(userId, phone) {
     verifiedAt: null,
   });
 
-  console.info("[withdraw-phone-verification] code generated", {
-    userId,
-    phone: maskPhone(registeredPhone),
-    expiresAt,
-  });
-
   return {
     phone: maskPhone(registeredPhone),
     expiresInSeconds: Math.floor(PHONE_VERIFICATION_EXPIRES_MS / 1000),
-    ...(env.nodeEnv === "production" ? {} : { debugCode: code }),
+    ...(env.debugVerificationCodes ? { debugCode: code } : {}),
   };
 }
 

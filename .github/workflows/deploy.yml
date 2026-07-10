@@ -64,10 +64,16 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             if [ -f ~/ICL/backend/.env ]; then
-              DB_USER=$(grep "^DB_USER=" ~/ICL/backend/.env | cut -d= -f2)
-              DB_PASS=$(grep "^DB_PASSWORD=" ~/ICL/backend/.env | cut -d= -f2)
-              DB_NAME=$(grep "^DB_NAME=" ~/ICL/backend/.env | cut -d= -f2)
-              mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < ~/ICL/deploy/seed-overrides.sql 2>/dev/null || true
+              APPLY_DEPLOY_SEED_OVERRIDES=$(grep "^APPLY_DEPLOY_SEED_OVERRIDES=" ~/ICL/backend/.env | cut -d= -f2- | tr -d '\r' || true)
+              if [ "$APPLY_DEPLOY_SEED_OVERRIDES" = "true" ] && [ -f ~/ICL/deploy/seed-overrides.sql ]; then
+                echo "Applying deploy/seed-overrides.sql because APPLY_DEPLOY_SEED_OVERRIDES=true"
+                DB_USER=$(grep "^DB_USER=" ~/ICL/backend/.env | cut -d= -f2)
+                DB_PASS=$(grep "^DB_PASSWORD=" ~/ICL/backend/.env | cut -d= -f2)
+                DB_NAME=$(grep "^DB_NAME=" ~/ICL/backend/.env | cut -d= -f2)
+                mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < ~/ICL/deploy/seed-overrides.sql 2>/dev/null
+              else
+                echo "Skipping deploy/seed-overrides.sql; set APPLY_DEPLOY_SEED_OVERRIDES=true to apply it intentionally"
+              fi
             fi
             cd frontend
             npm install

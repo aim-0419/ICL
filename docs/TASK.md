@@ -610,3 +610,46 @@ Medium to High until production deployment checks are completed, because this br
 - scheduler 운영 영향
 - nginx `/api`와 `/uploads`
 - PM2 restart/reload 방식
+
+## 운영 배포 전 B blocker 보완 상태
+
+확인된 blocker:
+
+- GitHub Actions deploy job이 `main` 배포 때마다 `deploy/seed-overrides.sql`을 운영 DB에 자동 적용할 수 있었음.
+- `deploy/seed-overrides.sql`은 `admin_page_overrides`, `events` 테이블에 `INSERT IGNORE`를 수행하며, MySQL conditional comment 형태의 `ALTER TABLE ... DISABLE/ENABLE KEYS`와 `LOCK TABLES WRITE`를 포함한다.
+- 따라서 운영 배포마다 자동 실행되면 페이지 편집 override와 이벤트 데이터가 의도치 않게 운영 DB에 반영될 수 있다.
+
+보완 완료:
+
+- `.github/workflows/deploy.yml`에서 `deploy/seed-overrides.sql` 자동 실행을 기본 차단했다.
+- 운영 `.env`에 `APPLY_DEPLOY_SEED_OVERRIDES=true`가 명시되어 있고 SQL 파일이 존재할 때만 seed override가 실행된다.
+- 명시적 seed 실행 시 실패를 숨기지 않고 배포 로그에서 실패가 드러나도록 처리한다.
+
+운영 env 필수 확인:
+
+- `NODE_ENV=production`
+- `DB_INIT_MODE=safe`
+- `TEST_SAFE_MODE` 운영 정책 확인
+- `ALLOW_E2E_DATA_MUTATION=false` 또는 미설정
+- `UPLOAD_ROOT`가 운영 업로드 경로와 일치
+- `CORS_ORIGIN`이 운영 도메인으로 제한
+- `JWT_SECRET`, `PII_ENCRYPTION_KEY`, `ACADEMY_PLAYBACK_TOKEN_SECRET` 등 secret이 운영 서버에만 설정
+- `APPLY_DEPLOY_SEED_OVERRIDES`는 기본 미설정 또는 `false`
+
+외부 부작용 운영 정책:
+
+- 최초 운영 배포 전에는 이메일, SMS, 카카오, FCM, PortOne 결제/환불 allow flag를 기본 차단으로 두고 smoke test 후 필요한 항목만 승인한다.
+- `ACADEMY_PUBLISH_SCHEDULER_ENABLED`, `NOTIFICATION_SCHEDULER_ENABLED`도 최초 배포 전 기본 차단 후 수동 검증을 거쳐 활성화한다.
+
+아직 남은 확인:
+
+- 운영 서버에서 `sudo nginx -t` 확인
+- 운영 서버에서 `pm2 list` 및 backend 프로세스 상태 확인
+- 운영 `/api` proxy 확인
+- 운영 `/uploads` 정적 경로 확인
+- 운영 외부 발송/결제/scheduler 활성화 여부 최종 승인
+
+현재 main merge 판단:
+
+- seed override 자동 적용 blocker는 보완됨.
+- 운영 서버 nginx/PM2/uploads와 운영 env allow flag 최종 확인 전까지 main merge는 아직 보류한다.

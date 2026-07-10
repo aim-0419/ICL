@@ -335,15 +335,20 @@
 - [ ] 배포 job이 어느 서버와 어떤 경로에 배포하는지 확인했다.
 - [ ] 배포 중 실패 시 rollback 또는 수동 복구 절차를 확인했다.
 - [ ] GitHub Secrets에 운영 secret이 안전하게 저장되어 있는지 확인했다.
+- [ ] `deploy/seed-overrides.sql`은 기본 배포에서 실행되지 않는다.
+- [ ] 운영 seed override가 꼭 필요할 때만 운영 `.env`에 `APPLY_DEPLOY_SEED_OVERRIDES=true`를 명시하고, DB 백업과 승인 후 1회성으로 실행한다.
 
 ### Backend env
 
 - [ ] 운영 `NODE_ENV=production` 설정을 확인했다.
 - [ ] 운영 `DB_INIT_MODE=safe` 또는 운영 DB 자동 변경 차단을 확인했다.
+- [ ] 운영 `TEST_SAFE_MODE`는 운영 서비스 동작 정책에 맞게 명시적으로 확인했다.
+- [ ] 운영 `ALLOW_E2E_DATA_MUTATION=false` 또는 미설정 상태를 확인했다.
 - [ ] 운영 DB 접속 정보가 Git에 포함되지 않는다.
 - [ ] 운영 `UPLOAD_ROOT`가 실제 운영 업로드 경로와 일치한다.
 - [ ] 운영 CORS 허용 도메인이 실제 서비스 도메인으로 제한된다.
-- [ ] `TEST_SAFE_MODE`가 운영에서 테스트 용도로 잘못 켜지지 않는다.
+- [ ] `JWT_SECRET`, `PII_ENCRYPTION_KEY`, `ACADEMY_PLAYBACK_TOKEN_SECRET` 등 인증/암호화 secret이 운영 서버에만 안전하게 설정되어 있다.
+- [ ] `.env` 값은 Actions 로그, PM2 로그, 문서, PR 본문에 원문으로 출력되지 않는다.
 
 ### External side effects
 
@@ -352,12 +357,14 @@
 - [ ] 운영 카카오 알림톡 발송 허용 여부를 명시적으로 확인했다.
 - [ ] 운영 FCM Push 발송 허용 여부를 명시적으로 확인했다.
 - [ ] 운영 PortOne 결제/환불 호출 허용 여부를 명시적으로 확인했다.
+- [ ] 최초 운영 배포 전에는 `ALLOW_EXTERNAL_EMAIL_SEND`, `ALLOW_EXTERNAL_SMS_SEND`, `ALLOW_EXTERNAL_KAKAO_SEND`, `ALLOW_EXTERNAL_PUSH_SEND`, `ALLOW_EXTERNAL_PAYMENT_CALLS`를 기본 차단으로 두고 smoke test 후 필요한 항목만 승인한다.
 - [ ] 결제/환불은 sandbox 또는 제한된 운영 검수 절차를 거쳤다.
 
 ### Scheduler
 
 - [ ] Academy publish scheduler 운영 정책을 확인했다.
 - [ ] Notification scheduler 운영 정책을 확인했다.
+- [ ] 최초 운영 배포 전에는 `ACADEMY_PUBLISH_SCHEDULER_ENABLED`, `NOTIFICATION_SCHEDULER_ENABLED`를 기본 차단으로 두고 수동 검증 후 활성화한다.
 - [ ] 서버 재시작 직후 자동 발송 또는 자동 DB 변경이 발생하지 않는지 확인했다.
 - [ ] scheduler 로그에서 민감정보가 출력되지 않는지 확인했다.
 
@@ -375,6 +382,8 @@
 - [ ] 운영 DB migration 필요 여부를 확인했다.
 - [ ] `studio_staff_profiles.user_id` 컬럼 운영 반영 필요 여부를 확인했다.
 - [ ] 운영 DB에 자동 `DROP`, `DELETE`, `TRUNCATE`, destructive migration이 실행되지 않는다.
+- [ ] 운영 DB에 `deploy/seed-overrides.sql` 같은 데이터 seed SQL이 자동 적용되지 않는다.
+- [ ] seed SQL을 실행해야 한다면 적용 대상 테이블, SQL 종류, 백업 위치, rollback 방법을 먼저 기록한다.
 - [ ] 스키마 변경이 필요하면 별도 승인된 수동 migration 절차로 진행한다.
 - [ ] migration 후 rollback 또는 복구 절차를 문서화했다.
 

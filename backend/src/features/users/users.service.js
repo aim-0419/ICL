@@ -316,7 +316,7 @@ export async function requestEmailVerificationCode(userId, email) {
   });
 
   const expiresMinutes = Math.floor(EMAIL_VERIFICATION_EXPIRES_MS / 60000);
-  void sendEmailVerificationCode(normalizedEmail, code, expiresMinutes);
+  await sendEmailVerificationCode(normalizedEmail, code, expiresMinutes);
 
   return {
     email: normalizedEmail,

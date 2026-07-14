@@ -18,7 +18,10 @@ export function notFoundHandler(req, res, next) {
 export function errorHandler(error, req, res, next) {
   const safeStatus = resolveStatus(error);
   const isInternal = safeStatus >= 500;
-  const message = isInternal ? "Internal server error" : (error.message ?? "요청을 처리할 수 없습니다.");
+  const message =
+    isInternal && error.expose !== true
+      ? "Internal server error"
+      : (error.message ?? "요청을 처리할 수 없습니다.");
   const code =
     typeof error.code === "string" && !error.code.startsWith("ER_")
       ? error.code

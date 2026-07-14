@@ -38,3 +38,20 @@ test("업무 오류는 상태와 메시지를 유지한다", () => {
     requestId: "request-2",
   });
 });
+
+test("명시적으로 공개한 운영 오류는 안전한 5xx 메시지를 유지한다", () => {
+  const res = createResponse();
+  const error = new Error("인증 메일을 발송하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  error.status = 503;
+  error.code = "EMAIL_DELIVERY_UNAVAILABLE";
+  error.expose = true;
+
+  errorHandler(error, { requestId: "request-3", method: "POST", originalUrl: "/verify-email" }, res, () => {});
+
+  assert.equal(res.statusCode, 503);
+  assert.deepEqual(res.body, {
+    message: "인증 메일을 발송하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    code: "EMAIL_DELIVERY_UNAVAILABLE",
+    requestId: "request-3",
+  });
+});

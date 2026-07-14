@@ -35,22 +35,24 @@ function canSendExternalEmail() {
 }
 
 export async function sendEmail(to, subject, html) {
-  if (!to) return { skipped: true, reason: "NO_RECIPIENT" };
+  if (!to) return { sent: false, skipped: true, reason: "NO_RECIPIENT" };
   if (!canSendExternalEmail()) {
     console.info("[email] send skipped by safety settings:", subject);
-    return { skipped: true, reason: "EMAIL_SEND_DISABLED" };
+    return { sent: false, skipped: true, reason: "EMAIL_SEND_DISABLED" };
   }
 
   const t = getTransporter();
   if (!t) {
     console.warn("[email] SMTP 미설정 - 발송 건너뜀:", subject, "->", maskEmailAddress(to));
-    return;
+    return { sent: false, skipped: true, reason: "SMTP_NOT_CONFIGURED" };
   }
   try {
     await t.sendMail({ from: env.smtpFrom, to, subject, html });
     console.info("[email] 발송 완료:", subject, "->", maskEmailAddress(to));
+    return { sent: true, skipped: false };
   } catch (err) {
     console.error("[email] 발송 실패:", err.message);
+    return { sent: false, skipped: false, reason: "DELIVERY_FAILED" };
   }
 }
 
@@ -142,7 +144,15 @@ export async function sendEmailVerificationCode(email, code, expiresMinutes = 5)
       · 인증번호가 만료된 경우 다시 요청해 주세요.
     </p>`
   );
-  await sendEmail(email, subject, html);
+  const result = await sendEmail(email, subject, html);
+  if (!result?.sent) {
+    const error = new Error("인증 메일을 발송하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    error.status = 503;
+    error.code = "EMAIL_DELIVERY_UNAVAILABLE";
+    error.expose = true;
+    throw error;
+  }
+  return result;
 }
 
 // 함수 역할: 구매 완료 확인 이메일을 발송합니다.

@@ -187,7 +187,7 @@ export async function requestSignupEmailVerification(email) {
     [encryptPii(normalizedEmail), normalizedEmailHash, code, expiresAt]
   );
 
-  void sendEmailVerificationCode(normalizedEmail, code, Math.floor(SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS / 60000));
+  await sendEmailVerificationCode(normalizedEmail, code, Math.floor(SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS / 60000));
   return { expiresInSeconds: Math.floor(SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS / 1000) };
 }
 
@@ -495,7 +495,7 @@ export async function requestPasswordResetVerification(loginId, email) {
     [encryptPii(normalizedEmail), normalizedEmailHash, code, expiresAt]
   );
 
-  void sendEmailVerificationCode(normalizedEmail, code, Math.floor(SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS / 60000));
+  await sendEmailVerificationCode(normalizedEmail, code, Math.floor(SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS / 60000));
   return { expiresInSeconds: Math.floor(SIGNUP_EMAIL_VERIFICATION_EXPIRES_MS / 1000) };
 }
 

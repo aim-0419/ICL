@@ -18,7 +18,7 @@ function toCleanText(value, maxLength = 120) {
 function toDateTime(value, fieldName, { required = true } = {}) {
   const raw = String(value || "").trim();
   if (!raw) {
-    if (required) throw createRuleError(`${fieldName}을(를) 입력해 주세요.`);
+    if (required) throw createRuleError(`${fieldName}을 입력해 주세요.`);
     return null;
   }
 
@@ -40,7 +40,7 @@ export function normalizeClassInput(payload = {}) {
   const startAt = toDateTime(payload.startAt ?? payload.start_at, "수업 시작 시간");
   const endAt = toDateTime(payload.endAt ?? payload.end_at, "수업 종료 시간");
   if (endAt.getTime() <= startAt.getTime()) {
-    throw createRuleError("수업 종료 시간은 시작 시간보다 늦어야 합니다.");
+    throw createRuleError("시작 및 종료 시간이 올바르지 않습니다.");
   }
 
   const classType = VALID_CLASS_TYPES.has(String(payload.classType || "").trim())
@@ -50,15 +50,16 @@ export function normalizeClassInput(payload = {}) {
   if (!title) throw createRuleError("수업명을 입력해 주세요.");
 
   const capacity = normalizeOptionalCount(payload.capacity, classType === "private" ? 1 : 6, { min: 1, max: 100 });
-  const minCapacity = Math.min(
-    capacity,
-    normalizeOptionalCount(payload.minCapacity ?? payload.min_capacity, 0, { min: 0, max: 100 }),
-  );
-  const waitlistCapacity = normalizeOptionalCount(
-    payload.waitlistCapacity ?? payload.waitlist_capacity,
-    0,
-    { min: 0, max: 100 },
-  );
+  const minCapacity = normalizeOptionalCount(payload.minCapacity ?? payload.min_capacity, 0, { min: 0, max: 100 });
+  if (minCapacity > capacity) {
+    throw createRuleError("최소 수강 인원은 최대 정원보다 클 수 없습니다.");
+  }
+
+  const rawWaitlistCapacity = payload.waitlistCapacity ?? payload.waitlist_capacity;
+  const waitlistCapacity =
+    rawWaitlistCapacity == null || rawWaitlistCapacity === ""
+      ? null
+      : normalizeOptionalCount(rawWaitlistCapacity, 0, { min: 0, max: 100 });
 
   const branchId = VALID_BRANCH_IDS.has(String(payload.branchId || payload.branch_id || "").trim())
     ? String(payload.branchId || payload.branch_id).trim()
@@ -68,7 +69,7 @@ export function normalizeClassInput(payload = {}) {
     branchId,
     classType,
     title,
-    instructorName: toCleanText(payload.instructorName ?? payload.instructor_name, 120),
+    instructorName: toCleanText(payload.instructorName ?? payload.instructor_name, 120) || "미지정",
     roomName: toCleanText(payload.roomName ?? payload.room_name, 120),
     startAt,
     endAt,
@@ -90,5 +91,5 @@ export function resolveBookingStatus({ reservedCount = 0, capacity = 0, waitlist
   const waitCap = normalizeOptionalCount(waitlistCapacity, 0, { min: 0, max: 100000 });
   if (waitlisted < waitCap) return "waitlisted";
 
-  throw createRuleError("예약 가능한 자리와 대기 정원이 모두 마감되었습니다.", 409);
+  throw createRuleError("예약 대기 가능 인원이 마감되었습니다.", 409);
 }

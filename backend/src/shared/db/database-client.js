@@ -10,7 +10,8 @@ export function createDatabaseClient(pool) {
   async function runQuery(sql, params = []) {
     const connection = txStore.getStore();
     const runner = connection || pool;
-    return runner.query(sql, params);
+    const execute = typeof runner.query === "function" ? runner.query.bind(runner) : runner.execute.bind(runner);
+    return execute(sql, params);
   }
 
   return {

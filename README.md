@@ -10,7 +10,7 @@
 - 관리자 교육영상 등록, 수정, 삭제
 - 주문, 결제, 환불, 포인트 관리
 - 이벤트, 후기, 문의 게시판
-- 스튜디오메이트형 필라테스 일정, 예약, 수강권, 강사, 회원, 매출 관리
+- 필라테스 스튜디오 일정, 예약, 수강권, 강사, 회원, 매출 관리
 - SMS, 카카오 알림톡, 앱 푸시 연동 준비 구조
 
 ## 기술 스택
@@ -54,10 +54,19 @@ HomePage/
 │   └── test/
 ├── deploy/
 ├── docs/
+│   ├── README.md
 │   ├── WORKFLOW.md
 │   ├── PROJECT_RULES.md
+│   ├── SECURITY_HARDENING.md
 │   ├── TASK.md
-│   └── QA_DEPLOY_CHECKLIST.md
+│   ├── QA_DEPLOY_CHECKLIST.md
+│   ├── architecture/
+│   ├── development/
+│   ├── deployment/
+│   ├── integrations/
+│   ├── operations/
+│   ├── ui-ux/
+│   └── audits/
 └── frontend/
     ├── src/
     │   ├── app/
@@ -146,11 +155,14 @@ npm run build
 
 ## 작업 문서
 
+- `docs/README.md`: 목적별 문서 목록과 권장 읽기 순서
 - `AGENTS.md`: Codex와 Claude Code가 따라야 하는 프로젝트 작업 지침
 - `docs/WORKFLOW.md`: `테스트 진행해` 명령 실행 시 따르는 1단계~17단계 자동 워크플로우
 - `docs/PROJECT_RULES.md`: 프로젝트 고유 개발, QA, 보안, 권한, UI, DB, API 규칙
 - `docs/TASK.md`: 현재 작업 상태와 자동 실행 모드
 - `docs/QA_DEPLOY_CHECKLIST.md`: 배포 전 기능, 보안, UI, API, DB 점검 체크리스트
+- `docs/development/mobile-app-setup.md`: Android/iOS 환경 구성, Firebase Push, 빌드와 스토어 릴리스 가이드
+- `docs/audits/known-limitations.md`: 구현 계약과 화면 연결 상태가 추가 확인 필요한 항목
 
 ## 개발 원칙
 

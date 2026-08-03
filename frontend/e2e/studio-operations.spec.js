@@ -165,13 +165,13 @@ test("375px 화면과 큰 버튼 옵션에서 운영 화면이 사용할 수 있
 test("앱 푸시 수신자를 선택해 서버 예약 발송으로 저장한다", async ({ page }) => {
   await page.goto("/admin/messages");
   await page.getByRole("button", { name: "앱 푸시", exact: true }).click();
-  await page.locator(".stm-form-card").getByRole("button", { name: "회원", exact: true }).click();
+  await page.locator(".icl-message-form-card").getByRole("button", { name: "회원", exact: true }).click();
   await page.getByPlaceholder("이름 또는 전화번호 검색").fill("김회원");
   await page.waitForTimeout(350);
-  await page.locator(".stm-picker-item").filter({ hasText: "김회원" }).getByRole("checkbox").check();
+  await page.locator(".icl-message-picker-item").filter({ hasText: "김회원" }).getByRole("checkbox").check();
   await page.getByRole("button", { name: "1명 추가" }).click();
-  await page.locator(".stm-title-input").fill("수업 안내");
-  await page.locator(".stm-msg-textarea").fill("내일 오전 10시 수업이 예약되었습니다.");
+  await page.locator(".icl-message-title-input").fill("수업 안내");
+  await page.locator(".icl-message-msg-textarea").fill("내일 오전 10시 수업이 예약되었습니다.");
   await page.getByRole("button", { name: "보내기 예약" }).click();
   const future = new Date(Date.now() + 3_600_000);
   const pad = (value) => String(value).padStart(2, "0");

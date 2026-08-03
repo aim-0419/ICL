@@ -11,8 +11,12 @@ import { ensureInitialized, query, queryOne, withTransaction } from "../src/shar
 import { encryptedUserValues, normalizeEmail, normalizePhone } from "../src/shared/security/pii.js";
 import { hashPassword } from "../src/shared/security/password.js";
 
-const DEFAULT_MEMBER_FILE = String.raw`C:\Users\eldorado\Downloads\회원목록_20260611_1451.xlsx`;
-const DEFAULT_CLASS_FILE = String.raw`C:\Users\eldorado\Downloads\수업목록_2026-06-08.xlsx`;
+const DEFAULT_MEMBER_FILE = process.env.LEGACY_MEMBER_XLSX || "";
+const DEFAULT_CLASS_FILE = process.env.LEGACY_CLASS_XLSX || "";
+
+// 외부 서비스 명칭이 포함된 기존 키는 이미 이관된 데이터와의 중복 방지를 위해서만 유지합니다.
+const LEGACY_PASS_IMPORT_NAMESPACE = "studiomate-pass";
+const LEGACY_CLASS_IMPORT_NAMESPACE = "studiomate-class";
 
 function readArg(name, fallback) {
   const prefix = `--${name}=`;
@@ -37,7 +41,7 @@ function columnIndex(ref = "") {
 }
 
 function extractXlsx(filePath) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "studiomate-xlsx-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "icl-legacy-xlsx-"));
   const script = [
     "Add-Type -AssemblyName System.IO.Compression.FileSystem",
     "[System.IO.Compression.ZipFile]::ExtractToDirectory($env:XLSX_PATH, $env:XLSX_TARGET)",
@@ -321,7 +325,7 @@ async function insertMemo(userId, row) {
 async function insertPass(userId, row) {
   const passName = clean(row["수강권명"]);
   if (!passName) return { inserted: false, payment: false };
-  const externalImportKey = createImportKey(`studiomate-pass:${userId}`, row);
+  const externalImportKey = createImportKey(`${LEGACY_PASS_IMPORT_NAMESPACE}:${userId}`, row);
   const paidAt = dateTime(row["결제일시"]) || dateTime(row["수강권발급일"]) || dateTime(row["수강권시작일"]);
   const existing = await queryOne(
     `SELECT id, external_import_key AS externalImportKey FROM studio_passes
@@ -377,7 +381,7 @@ async function insertPass(userId, row) {
         paidAt,
         clean(row["결제방법"]) || null,
         clean(row["할부개월수"]) || null,
-        "StudioMate 엑셀 이관",
+        "레거시 엑셀 이관",
       ]
     );
   }
@@ -444,7 +448,7 @@ async function importClasses(rows) {
       const title = clean(row["수업명"]) || clean(row["수업"]) || "수업";
       const instructorName = clean(row["강사"]) || "미지정";
       const roomName = clean(row["룸"]) || clean(row["수업구분"]) || clean(row["수업"]) || "";
-      const externalImportKey = createImportKey("studiomate-class", row);
+      const externalImportKey = createImportKey(LEGACY_CLASS_IMPORT_NAMESPACE, row);
       const exists = await queryOne(
         `SELECT id, external_import_key AS externalImportKey FROM studio_classes
          WHERE external_import_key = ?
@@ -493,12 +497,17 @@ async function importClasses(rows) {
   return stats;
 }
 
-await ensureInitialized();
-
 const memberFile = readArg("members", DEFAULT_MEMBER_FILE);
 const classFile = readArg("classes", DEFAULT_CLASS_FILE);
-if (!fs.existsSync(memberFile)) throw new Error(`회원 엑셀 파일을 찾을 수 없습니다: ${memberFile}`);
-if (!fs.existsSync(classFile)) throw new Error(`수업 엑셀 파일을 찾을 수 없습니다: ${classFile}`);
+if (!memberFile || !classFile) {
+  throw new Error(
+    "이관 파일을 지정해야 합니다. --members=<회원.xlsx> --classes=<수업.xlsx> 또는 LEGACY_MEMBER_XLSX/LEGACY_CLASS_XLSX를 사용하세요."
+  );
+}
+if (!fs.existsSync(memberFile)) throw new Error("회원 엑셀 파일을 찾을 수 없습니다.");
+if (!fs.existsSync(classFile)) throw new Error("수업 엑셀 파일을 찾을 수 없습니다.");
+
+await ensureInitialized();
 
 const memberRows = toObjects(readFirstSheetRows(memberFile));
 const classRows = toObjects(readFirstSheetRows(classFile));

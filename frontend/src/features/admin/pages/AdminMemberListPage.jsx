@@ -2251,7 +2251,7 @@ function resetFilters() {
         ) : null}
       </div>
 
-      <button className="admin-memberlist-floating-add" type="button" onClick={() => setShowCreateMember(true)} title="회원 등록">
+      <button className="admin-memberlist-floating-add" type="button" onClick={() => setShowCreateMember(true)} title="회원 등록" aria-label="회원 등록">
         +
       </button>
 

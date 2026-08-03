@@ -1364,7 +1364,7 @@ function resetFilters() {
         {memoMessage ? <p className="admin-memberlist-memo-message">{memoMessage}</p> : null}
 
         <div className="admin-memberlist-table-wrap">
-          <table className="admin-memberlist-table studio-mate-member-table">
+          <table className="admin-memberlist-table icl-studio-member-table">
             <thead>
               <tr>
                 <th><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>

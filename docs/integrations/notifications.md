@@ -61,3 +61,5 @@ NOTIFICATION_MAX_ATTEMPTS=10
 - `studio_notification_logs`: 공급자 발송 결과 이력
 - `studio_notification_templates`: 자동 알림 채널, 문구, 알림톡 승인 코드
 - `studio_push_devices`: 회원별 앱 FCM 토큰
+
+> 최종 점검: 2026-07-29. 실제 발송은 승인된 운영 키와 채널 심사 완료 후 별도로 검증해야 합니다.

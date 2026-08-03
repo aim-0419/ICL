@@ -4990,6 +4990,10 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
   object-fit: cover;
 }
 
+.academy-detail-media > .academy-video-thumb-fallback {
+  min-height: inherit;
+}
+
 .academy-detail-info {
   border-radius: 22px;
   border: 1px solid rgba(98, 73, 35, 0.12);
@@ -5094,6 +5098,10 @@ body.admin-image-editor-on .home-main > .home-section-card.admin-editing-selecte
   width: 100%;
   height: 64px;
   object-fit: cover;
+}
+
+.academy-related-card > .academy-video-thumb-fallback {
+  min-height: 160px;
 }
 
 .academy-related-card strong {
@@ -32283,4 +32291,265 @@ body,
 /* Footer */
 .adm-drawer-footer {
   padding: 1rem 1.5rem; border-top: 1px solid #e8e0d6; display: flex; gap: 0.75rem; flex-shrink: 0;
+}
+
+/* Capacitor 앱 공통 UI: 웹 디자인은 유지하고 앱에서만 안전영역과 하단 탐색을 추가합니다. */
+html.native-app,
+body.native-app {
+  min-height: 100%;
+  overscroll-behavior-y: none;
+  background: #f8f4ee;
+}
+
+body.native-app {
+  padding-top: calc(56px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+}
+
+.native-app .topbar {
+  display: none;
+}
+
+.native-app .sunlit-header {
+  display: none;
+}
+
+/* 앱 첫 화면에서는 화면 밖 홈 섹션의 페인팅을 늦춰 WebView 메모리 사용을 줄입니다. */
+.native-app .sunlit-home > .sunlit-program-section,
+.native-app .sunlit-home > .sunlit-news-panel {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+
+.native-app-topbar {
+  position: fixed;
+  z-index: 1000;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: calc(56px + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) max(14px, env(safe-area-inset-right, 0px)) 0 max(14px, env(safe-area-inset-left, 0px));
+  border-bottom: 1px solid #e8ded2;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 4px 18px rgba(54, 39, 24, 0.05);
+  backdrop-filter: blur(18px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.native-app-brand,
+.native-app-topbar-action {
+  border: 0;
+  background: transparent;
+  color: #2f2720;
+  font: inherit;
+  cursor: pointer;
+}
+
+.native-app-brand {
+  min-width: 0;
+  height: 48px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.native-app-brand img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.native-app-topbar-action {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.native-app-brand:focus-visible,
+.native-app-topbar-action:focus-visible {
+  outline: 2px solid #8d6841;
+  outline-offset: 2px;
+}
+
+.native-bottom-nav {
+  position: fixed;
+  z-index: 1000;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-height: 64px;
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+  border-top: 1px solid #e8ded2;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 -8px 24px rgba(54, 39, 24, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.native-bottom-nav-item {
+  min-width: 0;
+  min-height: 52px;
+  padding: 5px 2px 4px;
+  border: 0;
+  background: transparent;
+  color: #8a7c6e;
+  font: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.native-bottom-nav-item span {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.native-bottom-nav-item.active {
+  color: #8d6841;
+}
+
+.native-bottom-nav-item:focus-visible {
+  outline: 2px solid #8d6841;
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+.native-offline-banner {
+  position: fixed;
+  z-index: 1100;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  width: min(560px, calc(100% - 24px));
+  padding: 10px 14px;
+  transform: translateX(-50%);
+  border: 1px solid #f3c6bc;
+  border-radius: 6px;
+  background: #fff7f4;
+  color: #9f321f;
+  box-shadow: 0 10px 30px rgba(68, 38, 24, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.native-purchase-page {
+  min-height: 70vh;
+}
+
+.native-purchase-notice {
+  width: min(680px, calc(100% - 32px));
+  margin: clamp(48px, 10vh, 112px) auto;
+  padding: clamp(32px, 6vw, 56px);
+  border: 1px solid #e7ddd1;
+  border-radius: 8px;
+  background: #fff;
+  color: #2f2720;
+  text-align: center;
+  box-shadow: 0 20px 55px rgba(66, 48, 30, 0.08);
+}
+
+.native-purchase-notice > svg {
+  color: #8d6841;
+}
+
+.native-purchase-notice h1 {
+  margin: 18px 0 12px;
+  font-size: clamp(24px, 5vw, 34px);
+  letter-spacing: 0;
+}
+
+.native-purchase-notice p {
+  margin: 0 auto;
+  max-width: 500px;
+  color: #6e6257;
+  line-height: 1.8;
+}
+
+.native-purchase-actions {
+  margin-top: 28px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.academy-native-reader-label,
+.academy-native-purchase-note {
+  margin: 8px 0 0;
+  color: #75685c;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.academy-native-actions {
+  margin-top: 18px;
+}
+
+.native-push-settings {
+  margin-top: 14px;
+}
+
+.native-push-settings-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.native-push-settings-title svg {
+  color: #8d6841;
+}
+
+.native-push-settings .mypage-marketing-toggle.active {
+  border-color: #8d6841;
+  color: #8d6841;
+}
+
+.native-push-settings .mypage-marketing-status {
+  display: block;
+  margin-top: 8px;
+  color: #817366;
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .native-purchase-notice {
+    width: calc(100% - 24px);
+    margin: 28px auto;
+    padding: 28px 20px;
+  }
+
+  .native-purchase-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .native-purchase-actions button {
+    width: 100%;
+  }
+
+  .native-push-settings .mypage-marketing-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

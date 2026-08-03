@@ -1,4 +1,34 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+import { isNativeDevice } from "../platform/runtime.js";
+
+const configuredApiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || "/api").trim();
+
+export const API_BASE_URL = configuredApiBaseUrl.replace(/\/$/, "") || "/api";
+
+function getApiOrigin() {
+  if (!/^https?:\/\//i.test(API_BASE_URL)) return "";
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return "";
+  }
+}
+
+export function assertNativeApiConfiguration() {
+  if (isNativeDevice() && !getApiOrigin()) {
+    throw new Error("앱 API 주소가 설정되지 않았습니다. VITE_API_BASE_URL에 HTTPS 주소를 설정해 주세요.");
+  }
+}
+
+// 서버가 상대 경로로 반환하는 업로드 파일은 앱에서 API 서버의 절대 주소로 변환합니다.
+export function resolveApiAssetUrl(value) {
+  const source = String(value || "").trim();
+  if (!source || source.startsWith("blob:") || source.startsWith("data:")) return source;
+  if (/^https?:\/\//i.test(source)) return source;
+  if (!source.startsWith("/uploads/")) return source;
+
+  const apiOrigin = getApiOrigin();
+  return apiOrigin ? `${apiOrigin}${source}` : source;
+}
 
 const pendingGetRequests = new Map();
 
@@ -8,6 +38,7 @@ function getRequestKey(path, method) {
 
 // 파일 역할: 프론트엔드의 모든 JSON API 요청을 공통 방식으로 처리합니다.
 export async function apiRequest(path, options = {}) {
+  assertNativeApiConfiguration();
   const method = String(options.method || "GET").toUpperCase();
   const requestKey = getRequestKey(path, method);
 
@@ -27,7 +58,26 @@ export async function apiRequest(path, options = {}) {
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
 
-    const data = await response.json().catch(() => ({}));
+    if (response.status === 204) return {};
+
+    const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+    const isJsonResponse = contentType.includes("application/json") || contentType.includes("+json");
+    if (!isJsonResponse) {
+      const error = new Error("API 서버 응답 형식이 올바르지 않습니다.");
+      error.status = response.status;
+      error.code = "INVALID_API_RESPONSE";
+      throw error;
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      const error = new Error("API 서버 응답을 읽을 수 없습니다.");
+      error.status = response.status;
+      error.code = "INVALID_API_RESPONSE";
+      throw error;
+    }
 
     if (!response.ok) {
       const error = new Error(data?.message || "서버 요청에 실패했습니다.");

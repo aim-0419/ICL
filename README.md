@@ -23,7 +23,7 @@
 | 결제 | PortOne V2 |
 | 영상/이미지 | 서버 업로드, 보안 재생 링크 |
 | 배포 | EC2, nginx, PM2 |
-| 모바일 확장 | Capacitor 기반 앱 패키징 준비 |
+| 모바일 앱 | Capacitor 8, Android, iOS, Firebase Messaging |
 
 ## 디렉터리 구조
 
@@ -106,6 +106,20 @@ npm run dev
 ```
 
 기본 프론트엔드 주소는 `http://localhost:5173`입니다.
+
+### 3. Android/iOS 앱
+
+웹과 앱은 동일한 React 기능 코드와 Express API를 사용합니다. 앱용 화면 미리보기와 네이티브 동기화는 다음 명령으로 실행합니다.
+
+```bash
+cd frontend
+npm run dev:app
+npm run build:app
+npm run cap:sync
+npm run cap:check
+```
+
+실기기 푸시, Android 서명, iOS 인증서와 스토어 제출 준비는 [모바일 앱 구성 및 릴리스 가이드](docs/development/mobile-app-setup.md)를 따릅니다.
 
 ## 테스트
 

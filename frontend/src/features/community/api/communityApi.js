@@ -1,15 +1,7 @@
+import { API_BASE_URL, resolveApiAssetUrl } from "../../../shared/api/client.js";
+
 export function resolveCommunityMediaUrl(path) {
-  const source = String(path || "").trim();
-  if (!source) return "";
-
-  // http(s)://도메인/uploads/... 형태의 절대 URL은 상대경로로 정규화
-  const normalized = source.replace(/^https?:\/\/[^/]+(?=\/uploads\/)/i, "");
-
-  if (normalized.startsWith("http://") || normalized.startsWith("https://") || normalized.startsWith("blob:")) {
-    return normalized;
-  }
-
-  return normalized;
+  return resolveApiAssetUrl(path);
 }
 
 export async function uploadCommunityAsset(file, kind) {

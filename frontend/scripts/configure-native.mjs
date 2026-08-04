@@ -6,6 +6,7 @@ const IOS_APP_DELEGATE = path.resolve("ios/App/App/AppDelegate.swift");
 const IOS_INFO_PLIST = path.resolve("ios/App/App/Info.plist");
 const ANDROID_MANIFEST = path.resolve("android/app/src/main/AndroidManifest.xml");
 const ANDROID_NOTIFICATION_ICON = path.resolve("android/app/src/main/res/drawable/ic_stat_icl.xml");
+const ANDROID_GRADLE_PROPERTIES = path.resolve("android/gradle.properties");
 
 async function readOptional(filePath) {
   try {
@@ -122,6 +123,17 @@ async function writeAndroidNotificationIcon() {
   await fs.writeFile(ANDROID_NOTIFICATION_ICON, icon, "utf8");
 }
 
+async function configureAndroidGradleProperties() {
+  let source = await readOptional(ANDROID_GRADLE_PROPERTIES);
+  if (!source || source.includes("android.overridePathCheck")) return;
+
+  // Windows에서 프로젝트 경로에 한글이 있으면 AGP가 빌드를 차단하므로
+  // AGP가 안내하는 공식 override로 검사만 해제합니다.
+  source = `${source.trimEnd()}\n\nandroid.overridePathCheck=true\n`;
+  await fs.writeFile(ANDROID_GRADLE_PROPERTIES, source, "utf8");
+  console.log("[capacitor] Android non-ASCII 경로 검사 override 설정 완료");
+}
+
 async function reportFirebaseFiles() {
   const required = [
     "android/app/google-services.json",
@@ -144,4 +156,5 @@ await configureIosAppDelegate();
 await configureIosUrlScheme();
 await configureAndroidManifest();
 await writeAndroidNotificationIcon();
+await configureAndroidGradleProperties();
 await reportFirebaseFiles();

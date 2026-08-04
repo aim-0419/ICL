@@ -8,7 +8,16 @@ const TOKEN_STORAGE_KEY = "icl_push_device_token";
 
 async function getFirebaseMessaging() {
   const module = await import("@capacitor-firebase/messaging");
-  return module.FirebaseMessaging;
+  // Capacitor plugin proxy를 async 함수에서 그대로 반환하면 await 과정에서
+  // proxy의 then이 네이티브 메서드 "FirebaseMessaging.then()"으로 호출되어
+  // Android에서 unhandled rejection이 발생하고 푸시 초기화가 중단된다.
+  // then 접근만 차단해 await가 값 그대로 resolve되도록 감싼다.
+  return new Proxy(module.FirebaseMessaging, {
+    get(target, prop) {
+      if (prop === "then") return undefined;
+      return Reflect.get(target, prop);
+    },
+  });
 }
 
 function dispatchPushStatus(detail = {}) {

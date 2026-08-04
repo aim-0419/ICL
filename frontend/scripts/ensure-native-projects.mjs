@@ -18,6 +18,9 @@ for (const platform of platforms) {
     cwd: process.cwd(),
     env: process.env,
     stdio: "inherit",
+    // Windows에서는 .cmd 실행 파일을 shell 없이 spawn할 수 없습니다(EINVAL).
+    // 인자는 위의 고정 문자열뿐이므로 shell 이스케이프 문제가 없습니다.
+    shell: process.platform === "win32",
   });
   if (result.status !== 0) {
     console.error(`[capacitor] ${platform} 프로젝트 생성에 실패했습니다.`);

@@ -225,6 +225,8 @@ async function loadDeliveryContext(deliveryId) {
     `SELECT account_status AS accountStatus FROM users WHERE id = ? LIMIT 1`,
     [delivery.userId || ""]
   );
+  // 대기열에 들어간 뒤 회원이 로그아웃했을 수 있으므로 발송 직전에 다시 조회합니다.
+  // user_id 조건이 있어 토큰이 다른 회원에게 재등록된 경우에도 이 회원 기기만 나옵니다.
   const devices = await query(
     `SELECT id, token, platform
      FROM studio_push_devices

@@ -11,6 +11,7 @@ import {
   isNativeDevice,
   resolveNativeNavigationPath,
 } from "../platform/runtime.js";
+import { registerNativePushEventListeners } from "../notifications/pushNotifications.js";
 
 const ROOT_PATHS = new Set(["/", "/academy", "/pilates/reservation", "/mypage", "/login"]);
 
@@ -123,6 +124,13 @@ export function NativeAppRuntime() {
       return () => window.removeEventListener("icl:push-opened", handlePushOpened);
     }
 
+    // 알림 탭 이벤트는 로그인 여부와 무관하게 받아야 목적지를 잃지 않습니다.
+    // 여기서는 토큰을 다루지 않으므로 로그아웃 상태에서 재등록되지 않습니다.
+    let removePushEventListeners = () => {};
+    registerNativePushEventListeners()
+      .then((remove) => { removePushEventListeners = remove; })
+      .catch((error) => console.error("[push] 알림 리스너 등록 실패:", error?.message || "unknown error"));
+
     const listeners = [];
     let disposed = false;
     Promise.all([
@@ -150,6 +158,7 @@ export function NativeAppRuntime() {
       disposed = true;
       window.removeEventListener("icl:push-opened", handlePushOpened);
       listeners.forEach((listener) => listener.remove().catch(() => {}));
+      removePushEventListeners();
     };
   }, [nativeApp, nativeDevice, navigate]);
 

@@ -7,14 +7,16 @@
  * - 아이디 찾기(/auth/find-id), 비밀번호 재설정(/auth/reset-password) 링크도 제공합니다
  */
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
+import { resolveNativeNavigationPath } from "../../../shared/platform/runtime.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 
 // 컴포넌트 역할: 회원 로그인을 처리하고 로그인 후 이동을 담당하는 페이지 컴포넌트입니다.
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const store = useAppStore();
   const [form, setForm] = useState({ loginId: "", password: "" });
   const currentUserDisplayName = getUserDisplayName(store.currentUser);
@@ -24,7 +26,8 @@ export function LoginPage() {
 
     try {
       await store.loginUser(form.loginId.trim(), form.password.trim());
-      navigate("/");
+      // RequireAuth가 남겨 둔 원래 목적지로 돌아갑니다. 내부 경로만 허용합니다.
+      navigate(resolveNativeNavigationPath(location.state?.from) || "/", { replace: true });
     } catch (error) {
       alert(error.message);
     }

@@ -228,6 +228,9 @@ test("중단된 processing 건을 복구하고 예약 시각이 지난 건을 �
   const result = await materializePendingNotifications({ limit: 50 });
   assert.ok(result.recoveredStaleCount >= 1);
   assert.equal((await deliveryState(deliveryId)).status, "retry");
+
+  // 복구된 건이 이후 테스트의 대기열에 섞이지 않도록 정리한다.
+  await query(`UPDATE studio_notification_deliveries SET status = 'failed' WHERE id = ?`, [deliveryId]);
 });
 
 test("자동 알림 dry-run은 DB에 쓰지 않고 두 번 실행해도 중복을 만들지 않는다", { skip: !shouldRun }, async () => {
@@ -272,4 +275,52 @@ test("정지 기간이 끝난 수강권을 한 번만 복구한다", { skip: !sh
 
   await query(`DELETE FROM studio_pass_pauses WHERE id = ?`, [pauseId]);
   await query(`DELETE FROM studio_passes WHERE id = ?`, [passId]);
+});
+
+test("대기열 생성 후 로그아웃하면 발송하지 않고 제외 처리한다", { skip: !shouldRun }, async () => {
+  const userId = await createMember();
+  const { deliveryId } = await enqueuePush(userId);
+
+  // 로그아웃 시 이 기기의 등록이 해제되는 상황을 재현합니다.
+  await query(`UPDATE studio_push_devices SET is_active = 0, updated_at = NOW() WHERE user_id = ?`, [userId]);
+
+  let sendCount = 0;
+  const result = await processDueNotificationDeliveries({
+    sender: async () => { sendCount += 1; return { msgId: "should-not-send" }; },
+  });
+
+  assert.equal(sendCount, 0, "로그아웃한 기기에는 실제 발송 요청을 하지 않는다");
+  const state = await deliveryState(deliveryId);
+  assert.equal(state.status, "skipped");
+  assert.equal(state.nextAttemptAt, null, "제외 건은 재시도 대상이 아니다");
+  assert.ok(result.skippedCount >= 1);
+  assert.equal(result.retryCount, 0);
+});
+
+test("공유 기기에서 사용자가 바뀌면 이전 사용자에게는 발송하지 않는다", { skip: !shouldRun }, async () => {
+  const previousUser = await createMember();
+  const nextUser = await createMember({ withDevice: false });
+
+  const sharedToken = (await query(`SELECT token FROM studio_push_devices WHERE user_id = ?`, [previousUser]))[0].token;
+  const { deliveryId } = await enqueuePush(previousUser, "이전 사용자 알림");
+
+  // 이전 사용자 로그아웃 후 같은 기기에서 다른 사용자가 로그인한 상태를 재현합니다.
+  await query(`UPDATE studio_push_devices SET is_active = 0 WHERE user_id = ?`, [previousUser]);
+  await query(
+    `INSERT INTO studio_push_devices (id, user_id, token, platform, device_name, is_active, last_seen_at, created_at, updated_at)
+     VALUES (?, ?, ?, 'android', 'shared', 1, NOW(), NOW(), NOW())
+     ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), is_active = 1, updated_at = NOW()`,
+    [randomUUID(), nextUser, sharedToken]
+  );
+
+  let sendCount = 0;
+  await processDueNotificationDeliveries({
+    sender: async () => { sendCount += 1; return { msgId: "leak" }; },
+  });
+
+  assert.equal(sendCount, 0, "이전 사용자의 알림이 새 사용자 기기로 가면 안 된다");
+  assert.equal((await deliveryState(deliveryId)).status, "skipped");
+
+  const active = await query(`SELECT COUNT(*) AS c FROM studio_push_devices WHERE user_id = ? AND is_active = 1`, [previousUser]);
+  assert.equal(Number(active[0].c), 0, "이전 사용자에게 남은 활성 기기가 없어야 한다");
 });

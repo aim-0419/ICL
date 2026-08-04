@@ -73,6 +73,27 @@ export async function requestNativePushPermissionAndRegister() {
   return { permission: "granted", registered };
 }
 
+/**
+ * 알림 수신·탭 이벤트만 연결합니다. 토큰을 다루지 않으므로 로그아웃 상태에서도 안전하며,
+ * 로그아웃 중 도착한 알림을 탭했을 때도 앱이 목적지를 알 수 있게 합니다.
+ */
+export async function registerNativePushEventListeners() {
+  if (!Capacitor.isNativePlatform()) return () => {};
+
+  const FirebaseMessaging = await getFirebaseMessaging();
+  const listeners = [];
+  listeners.push(await FirebaseMessaging.addListener("notificationReceived", (notification) => {
+    window.dispatchEvent(new CustomEvent("icl:push-received", { detail: notification }));
+  }));
+  listeners.push(await FirebaseMessaging.addListener("notificationActionPerformed", (event) => {
+    window.dispatchEvent(new CustomEvent("icl:push-opened", { detail: event.notification || event }));
+  }));
+
+  return () => {
+    listeners.forEach((listener) => listener.remove().catch(() => {}));
+  };
+}
+
 // 로그인 시 권한을 새로 묻지 않고, 이미 허용된 기기만 토큰을 갱신합니다.
 export async function initializeNativePushNotifications() {
   if (!Capacitor.isNativePlatform()) return () => {};
@@ -85,12 +106,6 @@ export async function initializeNativePushNotifications() {
     } catch (error) {
       console.error("[push] 기기 토큰 등록 실패:", error?.message || "unknown error");
     }
-  }));
-  listeners.push(await FirebaseMessaging.addListener("notificationReceived", (notification) => {
-    window.dispatchEvent(new CustomEvent("icl:push-received", { detail: notification }));
-  }));
-  listeners.push(await FirebaseMessaging.addListener("notificationActionPerformed", (event) => {
-    window.dispatchEvent(new CustomEvent("icl:push-opened", { detail: event.notification || event }));
   }));
 
   try {
@@ -110,22 +125,46 @@ export async function initializeNativePushNotifications() {
   };
 }
 
+/**
+ * 이 기기의 푸시 연결만 해제합니다. 로그아웃 경로에서도 쓰이므로 어떤 단계가 실패해도
+ * 예외를 밖으로 던지지 않고, 같은 사용자의 다른 기기는 건드리지 않습니다.
+ */
 export async function unregisterCurrentPushDevice() {
-  const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+  let token = localStorage.getItem(TOKEN_STORAGE_KEY);
+
+  // 저장된 토큰이 없어도 기기에 발급된 토큰이 있으면 서버 등록이 남아 있을 수 있습니다.
+  if (!token && Capacitor.isNativePlatform()) {
+    try {
+      const FirebaseMessaging = await getFirebaseMessaging();
+      token = normalizeToken(await FirebaseMessaging.getToken());
+    } catch {
+      token = "";
+    }
+  }
+
   let serverError;
   if (token) {
     try {
       await unregisterMyPushDevice(token);
     } catch (error) {
+      // 세션이 이미 끊겼거나 네트워크가 불안정해도 로그아웃을 막지 않습니다.
       serverError = error;
+      console.error("[push] 기기 등록 해제 실패:", error?.message || "unknown error");
     }
   }
 
+  let tokenDeleted = false;
   if (Capacitor.isNativePlatform()) {
-    const FirebaseMessaging = await getFirebaseMessaging();
-    await FirebaseMessaging.deleteToken().catch(() => {});
+    try {
+      const FirebaseMessaging = await getFirebaseMessaging();
+      await FirebaseMessaging.deleteToken();
+      tokenDeleted = true;
+    } catch (error) {
+      console.error("[push] 기기 토큰 삭제 실패:", error?.message || "unknown error");
+    }
   }
+
   localStorage.removeItem(TOKEN_STORAGE_KEY);
   dispatchPushStatus({ permission: "granted", registered: false });
-  return { serverUnregistered: !serverError };
+  return { serverUnregistered: !serverError, tokenDeleted };
 }

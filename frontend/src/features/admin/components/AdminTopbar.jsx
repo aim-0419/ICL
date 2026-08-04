@@ -1,17 +1,18 @@
 import React, { useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Bell, ChevronDown, Search, UserPlus } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 
-const NAV_ITEMS = [
-  { label: "← 교육관리", path: "/admin" },
-  { label: "일정",         path: "/admin/studio" },
-  { label: "수업",         path: "/admin/classes" },
-  { label: "회원",         path: "/admin/member-list" },
-  { label: "강사",         path: "/admin/instructors" },
-  { label: "수강권",       path: "/admin/passes" },
-  { label: "메시지",       path: "/admin/messages" },
-  { label: "게시판",       path: "/admin/board" },
-  { label: "설정",         path: "/admin/settings" },
-  { label: "매출",         path: "/admin/studio/sales" },
+const PAGE_TITLES = [
+  { path: "/admin/studio/sales", title: "매출 관리", description: "지점별 매출과 운영 지표" },
+  { path: "/admin/settings", title: "설정", description: "스튜디오 운영 환경" },
+  { path: "/admin/member-list", title: "회원 관리", description: "회원과 상담 이력" },
+  { path: "/admin/instructors", title: "강사 관리", description: "강사 정보와 권한" },
+  { path: "/admin/operations", title: "운영 관리", description: "체크인, 미수금과 락커" },
+  { path: "/admin/messages", title: "메시지", description: "고객 안내와 발송 이력" },
+  { path: "/admin/classes", title: "수업 관리", description: "수업과 예약 현황" },
+  { path: "/admin/passes", title: "수강권 관리", description: "수강권 상품과 이용 조건" },
+  { path: "/admin/board", title: "게시판 관리", description: "공지와 운영 소식" },
+  { path: "/admin/studio", title: "일정", description: "스튜디오 통합 캘린더" },
 ];
 
 /**
@@ -39,16 +40,14 @@ export function AdminTopbar({
   const { pathname } = useLocation();
   const [localSearch, setLocalSearch] = useState("");
 
-  const activePath = useMemo(() => {
-    return NAV_ITEMS
-      .filter((item) => item.path !== "/admin")
+  const currentPage = useMemo(() => {
+    return [...PAGE_TITLES]
       .sort((a, b) => b.path.length - a.path.length)
-      .find((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))?.path;
+      .find((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))
+      ?? { title: "필라테스 관리", description: "스튜디오 관리자" };
   }, [pathname]);
 
-  const isActive = (item) => item.path !== "/admin" && activePath === item.path;
-
-  // 페이지별 onSearchChange가 없으면 기본 동작: Enter 시 회원 목록으로 이동
+  // 페이지별 검색 핸들러가 없을 때는 회원 통합 검색으로 연결합니다.
   const isControlled = Boolean(onSearchChange);
   const inputValue = isControlled ? (searchValue ?? "") : localSearch;
   const handleChange = isControlled
@@ -64,25 +63,20 @@ export function AdminTopbar({
 
   return (
     <header className="admin-schedule-topbar">
-      {/* col 1 — 로고 */}
-      <button className="admin-schedule-logo" type="button" onClick={() => navigate("/")}>
-        <span>ICL</span>
-      </button>
+      <div className="icl-admin-topbar-title">
+        <p>STUDIO MANAGEMENT</p>
+        <div>
+          <h1>{currentPage.title}</h1>
+          <span>{currentPage.description}</span>
+        </div>
+      </div>
 
-      {/* col 2 — 네비게이션 */}
-      <nav className="admin-schedule-nav" aria-label="admin menu">
-        {NAV_ITEMS.map((item) => (
-          <Link key={item.path} to={item.path} className={isActive(item) ? "active" : ""}>
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-
-      {/* col 3 — 검색 */}
       <div className="admin-schedule-search">
+        <Search aria-hidden="true" size={18} strokeWidth={1.8} />
         {searchSlot ?? (
           <input
             type="search"
+            aria-label="회원 이름 또는 전화번호 검색"
             placeholder="이름 또는 전화번호 검색"
             value={inputValue}
             onChange={handleChange}
@@ -91,29 +85,37 @@ export function AdminTopbar({
         )}
       </div>
 
-      {/* col 4 — 회원 추가 버튼 */}
       <button
         className="admin-schedule-add-member"
         type="button"
-        aria-label="add member"
+        aria-label="회원 추가"
+        title="회원 추가"
         onClick={onAddMember ?? (() => navigate("/admin/member-list"))}
       >
-        +
+        <UserPlus aria-hidden="true" size={20} strokeWidth={1.8} />
       </button>
 
-      {/* col 5 — 프로필 */}
-      <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
-        {userName}
-      </button>
-
-      {/* col 6 — 알림 */}
       <button
         className="admin-schedule-notification-icon"
         type="button"
         aria-label="알림"
+        title="알림 및 게시판"
+        data-emphasis={showNotification ? "true" : "false"}
         onClick={() => navigate("/admin/board")}
       >
-        <span aria-hidden="true" />
+        <Bell aria-hidden="true" size={20} strokeWidth={1.8} />
+        {showNotification ? <span className="icl-admin-notification-dot" aria-hidden="true" /> : null}
+      </button>
+
+      <button className="admin-schedule-profile" type="button" onClick={() => navigate("/admin")}>
+        <span className="icl-admin-profile-avatar" aria-hidden="true">
+          {String(userName || "관").trim().slice(0, 1)}
+        </span>
+        <span className="icl-admin-profile-copy">
+          <strong>{userName || "관리자"}</strong>
+          <small>관리자</small>
+        </span>
+        <ChevronDown aria-hidden="true" size={16} strokeWidth={1.8} />
       </button>
     </header>
   );

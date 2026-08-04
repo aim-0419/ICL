@@ -1,20 +1,29 @@
 import assert from "node:assert/strict";
-import { unlink } from "node:fs/promises";
+import { rm, unlink } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const TEST_UPLOAD_ROOT = path.resolve(
+  __dirname,
+  "..",
+  "uploads-test",
+  `.unit-academy-${process.pid}-${Date.now()}`
+);
+process.env.UPLOAD_ROOT = TEST_UPLOAD_ROOT;
+
+const {
   ACADEMY_VIDEO_UPLOAD_MAX_BYTES,
   saveAcademyAsset,
-} from "../src/features/academy/service/asset.service.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BACKEND_ROOT = path.resolve(__dirname, "..");
+} = await import("../src/features/academy/service/asset.service.js");
 
 function toStoredFilePath(assetPath) {
-  return path.resolve(BACKEND_ROOT, assetPath.replace(/^\/+/, ""));
+  return path.resolve(
+    TEST_UPLOAD_ROOT,
+    assetPath.replace(/^\/uploads\/?/, "")
+  );
 }
 
 function createMp4Header() {
@@ -25,6 +34,10 @@ function createMp4Header() {
     0x00, 0x00, 0x02, 0x00,
   ]);
 }
+
+test.after(async () => {
+  await rm(TEST_UPLOAD_ROOT, { recursive: true, force: true });
+});
 
 test("교육영상 업로드는 파일 전체를 메모리에 올리지 않고 스트림으로 저장한다", async () => {
   const videoId = `stream-test-${Date.now()}`;

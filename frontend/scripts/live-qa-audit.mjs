@@ -102,6 +102,15 @@ async function readSessions() {
   return JSON.parse(raw);
 }
 
+async function removeQaSessionFile() {
+  try {
+    await fs.rm(SESSION_PATH, { force: true });
+  } catch {
+    console.error("Failed to remove the temporary QA session file.");
+    process.exitCode = 1;
+  }
+}
+
 function cookieFor(auth, sessions) {
   if (auth === "admin") return sessions.admin?.token || "";
   if (auth === "user") return sessions.user?.token || "";
@@ -549,7 +558,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(removeQaSessionFile);

@@ -373,7 +373,7 @@ export function SignupPage() {
       setEmailVerified(false);
       setEmailCode("");
       startTimer(result.expiresInSeconds || 300);
-      alert("인증번호가 발송되었습니다. 이메일을 확인해 주세요.");
+      alert("메일 서버가 인증번호 발송을 접수했습니다. 받은편지함과 스팸함을 확인해 주세요.");
     } catch (err) {
       alert(err.message);
     } finally {

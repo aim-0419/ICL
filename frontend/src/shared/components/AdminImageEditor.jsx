@@ -33,6 +33,7 @@ import {
   normalizePageOverrideAsset,
 } from "../admin/defaultPageOverrides.js";
 import { sanitizeRichTextHtml } from "../utils/sanitizeRichTextHtml.js";
+import { API_BASE_URL } from "../api/client.js";
 
 // 관리자0의 페이지 수정 기능은 localStorage를 캐시로 사용하고 DB를 원본으로 동기화한다.
 const IMAGE_STORAGE_KEY = "icl_admin_image_overrides_v1";
@@ -546,7 +547,7 @@ function normalizeEditorHtmlForTarget(html, target) {
 // 함수 역할: override to DB 값을 서로 일치하도록 동기화합니다.
 async function syncOverrideToDb(type, key, value) {
   try {
-    await fetch("/api/admin/page-overrides", {
+    await fetch(`${API_BASE_URL}/admin/page-overrides`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -560,7 +561,7 @@ async function syncOverrideToDb(type, key, value) {
 // 함수 역할: override from DB 데이터를 삭제합니다.
 async function deleteOverrideFromDb(type, key) {
   try {
-    await fetch("/api/admin/page-overrides", {
+    await fetch(`${API_BASE_URL}/admin/page-overrides`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -574,7 +575,7 @@ async function deleteOverrideFromDb(type, key) {
 // 함수 역할: 수정값 from DB 데이터를 외부/서버에서 가져옵니다.
 async function fetchOverridesFromDb() {
   try {
-    const res = await fetch("/api/page-overrides", { credentials: "include" });
+    const res = await fetch(`${API_BASE_URL}/page-overrides`, { credentials: "include" });
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -2470,7 +2471,7 @@ export function AdminImageEditor() {
 
       // Base64 대신 서버에 실제 파일 업로드 후 URL 저장 (localStorage/DB 용량 초과 방지)
       try {
-        const response = await fetch(`/api/community/uploads?kind=image`, {
+        const response = await fetch(`${API_BASE_URL}/community/uploads?kind=image`, {
           method: "POST",
           credentials: "include",
           headers: {

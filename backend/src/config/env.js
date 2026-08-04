@@ -90,6 +90,7 @@ export const env = {
   testSafeMode,
   port: Number(process.env.PORT ?? 4000),
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
+  mobileAppOrigins: process.env.MOBILE_APP_ORIGINS ?? "https://localhost,capacitor://localhost",
   uploadRootPath: resolveUploadRootPath(process.env.UPLOAD_ROOT),
   dbHost: process.env.DB_HOST ?? "127.0.0.1",
   dbPort: Number(process.env.DB_PORT ?? 3306),

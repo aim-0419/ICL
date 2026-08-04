@@ -380,6 +380,7 @@
 .admin-schedule-page .admin-schedule-view-tabs button,
 .admin-schedule-view-tabs button {
   min-width: 50px !important;
+  min-height: 40px !important;
   padding: 0 12px !important;
 }
 
@@ -479,6 +480,19 @@
   }
 }
 
+/* 1280px 전후에서는 일정 조작부를 별도 행에 배치해 보기 전환 버튼 잘림을 막습니다. */
+@media (min-width: 1221px) and (max-width: 1320px) {
+  .admin-schedule-app .admin-schedule-filterbar {
+    grid-template-columns: minmax(130px, auto) minmax(0, 1fr) !important;
+  }
+
+  .admin-schedule-app .admin-schedule-view-controls {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: flex-end !important;
+  }
+}
+
 @media (max-width: 1220px) {
   .admin-schedule-page .admin-schedule-topbar,
   .admin-schedule-topbar {
@@ -515,5 +529,119 @@
   .admin-schedule-page .admin-schedule-search,
   .admin-schedule-search {
     display: none !important;
+  }
+}
+
+.admin-schedule-holiday-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e5e0d8;
+  border-radius: 8px;
+  background: #faf8f5;
+}
+
+.admin-schedule-holiday-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-schedule-holiday-list-head h3 {
+  margin: 0;
+  color: #2f2720;
+  font-size: 0.9rem;
+}
+
+.admin-schedule-holiday-list-head > span {
+  color: #7c6a58;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.admin-schedule-holiday-list ul {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.admin-schedule-holiday-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 9px 10px;
+  border: 1px solid #ebe5dd;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.admin-schedule-holiday-list li > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.admin-schedule-holiday-list li strong,
+.admin-schedule-holiday-list li span {
+  overflow-wrap: anywhere;
+}
+
+.admin-schedule-holiday-list li strong {
+  color: #2f2720;
+  font-size: 0.83rem;
+}
+
+.admin-schedule-holiday-list li span {
+  color: #756b62;
+  font-size: 0.76rem;
+}
+
+.admin-schedule-holiday-state {
+  min-height: 64px;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  color: #756b62;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.admin-schedule-holiday-state.is-error {
+  color: #b42318;
+}
+
+.admin-schedule-holiday-remove {
+  min-width: 56px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #e2a39d;
+  border-radius: 6px;
+  background: #fff;
+  color: #b42318;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-schedule-holiday-remove:hover:not(:disabled) {
+  background: #fff3f2;
+}
+
+.admin-schedule-holiday-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 540px) {
+  .admin-schedule-holiday-list li {
+    align-items: start;
   }
 }

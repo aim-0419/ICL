@@ -417,8 +417,15 @@ export function AppProvider({ children }) {
   }
 
   async function logoutUser() {
+    // 세션이 살아있는 동안 이 기기의 푸시 등록을 먼저 해제합니다.
+    // 해제가 실패해도 로그아웃은 계속 진행합니다.
     try {
       await unregisterCurrentPushDevice();
+    } catch (error) {
+      console.error("[auth] 로그아웃 중 푸시 해제 실패:", error?.message || "unknown error");
+    }
+
+    try {
       await apiRequest("/auth/logout", { method: "POST" });
     } catch {
       // 로그아웃 API 실패 시에도 클라이언트 상태는 비웁니다.

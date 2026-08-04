@@ -16,6 +16,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { canEditPage, getAdminLandingPath, isAdminStaff } from "../auth/userRoles.js";
 import { getUserDisplayName } from "../auth/userDisplay.js";
 import { useAppStore } from "../store/AppContext.jsx";
+import { isNativeApp } from "../platform/runtime.js";
+import { API_BASE_URL } from "../api/client.js";
 
 // 컴포넌트 역할: 공통 상단 헤더와 메뉴, 로그인/로그아웃, 장바구니 이동 버튼을 렌더링합니다.
 export function SiteHeader({ subpage = false }) {
@@ -33,6 +35,7 @@ export function SiteHeader({ subpage = false }) {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const currentUserDisplayName = getUserDisplayName(currentUser);
+  const nativeApp = isNativeApp();
 
   const cartQuantity = useMemo(
     () => cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
@@ -93,7 +96,7 @@ export function SiteHeader({ subpage = false }) {
     } catch {}
 
     try {
-      const res = await fetch("/api/admin/page-overrides", { credentials: "include" });
+      const res = await fetch(`${API_BASE_URL}/admin/page-overrides`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         const overrides = data?.overrides || {};
@@ -102,7 +105,7 @@ export function SiteHeader({ subpage = false }) {
           const keys = Object.keys(overrides[type] || {});
           for (const key of keys) {
             deleteJobs.push(
-              fetch("/api/admin/page-overrides", {
+              fetch(`${API_BASE_URL}/admin/page-overrides`, {
                 method: "DELETE",
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
@@ -217,50 +220,54 @@ export function SiteHeader({ subpage = false }) {
               <Link className="text-link-button" to="/signup">회원가입</Link>
             </>
           )}
-          <Link
-            className="cart-header-link"
-            to="/cart"
-            aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}
-            title="장바구니"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" className="cart-header-icon">
-              <path
-                d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="10" cy="19" r="1.2" />
-              <circle cx="17" cy="19" r="1.2" />
-            </svg>
-            {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
-          </Link>
+          {!nativeApp ? (
+            <Link
+              className="cart-header-link"
+              to="/cart"
+              aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}
+              title="장바구니"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="cart-header-icon">
+                <path
+                  d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx="10" cy="19" r="1.2" />
+                <circle cx="17" cy="19" r="1.2" />
+              </svg>
+              {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
+            </Link>
+          ) : null}
         </div>
 
         {/* 모바일 우측: 장바구니 + 햄버거 */}
         <div className="mobile-header-right">
-          <Link
-            className="cart-header-link"
-            to="/cart"
-            aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}
-            title="장바구니"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" className="cart-header-icon">
-              <path
-                d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="10" cy="19" r="1.2" />
-              <circle cx="17" cy="19" r="1.2" />
-            </svg>
-            {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
-          </Link>
+          {!nativeApp ? (
+            <Link
+              className="cart-header-link"
+              to="/cart"
+              aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}
+              title="장바구니"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="cart-header-icon">
+                <path
+                  d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx="10" cy="19" r="1.2" />
+                <circle cx="17" cy="19" r="1.2" />
+              </svg>
+              {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
+            </Link>
+          ) : null}
 
           <button
             type="button"

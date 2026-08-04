@@ -10,7 +10,7 @@
 - 관리자 교육영상 등록, 수정, 삭제
 - 주문, 결제, 환불, 포인트 관리
 - 이벤트, 후기, 문의 게시판
-- 스튜디오메이트형 필라테스 일정, 예약, 수강권, 강사, 회원, 매출 관리
+- 필라테스 스튜디오 일정, 예약, 수강권, 강사, 회원, 매출 관리
 - SMS, 카카오 알림톡, 앱 푸시 연동 준비 구조
 
 ## 기술 스택
@@ -23,7 +23,7 @@
 | 결제 | PortOne V2 |
 | 영상/이미지 | 서버 업로드, 보안 재생 링크 |
 | 배포 | EC2, nginx, PM2 |
-| 모바일 확장 | Capacitor 기반 앱 패키징 준비 |
+| 모바일 앱 | Capacitor 8, Android, iOS, Firebase Messaging |
 
 ## 디렉터리 구조
 
@@ -54,10 +54,19 @@ HomePage/
 │   └── test/
 ├── deploy/
 ├── docs/
+│   ├── README.md
 │   ├── WORKFLOW.md
 │   ├── PROJECT_RULES.md
+│   ├── SECURITY_HARDENING.md
 │   ├── TASK.md
-│   └── QA_DEPLOY_CHECKLIST.md
+│   ├── QA_DEPLOY_CHECKLIST.md
+│   ├── architecture/
+│   ├── development/
+│   ├── deployment/
+│   ├── integrations/
+│   ├── operations/
+│   ├── ui-ux/
+│   └── audits/
 └── frontend/
     ├── src/
     │   ├── app/
@@ -97,6 +106,20 @@ npm run dev
 ```
 
 기본 프론트엔드 주소는 `http://localhost:5173`입니다.
+
+### 3. Android/iOS 앱
+
+웹과 앱은 동일한 React 기능 코드와 Express API를 사용합니다. 앱용 화면 미리보기와 네이티브 동기화는 다음 명령으로 실행합니다.
+
+```bash
+cd frontend
+npm run dev:app
+npm run build:app
+npm run cap:sync
+npm run cap:check
+```
+
+실기기 푸시, Android 서명, iOS 인증서와 스토어 제출 준비는 [모바일 앱 구성 및 릴리스 가이드](docs/development/mobile-app-setup.md)를 따릅니다.
 
 ## 테스트
 
@@ -146,11 +169,14 @@ npm run build
 
 ## 작업 문서
 
+- `docs/README.md`: 목적별 문서 목록과 권장 읽기 순서
 - `AGENTS.md`: Codex와 Claude Code가 따라야 하는 프로젝트 작업 지침
 - `docs/WORKFLOW.md`: `테스트 진행해` 명령 실행 시 따르는 1단계~17단계 자동 워크플로우
 - `docs/PROJECT_RULES.md`: 프로젝트 고유 개발, QA, 보안, 권한, UI, DB, API 규칙
 - `docs/TASK.md`: 현재 작업 상태와 자동 실행 모드
 - `docs/QA_DEPLOY_CHECKLIST.md`: 배포 전 기능, 보안, UI, API, DB 점검 체크리스트
+- `docs/development/mobile-app-setup.md`: Android/iOS 환경 구성, Firebase Push, 빌드와 스토어 릴리스 가이드
+- `docs/audits/known-limitations.md`: 구현 계약과 화면 연결 상태가 추가 확인 필요한 항목
 
 ## 개발 원칙
 

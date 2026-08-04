@@ -13,6 +13,7 @@ import {
 } from "../api/academyApi.js";
 import { collectPurchasedVideoProductIds } from "../lib/purchases.js";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
+import { isNativeApp } from "../../../shared/platform/runtime.js";
 
 // 함수 역할: detail 전체 재생 시간 값을 계산합니다.
 function calcDetailTotalDuration(chapters) {
@@ -43,6 +44,34 @@ function StarRating({ value, onChange, readOnly = false }) {
         </button>
       ))}
     </div>
+  );
+}
+
+// 컴포넌트 역할: 썸네일이 비었거나 로딩에 실패해도 깨진 이미지 대신 강의명을 표시합니다.
+function AcademyMediaPreview({ source, title, loading }) {
+  const imageSource = resolveAcademyMediaUrl(source);
+  const [hasImageError, setHasImageError] = useState(false);
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [imageSource]);
+
+  if (!imageSource || hasImageError) {
+    return (
+      <div className="academy-video-thumb-fallback" aria-label={`${title} 썸네일 없음`}>
+        <span>ICL</span>
+        <strong>{title}</strong>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imageSource}
+      alt={title}
+      loading={loading}
+      onError={() => setHasImageError(true)}
+    />
   );
 }
 
@@ -198,6 +227,7 @@ export function AcademyDetailPage() {
     ? collectPurchasedVideoProductIds(store.orders, store.currentUser.email)
     : new Set();
   const hasPurchased = purchasedIds.has(String(video.productId || video.id));
+  const nativeApp = isNativeApp();
 
   return (
     <PageLayout mainClass="content-page academy-detail-page">
@@ -209,7 +239,7 @@ export function AcademyDetailPage() {
 
         <section className="academy-detail-layout">
           <div className="academy-detail-media">
-            <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} />
+            <AcademyMediaPreview source={video.image} title={video.title} />
           </div>
           <article className="academy-detail-info">
             <div className="academy-video-tags">
@@ -223,11 +253,13 @@ export function AcademyDetailPage() {
               <span>리뷰 {video.reviews}건</span>
             </div>
 
-            <div className="academy-video-pricing academy-detail-pricing">
-              <span className="academy-price-old">{store.formatCurrency(video.originalPrice)}</span>
-              <strong className="academy-price-sale">{store.formatCurrency(video.salePrice)}</strong>
-              {discountRate > 0 ? <em>할인 {discountRate}%</em> : null}
-            </div>
+            {!nativeApp ? (
+              <div className="academy-video-pricing academy-detail-pricing">
+                <span className="academy-price-old">{store.formatCurrency(video.originalPrice)}</span>
+                <strong className="academy-price-sale">{store.formatCurrency(video.salePrice)}</strong>
+                {discountRate > 0 ? <em>할인 {discountRate}%</em> : null}
+              </div>
+            ) : null}
 
             <p className="academy-detail-summary">{detail.summary}</p>
 
@@ -258,45 +290,63 @@ export function AcademyDetailPage() {
               ) : null}
             </dl>
 
-            <div className="academy-detail-actions">
-              <button
-                type="button"
-                className="pill-button"
-                onClick={async () => {
-                  try {
-                    await store.addToCart(video.productId, 1);
-                    alert("장바구니에 담았습니다.");
-                  } catch (error) {
-                    alert(error.message);
-                  }
-                }}
-              >
-                장바구니 담기
-              </button>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={async () => {
-                  if (!store.currentUser) {
-                    navigate("/login");
-                    return;
-                  }
-                  const purchased = collectPurchasedVideoProductIds(store.orders, store.currentUser.email);
-                  if (purchased.has(String(video.productId || video.id))) {
-                    navigate(`/academy/player/${video.id}`);
-                  } else {
+            {nativeApp ? (
+              <div className="academy-native-actions">
+                {hasPurchased || isAdminUser ? (
+                  <button type="button" className="pill-button" onClick={() => navigate(`/academy/player/${video.id}`)}>
+                    영상 수강하기
+                  </button>
+                ) : store.currentUser ? (
+                  <p className="academy-native-purchase-note">
+                    앱에서는 이미 구매한 교육영상만 수강할 수 있습니다. 웹에서 구매한 뒤 같은 계정으로 로그인해 주세요.
+                  </p>
+                ) : (
+                  <button type="button" className="pill-button" onClick={() => navigate("/login")}>
+                    로그인 후 수강 확인
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="academy-detail-actions">
+                <button
+                  type="button"
+                  className="pill-button"
+                  onClick={async () => {
                     try {
                       await store.addToCart(video.productId, 1);
-                    } catch (_) {
-                      // 이미 장바구니에 있으면 무시하고 이동
+                      alert("장바구니에 담았습니다.");
+                    } catch (error) {
+                      alert(error.message);
                     }
-                    navigate("/cart");
-                  }
-                }}
-              >
-                바로 수강하기
-              </button>
-            </div>
+                  }}
+                >
+                  장바구니 담기
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={async () => {
+                    if (!store.currentUser) {
+                      navigate("/login");
+                      return;
+                    }
+                    const purchased = collectPurchasedVideoProductIds(store.orders, store.currentUser.email);
+                    if (purchased.has(String(video.productId || video.id))) {
+                      navigate(`/academy/player/${video.id}`);
+                    } else {
+                      try {
+                        await store.addToCart(video.productId, 1);
+                      } catch (_) {
+                        // 이미 장바구니에 있으면 무시하고 이동
+                      }
+                      navigate("/cart");
+                    }
+                  }}
+                >
+                  바로 수강하기
+                </button>
+              </div>
+            )}
           </article>
         </section>
 
@@ -327,7 +377,7 @@ export function AcademyDetailPage() {
             <div className="academy-related-grid">
               {relatedVideos.map((item) => (
                 <Link className="academy-related-card" key={item.id} to={`/academy/${item.id}`}>
-                  <img src={resolveAcademyMediaUrl(item.image)} alt={item.title} />
+                  <AcademyMediaPreview source={item.image} title={item.title} loading="lazy" />
                   <strong>{item.title}</strong>
                   <span>{store.formatCurrency(item.salePrice)}</span>
                 </Link>

@@ -6,6 +6,7 @@ import { PageHero } from "../../../shared/components/PageHero.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { canEditPage } from "../../../shared/auth/userRoles.js";
+import { API_BASE_URL } from "../../../shared/api/client.js";
 
 // 컴포넌트 역할: BrandPageLayout 컴포넌트의 화면 구조와 상호작용 상태를 렌더링합니다.
 function BrandPageLayout({ kicker, title, description, points }) {
@@ -108,7 +109,7 @@ export function BrandIntroPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/brand/instructors", { credentials: "include" })
+    fetch(`${API_BASE_URL}/brand/instructors`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         const rows = Array.isArray(data?.instructors) ? data.instructors : Array.isArray(data) ? data : null;
@@ -392,7 +393,7 @@ export function BrandInstructorsPage() {
   const [deletingInstructorKey, setDeletingInstructorKey] = useState("");
 
   useEffect(() => {
-    fetch("/api/brand/instructors", { credentials: "include" })
+    fetch(`${API_BASE_URL}/brand/instructors`, { credentials: "include" })
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         const rows = Array.isArray(data?.instructors) ? data.instructors : Array.isArray(data) ? data : null;
@@ -409,7 +410,7 @@ export function BrandInstructorsPage() {
       careers: ["경력 1", "경력 2"],
     };
     try {
-      const res = await fetch("/api/brand/instructors", {
+      const res = await fetch(`${API_BASE_URL}/brand/instructors`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -437,7 +438,7 @@ export function BrandInstructorsPage() {
 
     setDeletingInstructorKey(cardKey);
     try {
-      const res = await fetch(`/api/brand/instructors/${encodeURIComponent(id)}`, {
+      const res = await fetch(`${API_BASE_URL}/brand/instructors/${encodeURIComponent(id)}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -809,7 +810,7 @@ export function BrandDirectionsPage() {
   const [branches, setBranches] = useState(DEFAULT_BRANCHES);
 
   useEffect(() => {
-    fetch("/api/brand/branches", { credentials: "include" })
+    fetch(`${API_BASE_URL}/brand/branches`, { credentials: "include" })
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         const rows = Array.isArray(data?.branches) ? data.branches : Array.isArray(data) ? data : null;

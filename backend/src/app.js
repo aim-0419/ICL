@@ -36,9 +36,9 @@ function resolveOriginHeader(req) {
 export function createApp() {
   const app = express();
   const allowedOrigins = new Set(
-    String(env.corsOrigin || "")
+    `${env.corsOrigin || ""},${env.mobileAppOrigins || ""}`
       .split(",")
-      .map((origin) => origin.trim())
+      .map((origin) => origin.trim().replace(/\/$/, ""))
       .filter(Boolean),
   );
   if (env.nodeEnv !== "production") {
@@ -52,11 +52,17 @@ export function createApp() {
     if (!origin) return true;
 
     try {
-      const parsedOrigin = new URL(origin).origin;
+      const normalizedOrigin = String(origin).trim().replace(/\/$/, "");
+      if (allowedOrigins.has(normalizedOrigin)) return true;
+
+      const parsedUrl = new URL(origin);
+      const parsedOrigin = parsedUrl.origin === "null"
+        ? `${parsedUrl.protocol}//${parsedUrl.host}`
+        : parsedUrl.origin;
       if (allowedOrigins.has(parsedOrigin)) return true;
 
       if (env.nodeEnv !== "production") {
-        const hostname = new URL(origin).hostname;
+        const hostname = parsedUrl.hostname;
         if (hostname.endsWith(".ngrok-free.dev")) return true;
       }
 

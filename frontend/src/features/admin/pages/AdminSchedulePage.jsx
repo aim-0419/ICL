@@ -25,7 +25,9 @@ import {
   bookAdminStudioClassForMember,
   cancelAdminStudioClass,
   createAdminStudioClass,
+  deleteAdminHoliday,
   deleteAdminStudioClass,
+  getAdminStudioSettings,
   listAdminInstructorHours,
   listAdminStudioClassBookings,
   listAdminStudioClasses,
@@ -119,6 +121,13 @@ function toDateInputValue(date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** DB의 휴일 날짜를 관리자 화면에서 읽기 쉬운 형식으로 표시합니다. */
+function formatHolidayDate(value) {
+  const [year, month, day] = String(value || "").slice(0, 10).split("-");
+  if (!year || !month || !day) return String(value || "-");
+  return `${year}. ${Number(month)}. ${Number(day)}.`;
+}
+
 /**
  * 주간 캘린더를 위한 7일 셀 배열을 반환합니다.
  * 월요일부터 시작해서 해당 주의 월~일 7일치를 만듭니다.
@@ -194,6 +203,9 @@ export function AdminSchedulePage() {
     title: "휴무일",
     note: "",
   });
+  const [holidays, setHolidays] = useState([]);
+  const [holidayLoading, setHolidayLoading] = useState(false);
+  const [holidayError, setHolidayError] = useState("");
   const [policyDraft, setPolicyDraft] = useState({
     reserveLimitHours: "24",
     cancelLimitHours: "6",
@@ -508,24 +520,63 @@ export function AdminSchedulePage() {
       holidayDate: previous.holidayDate || toDateInputValue(today),
     }));
     setSettingsModal("holiday");
+    await loadHolidays();
   }
 
   async function onPolicySettings() {
     setSettingsModal("policy");
   }
 
+  async function loadHolidays() {
+    setHolidayLoading(true);
+    setHolidayError("");
+    try {
+      const settings = await getAdminStudioSettings();
+      setHolidays(Array.isArray(settings?.holidays) ? settings.holidays : []);
+    } catch (error) {
+      setHolidays([]);
+      setHolidayError(error?.message || "등록된 휴일을 불러오지 못했습니다.");
+    } finally {
+      setHolidayLoading(false);
+    }
+  }
+
   async function submitHolidaySettings(event) {
     event.preventDefault();
     if (!holidayDraft.holidayDate || !holidayDraft.title.trim()) return;
     setBusy(true);
+    setHolidayError("");
     try {
       await addAdminHoliday({
         holidayDate: holidayDraft.holidayDate,
         title: holidayDraft.title.trim(),
         note: holidayDraft.note.trim(),
       });
-      setSettingsModal("");
-      await loadClasses();
+      setHolidayDraft((previous) => ({
+        ...previous,
+        title: "휴무일",
+        note: "",
+      }));
+      await loadHolidays();
+    } catch (error) {
+      setHolidayError(error?.message || "휴일을 저장하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onDeleteHoliday(holiday) {
+    if (!holiday?.id) return;
+    const holidayLabel = `${formatHolidayDate(holiday.holidayDate)} ${holiday.title || "휴무일"}`;
+    if (!window.confirm(`${holidayLabel} 설정을 해제할까요?`)) return;
+
+    setBusy(true);
+    setHolidayError("");
+    try {
+      await deleteAdminHoliday(holiday.id);
+      await loadHolidays();
+    } catch (error) {
+      setHolidayError(error?.message || "휴일 설정을 해제하지 못했습니다.");
     } finally {
       setBusy(false);
     }
@@ -752,7 +803,7 @@ export function AdminSchedulePage() {
           </section>
         ) : null}
 
-        <button className="admin-schedule-floating-add" type="button" aria-label="add schedule" onClick={() => openCreateClassModal(today)} disabled={busy}>
+        <button className="admin-schedule-floating-add" type="button" aria-label="수업 등록" onClick={() => openCreateClassModal(today)} disabled={busy}>
           +
         </button>
 
@@ -789,9 +840,41 @@ export function AdminSchedulePage() {
                       onChange={(event) => setHolidayDraft((previous) => ({ ...previous, note: event.target.value }))}
                     />
                   </label>
+                  <section className="admin-schedule-holiday-list" aria-labelledby="admin-schedule-holiday-list-title">
+                    <div className="admin-schedule-holiday-list-head">
+                      <h3 id="admin-schedule-holiday-list-title">등록된 휴일</h3>
+                      <span>{holidays.length}건</span>
+                    </div>
+                    {holidayLoading ? (
+                      <p className="admin-schedule-holiday-state" aria-live="polite">불러오는 중...</p>
+                    ) : holidayError ? (
+                      <p className="admin-schedule-holiday-state is-error" role="alert">{holidayError}</p>
+                    ) : holidays.length === 0 ? (
+                      <p className="admin-schedule-holiday-state">등록된 휴일이 없습니다.</p>
+                    ) : (
+                      <ul>
+                        {holidays.map((holiday) => (
+                          <li key={holiday.id}>
+                            <div>
+                              <strong>{formatHolidayDate(holiday.holidayDate)} · {holiday.title || "휴무일"}</strong>
+                              {holiday.note ? <span>{holiday.note}</span> : null}
+                            </div>
+                            <button
+                              type="button"
+                              className="admin-schedule-holiday-remove"
+                              onClick={() => onDeleteHoliday(holiday)}
+                              disabled={busy}
+                            >
+                              해제
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
                   <footer>
                     <button type="button" onClick={() => setSettingsModal("")}>취소</button>
-                    <button type="submit" disabled={busy}>저장</button>
+                    <button type="submit" disabled={busy}>휴일 추가</button>
                   </footer>
                 </form>
               ) : (

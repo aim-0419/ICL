@@ -1,0 +1,1473 @@
+/* 이끌림 필라테스 관리자 전용 테마: 기존 기능 마크업은 유지하고 화면 표현만 통일합니다. */
+.icl-admin-shell {
+  --icl-admin-bg: #f8f6f2;
+  --icl-admin-surface: #ffffff;
+  --icl-admin-surface-soft: #fbf9f6;
+  --icl-admin-primary: #8d5a2b;
+  --icl-admin-primary-hover: #71451f;
+  --icl-admin-primary-soft: #f5ede4;
+  --icl-admin-text: #241f1b;
+  --icl-admin-text-sub: #716a64;
+  --icl-admin-text-muted: #9a938c;
+  --icl-admin-border: #e7e0d8;
+  --icl-admin-success: #6e875a;
+  --icl-admin-success-soft: #edf3e9;
+  --icl-admin-warning: #d48334;
+  --icl-admin-warning-soft: #fff3e5;
+  --icl-admin-danger: #d95c48;
+  --icl-admin-danger-soft: #fff0ed;
+  --icl-admin-info: #657f9b;
+  --icl-admin-info-soft: #eef3f7;
+  --icl-admin-sidebar-width: 244px;
+  --icl-admin-topbar-height: 76px;
+  --icl-admin-shadow-sm: 0 1px 2px rgba(66, 48, 32, 0.04), 0 8px 24px rgba(66, 48, 32, 0.045);
+  --icl-admin-shadow-md: 0 18px 44px rgba(66, 48, 32, 0.12);
+
+  display: grid !important;
+  grid-template-columns: var(--icl-admin-sidebar-width) minmax(0, 1fr) !important;
+  min-width: 0;
+  min-height: 100vh !important;
+  overflow: visible !important;
+  background: var(--icl-admin-bg) !important;
+  color: var(--icl-admin-text);
+  font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+  letter-spacing: 0;
+}
+
+.icl-admin-shell,
+.icl-admin-shell *,
+.icl-admin-shell *::before,
+.icl-admin-shell *::after {
+  box-sizing: border-box;
+}
+
+.icl-admin-shell :where(button, input, select, textarea) {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+.icl-admin-shell :where(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid rgba(141, 90, 43, 0.2);
+  outline-offset: 2px;
+}
+
+.icl-admin-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 100vh;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 18px 18px;
+  border-right: 1px solid var(--icl-admin-border);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 8px 0 30px rgba(66, 48, 32, 0.025);
+}
+
+.icl-admin-sidebar-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 5px 7px;
+  color: var(--icl-admin-text);
+  text-decoration: none;
+}
+
+.icl-admin-sidebar-mark {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(141, 90, 43, 0.2);
+  border-radius: 12px;
+  background: var(--icl-admin-primary);
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(141, 90, 43, 0.18);
+}
+
+.icl-admin-sidebar-brand-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.icl-admin-sidebar-brand-copy strong {
+  overflow: hidden;
+  color: var(--icl-admin-text);
+  font-size: 0.94rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icl-admin-sidebar-brand-copy small {
+  color: var(--icl-admin-text-muted);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
+}
+
+.icl-admin-sidebar-nav {
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 24px;
+  padding-top: 34px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--icl-admin-border) transparent;
+}
+
+.icl-admin-sidebar-group {
+  display: grid;
+  gap: 5px;
+}
+
+.icl-admin-sidebar-group > p {
+  margin: 0 0 7px;
+  padding: 0 13px;
+  color: var(--icl-admin-text-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.icl-admin-sidebar-group > a {
+  position: relative;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 13px;
+  border-radius: 8px;
+  color: var(--icl-admin-text-sub);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.icl-admin-sidebar-group > a::before {
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 22px;
+  border-radius: 0 4px 4px 0;
+  background: transparent;
+  content: "";
+}
+
+.icl-admin-sidebar-group > a:hover {
+  background: var(--icl-admin-surface-soft);
+  color: var(--icl-admin-text);
+  transform: translateX(1px);
+}
+
+.icl-admin-sidebar-group > a.active {
+  background: var(--icl-admin-primary-soft);
+  color: var(--icl-admin-primary);
+}
+
+.icl-admin-sidebar-group > a.active::before {
+  background: var(--icl-admin-primary);
+}
+
+.icl-admin-sidebar-group > a svg {
+  flex: 0 0 auto;
+}
+
+.icl-admin-sidebar-footer {
+  padding-top: 16px;
+  border-top: 1px solid var(--icl-admin-border);
+}
+
+.icl-admin-sidebar-footer > a {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--icl-admin-surface-soft);
+  color: var(--icl-admin-text-sub);
+  text-decoration: none;
+}
+
+.icl-admin-sidebar-footer > a:hover {
+  background: var(--icl-admin-primary-soft);
+  color: var(--icl-admin-primary);
+}
+
+.icl-admin-sidebar-footer span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.icl-admin-sidebar-footer strong {
+  font-size: 0.8rem;
+}
+
+.icl-admin-sidebar-footer small {
+  color: var(--icl-admin-text-muted);
+  font-size: 0.66rem;
+}
+
+.icl-admin-workspace {
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--icl-admin-bg);
+}
+
+.icl-admin-page-content {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.icl-admin-page-content > * {
+  min-width: 0;
+  width: 100%;
+}
+
+.icl-admin-shell .admin-schedule-topbar {
+  position: sticky !important;
+  top: 0;
+  z-index: 35 !important;
+  min-width: 0;
+  min-height: var(--icl-admin-topbar-height) !important;
+  height: var(--icl-admin-topbar-height);
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 0 28px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--icl-admin-border) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(14px);
+}
+
+.icl-admin-topbar-title {
+  min-width: 180px;
+  display: grid;
+  gap: 3px;
+  margin-right: auto;
+}
+
+.icl-admin-topbar-title > p {
+  margin: 0;
+  color: var(--icl-admin-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.icl-admin-topbar-title > div {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.icl-admin-topbar-title h1 {
+  margin: 0;
+  color: var(--icl-admin-text);
+  font-size: 1.14rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.icl-admin-topbar-title span {
+  overflow: hidden;
+  color: var(--icl-admin-text-muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icl-admin-shell .admin-schedule-nav,
+.icl-admin-shell .admin-schedule-logo {
+  display: none !important;
+}
+
+.icl-admin-shell .admin-schedule-search {
+  position: relative;
+  align-self: center;
+  width: min(28vw, 360px) !important;
+  min-width: 230px !important;
+  max-width: 360px !important;
+  height: 42px !important;
+  display: grid !important;
+  grid-template-columns: 20px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 9px !important;
+  padding: 0 13px !important;
+  overflow: visible !important;
+  border: 1px solid transparent;
+  border-radius: 8px !important;
+  background: #f4f1ed !important;
+  color: var(--icl-admin-text-muted) !important;
+}
+
+.icl-admin-shell .admin-schedule-search:focus-within {
+  border-color: rgba(141, 90, 43, 0.32);
+  background: #fff !important;
+  box-shadow: 0 0 0 3px rgba(141, 90, 43, 0.08);
+}
+
+.icl-admin-shell .admin-schedule-search > svg {
+  grid-column: 1;
+  color: var(--icl-admin-text-muted);
+}
+
+.icl-admin-shell .admin-schedule-search input {
+  grid-column: 2 !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  height: 40px;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--icl-admin-text) !important;
+  font-size: 0.82rem !important;
+  outline: 0 !important;
+}
+
+.icl-admin-shell .admin-schedule-search input::placeholder {
+  color: var(--icl-admin-text-muted);
+}
+
+.icl-admin-shell .admin-schedule-add-member,
+.icl-admin-shell .admin-schedule-notification-icon {
+  position: relative;
+  align-self: center;
+  width: 42px !important;
+  height: 42px !important;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: var(--icl-admin-text-sub) !important;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.icl-admin-shell .admin-schedule-add-member:hover,
+.icl-admin-shell .admin-schedule-notification-icon:hover {
+  border-color: rgba(141, 90, 43, 0.32) !important;
+  background: var(--icl-admin-primary-soft) !important;
+  color: var(--icl-admin-primary) !important;
+}
+
+.icl-admin-notification-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 6px;
+  height: 6px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  background: var(--icl-admin-danger);
+}
+
+.icl-admin-shell .admin-schedule-profile {
+  align-self: center;
+  min-width: 0;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 3px 4px 3px 7px !important;
+  overflow: hidden;
+  border: 0 !important;
+  border-left: 0 !important;
+  background: transparent !important;
+  color: var(--icl-admin-text) !important;
+  cursor: pointer;
+}
+
+.icl-admin-profile-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--icl-admin-primary);
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.icl-admin-profile-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+
+.icl-admin-profile-copy strong {
+  max-width: 94px;
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icl-admin-profile-copy small {
+  color: var(--icl-admin-text-muted);
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+/* 공통 페이지 여백과 기본 표면 */
+.icl-admin-shell :where(
+  .admin-classlist-body,
+  .admin-memberlist-body,
+  .admin-instructor-body,
+  .admin-pass-body,
+  .admin-operations-body,
+  .icl-message-page-main,
+  .admin-notice-content,
+  .studio-sales-page
+) {
+  width: 100% !important;
+  max-width: 1600px !important;
+  margin: 0 auto !important;
+  padding: 30px 32px 64px !important;
+}
+
+.icl-admin-shell :where(
+  .admin-schedule-main,
+  .admin-classlist-app,
+  .admin-memberlist-app,
+  .admin-instructor-app,
+  .admin-pass-app,
+  .admin-operations-app,
+  .admin-notice-app,
+  .admin-settings-app,
+  .admin-sbasic-app,
+  .admin-sop-app,
+  .admin-sroom-app,
+  .admin-snoti-app,
+  .studio-sales-app
+) {
+  background: var(--icl-admin-bg) !important;
+  color: var(--icl-admin-text) !important;
+}
+
+.icl-admin-shell .admin-schedule-main {
+  min-height: 0 !important;
+  display: flex !important;
+  flex: 1;
+  flex-direction: column;
+  grid-template-rows: none !important;
+}
+
+.icl-admin-shell :where(h1, h2, h3, h4, strong) {
+  letter-spacing: 0;
+}
+
+.icl-admin-shell :where(
+  .admin-memberlist-heading,
+  .admin-instructor-title-row h1,
+  .admin-operations-heading h1,
+  .admin-notice-h1,
+  .admin-settings-title,
+  .admin-sbasic-title,
+  .admin-sop-title,
+  .admin-sroom-title,
+  .admin-pass-fp-h1,
+  .icl-message-page-title
+) {
+  color: var(--icl-admin-text) !important;
+  font-weight: 850 !important;
+}
+
+/* 탭 */
+.icl-admin-shell :where(
+  .acl-tabs,
+  .admin-memberlist-tabs,
+  .admin-instructor-tabs,
+  .admin-pass-main-tabs,
+  .admin-operations-tabs,
+  .icl-message-page-tabs,
+  .icl-message-channel-tabs,
+  .studio-sales-main-tabs,
+  .studio-sales-sub-tabs,
+  .admin-instructor-detail-tabs,
+  .admin-pass-detail-tab-bar
+) {
+  display: flex;
+  align-items: center;
+  gap: 6px !important;
+  padding: 4px !important;
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+.icl-admin-shell :where(
+  .acl-tab,
+  .admin-memberlist-tab-btn,
+  .admin-instructor-tabs button,
+  .admin-pass-main-tabs button,
+  .admin-operations-tabs button,
+  .icl-message-page-tabs button,
+  .icl-message-ch-tab,
+  .studio-sales-main-tabs button,
+  .studio-sales-sub-tabs button,
+  .admin-instructor-detail-tabs button,
+  .admin-pass-detail-tab
+) {
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: var(--icl-admin-text-sub) !important;
+  font-size: 0.78rem !important;
+  font-weight: 750 !important;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.icl-admin-shell :where(
+  .acl-tab.active,
+  .acl-branch-tabs button.active,
+  .admin-memberlist-tab-btn.active,
+  .admin-instructor-tabs button.active,
+  .admin-pass-main-tabs button.active,
+  .admin-operations-tabs button.active,
+  .icl-message-page-tabs button.active,
+  .icl-message-ch-tab.active,
+  .studio-sales-main-tabs button.active,
+  .studio-sales-sub-tabs button.active,
+  .admin-instructor-detail-tabs button.active,
+  .admin-pass-detail-tab.active
+) {
+  background: var(--icl-admin-primary) !important;
+  color: #fff !important;
+  box-shadow: 0 5px 14px rgba(141, 90, 43, 0.18);
+}
+
+.icl-admin-shell .acl-branch-tabs button:hover {
+  border-color: var(--icl-admin-primary) !important;
+  color: var(--icl-admin-primary) !important;
+}
+
+.icl-admin-shell .acl-branch-tabs button.active {
+  border-color: var(--icl-admin-primary) !important;
+  color: #fff !important;
+}
+
+/* 필터, 검색, 입력 */
+.icl-admin-shell :where(
+  .acl-filterbar,
+  .admin-memberlist-filterbar,
+  .admin-instructor-toolbar,
+  .admin-pass-filterbar,
+  .admin-operations-toolbar,
+  .admin-consulting-filterbar,
+  .admin-passhistory-filterbar,
+  .icl-message-filter-bar,
+  .studio-sales-filterbar
+) {
+  display: flex;
+  align-items: center;
+  gap: 9px !important;
+  padding: 12px 14px !important;
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 8px !important;
+  background: var(--icl-admin-surface) !important;
+  box-shadow: var(--icl-admin-shadow-sm);
+}
+
+.icl-admin-shell :where(
+  .acl-filterbar,
+  .admin-memberlist-filterbar,
+  .admin-instructor-toolbar,
+  .admin-pass-filterbar,
+  .admin-operations-toolbar,
+  .admin-consulting-filterbar,
+  .admin-passhistory-filterbar,
+  .icl-message-filter-bar,
+  .studio-sales-filterbar,
+  .admin-schedule-modal,
+  .admin-pass-modal,
+  .reg-modal,
+  .admin-instructor-modal,
+  .icl-message-dialog-panel
+) :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  min-height: 40px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 7px !important;
+  background: #fff !important;
+  color: var(--icl-admin-text) !important;
+  outline: 0;
+}
+
+.icl-admin-shell :where(
+  .acl-filterbar,
+  .admin-memberlist-filterbar,
+  .admin-instructor-toolbar,
+  .admin-pass-filterbar,
+  .admin-operations-toolbar,
+  .admin-consulting-filterbar,
+  .admin-passhistory-filterbar,
+  .icl-message-filter-bar,
+  .studio-sales-filterbar
+) :where(input, select):focus {
+  border-color: rgba(141, 90, 43, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(141, 90, 43, 0.08);
+}
+
+/* 공통 버튼 */
+.icl-admin-shell :where(
+  .acl-excel-btn,
+  .admin-classlist-btn,
+  .acl-btn,
+  .admin-schedule-instructor-button,
+  .admin-schedule-outline-button,
+  .admin-schedule-calendar-setting,
+  .admin-memberlist-reset-btn,
+  .admin-classlist-btn,
+  .admin-pass-icon-btn,
+  .admin-pass-outline-btn,
+  .admin-operations-toolbar button,
+  .admin-operations-form button,
+  .admin-notice-submit-btn,
+  .admin-notice-back-btn,
+  .icl-message-btn-outline,
+  .icl-message-btn-primary,
+  .studio-sales-blue-btn,
+  .studio-sales-primary-btn,
+  .studio-sales-refresh-btn,
+  .studio-sales-this-month-btn
+) {
+  min-height: 38px !important;
+  padding: 0 14px !important;
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 7px !important;
+  background: #fff !important;
+  color: var(--icl-admin-text-sub) !important;
+  font-size: 0.78rem !important;
+  font-weight: 750 !important;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.icl-admin-shell :where(
+  .acl-excel-btn,
+  .admin-classlist-btn.primary,
+  .acl-btn.primary,
+  .admin-operations-form button.primary,
+  .admin-notice-submit-btn,
+  .icl-message-btn-primary,
+  .studio-sales-blue-btn,
+  .studio-sales-primary-btn
+) {
+  border-color: var(--icl-admin-primary) !important;
+  background: var(--icl-admin-primary) !important;
+  color: #fff !important;
+}
+
+.icl-admin-shell :where(
+  .acl-excel-btn,
+  .admin-classlist-btn.primary,
+  .acl-btn.primary,
+  .admin-operations-form button.primary,
+  .admin-notice-submit-btn,
+  .icl-message-btn-primary,
+  .studio-sales-blue-btn,
+  .studio-sales-primary-btn
+):hover:not(:disabled) {
+  border-color: var(--icl-admin-primary-hover) !important;
+  background: var(--icl-admin-primary-hover) !important;
+}
+
+.icl-admin-shell :where(.danger, .acl-btn.danger, .admin-classlist-btn.danger, .admin-notice-del-btn) {
+  border-color: rgba(217, 92, 72, 0.25) !important;
+  background: var(--icl-admin-danger-soft) !important;
+  color: var(--icl-admin-danger) !important;
+}
+
+.icl-admin-shell button:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.48;
+}
+
+/* 표 */
+.icl-admin-shell :where(
+  .admin-classlist-table-wrap,
+  .admin-memberlist-table-wrap,
+  .admin-instructor-table-wrap,
+  .admin-operations-table-wrap,
+  .admin-consulting-table-wrap,
+  .admin-passhistory-table-wrap,
+  .admin-notice-table-wrap,
+  .icl-message-table-wrap,
+  .studio-sales-table-wrap
+) {
+  overflow: auto;
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 8px !important;
+  background: var(--icl-admin-surface) !important;
+  box-shadow: var(--icl-admin-shadow-sm);
+}
+
+.icl-admin-shell :where(
+  .admin-classlist-table,
+  .admin-memberlist-table,
+  .admin-instructor-table,
+  .admin-operations-table,
+  .admin-consulting-table,
+  .admin-passhistory-table,
+  .admin-notice-table,
+  .icl-message-table,
+  .studio-sales-table,
+  .admin-pass-detail-table
+) {
+  width: 100%;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  background: transparent !important;
+  color: var(--icl-admin-text-sub) !important;
+}
+
+.icl-admin-shell :where(
+  .admin-classlist-table,
+  .admin-memberlist-table,
+  .admin-instructor-table,
+  .admin-operations-table,
+  .admin-consulting-table,
+  .admin-passhistory-table,
+  .admin-notice-table,
+  .icl-message-table,
+  .studio-sales-table,
+  .admin-pass-detail-table
+) thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 46px !important;
+  padding: 10px 12px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--icl-admin-border) !important;
+  background: var(--icl-admin-surface-soft) !important;
+  color: var(--icl-admin-text-muted) !important;
+  font-size: 0.7rem !important;
+  font-weight: 800 !important;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.icl-admin-shell :where(
+  .admin-classlist-table,
+  .admin-memberlist-table,
+  .admin-instructor-table,
+  .admin-operations-table,
+  .admin-consulting-table,
+  .admin-passhistory-table,
+  .admin-notice-table,
+  .icl-message-table,
+  .studio-sales-table,
+  .admin-pass-detail-table
+) tbody td {
+  height: 50px !important;
+  padding: 10px 12px !important;
+  border: 0 !important;
+  border-bottom: 1px solid #f0ebe5 !important;
+  background: #fff !important;
+  color: var(--icl-admin-text-sub) !important;
+  font-size: 0.76rem !important;
+  vertical-align: middle;
+}
+
+.icl-admin-shell :where(
+  .admin-classlist-table,
+  .admin-memberlist-table,
+  .admin-instructor-table,
+  .admin-operations-table,
+  .admin-consulting-table,
+  .admin-passhistory-table,
+  .admin-notice-table,
+  .icl-message-table,
+  .studio-sales-table
+) tbody tr:hover td {
+  background: #fcfaf7 !important;
+}
+
+/* 페이지네이션 */
+.icl-admin-shell :where(
+  .admin-classlist-pagination,
+  .admin-memberlist-pagination,
+  .admin-instructor-pagination,
+  .admin-pass-pagination,
+  .admin-notice-pagination,
+  .studio-sales-pagination
+) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px !important;
+  margin-top: 22px !important;
+}
+
+.icl-admin-shell :where(
+  .admin-classlist-pagination,
+  .admin-memberlist-pagination,
+  .admin-instructor-pagination,
+  .admin-pass-pagination,
+  .admin-notice-pagination,
+  .studio-sales-pagination
+) button {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 7px !important;
+  background: #fff !important;
+  color: var(--icl-admin-text-sub) !important;
+  cursor: pointer;
+}
+
+.icl-admin-shell :where(
+  .admin-classlist-pagination,
+  .admin-memberlist-pagination,
+  .admin-instructor-pagination,
+  .admin-pass-pagination,
+  .admin-notice-pagination,
+  .studio-sales-pagination
+) button.active {
+  border-color: var(--icl-admin-primary) !important;
+  background: var(--icl-admin-primary) !important;
+  color: #fff !important;
+}
+
+/* 캘린더 */
+.icl-admin-shell .admin-schedule-toolbar {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 28px 10px !important;
+}
+
+.icl-admin-shell .admin-schedule-month-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icl-admin-shell .admin-schedule-month-title h1 {
+  margin: 0 8px;
+  color: var(--icl-admin-text);
+  font-size: 1.4rem;
+  font-weight: 850;
+}
+
+.icl-admin-shell .admin-schedule-month-title > button:first-child,
+.icl-admin-shell .admin-schedule-month-title > button:nth-of-type(2),
+.icl-admin-shell .admin-schedule-view-controls > button:first-child,
+.icl-admin-shell .admin-schedule-view-controls > button:nth-child(3) {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 !important;
+}
+
+.icl-admin-shell .admin-schedule-filterbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 28px 14px !important;
+  border-bottom: 0 !important;
+}
+
+.icl-admin-shell .admin-schedule-category-tabs,
+.icl-admin-shell .admin-schedule-view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 3px !important;
+  padding: 3px !important;
+  border: 1px solid var(--icl-admin-border);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.icl-admin-shell .admin-schedule-category-tabs button,
+.icl-admin-shell .admin-schedule-view-tabs button {
+  min-height: 34px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: var(--icl-admin-text-sub) !important;
+  font-size: 0.76rem !important;
+  font-weight: 750;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.icl-admin-shell .admin-schedule-category-tabs button.active,
+.icl-admin-shell .admin-schedule-view-tabs button.active {
+  background: var(--icl-admin-primary) !important;
+  color: #fff !important;
+}
+
+.icl-admin-shell .admin-schedule-view-controls {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.icl-admin-shell .admin-month-calendar {
+  min-height: 560px !important;
+  height: calc(100vh - 246px) !important;
+  padding: 0 28px 24px !important;
+  overflow: hidden !important;
+}
+
+.icl-admin-shell .admin-month-weekdays {
+  height: 34px !important;
+  border: 1px solid var(--icl-admin-border);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: var(--icl-admin-surface-soft);
+}
+
+.icl-admin-shell .admin-month-weekdays strong {
+  min-height: 34px !important;
+  display: grid;
+  place-items: center;
+  color: var(--icl-admin-text-muted) !important;
+  font-size: 0.7rem !important;
+  font-weight: 800;
+}
+
+.icl-admin-shell .admin-month-grid {
+  height: calc(100% - 34px) !important;
+  overflow: hidden;
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 0 0 8px 8px;
+  background: #fff;
+}
+
+.icl-admin-shell .admin-month-cell {
+  min-height: 0 !important;
+  padding: 7px !important;
+  border-color: #eee8e1 !important;
+  background: #fff !important;
+}
+
+.icl-admin-shell .admin-month-cell.outside {
+  background: #fbfaf8 !important;
+}
+
+.icl-admin-shell .admin-month-cell.today {
+  background: #fffaf4 !important;
+}
+
+.icl-admin-shell .admin-month-day-number strong {
+  color: var(--icl-admin-text-sub) !important;
+  font-size: 0.74rem;
+}
+
+.icl-admin-shell .admin-month-event {
+  min-height: 19px !important;
+  border: 1px solid color-mix(in srgb, var(--event-color) 65%, #fff) !important;
+  border-left-width: 3px !important;
+  border-radius: 4px !important;
+  background: color-mix(in srgb, var(--event-color) 8%, #fff) !important;
+  color: var(--icl-admin-text) !important;
+  font-size: 0.66rem !important;
+}
+
+.icl-admin-shell .admin-month-more {
+  color: var(--icl-admin-primary) !important;
+  font-size: 0.67rem !important;
+}
+
+.icl-admin-shell .admin-schedule-list-view {
+  height: calc(100vh - 246px) !important;
+  margin: 0 28px 24px;
+  padding: 0 !important;
+  overflow: auto !important;
+  border: 1px solid var(--icl-admin-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+/* 모달과 상세 패널 */
+.icl-admin-shell :where(
+  .admin-schedule-modal,
+  .admin-pass-modal,
+  .reg-modal,
+  .admin-instructor-modal,
+  .icl-message-dialog-panel,
+  .admin-create-member-overlay > *,
+  .admin-member-detail-panel
+) {
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  box-shadow: var(--icl-admin-shadow-md) !important;
+}
+
+.icl-admin-shell :where(
+  .admin-schedule-modal-backdrop,
+  .admin-pass-modal-backdrop,
+  .reg-modal-overlay,
+  .admin-member-modal-backdrop,
+  .icl-message-picker-overlay
+) {
+  background: rgba(36, 31, 27, 0.42) !important;
+  backdrop-filter: blur(3px);
+}
+
+.icl-admin-shell .admin-schedule-modal {
+  width: min(580px, calc(100vw - 48px));
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: auto;
+}
+
+.icl-admin-shell .admin-schedule-modal :where(header, footer) {
+  border-color: var(--icl-admin-border) !important;
+}
+
+.icl-admin-shell .admin-schedule-modal footer button[type="submit"] {
+  border-color: var(--icl-admin-primary) !important;
+  background: var(--icl-admin-primary) !important;
+  color: #fff !important;
+}
+
+/* 수강권과 설정 카드 */
+.icl-admin-shell :where(
+  .admin-pass-card,
+  .admin-pass-goods-card,
+  .admin-instructor-card,
+  .admin-operations-section,
+  .admin-consulting-form-card,
+  .admin-member-detail-section,
+  .admin-settings-list,
+  .admin-sroom-sec,
+  .admin-snoti-card,
+  .studio-sales-panel,
+  .studio-sales-summary-card,
+  .studio-sales-prev-card
+) {
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  box-shadow: var(--icl-admin-shadow-sm) !important;
+}
+
+.icl-admin-shell .admin-pass-grid,
+.icl-admin-shell .admin-pass-goods-grid {
+  gap: 16px !important;
+}
+
+.icl-admin-shell .admin-pass-fp,
+.icl-admin-shell .admin-sbasic-wrap,
+.icl-admin-shell .admin-sop-wrap,
+.icl-admin-shell .admin-sroom-wrap,
+.icl-admin-shell .admin-snoti-wrap {
+  width: min(1120px, calc(100% - 64px)) !important;
+  max-width: 1120px !important;
+  min-height: 0 !important;
+  margin: 30px auto 60px !important;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 1px solid var(--icl-admin-border);
+  border-radius: 10px;
+  background: #fff !important;
+  box-shadow: var(--icl-admin-shadow-sm);
+}
+
+.icl-admin-shell :where(
+  .admin-pass-fp-titlebar,
+  .admin-sbasic-wrap > :first-child,
+  .admin-sop-wrap > :first-child,
+  .admin-sroom-wrap > :first-child,
+  .admin-snoti-wrap > :first-child
+) {
+  background: var(--icl-admin-surface-soft) !important;
+}
+
+.icl-admin-shell .admin-pass-fp-body,
+.icl-admin-shell .admin-sbasic-content {
+  max-width: none !important;
+  padding: 10px 34px 36px !important;
+}
+
+.icl-admin-shell :where(.admin-pass-fp-sec, .admin-sbasic-sec, .admin-sop-sec, .admin-sroom-sec, .admin-snoti-section) {
+  border-color: var(--icl-admin-border) !important;
+}
+
+.icl-admin-shell :where(.admin-pass-fp-num, .admin-sbasic-num, .admin-sop-num, .admin-sroom-num) {
+  color: #c6b5a5 !important;
+}
+
+.icl-admin-shell :where(.admin-pass-fp-submit-btn, .admin-sbasic-save-btn, .admin-sop-save-btn, .admin-sroom-save-btn, .admin-snoti-save-btn) {
+  border-color: var(--icl-admin-primary) !important;
+  background: var(--icl-admin-primary) !important;
+  color: #fff !important;
+}
+
+/* 메시지와 매출 화면 */
+.icl-admin-shell .icl-message-page-main {
+  display: grid;
+  gap: 20px;
+}
+
+.icl-admin-shell :where(.icl-message-notice-box, .icl-message-form-card, .icl-message-preview-card, .icl-message-history-wrap) {
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  box-shadow: var(--icl-admin-shadow-sm);
+}
+
+.icl-admin-shell .icl-message-action-bar {
+  border-radius: 0 0 8px 8px;
+  background: var(--icl-admin-primary) !important;
+}
+
+.icl-admin-shell .icl-message-action-send {
+  color: var(--icl-admin-primary) !important;
+}
+
+.icl-admin-shell .icl-message-action-send:hover {
+  background: var(--icl-admin-primary-soft) !important;
+}
+
+.icl-admin-shell .icl-message-btn-primary {
+  background: var(--icl-admin-primary) !important;
+}
+
+.icl-admin-shell .icl-message-btn-primary:hover {
+  background: var(--icl-admin-primary-hover) !important;
+}
+
+.icl-admin-shell .studio-sales-header,
+.icl-admin-shell .studio-sales-subtabs-bar {
+  border-color: var(--icl-admin-border) !important;
+  background: transparent !important;
+}
+
+.icl-admin-shell .studio-sales-summary-cards,
+.icl-admin-shell .studio-sales-report-grid {
+  gap: 14px !important;
+}
+
+.icl-admin-shell :where(
+  .studio-sales-summary-card,
+  .studio-sales-prev-card,
+  .studio-sales-panel,
+  .studio-sales-lock-card
+) {
+  border: 1px solid var(--icl-admin-border) !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  box-shadow: var(--icl-admin-shadow-sm);
+}
+
+.icl-admin-shell .studio-sales-summary-card.active {
+  border-color: rgba(141, 90, 43, 0.42) !important;
+  background: var(--icl-admin-primary-soft) !important;
+}
+
+.icl-admin-shell .studio-sales-summary-card.active strong,
+.icl-admin-shell .studio-sales-total-line strong {
+  color: var(--icl-admin-primary) !important;
+}
+
+/* 수강권 · 설정 · 매출 잠금 화면의 레거시 강조색을 브랜드 팔레트로 통일 */
+.icl-admin-shell .admin-pass-card-top,
+.icl-admin-shell .admin-pass-detail-card {
+  background: linear-gradient(145deg, #9d7048 0%, var(--icl-admin-primary) 56%, #6f4525 100%) !important;
+}
+
+.icl-admin-shell .admin-pass-card.selected::after {
+  border-color: var(--icl-admin-primary) !important;
+}
+
+.icl-admin-shell .admin-pass-status-btn.on {
+  border-color: var(--icl-admin-primary) !important;
+  background: var(--icl-admin-primary) !important;
+}
+
+.icl-admin-shell .admin-settings-icon {
+  background: var(--icl-admin-primary-soft) !important;
+  color: var(--icl-admin-primary) !important;
+}
+
+.icl-admin-shell .admin-settings-row:hover {
+  background: var(--icl-admin-surface-soft) !important;
+}
+
+.icl-admin-shell .studio-sales-lock {
+  background: var(--icl-admin-bg) !important;
+}
+
+.icl-admin-shell .studio-sales-lock-card {
+  border: 1px solid var(--icl-admin-border) !important;
+  box-shadow: var(--icl-admin-shadow-sm) !important;
+}
+
+.icl-admin-shell .studio-sales-nopin-icon-wrap,
+.icl-admin-shell .studio-sales-nopin-info {
+  background: var(--icl-admin-primary-soft) !important;
+}
+
+.icl-admin-shell .studio-sales-nopin-badge,
+.icl-admin-shell .studio-sales-nopin-btn,
+.icl-admin-shell .studio-sales-primary-btn {
+  background: var(--icl-admin-primary) !important;
+}
+
+.icl-admin-shell .studio-sales-nopin-btn:hover,
+.icl-admin-shell .studio-sales-primary-btn:hover {
+  background: var(--icl-admin-primary-hover) !important;
+}
+
+.icl-admin-shell .studio-sales-nopin-info {
+  color: var(--icl-admin-primary-hover) !important;
+}
+
+.icl-admin-shell .studio-sales-lock-form input[type="password"] {
+  border-color: var(--icl-admin-border) !important;
+}
+
+.icl-admin-shell .studio-sales-lock-form input[type="password"]:focus {
+  border-color: var(--icl-admin-primary) !important;
+  box-shadow: 0 0 0 3px rgba(141, 90, 43, 0.14) !important;
+}
+
+/* 플로팅 버튼 */
+.icl-admin-shell :where(
+  .admin-schedule-floating-add,
+  .admin-memberlist-floating-add,
+  .admin-notice-fab,
+  .studio-sales-floating-btn
+) {
+  position: fixed !important;
+  right: 26px !important;
+  bottom: 24px !important;
+  z-index: 120 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 50px !important;
+  height: 50px !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: var(--icl-admin-primary) !important;
+  color: #fff !important;
+  font-size: 1.55rem !important;
+  line-height: 1 !important;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(141, 90, 43, 0.28) !important;
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.icl-admin-shell :where(
+  .admin-schedule-floating-add,
+  .admin-memberlist-floating-add,
+  .admin-notice-fab,
+  .studio-sales-floating-btn
+):where(:hover, :focus-visible):not(:disabled) {
+  background: var(--icl-admin-primary-hover) !important;
+  box-shadow: 0 15px 32px rgba(141, 90, 43, 0.34) !important;
+  transform: translateY(-2px);
+}
+
+.icl-admin-shell :where(
+  .admin-schedule-floating-add,
+  .admin-memberlist-floating-add,
+  .admin-notice-fab,
+  .studio-sales-floating-btn
+):focus-visible {
+  outline: 3px solid rgba(141, 90, 43, 0.28);
+  outline-offset: 3px;
+}
+
+.icl-admin-shell :where(
+  .admin-schedule-floating-add,
+  .admin-memberlist-floating-add,
+  .admin-notice-fab,
+  .studio-sales-floating-btn
+):disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 1279px) {
+  .icl-admin-shell {
+    --icl-admin-sidebar-width: 214px;
+  }
+
+  .icl-admin-shell .admin-schedule-topbar {
+    padding-inline: 22px !important;
+  }
+
+  .icl-admin-topbar-title span {
+    display: none;
+  }
+
+  .icl-admin-shell .admin-schedule-search {
+    width: min(29vw, 300px) !important;
+    max-width: 300px !important;
+  }
+
+  .icl-admin-shell :where(
+    .admin-classlist-body,
+    .admin-memberlist-body,
+    .admin-instructor-body,
+    .admin-pass-body,
+    .admin-operations-body,
+    .icl-message-page-main,
+    .admin-notice-content,
+    .studio-sales-page
+  ) {
+    padding-inline: 24px !important;
+  }
+
+  .icl-admin-shell .admin-schedule-filterbar {
+    gap: 8px;
+  }
+
+  .icl-admin-shell .admin-schedule-category-tabs button,
+  .icl-admin-shell .admin-schedule-view-tabs button,
+  .icl-admin-shell .admin-schedule-instructor-button {
+    padding-inline: 9px !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  .icl-admin-shell {
+    --icl-admin-sidebar-width: 82px;
+  }
+
+  .icl-admin-sidebar {
+    align-items: center;
+    padding-inline: 12px;
+  }
+
+  .icl-admin-sidebar-brand {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .icl-admin-sidebar-brand-copy,
+  .icl-admin-sidebar-group > p,
+  .icl-admin-sidebar-group > a span,
+  .icl-admin-sidebar-footer span {
+    display: none;
+  }
+
+  .icl-admin-sidebar-nav {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .icl-admin-sidebar-group > a,
+  .icl-admin-sidebar-footer > a {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .icl-admin-sidebar-group > a::before {
+    left: -12px;
+  }
+
+  .icl-admin-topbar-title {
+    min-width: 118px;
+  }
+
+  .icl-admin-shell .admin-schedule-search {
+    min-width: 210px !important;
+    width: min(30vw, 260px) !important;
+  }
+
+  .icl-admin-profile-copy,
+  .icl-admin-shell .admin-schedule-profile > svg {
+    display: none;
+  }
+
+  .icl-admin-shell .admin-schedule-filterbar {
+    flex-wrap: wrap;
+  }
+
+  .icl-admin-shell .admin-schedule-view-controls {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .icl-admin-shell .admin-month-calendar {
+    height: calc(100vh - 292px) !important;
+  }
+
+  .icl-admin-shell .admin-schedule-list-view {
+    height: calc(100vh - 292px) !important;
+  }
+}
+
+@media (max-height: 850px) {
+  .icl-admin-shell {
+    --icl-admin-topbar-height: 68px;
+  }
+
+  .icl-admin-sidebar {
+    padding-top: 16px;
+  }
+
+  .icl-admin-sidebar-nav {
+    gap: 14px;
+    padding-top: 20px;
+  }
+
+  .icl-admin-sidebar-group > a {
+    min-height: 39px;
+  }
+
+  .icl-admin-shell .admin-schedule-toolbar {
+    min-height: 64px;
+    padding-top: 12px !important;
+  }
+
+  .icl-admin-shell .admin-schedule-filterbar {
+    padding-top: 4px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .icl-admin-shell .admin-month-calendar {
+    min-height: 0 !important;
+    height: calc(100vh - 210px) !important;
+  }
+
+  .icl-admin-shell .admin-schedule-list-view {
+    height: calc(100vh - 210px) !important;
+  }
+}

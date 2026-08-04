@@ -16,6 +16,7 @@ pnpm-debug.log*
 !backend/.env.test.example
 !frontend/.env.example
 !frontend/.env.test.example
+!frontend/.env.app.example
 
 # OS / Editor
 .DS_Store
@@ -44,6 +45,9 @@ frontend/ios/
 frontend/android/
 
 # Local QA artifacts
+.understand-anything/
+.tmp-android-preview/
+.tmp-app-preview/
 tmp/
 qa-screenshots/
 qa-artifacts/

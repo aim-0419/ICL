@@ -3,17 +3,27 @@
   "appName": "이끌림필라테스",
   "webDir": "dist",
   "server": {
-    "hostname": "icl-pilates.com",
-    "androidScheme": "https"
+    "hostname": "localhost",
+    "androidScheme": "https",
+    "iosScheme": "capacitor"
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 2000,
+      "launchShowDuration": 800,
       "backgroundColor": "#ffffff",
       "showSpinner": false
     },
-    "PushNotifications": {
-      "presentationOptions": ["badge", "sound", "banner", "list"]
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "CapacitorCookies": {
+      "enabled": true
+    },
+    "SystemBars": {
+      "insetsHandling": "disable"
+    },
+    "FirebaseMessaging": {
+      "presentationOptions": ["alert", "badge", "sound"]
     }
   }
 }

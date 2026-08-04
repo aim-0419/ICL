@@ -1,3 +1,5 @@
+import { resolveApiAssetUrl } from "../api/client.js";
+
 const ADMIN_DEFAULT_ASSET_ROOT = "/assets/admin-defaults";
 
 // 예전 DB 값이 업로드 경로를 가리켜도 배포 서버에 기본 이미지가 없어서 깨지지 않도록
@@ -48,5 +50,5 @@ const LEGACY_UPLOAD_ASSET_MAP = {
 
 export function normalizePageOverrideAsset(value) {
   if (typeof value !== "string") return value;
-  return LEGACY_UPLOAD_ASSET_MAP[value] || value;
+  return resolveApiAssetUrl(LEGACY_UPLOAD_ASSET_MAP[value] || value);
 }

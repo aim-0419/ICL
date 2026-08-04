@@ -79,7 +79,6 @@ export function AdminNoticePage() {
   const navigate = useNavigate();
   const currentUserName = getUserDisplayName(store.currentUser) || "관리자";
 
-  const [activeTab, setActiveTab] = useState("notices");
   const [view, setView] = useState("list");
   const [editingNotice, setEditingNotice] = useState(null);
 
@@ -121,10 +120,10 @@ export function AdminNoticePage() {
   );
 
   useEffect(() => {
-    if (view === "list" && activeTab === "notices") {
+    if (view === "list") {
       loadNotices(searchQuery, page);
     }
-  }, [view, page, activeTab]);
+  }, [view, page]);
 
   function openCreate() {
     setForm(EMPTY_FORM);
@@ -241,30 +240,8 @@ export function AdminNoticePage() {
             {/* 페이지 헤더 */}
             <div className="admin-notice-page-header">
               <h1 className="admin-notice-h1">게시판</h1>
-              <div className="admin-notice-tabs" role="tablist">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "notices"}
-                  className={activeTab === "notices" ? "active" : ""}
-                  onClick={() => setActiveTab("notices")}
-                >
-                  공지사항
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "platform"}
-                  className={`${activeTab === "platform" ? "active" : ""} has-badge`}
-                  onClick={() => setActiveTab("platform")}
-                >
-                  스튜디오메이트 공지
-                </button>
-              </div>
             </div>
 
-            {activeTab === "notices" ? (
-              <>
                 {/* 툴바 */}
                 <div className="admin-notice-toolbar">
                   <span className="admin-notice-count">총 {total.toLocaleString("ko-KR")}개</span>
@@ -391,11 +368,6 @@ export function AdminNoticePage() {
                     </button>
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="admin-notice-empty">스튜디오메이트 공지가 없습니다.</div>
-            )}
-
             {/* FAB */}
             <button
               type="button"
@@ -419,10 +391,6 @@ export function AdminNoticePage() {
         <div className="admin-notice-form-page">
           <div className="admin-notice-page-header">
             <h1 className="admin-notice-h1">게시판</h1>
-            <div className="admin-notice-tabs" role="tablist">
-              <button type="button" role="tab" aria-selected className="active">공지사항</button>
-              <button type="button" role="tab" className="has-badge">스튜디오메이트 공지</button>
-            </div>
           </div>
 
           <div className="admin-notice-form-body">

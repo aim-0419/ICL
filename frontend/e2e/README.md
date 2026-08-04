@@ -16,7 +16,23 @@
 ## 현재 포함된 테스트
 
 - `smoke.spec.js`: base URL에 접속해 페이지가 기본 렌더링되는지 확인합니다.
+- `native-app.spec.js`: 앱 shell, 회원용 하단 내비게이션, 웹 구매 안내, 가로 넘침, Console/Network 오류를 확인합니다.
 - 데스크톱, 태블릿, 모바일 viewport 기준으로 실행할 수 있는 구조를 준비합니다.
+
+## 앱 E2E 실행
+
+앱 미리보기 서버를 먼저 실행한 뒤 별도 터미널에서 테스트합니다.
+
+```bash
+cd frontend
+npm run dev:app
+
+# 별도 터미널
+set PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174
+npm run test:e2e:app
+```
+
+PowerShell에서는 `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:5174'` 형식을 사용합니다. 이 테스트는 API를 mock하며 실제 DB, 파일 업로드, 외부 푸시 또는 결제를 호출하지 않습니다.
 
 ## 아직 추가해야 할 테스트
 

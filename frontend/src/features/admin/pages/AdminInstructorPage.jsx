@@ -1006,7 +1006,7 @@ export function AdminInstructorPage() {
       </main>
       )}
 
-      <button className="admin-memberlist-floating-add" type="button" onClick={openCreateForm} title="강사 추가">+</button>
+      <button className="admin-memberlist-floating-add" type="button" onClick={openCreateForm} title="강사 추가" aria-label="강사 추가">+</button>
 
       {editing ? (
         <div className="admin-member-modal-backdrop" role="presentation">

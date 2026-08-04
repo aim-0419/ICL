@@ -18,6 +18,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
+import { NativePushSettings } from "../../../shared/components/NativePushSettings.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import {
   deleteAcademyVideo,
@@ -1784,6 +1785,8 @@ export function MyPage() {
                       <p className={`mypage-save-message ${marketingMessage.type}`}>{marketingMessage.text}</p>
                     ) : null}
                   </div>
+
+                  <NativePushSettings />
 
                   {saveMessage.text ? (
                     <p className={`mypage-save-message ${saveMessage.type}`}>{saveMessage.text}</p>

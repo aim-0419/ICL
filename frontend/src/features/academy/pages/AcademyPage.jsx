@@ -5,6 +5,7 @@ import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { canRegisterLecture } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
+import { isNativeApp } from "../../../shared/platform/runtime.js";
 import { getDiscountRate } from "../data/academyVideos.js";
 import { 
   createAcademyVideo,
@@ -180,6 +181,7 @@ export function AcademyPage() {
   const navigate = useNavigate();
   const store = useAppStore();
   const canCreateLecture = canRegisterLecture(store.currentUser);
+  const nativeApp = isNativeApp();
 
   const [selectedCategory, setSelectedCategory] = useState("전체");
   const [query, setQuery] = useState("");
@@ -1111,11 +1113,15 @@ export function AcademyPage() {
                   <div className="academy-video-body">
                     <h3>{video.title}</h3>
                     <p className="academy-video-instructor">{video.instructor}</p>
-                    <div className="academy-video-pricing">
-                      <span className="academy-price-old">{store.formatCurrency(video.originalPrice)}</span>
-                      <strong className="academy-price-sale">{store.formatCurrency(video.salePrice)}</strong>
-                      {discountRate > 0 ? <em>할인 {discountRate}%</em> : null}
-                    </div>
+                    {nativeApp ? (
+                      <p className="academy-native-reader-label">구매한 영상은 같은 계정으로 바로 수강할 수 있습니다.</p>
+                    ) : (
+                      <div className="academy-video-pricing">
+                        <span className="academy-price-old">{store.formatCurrency(video.originalPrice)}</span>
+                        <strong className="academy-price-sale">{store.formatCurrency(video.salePrice)}</strong>
+                        {discountRate > 0 ? <em>할인 {discountRate}%</em> : null}
+                      </div>
+                    )}
                     <div className="academy-video-meta-row">
                       <div className="academy-video-meta">
                         <span>★ {video.rating}</span>
@@ -1126,7 +1132,7 @@ export function AcademyPage() {
                         <span className="academy-tag outline">{video.category}</span>
                         {canCreateLecture && video.isHidden ? <span className="academy-tag academy-hidden-tag">숨김</span> : null}
                       </div>
-                      {!canCreateLecture ? (
+                      {!canCreateLecture && !nativeApp ? (
                         <button
                           type="button"
                           className="ghost-button small-ghost academy-video-cart-button"

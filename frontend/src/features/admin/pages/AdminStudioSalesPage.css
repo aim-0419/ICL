@@ -638,7 +638,7 @@
   font-weight: 400;
 }
 
-/* 스튜디오메이트 매출 원본 화면에 맞춘 밀도 보정 */
+/* 많은 매출 정보를 한 화면에서 비교하기 위한 고밀도 레이아웃 보정 */
 .studio-sales-app {
   --studio-sales-blue: #2f80ed;
   --studio-sales-line: #dbe3ee;

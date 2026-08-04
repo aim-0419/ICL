@@ -643,7 +643,7 @@ test.describe("반응형 UI 전체 감사", () => {
       test(`어드민 메시지 발송 [${vp.label}]`, async ({ page }) => {
         await mockAllApis(page, ADMIN_USER);
         const r = await testPage(page, "/admin/messages", "어드민_메시지", vp, {
-          clickSelectors: [".stm-page-tab:nth-child(2)"],
+          clickSelectors: [".icl-message-page-tab:nth-child(2)"],
         });
         if (r.overflow) console.log(`  ⚠ 오버플로 [${vp.label}]`, r.overflowElems);
       });

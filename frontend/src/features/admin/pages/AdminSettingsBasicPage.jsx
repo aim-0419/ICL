@@ -157,7 +157,7 @@ export function AdminSettingsBasicPage() {
         <span>필수정보 설정</span>
       </div>
 
-      <h1 className="admin-sbasic-title">필수정보 설정</h1>
+      <h2 className="admin-sbasic-title">필수정보 설정</h2>
       <div className="admin-sbasic-divider" />
 
       {/* 01 상호명 */}

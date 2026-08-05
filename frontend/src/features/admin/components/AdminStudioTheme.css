@@ -264,6 +264,29 @@
   flex-direction: column;
 }
 
+/* 레거시 앱 클래스의 min-height:100vh가 상단바 아래에서 다시 적용돼 화면 끝에 상단바 높이만큼
+   빈 칸이 남습니다. 전체 높이는 .icl-admin-workspace가 이미 보장하므로 본문은 늘리지 않습니다.
+   페이지 CSS의 !important를 이기려면 셸 범위로 한정해 특정도를 올려야 합니다. */
+.icl-admin-shell .icl-admin-page-content,
+.icl-admin-shell :where(
+  .admin-classlist-body,
+  .admin-memberlist-body,
+  .admin-instructor-body,
+  .admin-pass-body,
+  .admin-operations-body,
+  .admin-notice-content,
+  .admin-settings-body,
+  .icl-message-page-main,
+  .studio-sales-page
+) {
+  min-height: 0 !important;
+}
+
+/* 본문이 화면을 다 채우지 않을 때 레거시 배경색이 셸 배경과 경계를 만듭니다. */
+.icl-admin-shell .admin-operations-body {
+  background: transparent !important;
+}
+
 .icl-admin-page-content > * {
   min-width: 0;
   width: 100%;
@@ -518,8 +541,7 @@
 
 .icl-admin-shell :where(
   .admin-memberlist-heading,
-  .admin-instructor-title-row h1,
-  .admin-operations-heading h1,
+  .admin-instructor-title-row h2,
   .admin-notice-h1,
   .admin-settings-title,
   .admin-sbasic-title,
@@ -910,7 +932,7 @@
   gap: 8px;
 }
 
-.icl-admin-shell .admin-schedule-month-title h1 {
+.icl-admin-shell .admin-schedule-month-title h2 {
   margin: 0 8px;
   color: var(--icl-admin-text);
   font-size: 1.4rem;

@@ -131,7 +131,7 @@ export function AdminSettingsOperationPage() {
           <span>›</span>
           <span>운영정보 설정</span>
         </div>
-        <h1 className="admin-sop-title">운영정보 설정</h1>
+        <h2 className="admin-sop-title">운영정보 설정</h2>
         <p className="admin-sop-required-note">* 필수항목입니다</p>
 
         {/* 01 예약·취소 가능 시간 설정 */}

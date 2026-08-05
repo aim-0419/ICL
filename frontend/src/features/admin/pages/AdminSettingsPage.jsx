@@ -115,7 +115,7 @@ export function AdminSettingsPage() {
     >
 
       <main className="admin-settings-body">
-        <h1 className="admin-settings-title">시설 정보 수정</h1>
+        <h2 className="admin-settings-title">시설 정보 수정</h2>
         <div className="admin-settings-list">
           {filteredItems.length === 0 ? (
             <p className="admin-settings-empty">검색 결과가 없습니다.</p>

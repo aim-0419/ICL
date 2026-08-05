@@ -393,7 +393,7 @@ export function AdminStudioPassPage() {
             <div className="admin-pass-fp-titlebar-inner">
               <div className="admin-pass-fp-crumb">수강권 &gt; {GF.id ? "상품 수정" : "상품 등록"}</div>
               <div className="admin-pass-fp-title-row">
-                <h1 className="admin-pass-fp-h1">{GF.id ? "상품 수정" : "상품 등록"}</h1>
+                <h2 className="admin-pass-fp-h1">{GF.id ? "상품 수정" : "상품 등록"}</h2>
               </div>
             </div>
           </div>
@@ -528,7 +528,7 @@ export function AdminStudioPassPage() {
             <div className="admin-pass-fp-titlebar-inner">
               <div className="admin-pass-fp-crumb">수강권 &gt; {F.id ? "수강권 수정" : "수강권 등록"}</div>
               <div className="admin-pass-fp-title-row">
-                <h1 className="admin-pass-fp-h1">{F.id ? "수강권 수정" : "수강권 등록"}</h1>
+                <h2 className="admin-pass-fp-h1">{F.id ? "수강권 수정" : "수강권 등록"}</h2>
                 <select
                   className="admin-pass-fp-class-select"
                   aria-label="수강권 지점"
@@ -902,7 +902,7 @@ export function AdminStudioPassPage() {
                   <span>›</span>
                   <span>수강권 상세보기</span>
                 </div>
-                <h1 className="admin-pass-detail-name">{viewingPass.name}</h1>
+                <h2 className="admin-pass-detail-name">{viewingPass.name}</h2>
                 <div className="admin-pass-detail-btns">
                   <button
                     type="button"

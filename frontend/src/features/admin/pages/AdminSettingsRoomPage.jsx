@@ -104,7 +104,7 @@ export function AdminSettingsRoomPage() {
           <span>›</span>
           <span>룸 설정</span>
         </div>
-        <h1 className="admin-sroom-title">룸 설정</h1>
+        <h2 className="admin-sroom-title">룸 설정</h2>
         <p className="admin-sroom-required-note">* 필수항목입니다</p>
 
         {/* 01 룸 사용 */}

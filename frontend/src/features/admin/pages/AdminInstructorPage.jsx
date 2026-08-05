@@ -652,7 +652,7 @@ export function AdminInstructorPage() {
           </button>
           <section className="admin-instructor-detail-hero">
             <div>
-              <h1>{selectedStaff.name}</h1>
+              <h2>{selectedStaff.name}</h2>
               <p>
                 {ROLE_LABELS[selectedStaff.roleCode] || "강사"}
                 <span>·</span>
@@ -776,7 +776,7 @@ export function AdminInstructorPage() {
       <main className="admin-instructor-body">
         <section className="admin-instructor-title-row">
           <div>
-            <h1>강사</h1>
+            <h2>강사</h2>
             <div className="admin-instructor-tabs">
               {[
                 { value: "list", label: "강사목록" },

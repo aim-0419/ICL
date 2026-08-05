@@ -80,7 +80,7 @@ export function AdminSettingsClassCategoryPage() {
           <span>›</span>
           <span>수업 구분 설정</span>
         </div>
-        <h1 className="admin-sroom-title">수업 구분 설정</h1>
+        <h2 className="admin-sroom-title">수업 구분 설정</h2>
         <p className="admin-sroom-required-note">* 필수항목입니다</p>
 
         {/* 01* 수업 구분 추가 */}

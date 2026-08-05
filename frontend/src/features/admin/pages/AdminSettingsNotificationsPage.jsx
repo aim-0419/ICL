@@ -209,7 +209,7 @@ export function AdminSettingsNotificationsPage() {
           <span>›</span>
           <span>자동 알림 설정</span>
         </div>
-        <h1 className="admin-sroom-title">자동 알림 설정</h1>
+        <h2 className="admin-sroom-title">자동 알림 설정</h2>
 
         {/* 이용 가이드 */}
         <div className="admin-snoti-guide-wrap">
@@ -244,7 +244,7 @@ export function AdminSettingsNotificationsPage() {
           <>
             {/* 수강권 */}
             <div className="admin-snoti-section">
-              <h2 className="admin-snoti-section-title">수강권</h2>
+              <h3 className="admin-snoti-section-title">수강권</h3>
               <div className="admin-snoti-card-grid">
                 <NotificationCard
                   {...cardProps("pass_expire", "기간 만료", null, (tpl, update) => (
@@ -278,7 +278,7 @@ export function AdminSettingsNotificationsPage() {
 
             {/* 수업 */}
             <div className="admin-snoti-section">
-              <h2 className="admin-snoti-section-title">수업</h2>
+              <h3 className="admin-snoti-section-title">수업</h3>
               <div className="admin-snoti-card-grid">
                 <NotificationCard
                   {...cardProps("class_waitlist", "대기에서 예약으로 전환 시", "이 문자는 실시간으로 전송됩니다.", null)}
@@ -307,7 +307,7 @@ export function AdminSettingsNotificationsPage() {
 
             {/* 회원 */}
             <div className="admin-snoti-section">
-              <h2 className="admin-snoti-section-title">회원</h2>
+              <h3 className="admin-snoti-section-title">회원</h3>
               <div className="admin-snoti-card-single">
                 <NotificationCard
                   {...cardProps("member_birthday", "생일축하", "이 문자는 실시간으로 전송됩니다.", null)}
@@ -330,7 +330,7 @@ export function AdminSettingsNotificationsPage() {
 
             {/* 락커 */}
             <div className="admin-snoti-section">
-              <h2 className="admin-snoti-section-title">락커</h2>
+              <h3 className="admin-snoti-section-title">락커</h3>
               <div className="admin-snoti-card-single">
                 <NotificationCard
                   {...cardProps("locker_expire", "락커 기간 만료 알림", null, (tpl, update) => (

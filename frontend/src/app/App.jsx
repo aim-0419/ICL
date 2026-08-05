@@ -22,7 +22,7 @@
  */
 // 파일 역할: 프론트엔드 전체 라우팅 구조와 권한 보호 페이지 연결을 정의합니다.
 import React, { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { RequireAuth } from "../shared/components/RequireAuth.jsx";
 import { RequireAdminStaff } from "../shared/components/RequireAdminStaff.jsx";
 import { PageLayout } from "../shared/components/PageLayout.jsx";
@@ -108,6 +108,9 @@ export default function App() {
   const { currentUser, adminPageEditMode } = useAppStore();
   const canUsePageEditor = canEditPage(currentUser);
   const nativeApp = isNativeApp();
+  const { pathname } = useLocation();
+  // 관리자 화면은 자체 사이드바와 상단바로 완결되므로 공개 사이트 푸터를 붙이지 않습니다.
+  const adminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
 
   useMidnightRefresh();
   useNativePushNotifications();
@@ -369,7 +372,7 @@ export default function App() {
       <Suspense fallback={null}>
         <AdminImageEditor />
       </Suspense>
-      {nativeApp ? null : <SiteFooter />}
+      {nativeApp || adminRoute ? null : <SiteFooter />}
       <NativeAppRuntime />
     </>
   );

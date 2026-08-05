@@ -79,6 +79,14 @@ studioRoutes.post("/admin/passes/transfer", express.json(), studioController.tra
 studioRoutes.post("/passes/refund-requests", express.json(), studioController.requestPassRefund);
 studioRoutes.get("/admin/pass-refunds", studioController.listAdminPassRefunds);
 studioRoutes.patch("/admin/pass-refunds/:refundId", express.json(), studioController.resolvePassRefund);
+// 관리자 알림 설정 화면이 자동 알림 템플릿의 발송 채널과 문구를 조회·저장합니다.
+studioRoutes.get("/admin/notification-templates", studioController.getNotificationTemplates);
+studioRoutes.put(
+  "/admin/notification-templates/:templateId",
+  express.json(),
+  studioController.saveNotificationTemplate
+);
+
 studioRoutes.get("/admin/settings/sales-pin", studioController.getSalesPinHandler);
 studioRoutes.put("/admin/settings/sales-pin", express.json(), studioController.saveSalesPinHandler);
 studioRoutes.post("/admin/settings/sales-pin/verify", express.json(), studioController.verifySalesPinHandler);

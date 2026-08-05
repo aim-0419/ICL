@@ -15,10 +15,25 @@
 | 역할 설정·CRUD | `/studio/admin/settings/roles`, `/roles` | `ROUTE_MISSING` |
 | 회원 등급 | `/studio/admin/member-grades` | `ROUTE_MISSING` |
 | 수업 카테고리 | `/studio/admin/class-categories` | `ROUTE_MISSING` |
-| 알림 템플릿 | `/studio/admin/notification-templates` | `ROUTE_MISSING` |
+| 알림 템플릿 | `/studio/admin/notification-templates` | `RESOLVED` — 아래 참고 |
 | 메시지 템플릿 | `/studio/admin/message-templates` | `ROUTE_MISSING` |
 
 관련 화면은 실패 시 오류 또는 빈 상태를 표시해야 하며, 백엔드 구현은 별도 요구사항과 권한·DB 계약 승인이 필요합니다.
+
+### 해결: 알림 템플릿 관리 (2026-08-04)
+
+자동 알림 8종의 발송 채널을 관리자 화면에서 조회·저장할 수 있도록 라우트를 등록했습니다.
+
+- 등록 라우트
+  - `GET /studio/admin/notification-templates` → `{ templates }`
+  - `PUT /studio/admin/notification-templates/:templateId` → `{ ok: true }`
+- 인증·권한: 기존 컨트롤러의 세션 인증과 스튜디오 관리자 권한을 그대로 사용합니다.
+  조회는 `settings.read`, 저장은 `settings.write`가 필요하며 비로그인은 401, 권한 없는 회원은 403입니다.
+- 부분 업데이트: 보내지 않은 항목은 기존 값을 유지합니다. 발송 채널만 껐다 켜도 문구·조건 값·다른 채널 설정이 사라지지 않습니다.
+- 입력 검증: 알 수 없는 템플릿 ID와 boolean이 아닌 채널 값은 400으로 거부합니다.
+- 부작용 없음: 템플릿 저장은 알림·발송 레코드를 만들지 않으며 스케줄러나 실제 발송을 유발하지 않습니다.
+- 추가 테스트: `backend/test/integration/notification-templates.mysql.test.js` (조회, 부분 저장 시 문구 보존, 전체 저장, 잘못된 ID·타입 거부, 부작용 없음)
+- 운영 영향: 알림 가동 전 자동 알림을 일시 중지할 때 DB를 직접 수정하지 않고 관리자 화면에서 처리할 수 있습니다.
 
 ## 권한과 범위
 

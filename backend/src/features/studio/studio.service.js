@@ -1848,8 +1848,29 @@ export async function getNotificationTemplates() {
   );
 }
 
-export async function saveNotificationTemplate(templateId, { pushEnabled, smsEnabled, kakaoEnabled, kakaoTemplateCode, message, param1, param2, skipExpired }) {
+function resolveTemplateFlag(value, current, fieldName) {
+  if (value === undefined || value === null) return current;
+  if (typeof value !== "boolean") throw createHttpError(`${fieldName} 값은 true 또는 false여야 합니다.`, 400);
+  return value;
+}
+
+/**
+ * 알림 템플릿을 저장합니다.
+ * 보내지 않은 항목은 기존 값을 유지하므로, 발송 채널만 끄고 켜도 문구와 조건이 사라지지 않습니다.
+ */
+export async function saveNotificationTemplate(templateId, patch = {}) {
   if (!NOTIFICATION_DEFAULTS[templateId]) throw createHttpError("알 수 없는 템플릿 ID입니다.", 400);
+
+  const current = (await getNotificationTemplates())[templateId];
+  const pushEnabled = resolveTemplateFlag(patch.pushEnabled, current.pushEnabled, "pushEnabled");
+  const smsEnabled = resolveTemplateFlag(patch.smsEnabled, current.smsEnabled, "smsEnabled");
+  const kakaoEnabled = resolveTemplateFlag(patch.kakaoEnabled, current.kakaoEnabled, "kakaoEnabled");
+  const skipExpired = resolveTemplateFlag(patch.skipExpired, current.skipExpired, "skipExpired");
+  const kakaoTemplateCode = patch.kakaoTemplateCode === undefined ? current.kakaoTemplateCode : patch.kakaoTemplateCode;
+  const message = patch.message === undefined ? current.message : patch.message;
+  const param1 = patch.param1 === undefined ? current.param1 : patch.param1;
+  const param2 = patch.param2 === undefined ? current.param2 : patch.param2;
+
   await query(
     `INSERT INTO studio_notification_templates (template_id, push_enabled, sms_enabled, kakao_enabled, kakao_template_code, message, param1, param2, skip_expired, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())

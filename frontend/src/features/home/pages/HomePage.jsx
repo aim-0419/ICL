@@ -6,6 +6,8 @@ import { canEditPage, getAdminLandingPath, isAdminStaff } from "../../../shared/
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { apiRequest } from "../../../shared/api/client.js";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
+import { isNativeApp } from "../../../shared/platform/runtime.js";
+import { resolveApiAssetUrl } from "../../../shared/api/client.js";
 
 const HOME_SECTION_ORDER_KEY = "icl_admin_home_section_order_v1";
 const DEFAULT_SECTION_ORDER = ["hero", "story", "features", "status", "academy", "reviews"];
@@ -454,6 +456,7 @@ export function HomePage() {
   const currentUserDisplayName = getUserDisplayName(store.currentUser);
   const canOpenAdminDashboard = isAdminStaff(store.currentUser);
   const canEditHomePage = canEditPage(store.currentUser);
+  const nativeApp = isNativeApp();
 
   function handleReservationClick() {
     if (!store.currentUser) return navigate("/login");
@@ -585,7 +588,7 @@ export function HomePage() {
 
   return (
     <div className="site-shell sunlit-site-shell">
-      {showRenewalPopup && (
+      {showRenewalPopup && !nativeApp && (
         <div className="renewal-popup-overlay" onClick={closeRenewalPopup}>
           <div className="renewal-popup" onClick={(e) => e.stopPropagation()}>
             <button
@@ -723,21 +726,23 @@ export function HomePage() {
               <button className="sunlit-reserve" type="button" onClick={handleReservationClick}>
                 수업 예약하기
               </button>
-              <button className="sunlit-menu" type="button" onClick={() => navigate("/cart")} aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}>
-                <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22">
-                  <path
-                    d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <circle cx="10" cy="19" r="1.2" />
-                  <circle cx="17" cy="19" r="1.2" />
-                </svg>
-                {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
-              </button>
+              {!nativeApp ? (
+                <button className="sunlit-menu" type="button" onClick={() => navigate("/cart")} aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22">
+                    <path
+                      d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="10" cy="19" r="1.2" />
+                    <circle cx="17" cy="19" r="1.2" />
+                  </svg>
+                  {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
+                </button>
+              ) : null}
             </div>
 
             {/* 모바일: 장바구니 + 햄버거 버튼 */}
@@ -751,26 +756,28 @@ export function HomePage() {
               >
                 가+
               </button>
-              <button
-                type="button"
-                className="sunlit-menu"
-                onClick={() => navigate("/cart")}
-                aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22">
-                  <path
-                    d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <circle cx="10" cy="19" r="1.2" />
-                  <circle cx="17" cy="19" r="1.2" />
-                </svg>
-                {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
-              </button>
+              {!nativeApp ? (
+                <button
+                  type="button"
+                  className="sunlit-menu"
+                  onClick={() => navigate("/cart")}
+                  aria-label={cartQuantity > 0 ? `장바구니 ${cartQuantity}개` : "장바구니"}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22">
+                    <path
+                      d="M3 5h2l2.1 9.1a1.2 1.2 0 0 0 1.2.9h8.9a1.2 1.2 0 0 0 1.2-.9L20 8H7.2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="10" cy="19" r="1.2" />
+                    <circle cx="17" cy="19" r="1.2" />
+                  </svg>
+                  {cartQuantity > 0 ? <span className="cart-count-badge">{cartQuantity}</span> : null}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={`mobile-nav-toggle${mobileNavOpen ? " is-open" : ""}`}
@@ -870,7 +877,12 @@ export function HomePage() {
           </div>
 
           <figure className="sunlit-hero-photo">
-            <img src={HOME_IMAGES.hero} alt="자연광이 들어오는 이끌림 필라테스 메인 스튜디오" />
+            <img
+              src={HOME_IMAGES.hero}
+              alt="자연광이 들어오는 이끌림 필라테스 메인 스튜디오"
+              decoding="async"
+              fetchpriority="high"
+            />
           </figure>
         </section>
 
@@ -957,7 +969,7 @@ export function HomePage() {
                     <img src="/assets/images/instagram-logo.jpg" alt="Instagram" />
                   </div>
                 ) : itemIndex > 0 || item.image ? (
-                  <img src={item.image} alt={item.title} loading="lazy" onError={handleSocialThumbnailError} />
+                  <img src={resolveApiAssetUrl(item.image)} alt={item.title} loading="lazy" onError={handleSocialThumbnailError} />
                 ) : null}
               </article>
             ))}

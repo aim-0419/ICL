@@ -653,16 +653,16 @@
   font-size: 0.86rem;
 }
 
-.admin-memberlist-table.studio-mate-member-table {
+.admin-memberlist-table.icl-studio-member-table {
   min-width: 1280px;
 }
 
-.studio-mate-member-table th,
-.studio-mate-member-table td {
+.icl-studio-member-table th,
+.icl-studio-member-table td {
   white-space: nowrap;
 }
 
-.studio-mate-member-table .admin-member-name-cell {
+.icl-studio-member-table .admin-member-name-cell {
   min-width: 170px;
 }
 
@@ -1482,7 +1482,7 @@
   margin-top: 2px;
 }
 
-/* 수강권 — 스튜디오메이트처럼 수강권명 + pill들을 한 행에 인라인으로 */
+/* 수강권명과 상태 pill을 한 행에서 빠르게 비교할 수 있도록 배치합니다. */
 .admin-member-passes {
   display: flex;
   flex-direction: column;
@@ -1723,7 +1723,7 @@
     font-size: 0.78rem;
   }
 
-  .admin-memberlist-table.studio-mate-member-table {
+  .admin-memberlist-table.icl-studio-member-table {
     min-width: 780px;
   }
 

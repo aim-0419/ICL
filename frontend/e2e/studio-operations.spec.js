@@ -103,7 +103,7 @@ test.beforeEach(async ({ page }) => {
 
 test("예약자 체크인과 취소가 실제 상태로 전환된다", async ({ page }) => {
   await page.goto("/admin/operations");
-  await expect(page.getByRole("heading", { name: "운영 관리" })).toBeVisible();
+  await expect(page.locator(".icl-admin-page-content").getByRole("heading", { name: "운영 관리" })).toBeVisible();
   const checkinButton = page.getByRole("button", { name: "체크인", exact: true });
   await checkinButton.click();
   await expect(page.getByRole("button", { name: "체크인 취소" })).toBeVisible();
@@ -117,7 +117,7 @@ test("미수금 등록·완납과 락커 생성·배정·종료가 동작한다"
   await page.getByRole("button", { name: "미수금", exact: true }).click();
   await page.getByRole("button", { name: "미수금 등록" }).click();
   await expect(page.getByText("미수금을 등록할 회원을 선택해 주세요.")).toBeVisible();
-  await page.getByPlaceholder("이름 또는 전화번호 검색").fill("김회");
+  await page.locator(".icl-admin-page-content").getByPlaceholder("이름 또는 전화번호 검색").fill("김회");
   await page.getByRole("button", { name: /김회원/ }).click();
   await page.getByPlaceholder("미수금 금액").fill("30000");
   await page.getByPlaceholder("미수금 사유").fill("락커 이용료");
@@ -131,7 +131,7 @@ test("미수금 등록·완납과 락커 생성·배정·종료가 동작한다"
   await page.getByRole("button", { name: "락커 생성" }).click();
   await expect(page.getByText("B-01", { exact: true })).toBeVisible();
   await page.locator("select").filter({ hasText: "배정할 락커" }).selectOption("locker-1");
-  await page.getByPlaceholder("이름 또는 전화번호 검색").fill("김회");
+  await page.locator(".icl-admin-page-content").getByPlaceholder("이름 또는 전화번호 검색").fill("김회");
   await page.getByRole("button", { name: /김회원/ }).click();
   await page.getByRole("button", { name: "락커 배정" }).click();
   await expect(page.getByText(/김회원 · 010-9999-0000/)).toBeVisible();
@@ -158,20 +158,20 @@ test("375px 화면과 큰 버튼 옵션에서 운영 화면이 사용할 수 있
   await page.getByRole("button", { name: "가+" }).click();
   await expect(page.locator("html")).toHaveClass(/large-controls/);
   await page.goto("/admin/operations");
-  await expect(page.getByRole("heading", { name: "운영 관리" })).toBeVisible();
+  await expect(page.locator(".icl-admin-page-content").getByRole("heading", { name: "운영 관리" })).toBeVisible();
   await page.screenshot({ path: path.join(artifactDir, "operations-mobile-375.png"), fullPage: true });
 });
 
 test("앱 푸시 수신자를 선택해 서버 예약 발송으로 저장한다", async ({ page }) => {
   await page.goto("/admin/messages");
   await page.getByRole("button", { name: "앱 푸시", exact: true }).click();
-  await page.locator(".stm-form-card").getByRole("button", { name: "회원", exact: true }).click();
-  await page.getByPlaceholder("이름 또는 전화번호 검색").fill("김회원");
+  await page.locator(".icl-message-form-card").getByRole("button", { name: "회원", exact: true }).click();
+  await page.locator(".icl-admin-page-content").getByPlaceholder("이름 또는 전화번호 검색").fill("김회원");
   await page.waitForTimeout(350);
-  await page.locator(".stm-picker-item").filter({ hasText: "김회원" }).getByRole("checkbox").check();
+  await page.locator(".icl-message-picker-item").filter({ hasText: "김회원" }).getByRole("checkbox").check();
   await page.getByRole("button", { name: "1명 추가" }).click();
-  await page.locator(".stm-title-input").fill("수업 안내");
-  await page.locator(".stm-msg-textarea").fill("내일 오전 10시 수업이 예약되었습니다.");
+  await page.locator(".icl-message-title-input").fill("수업 안내");
+  await page.locator(".icl-message-msg-textarea").fill("내일 오전 10시 수업이 예약되었습니다.");
   await page.getByRole("button", { name: "보내기 예약" }).click();
   const future = new Date(Date.now() + 3_600_000);
   const pad = (value) => String(value).padStart(2, "0");

@@ -27,17 +27,24 @@ import { RequireAuth } from "../shared/components/RequireAuth.jsx";
 import { RequireAdminStaff } from "../shared/components/RequireAdminStaff.jsx";
 import { PageLayout } from "../shared/components/PageLayout.jsx";
 import { SiteFooter } from "../shared/components/SiteFooter.jsx";
+import { NativeAppRuntime } from "../shared/components/NativeAppRuntime.jsx";
+import { NativePurchaseNotice } from "../shared/components/NativePurchaseNotice.jsx";
 import { canEditPage } from "../shared/auth/userRoles.js";
 import { useAppStore } from "../shared/store/AppContext.jsx";
 import { useMidnightRefresh } from "../shared/hooks/useMidnightRefresh.js";
 import { useNativePushNotifications } from "../shared/hooks/useNativePushNotifications.js";
+import { isNativeApp } from "../shared/platform/runtime.js";
+
+const NATIVE_APP_BUILD = __NATIVE_APP_BUILD__;
 
 const HomePage = lazy(() => import("../features/home/pages/HomePage.jsx").then((m) => ({ default: m.HomePage })));
 const LoginPage = lazy(() => import("../features/auth/pages/LoginPage.jsx").then((m) => ({ default: m.LoginPage })));
 const FindIdPage = lazy(() => import("../features/auth/pages/FindIdPage.jsx").then((m) => ({ default: m.FindIdPage })));
 const ResetPasswordPage = lazy(() => import("../features/auth/pages/ResetPasswordPage.jsx").then((m) => ({ default: m.ResetPasswordPage })));
 const SignupPage = lazy(() => import("../features/auth/pages/SignupPage.jsx").then((m) => ({ default: m.SignupPage })));
-const CartPage = lazy(() => import("../features/cart/pages/CartPage.jsx").then((m) => ({ default: m.CartPage })));
+const CartPage = NATIVE_APP_BUILD
+  ? null
+  : lazy(() => import("../features/cart/pages/CartPage.jsx").then((m) => ({ default: m.CartPage })));
 const MyPage = lazy(() => import("../features/mypage/pages/MyPage.jsx").then((m) => ({ default: m.MyPage })));
 const StudioReservationPage = lazy(() => import("../features/studio/pages/StudioReservationPage.jsx").then((m) => ({ default: m.StudioReservationPage })));
 const AdminSchedulePage = lazy(() => import("../features/admin/pages/AdminSchedulePage.jsx").then((m) => ({ default: m.AdminSchedulePage })));
@@ -65,8 +72,12 @@ const AdminMessagesPage = lazy(() => import("../features/admin/pages/AdminMessag
 const AcademyPage = lazy(() => import("../features/academy/pages/AcademyPage.jsx").then((m) => ({ default: m.AcademyPage })));
 const AcademyDetailPage = lazy(() => import("../features/academy/pages/AcademyDetailPage.jsx").then((m) => ({ default: m.AcademyDetailPage })));
 const AcademyPlayerPage = lazy(() => import("../features/academy/pages/AcademyPlayerPage.jsx").then((m) => ({ default: m.AcademyPlayerPage })));
-const SuccessPage = lazy(() => import("../features/payment/pages/SuccessPage.jsx").then((m) => ({ default: m.SuccessPage })));
-const FailPage = lazy(() => import("../features/payment/pages/FailPage.jsx").then((m) => ({ default: m.FailPage })));
+const SuccessPage = NATIVE_APP_BUILD
+  ? null
+  : lazy(() => import("../features/payment/pages/SuccessPage.jsx").then((m) => ({ default: m.SuccessPage })));
+const FailPage = NATIVE_APP_BUILD
+  ? null
+  : lazy(() => import("../features/payment/pages/FailPage.jsx").then((m) => ({ default: m.FailPage })));
 
 const BrandIntroPage = lazy(() => import("../features/brand/pages/BrandPages.jsx").then((m) => ({ default: m.BrandIntroPage })));
 const BrandInstructorsPage = lazy(() => import("../features/brand/pages/BrandPages.jsx").then((m) => ({ default: m.BrandInstructorsPage })));
@@ -96,6 +107,7 @@ function AppRouteFallback() {
 export default function App() {
   const { currentUser, adminPageEditMode } = useAppStore();
   const canUsePageEditor = canEditPage(currentUser);
+  const nativeApp = isNativeApp();
 
   useMidnightRefresh();
   useNativePushNotifications();
@@ -115,7 +127,7 @@ export default function App() {
           <Route path="/find-id" element={<FindIdPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/signup" element={<SignupPage />} />
-          <Route path="/cart" element={<CartPage />} />
+          <Route path="/cart" element={nativeApp ? <NativePurchaseNotice /> : <CartPage />} />
           <Route path="/academy" element={<AcademyPage />} />
           <Route path="/academy/:videoId" element={<AcademyDetailPage />} />
           <Route
@@ -347,8 +359,8 @@ export default function App() {
           />
 
           {/* 결제 결과 페이지 */}
-          <Route path="/success" element={<SuccessPage />} />
-          <Route path="/fail" element={<FailPage />} />
+          <Route path="/success" element={nativeApp ? <NativePurchaseNotice /> : <SuccessPage />} />
+          <Route path="/fail" element={nativeApp ? <NativePurchaseNotice /> : <FailPage />} />
 
           {/* 존재하지 않는 경로는 홈으로 리다이렉트 */}
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -357,7 +369,8 @@ export default function App() {
       <Suspense fallback={null}>
         <AdminImageEditor />
       </Suspense>
-      <SiteFooter />
+      {nativeApp ? null : <SiteFooter />}
+      <NativeAppRuntime />
     </>
   );
 }

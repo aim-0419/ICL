@@ -950,8 +950,9 @@ export async function deleteMessageTemplate(req, res, next) {
 /** 로그인한 회원 앱의 FCM 토큰을 등록하거나 갱신합니다. */
 export async function registerMyPushDevice(req, res, next) {
   try {
-    const userId = String(req.authUser?.id || "").trim();
-    const result = await registerPushDevice({ userId, ...(req.body || {}) });
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    const result = await registerPushDevice({ userId: String(user.id), ...(req.body || {}) });
     res.status(201).json(result);
   } catch (error) {
     next(error);
@@ -961,8 +962,9 @@ export async function registerMyPushDevice(req, res, next) {
 /** 로그아웃 또는 알림 해제 시 현재 기기의 FCM 토큰을 비활성화합니다. */
 export async function unregisterMyPushDevice(req, res, next) {
   try {
-    const userId = String(req.authUser?.id || "").trim();
-    const result = await unregisterPushDevice({ userId, token: req.body?.token });
+    const user = await getAuthUser(req);
+    if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
+    const result = await unregisterPushDevice({ userId: String(user.id), token: req.body?.token });
     res.json(result);
   } catch (error) {
     next(error);

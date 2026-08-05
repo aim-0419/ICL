@@ -1177,7 +1177,7 @@ export function AdminStudioPassPage() {
             )}
           </main>
 
-          <button className="admin-memberlist-floating-add" type="button" onClick={() => setShowAddMenu(true)} title="상품 등록">+</button>
+          <button className="admin-memberlist-floating-add" type="button" onClick={() => setShowAddMenu(true)} title="상품 등록" aria-label="상품 등록">+</button>
 
           {showAddMenu ? (
             <div className="admin-pass-add-menu-backdrop" role="presentation" onClick={() => setShowAddMenu(false)}>

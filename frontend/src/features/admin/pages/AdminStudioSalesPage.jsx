@@ -988,7 +988,7 @@ export function AdminStudioSalesPage() {
           {error ? <p className="studio-sales-toast error">{error}<button type="button" onClick={() => setError("")}>확인</button></p> : null}
 
           {mainTab === "expenses" ? (
-            <button type="button" className="studio-sales-floating-btn" onClick={() => setExpenseOpen(true)}>＋</button>
+            <button type="button" className="studio-sales-floating-btn" onClick={() => setExpenseOpen(true)} title="지출 등록" aria-label="지출 등록">＋</button>
           ) : null}
           {expenseOpen ? <ExpenseModal staff={report.staff || []} onClose={() => setExpenseOpen(false)} onCreate={handleCreateExpense} /> : null}
         </>

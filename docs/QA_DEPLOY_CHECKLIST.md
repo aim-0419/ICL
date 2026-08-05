@@ -3,6 +3,25 @@
 실제 배포 전에는 가능한 한 브라우저, 실제 API, 실제 DB 기준으로 확인합니다.
 체크하지 못한 항목은 완료로 표시하지 않습니다.
 
+## 0. Android/iOS 앱 릴리스
+
+- [ ] `frontend/.env.app`의 API 주소가 HTTPS 운영 API이고 localhost나 임시 터널이 아니다.
+- [ ] `npm run build:app`이 성공한다.
+- [ ] `npm run cap:sync`가 성공하고 Android/iOS 플러그인이 동기화된다.
+- [ ] `npm run cap:check`에서 Android/iOS Firebase 설정 파일을 확인한다.
+- [ ] 앱에서 디지털 교육영상 신규 구매 가격, 장바구니, 결제 화면이 노출되지 않는다.
+- [ ] 구매한 교육영상 재생과 진도 저장을 Android/iPhone 실기기에서 확인한다.
+- [ ] 필라테스 일정 조회, 예약, 취소를 Android/iPhone 실기기에서 확인한다.
+- [ ] HttpOnly 로그인 세션이 앱 종료·재실행 후 정책대로 유지 또는 만료된다.
+- [ ] 푸시 허용, 거부, 토큰 등록, 로그아웃 시 토큰 해제를 확인한다.
+- [ ] Android back, iOS safe area, 오프라인 안내, 딥링크를 확인한다.
+- [ ] Android release keystore와 iOS 인증서/Provisioning Profile을 Git 밖에서 관리한다.
+- [ ] `google-services.json`, `GoogleService-Info.plist`, APNs 키와 서비스 계정 키를 Git에 포함하지 않는다.
+- [ ] Universal Link/App Link를 쓸 경우 `apple-app-site-association`과 `assetlinks.json`을 서명 정보에 맞게 배포한다.
+- [ ] 앱 아이콘, 스플래시, 스토어 스크린샷, 설명, 개인정보처리방침, 지원 URL을 확정한다.
+- [ ] TestFlight와 Play Console 내부 테스트에서 실제 기기 회귀 테스트를 완료한다.
+- [ ] 앱 심사용 계정과 심사 메모를 준비한다.
+
 ## 1. 프로젝트 실행 확인
 
 - [ ] 프로젝트 루트에 `frontend/`, `backend/`, `deploy/`, `docs/` 폴더가 존재한다.

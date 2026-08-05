@@ -1,5 +1,34 @@
 # TASK.md
 
+## 웹·Android·iOS 공통 코드 전환 상태
+
+완료:
+
+- 기존 React 웹 코드를 Capacitor 8 Android/iOS 앱으로 동기화할 수 있는 구조를 구성했습니다.
+- 앱 전용 상단바, 하단 내비게이션, safe area, 오프라인 안내, Android back, 딥링크 처리를 추가했습니다.
+- 앱에서는 구매한 교육영상 시청과 필라테스 예약을 유지하고 신규 디지털 영상 구매·장바구니는 웹 이용 안내로 전환했습니다.
+- HttpOnly 세션 쿠키, 절대 API 주소, 업로드 URL 변환, Capacitor CORS origin을 앱 환경에 맞게 보강했습니다.
+- Firebase Messaging 토큰 등록/해제와 마이페이지 푸시 설정 UI를 연결했습니다.
+- 앱 build, Capacitor sync, desktop/mobile 375/tablet 768 Playwright E2E를 검증했습니다.
+
+외부 준비 필요:
+
+- Android `google-services.json`, iOS `GoogleService-Info.plist`, APNs 설정
+- Android JDK/SDK와 release keystore
+- macOS/Xcode, Apple 인증서와 Provisioning Profile
+- 실제 Android/iPhone에서 푸시, 세션, 예약, 영상 재생 검증
+- 앱 아이콘, 스플래시, 스토어 스크린샷과 등록 문구
+
+현재 판정:
+
+- 웹 및 앱용 React 번들: 검증 완료
+- Capacitor Android/iOS 프로젝트 동기화: 검증 완료
+- Android 네이티브 compile: 현재 PC의 JDK 미설치로 미확인
+- iOS archive/TestFlight: Windows 환경이므로 미확인
+- 실제 FCM Push와 스토어 심사: 네이티브 키·계정 준비 전까지 미확인
+
+상세 절차는 `docs/development/mobile-app-setup.md`를 따릅니다.
+
 ## studio_staff_profiles.user_id 보정 및 권한 API 재테스트
 
 완료:

@@ -1364,7 +1364,7 @@ function resetFilters() {
         {memoMessage ? <p className="admin-memberlist-memo-message">{memoMessage}</p> : null}
 
         <div className="admin-memberlist-table-wrap">
-          <table className="admin-memberlist-table studio-mate-member-table">
+          <table className="admin-memberlist-table icl-studio-member-table">
             <thead>
               <tr>
                 <th><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
@@ -2251,7 +2251,7 @@ function resetFilters() {
         ) : null}
       </div>
 
-      <button className="admin-memberlist-floating-add" type="button" onClick={() => setShowCreateMember(true)} title="회원 등록">
+      <button className="admin-memberlist-floating-add" type="button" onClick={() => setShowCreateMember(true)} title="회원 등록" aria-label="회원 등록">
         +
       </button>
 

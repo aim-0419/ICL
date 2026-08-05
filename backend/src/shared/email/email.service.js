@@ -47,7 +47,16 @@ export async function sendEmail(to, subject, html) {
     return { sent: false, skipped: true, reason: "SMTP_NOT_CONFIGURED" };
   }
   try {
-    await t.sendMail({ from: env.smtpFrom, to, subject, html });
+    const delivery = await t.sendMail({ from: env.smtpFrom, to, subject, html });
+
+    // SMTP 요청은 성공해도 수신자가 거부될 수 있으므로 실제 접수 결과를 확인한다.
+    const acceptedRecipients = Array.isArray(delivery?.accepted) ? delivery.accepted : [];
+    const rejectedRecipients = Array.isArray(delivery?.rejected) ? delivery.rejected : [];
+    if (acceptedRecipients.length === 0 || rejectedRecipients.length > 0) {
+      console.error("[email] 수신자 접수 거부:", subject, "->", maskEmailAddress(to));
+      return { sent: false, skipped: false, reason: "RECIPIENT_REJECTED" };
+    }
+
     console.info("[email] 발송 완료:", subject, "->", maskEmailAddress(to));
     return { sent: true, skipped: false };
   } catch (err) {

@@ -869,7 +869,7 @@ export function AdminMessagesPage() {
 
       <main className="icl-message-page-main">
         <div className="icl-message-page-title-row">
-          <h1 className="icl-message-page-title">문자 메시지</h1>
+          <h2 className="icl-message-page-title">문자 메시지</h2>
           <span className="icl-message-page-subtitle">앱 푸시 메시지</span>
         </div>
 

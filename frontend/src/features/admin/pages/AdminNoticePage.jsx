@@ -239,7 +239,7 @@ export function AdminNoticePage() {
         <div className="admin-notice-content">
             {/* 페이지 헤더 */}
             <div className="admin-notice-page-header">
-              <h1 className="admin-notice-h1">게시판</h1>
+              <h2 className="admin-notice-h1">게시판</h2>
             </div>
 
                 {/* 툴바 */}
@@ -390,7 +390,7 @@ export function AdminNoticePage() {
         {/* 페이지 헤더 + 폼 필드 영역 */}
         <div className="admin-notice-form-page">
           <div className="admin-notice-page-header">
-            <h1 className="admin-notice-h1">게시판</h1>
+            <h2 className="admin-notice-h1">게시판</h2>
           </div>
 
           <div className="admin-notice-form-body">

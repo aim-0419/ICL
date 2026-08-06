@@ -41,9 +41,10 @@ export function AdminSettingsSearchBox({ placeholder = "설정 검색" }) {
     else navigate("/admin/settings");
   }
 
+  // 상단바가 이미 검색 래퍼와 돋보기 아이콘을 그리므로 여기서는 입력과 추천 목록만 넘깁니다.
+  // 래퍼를 다시 감싸면 아이콘 열이 두 번 생겨 글자가 겹칩니다.
   return (
-    <div className="admin-schedule-search admin-settings-search-box">
-      <span aria-hidden="true">검색</span>
+    <>
       <input
         type="search"
         placeholder={placeholder}
@@ -66,6 +67,6 @@ export function AdminSettingsSearchBox({ placeholder = "설정 검색" }) {
           )}
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

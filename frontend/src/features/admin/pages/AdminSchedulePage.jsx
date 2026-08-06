@@ -612,7 +612,7 @@ export function AdminSchedulePage() {
         <section className="admin-schedule-toolbar">
           <div className="admin-schedule-month-title">
             <button type="button" onClick={() => moveMonth(-1)} aria-label="previous month">‹</button>
-            <h1>{year}년 {monthIndex + 1}월</h1>
+            <h2>{year}년 {monthIndex + 1}월</h2>
             <button type="button" onClick={() => moveMonth(1)} aria-label="next month">›</button>
             <button type="button" className="admin-schedule-outline-button" onClick={onHolidaySettings}>
               휴일설정

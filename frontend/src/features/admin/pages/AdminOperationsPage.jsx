@@ -304,7 +304,8 @@ export function AdminOperationsPage() {
 
       <main className="admin-operations-body">
         <div className="admin-operations-heading">
-          <div><h1>운영 관리</h1><p>체크인, 미수금, 락커 업무를 빠르게 처리합니다.</p></div>
+          {/* 페이지 제목은 상단바가 유일한 H1으로 표시하므로 본문에서 반복하지 않습니다. */}
+          <div><p>체크인, 미수금, 락커 업무를 빠르게 처리합니다.</p></div>
           {message.text ? <p className={`admin-operations-message ${message.type}`}>{message.text}</p> : null}
         </div>
         <div className="admin-operations-tabs" role="tablist" aria-label="운영 관리 메뉴">

@@ -52,7 +52,7 @@ export function AdminSidebar() {
 
   return (
     <aside className="icl-admin-sidebar" aria-label="필라테스 관리자 메뉴">
-      <Link className="icl-admin-sidebar-brand" to="/admin/studio" aria-label="이끌림 필라테스 일정">
+      <Link className="icl-admin-sidebar-brand" to="/" aria-label="이끌림 필라테스 홈으로 이동">
         <span className="icl-admin-sidebar-mark" aria-hidden="true">ICL</span>
         <span className="icl-admin-sidebar-brand-copy">
           <strong>이끌림 필라테스</strong>

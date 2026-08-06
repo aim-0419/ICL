@@ -103,7 +103,8 @@ test.beforeEach(async ({ page }) => {
 
 test("예약자 체크인과 취소가 실제 상태로 전환된다", async ({ page }) => {
   await page.goto("/admin/operations");
-  await expect(page.locator(".icl-admin-page-content").getByRole("heading", { name: "운영 관리" })).toBeVisible();
+  // 페이지 제목은 상단바의 유일한 H1이 담당하고 본문에서는 반복하지 않습니다.
+  await expect(page.getByRole("heading", { level: 1, name: "운영 관리" })).toBeVisible();
   const checkinButton = page.getByRole("button", { name: "체크인", exact: true });
   await checkinButton.click();
   await expect(page.getByRole("button", { name: "체크인 취소" })).toBeVisible();
@@ -158,7 +159,8 @@ test("375px 화면과 큰 버튼 옵션에서 운영 화면이 사용할 수 있
   await page.getByRole("button", { name: "가+" }).click();
   await expect(page.locator("html")).toHaveClass(/large-controls/);
   await page.goto("/admin/operations");
-  await expect(page.locator(".icl-admin-page-content").getByRole("heading", { name: "운영 관리" })).toBeVisible();
+  // 페이지 제목은 상단바의 유일한 H1이 담당하고 본문에서는 반복하지 않습니다.
+  await expect(page.getByRole("heading", { level: 1, name: "운영 관리" })).toBeVisible();
   await page.screenshot({ path: path.join(artifactDir, "operations-mobile-375.png"), fullPage: true });
 });
 

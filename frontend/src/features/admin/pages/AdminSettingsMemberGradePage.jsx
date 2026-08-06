@@ -145,7 +145,7 @@ export function AdminSettingsMemberGradePage() {
           <span>›</span>
           <span>회원 등급 설정</span>
         </div>
-        <h1 className="admin-sroom-title">회원 등급 설정</h1>
+        <h2 className="admin-sroom-title">회원 등급 설정</h2>
         <p className="admin-sroom-required-note">* 필수항목입니다</p>
 
         {/* 01* 회원 등급 사용 */}

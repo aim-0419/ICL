@@ -32297,8 +32297,17 @@ body,
 html.native-app,
 body.native-app {
   min-height: 100%;
-  overscroll-behavior-y: none;
   background: #f8f4ee;
+}
+
+/*
+ * body는 전역 규칙의 overflow-x:hidden 때문에 스크롤 경계가 됩니다.
+ * 여기에 overscroll-behavior-y:none을 함께 걸면 스크롤이 상위 viewport로 전달되지 않아
+ * Android WebView에서 손가락 스크롤이 전혀 동작하지 않습니다.
+ * 당김 새로고침과 상단 고무줄 효과 억제는 html에만 적용합니다.
+ */
+html.native-app {
+  overscroll-behavior-y: none;
 }
 
 body.native-app {

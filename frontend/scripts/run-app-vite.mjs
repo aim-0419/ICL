@@ -1,13 +1,15 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { loadAppEnvironment, validateAppEnvironment } from "./app-env.mjs";
+
+import { loadAppEnvironment, normalizeAppTarget, validateAppEnvironment } from "./app-env.mjs";
 
 const command = process.argv[2] === "dev" ? "dev" : "build";
-const appEnvironment = loadAppEnvironment();
-const errors = validateAppEnvironment(appEnvironment);
+const target = normalizeAppTarget(process.argv[3] || "development");
+const appEnvironment = loadAppEnvironment(target);
+const errors = validateAppEnvironment(appEnvironment, target);
 
 if (errors.length > 0) {
-  console.error(`[app-${command}] 설정 오류\n- ${errors.join("\n- ")}`);
+  console.error(`[app-${command}:${target}] environment error\n- ${errors.join("\n- ")}`);
   process.exit(1);
 }
 

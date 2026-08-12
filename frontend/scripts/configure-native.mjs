@@ -7,6 +7,9 @@ const IOS_INFO_PLIST = path.resolve("ios/App/App/Info.plist");
 const ANDROID_MANIFEST = path.resolve("android/app/src/main/AndroidManifest.xml");
 const ANDROID_NOTIFICATION_ICON = path.resolve("android/app/src/main/res/drawable/ic_stat_icl.xml");
 const ANDROID_GRADLE_PROPERTIES = path.resolve("android/gradle.properties");
+const NATIVE_TARGET = String(process.env.VITE_APP_ENV || "production").trim().toLowerCase();
+const IOS_DEV_NETWORK_START = "<!-- ICL_DEV_LOCAL_NETWORK_START -->";
+const IOS_DEV_NETWORK_END = "<!-- ICL_DEV_LOCAL_NETWORK_END -->";
 
 async function readOptional(filePath) {
   try {
@@ -123,6 +126,49 @@ async function writeAndroidNotificationIcon() {
   await fs.writeFile(ANDROID_NOTIFICATION_ICON, icon, "utf8");
 }
 
+async function configureNativeNetworkPolicy() {
+  let androidManifest = await readOptional(ANDROID_MANIFEST);
+  if (androidManifest) {
+    androidManifest = androidManifest.replace(
+      /\s+android:usesCleartextTraffic="(?:true|false)"/g,
+      "",
+    );
+    if (NATIVE_TARGET === "development") {
+      androidManifest = androidManifest.replace(
+        "<application",
+        '<application\n        android:usesCleartextTraffic="true"',
+      );
+    }
+    await fs.writeFile(ANDROID_MANIFEST, androidManifest, "utf8");
+  }
+
+  let infoPlist = await readOptional(IOS_INFO_PLIST);
+  if (infoPlist) {
+    const devNetworkPattern = new RegExp(
+      `${IOS_DEV_NETWORK_START}[\\s\\S]*?${IOS_DEV_NETWORK_END}\\s*`,
+      "g",
+    );
+    infoPlist = infoPlist.replace(devNetworkPattern, "");
+
+    if (NATIVE_TARGET === "development") {
+      const block = `${IOS_DEV_NETWORK_START}
+\t<key>NSAppTransportSecurity</key>
+\t<dict>
+\t\t<key>NSAllowsLocalNetworking</key>
+\t\t<true/>
+\t</dict>
+\t${IOS_DEV_NETWORK_END}`;
+      const rootDictEnd = infoPlist.lastIndexOf("</dict>");
+      if (rootDictEnd < 0) throw new Error("Info.plist root dictionary was not found.");
+      infoPlist = `${infoPlist.slice(0, rootDictEnd)}${block}\n${infoPlist.slice(rootDictEnd)}`;
+    }
+
+    await fs.writeFile(IOS_INFO_PLIST, infoPlist, "utf8");
+  }
+
+  console.log(`[capacitor] ${NATIVE_TARGET} network policy applied`);
+}
+
 async function configureAndroidGradleProperties() {
   let source = await readOptional(ANDROID_GRADLE_PROPERTIES);
   if (!source || source.includes("android.overridePathCheck")) return;
@@ -154,6 +200,7 @@ async function reportFirebaseFiles() {
 
 await configureIosAppDelegate();
 await configureIosUrlScheme();
+await configureNativeNetworkPolicy();
 await configureAndroidManifest();
 await writeAndroidNotificationIcon();
 await configureAndroidGradleProperties();

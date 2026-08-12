@@ -92,10 +92,13 @@ HomePage/
 ```bash
 cd backend
 npm install
+npm run db:provision:dev:local
+npm run db:check:dev:isolation
+npm run env:check:dev
 npm run dev
 ```
 
-기본 API 주소는 `http://localhost:4000`입니다.
+개발 API 주소는 `http://localhost:4001`이며 `homepage_dev` 전용 DB만 사용합니다. 운영 API는 기본 `4000`이고 운영 DB와 개발 DB를 혼용하지 않습니다.
 
 ### 2. 프론트엔드
 
@@ -114,12 +117,13 @@ npm run dev
 ```bash
 cd frontend
 npm run dev:app
-npm run build:app
-npm run cap:sync
+npm run build:app:dev
+npm run cap:sync:dev
+npm run android:reverse:dev
 npm run cap:check
 ```
 
-실기기 푸시, Android 서명, iOS 인증서와 스토어 제출 준비는 [모바일 앱 구성 및 릴리스 가이드](docs/development/mobile-app-setup.md)를 따릅니다.
+실기기 푸시, Android 서명, iOS 인증서와 스토어 제출 준비는 [모바일 앱 구성 및 릴리스 가이드](docs/development/mobile-app-setup.md)를 따릅니다. 환경별 API·DB 구조는 [개발·테스트·운영 환경 분리](docs/architecture/environment-separation.md)를 먼저 확인합니다.
 
 ## 테스트
 
@@ -176,6 +180,7 @@ npm run build
 - `docs/TASK.md`: 현재 작업 상태와 자동 실행 모드
 - `docs/QA_DEPLOY_CHECKLIST.md`: 배포 전 기능, 보안, UI, API, DB 점검 체크리스트
 - `docs/development/mobile-app-setup.md`: Android/iOS 환경 구성, Firebase Push, 빌드와 스토어 릴리스 가이드
+- `docs/architecture/environment-separation.md`: Web/Android/iOS의 개발·테스트·운영 API와 DB 분리 기준
 - `docs/audits/known-limitations.md`: 구현 계약과 화면 연결 상태가 추가 확인 필요한 항목
 
 ## 개발 원칙

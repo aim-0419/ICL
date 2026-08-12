@@ -30,12 +30,16 @@
 
 ## 환경 설정
 
-`frontend/.env.app.example`을 참고해 로컬 전용 `frontend/.env.app`을 만든다. 실제 비밀키는 프론트엔드 환경변수에 넣지 않는다.
+개발과 운영 앱은 서로 다른 환경 템플릿을 사용한다. 실제 비밀키는 프론트엔드 환경변수에 넣지 않는다.
 
 ```env
-VITE_APP_SHELL=native
+# 개발: frontend/.env.app.development.example
+VITE_APP_ENV=development
+VITE_API_BASE_URL=http://localhost:4001/api
+
+# 운영: frontend/.env.app.production.example
+VITE_APP_ENV=production
 VITE_API_BASE_URL=https://서비스도메인/api
-VITE_APP_LINK_HOSTS=서비스도메인,www.서비스도메인
 ```
 
 백엔드는 앱 origin을 허용해야 한다.
@@ -47,6 +51,7 @@ MOBILE_APP_ORIGINS=https://localhost,capacitor://localhost
 위 origin은 현재 `capacitor.config.json`의 `hostname: localhost`, Android `https` scheme, iOS `capacitor` scheme과 대응한다. hostname 또는 scheme을 바꾸면 Capacitor 설정과 백엔드 allowlist를 함께 변경해야 한다.
 
 - 운영 API는 유효한 TLS 인증서를 사용하는 HTTPS여야 한다.
+- 개발 앱은 개발 API만 사용하며 운영 host가 감지되면 build/sync를 중단한다.
 - 세션 쿠키의 `Secure`, `SameSite`, CORS credentials 설정을 실기기에서 확인한다.
 - `VITE_API_BASE_URL`에 운영이 아닌 임시 URL이나 localhost를 넣은 상태로 스토어 빌드를 만들지 않는다.
 
@@ -58,11 +63,14 @@ cd frontend
 # 네이티브 앱 화면을 브라우저에서 미리보기
 npm run dev:app
 
-# 앱용 웹 번들 생성
-npm run build:app
+# 개발 API용 앱 웹 번들 생성
+npm run build:app:dev
 
 # Android/iOS 프로젝트에 번들과 플러그인 동기화
-npm run cap:sync
+npm run cap:sync:dev
+
+# Android emulator에서 PC의 개발 API 4001 연결
+npm run android:reverse:dev
 
 # Firebase 네이티브 설정 파일 존재 확인
 npm run cap:check
@@ -71,7 +79,9 @@ npm run cap:check
 npm run test:e2e:app
 ```
 
-`cap:sync`는 앱 빌드 후 Android/iOS 폴더가 없으면 먼저 생성하고 Capacitor 동기화를 수행한다. 이어서 iOS 푸시 delegate, 커스텀 URL scheme, Android 딥링크와 알림 아이콘 설정을 다시 적용한다. 네이티브 폴더는 `.gitignore`에 포함된 생성물이므로 새 개발 환경에서는 이 명령으로 복원한다. 현재 저장소에 폴더가 없다는 사실은 오류가 아니지만, 실제 생성·동기화 성공 여부는 각 플랫폼 도구가 설치된 환경에서 확인해야 한다.
+`cap:sync:dev`는 개발 API를 사용하고 로컬 네트워크 접근을 허용한다. `cap:sync:prod`는 HTTPS 운영 API와 승인된 앱 링크 host를 검증하고 개발 전용 cleartext 설정을 제거한다. 동기화 과정은 Android/iOS 폴더가 없으면 먼저 생성하고, iOS 푸시 delegate, 커스텀 URL scheme, Android 딥링크와 알림 아이콘 설정을 다시 적용한다. 네이티브 폴더는 `.gitignore`에 포함된 생성물이므로 새 개발 환경에서는 이 명령으로 복원한다.
+
+Android emulator는 실행 후 `npm run android:reverse:dev`를 사용한다. 실제 기기는 localhost에 접근할 수 없으므로 HTTPS 개발 API가 필요하다. iOS build와 실제 iPhone 검증은 macOS/Xcode에서 수행한다.
 
 `cap:check`는 두 Firebase 설정 파일의 존재만 검사한다. keystore, APNs, 인증서, SDK 버전, 서명과 스토어 출시 준비까지 검증하는 명령은 아니다.
 
@@ -118,7 +128,7 @@ JDK와 Android SDK의 세부 버전은 저장소 문서에 고정되어 있지 �
 검증 순서:
 
 ```bash
-npm run cap:sync
+npm run cap:sync:prod
 npm run cap:check
 npx cap open android
 ```
@@ -138,7 +148,7 @@ Android Studio에서 debug 빌드, 실제 기기 로그인·예약·영상 재�
 검증 순서:
 
 ```bash
-npm run cap:sync
+npm run cap:sync:prod
 npm run cap:check
 npx cap open ios
 ```
@@ -194,4 +204,4 @@ Windows 검증 불가:
 - Universal Link/Android App Link 서버·네이티브 연결
 - 실제 스토어 정책과 심사 결과
 
-> 최종 점검: 2026-08-03. 네이티브 SDK, 서명 자산과 실기기 항목은 코드 검증만으로 완료 판정하지 않습니다.
+> 최종 점검: 2026-08-12. 네이티브 SDK, 서명 자산과 실기기 항목은 코드 검증만으로 완료 판정하지 않습니다.

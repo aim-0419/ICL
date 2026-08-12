@@ -34,6 +34,7 @@
 // 파일 역할: MySQL 연결 풀, 스키마 안전장치, 공통 query 헬퍼를 담당합니다.
 import mysql from "mysql2/promise";
 import { env } from "../../config/env.js";
+import { createMysqlConnectionOptions } from "./connection-options.js";
 import { createDatabaseClient } from "./database-client.js";
 import { runMigrations } from "./migrations.js";
 import { hashPassword } from "../security/password.js";
@@ -56,16 +57,10 @@ import {
 // 서버 시작 시에는 기본적으로 safe 모드라 DB 변경 작업을 수행하지 않습니다.
 
 const pool = mysql.createPool({
-  host: env.dbHost,
-  port: env.dbPort,
-  user: env.dbUser,
-  password: env.dbPassword,
-  database: env.dbName,
-  charset: "utf8mb4",
+  ...createMysqlConnectionOptions(),
   connectionLimit: 10,
   waitForConnections: true,
   namedPlaceholders: true,
-  timezone: "+09:00",
 });
 
 const databaseClient = createDatabaseClient(pool);

@@ -11,6 +11,18 @@
 
 PR 생성과 갱신만으로는 배포하지 않지만, main merge는 운영 배포 승인으로 취급합니다.
 
+## 개발 배포 분리
+
+- 운영 배포는 `.github/workflows/deploy.yml`, 운영 경로 `~/ICL`, PM2 `icl-backend`, API 기본 포트 `4000`을 사용합니다.
+- 개발 배포 예시는 수동 실행 전용 `.github/workflows/deploy-development.yml`, 개발 경로 `~/ICL-dev`, PM2 `icl-backend-dev`, API 기본 포트 `4001`을 사용합니다. 배포 전에 개발 DB 계정의 운영 DB 접근 차단을 읽기 전용으로 확인하고, 재시작 후 개발 환경 health 응답까지 검사합니다.
+- 개발 Backend는 `backend/.env.development`와 `homepage_dev`만 허용합니다.
+- 운영 Backend는 `backend/.env`와 `icl_pilates`만 허용합니다.
+- 두 환경은 EC2 경로만이 아니라 DB 계정, DB 권한, 업로드 경로, DNS/TLS, nginx와 GitHub Secrets까지 분리합니다.
+- 개발 nginx 예시는 전용 개발 서브도메인과 TLS 인증서를 요구하며 `4001`과 `uploads-dev`만 연결합니다.
+- 개발 워크플로우는 DB를 자동 생성하지 않으며 AWS 개발 인프라가 준비된 뒤에만 수동 실행합니다.
+
+세부 구조는 [`../architecture/environment-separation.md`](../architecture/environment-separation.md)를 따릅니다.
+
 ## DB 변경 통제
 
 - 서버 시작 시 스키마 bootstrap, alter, data repair는 운영에서 기본 차단합니다.
@@ -45,4 +57,4 @@ PR 생성과 갱신만으로는 배포하지 않지만, main merge는 운영 배
 - 배포 후: 로그인, 권한, 메인 자산, `/api/health`, `/uploads`, 예약 조회를 smoke test합니다.
 - 실패 시: 직전 정상 커밋, 환경변수와 DB migration의 rollback 경로를 사용합니다.
 
-> 최종 점검: 2026-07-29, `.github/workflows/deploy.yml`과 `deploy/nginx-prod.conf` 기준입니다.
+> 최종 점검: 2026-08-11, 운영·개발 배포 설정 기준입니다.

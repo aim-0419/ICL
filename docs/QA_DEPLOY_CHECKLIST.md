@@ -359,6 +359,11 @@
 
 ### Backend env
 
+- [ ] 운영 Web/Android/iOS가 운영 API만 사용하고 개발 API를 참조하지 않는다.
+- [ ] 개발 Web/Android/iOS가 개발 API만 사용하고 운영 API를 참조하지 않는다.
+- [ ] 운영 Backend는 `icl_pilates`, 개발 Backend는 `homepage_dev`, 자동 테스트는 `homepage_test`만 허용한다.
+- [ ] 개발 DB 계정에 운영 DB 권한이 없다.
+- [ ] 운영 배포 경로·PM2·포트·uploads와 개발 배포 값이 분리되어 있다.
 - [ ] 운영 `NODE_ENV=production` 설정을 확인했다.
 - [ ] 운영 `DB_INIT_MODE=safe` 또는 운영 DB 자동 변경 차단을 확인했다.
 - [ ] 운영 `TEST_SAFE_MODE`는 운영 서비스 동작 정책에 맞게 명시적으로 확인했다.

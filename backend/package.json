@@ -4,8 +4,15 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
+    "dev": "node scripts/run-backend.mjs development --watch",
+    "start": "node scripts/run-backend.mjs production",
+    "start:test": "node scripts/run-backend.mjs test",
+    "env:check:dev": "node scripts/check-runtime-environment.mjs development",
+    "env:check:test": "node scripts/check-runtime-environment.mjs test",
+    "env:check:prod": "node scripts/check-runtime-environment.mjs production",
+    "db:provision:dev:local": "node scripts/provision-local-dev-db.mjs",
+    "db:bootstrap:dev": "node scripts/bootstrap-development-db.mjs",
+    "db:check:dev:isolation": "node scripts/check-development-db-isolation.mjs",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/integration/*.test.js",
     "check": "node scripts/check-syntax.mjs && node --test test/*.test.js"

@@ -6,8 +6,14 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY src ./src
+COPY scripts ./scripts
 
-ENV PORT=4000
+ENV NODE_ENV=production \
+    APP_ENV=production \
+    PORT=4000
 EXPOSE 4000
 
-CMD ["npm", "start"]
+# Container environments inject configuration directly. The local npm wrapper
+# intentionally requires an on-disk env file, so containers start the server
+# entrypoint after the same runtime safety checks in src/server.js.
+CMD ["node", "src/server.js"]

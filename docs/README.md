@@ -19,6 +19,7 @@ AI 에이전트와 개발자는 다음 순서로 문서를 확인합니다.
 | --- | --- | --- | --- | --- |
 | [`architecture/system-overview.md`](architecture/system-overview.md) | 전체 시스템·인증·데이터·배포 흐름 설명 | 개발자, 운영자 | 현재 코드 기준 | `frontend/src`, `backend/src`, `deploy` |
 | [`architecture/feature-structure.md`](architecture/feature-structure.md) | 기능별 프론트엔드·백엔드 위치 안내 | 개발자, 기획자 | 현재 코드 기준 | `frontend/src/features`, `backend/src/features` |
+| [`architecture/environment-separation.md`](architecture/environment-separation.md) | Web/Android/iOS의 개발·테스트·운영 API·DB 분리 | 개발자, 운영자 | 로컬 구성 완료, AWS 개발 환경 준비 필요 | env, DB, GitHub Actions, Capacitor |
 | [`development/local-setup.md`](development/local-setup.md) | 로컬 실행과 안전한 검증 절차 | 개발자 | 사용 가능 | `package.json`, env example |
 | [`development/code-safety.md`](development/code-safety.md) | 데이터와 권한을 보호하는 변경 원칙 | 개발자, QA | 사용 가능 | DB, 예약, 결제, 권한 |
 | [`development/mobile-app-setup.md`](development/mobile-app-setup.md) | Capacitor Android/iOS 구성과 릴리스 준비 | 앱 개발자, 운영자 | 실기기 검증 필요 | `frontend/android`, `frontend/ios`, Capacitor |

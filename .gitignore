@@ -13,10 +13,14 @@ pnpm-debug.log*
 .env
 .env.*
 !backend/.env.example
+!backend/.env.development.example
 !backend/.env.test.example
+!.env.docker.example
 !frontend/.env.example
 !frontend/.env.test.example
 !frontend/.env.app.example
+!frontend/.env.app.development.example
+!frontend/.env.app.production.example
 
 # OS / Editor
 .DS_Store
@@ -33,6 +37,7 @@ frontend/_tmp_davenue_intro.html
 
 # Uploaded media
 backend/uploads/
+backend/uploads-dev/
 backend/uploads-test/
 backend/uploads/e2e-test/
 

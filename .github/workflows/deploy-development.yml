@@ -1,0 +1,66 @@
+name: Deploy Development Environment
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Verify backend
+        working-directory: backend
+        run: npm ci && npm run check
+
+      - name: Verify frontend
+        working-directory: frontend
+        run: npm ci && npm run build && npm run test:env-isolation
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - name: Deploy isolated development API and web build
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_EC2_HOST }}
+          username: ${{ secrets.DEV_EC2_USER }}
+          key: ${{ secrets.DEV_EC2_KEY }}
+          script: |
+            export NODE_ENV=development
+            export APP_ENV=development
+            export ENV_FILE="$HOME/ICL-dev/backend/.env.development"
+            if [ ! -d "$HOME/ICL-dev/.git" ]; then
+              echo "Development checkout is missing at $HOME/ICL-dev"
+              exit 1
+            fi
+            if [ ! -f "$ENV_FILE" ]; then
+              echo "Development backend/.env.development is missing"
+              exit 1
+            fi
+            cd "$HOME/ICL-dev"
+            git fetch origin "${{ github.ref_name }}"
+            git reset --hard "origin/${{ github.ref_name }}"
+            cd backend
+            npm ci
+            npm run env:check:dev
+            npm run db:check:dev:isolation
+            cd ../frontend
+            npm ci
+            npm run build
+            cd ../backend
+            pm2 describe icl-backend-dev > /dev/null 2>&1 && pm2 restart icl-backend-dev --update-env || pm2 start src/server.js --name icl-backend-dev --cwd "$HOME/ICL-dev/backend" --time
+            pm2 save
+            node -e "fetch('http://127.0.0.1:4001/api/health').then(async (response) => { const body = await response.json(); if (!response.ok || body.environment !== 'development') process.exit(1); }).catch(() => process.exit(1))"

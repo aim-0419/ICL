@@ -81,6 +81,7 @@ export function createApp() {
     res.setHeader("X-Frame-Options", "SAMEORIGIN");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    res.setHeader("X-ICL-Environment", env.appEnvironment);
     res.setHeader(
       "Content-Security-Policy",
       "default-src 'none'; frame-ancestors 'none'",
@@ -109,7 +110,7 @@ export function createApp() {
         callback(error);
       },
       credentials: true,
-      exposedHeaders: ["Content-Disposition", "X-Request-Id"],
+      exposedHeaders: ["Content-Disposition", "X-Request-Id", "X-ICL-Environment"],
     }),
   );
 
@@ -144,6 +145,7 @@ export function createApp() {
       res.json({
         status: "ok",
         database: "connected",
+        environment: env.appEnvironment,
         requestId: req.requestId,
       });
     } catch (error) {

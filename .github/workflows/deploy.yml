@@ -52,6 +52,22 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           script: |
+            export NODE_ENV=production
+            export APP_ENV=production
+            if [ ! -f ~/ICL/backend/.env ]; then
+              echo "Production backend/.env is missing"
+              exit 1
+            fi
+            DB_NAME=$(grep "^DB_NAME=" ~/ICL/backend/.env | cut -d= -f2- | tr -d '\r')
+            DB_INIT_MODE=$(grep "^DB_INIT_MODE=" ~/ICL/backend/.env | cut -d= -f2- | tr -d '\r' || true)
+            if [ "$DB_NAME" != "icl_pilates" ]; then
+              echo "Production deployment blocked: DB_NAME is not the approved production DB"
+              exit 1
+            fi
+            if [ -n "$DB_INIT_MODE" ] && [ "$DB_INIT_MODE" != "safe" ]; then
+              echo "Production deployment blocked: DB_INIT_MODE must be safe"
+              exit 1
+            fi
             mkdir -p ~/backups
             if [ -f ~/ICL/backend/.env ]; then
               DB_USER=$(grep "^DB_USER=" ~/ICL/backend/.env | cut -d= -f2)
@@ -80,6 +96,7 @@ jobs:
             npm run build
             cd ../backend
             npm install
+            node scripts/check-runtime-environment.mjs production
             if grep -q "^CORS_ORIGIN=" .env 2>/dev/null; then
               sed -i 's|^CORS_ORIGIN=.*|CORS_ORIGIN=https://icl-pilates.com,https://www.icl-pilates.com|' .env
             else

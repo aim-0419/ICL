@@ -1,6 +1,7 @@
-import { loadAppEnvironment, validateAppEnvironment } from "./app-env.mjs";
+import { loadAppEnvironment, normalizeAppTarget, validateAppEnvironment } from "./app-env.mjs";
 
-const errors = validateAppEnvironment(loadAppEnvironment());
+const target = normalizeAppTarget(process.argv[2] || "production");
+const errors = validateAppEnvironment(loadAppEnvironment(target), target);
 
 if (errors.length > 0) {
   console.error(`[app-build] 설정 오류\n- ${errors.join("\n- ")}`);

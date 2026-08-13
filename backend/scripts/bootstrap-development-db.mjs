@@ -41,7 +41,11 @@ function assertSafeEnvironment() {
   }
 }
 
-async function assertEmptyTargetDatabase() {
+function quoteIdentifier(value) {
+  return `\`${String(value).replaceAll("`", "``")}\``;
+}
+
+async function assertSafeBootstrapTarget() {
   const connection = await mysql.createConnection(createMysqlConnectionOptions());
 
   try {
@@ -51,9 +55,22 @@ async function assertEmptyTargetDatabase() {
     if (databaseRow?.database_name !== TARGET_DATABASE) {
       throw new Error("connected database is not homepage_dev");
     }
-    if (tables.length > 0) {
-      throw new Error("homepage_dev is not empty; bootstrap was stopped without changes");
+    const tableNames = tables
+      .map((row) => String(Object.values(row)[0] || ""))
+      .filter(Boolean);
+
+    for (const tableName of tableNames) {
+      const [rows] = await connection.query(
+        `SELECT 1 AS has_data FROM ${quoteIdentifier(tableName)} LIMIT 1`,
+      );
+      if (rows.length > 0) {
+        throw new Error(
+          "homepage_dev contains data; partial bootstrap resume was stopped without changes",
+        );
+      }
     }
+
+    return { existingTableCount: tableNames.length };
   } finally {
     await connection.end();
   }
@@ -61,7 +78,7 @@ async function assertEmptyTargetDatabase() {
 
 async function main() {
   assertSafeEnvironment();
-  await assertEmptyTargetDatabase();
+  const bootstrapTarget = await assertSafeBootstrapTarget();
 
   const database = await import("../src/shared/db/mysql.js");
   try {
@@ -70,7 +87,12 @@ async function main() {
     if (!Array.isArray(tables) || tables.length === 0) {
       throw new Error("schema bootstrap did not create any tables");
     }
-    console.log(JSON.stringify({ ok: true, database: TARGET_DATABASE, tableCount: tables.length }));
+    console.log(JSON.stringify({
+      ok: true,
+      database: TARGET_DATABASE,
+      tableCount: tables.length,
+      resumedPartialSchema: bootstrapTarget.existingTableCount > 0,
+    }));
   } finally {
     await database.closeDatabase();
   }

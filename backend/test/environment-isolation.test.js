@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -58,4 +59,22 @@ test("AWS RDS development connections require certificate verification", () => {
     DB_SSL_CA: existingCaFixture,
   }, { inspectSsl: true });
   assert.equal(verified.status, 0);
+});
+
+test("studio staff bootstrap defines user_id before its index", () => {
+  const mysqlSource = fs.readFileSync(
+    path.join(backendRoot, "src", "shared", "db", "mysql.js"),
+    "utf8",
+  );
+  const tableDefinition = mysqlSource.match(
+    /CREATE TABLE IF NOT EXISTS studio_staff_profiles \(([\s\S]*?)\n\s*\) COMMENT=/,
+  )?.[1];
+
+  assert.ok(tableDefinition, "studio_staff_profiles definition was not found");
+  const columnPosition = tableDefinition.indexOf("user_id VARCHAR(64) NULL");
+  const indexPosition = tableDefinition.indexOf("INDEX idx_studio_staff_profiles_user_id (user_id)");
+
+  assert.notEqual(columnPosition, -1);
+  assert.notEqual(indexPosition, -1);
+  assert.ok(columnPosition < indexPosition);
 });

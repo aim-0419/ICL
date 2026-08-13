@@ -3121,6 +3121,7 @@ async function runStartupDatabaseInitialization() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS studio_staff_profiles (
       id VARCHAR(80) PRIMARY KEY,
+      user_id VARCHAR(64) NULL,
       name VARCHAR(120) NOT NULL,
       role_code ENUM('owner','manager','instructor') NOT NULL DEFAULT 'instructor',
       employment_type ENUM('full_time','part_time','freelance') NOT NULL DEFAULT 'full_time',

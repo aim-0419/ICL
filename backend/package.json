@@ -14,6 +14,8 @@
     "db:bootstrap:dev": "node scripts/bootstrap-development-db.mjs",
     "db:check:dev:isolation": "node scripts/check-development-db-isolation.mjs",
     "db:seed:dev:accounts": "node scripts/seed-development-accounts.mjs",
+    "db:export:dev:sanitized": "node scripts/export-sanitized-development-data.mjs",
+    "db:import:dev:sanitized": "node scripts/import-sanitized-development-data.mjs",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/integration/*.test.js",
     "check": "node scripts/check-syntax.mjs && node --test test/*.test.js"

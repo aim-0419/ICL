@@ -5,6 +5,7 @@ import {
   assertSanitizedDataset,
   createSanitizationContext,
   sanitizeTableRows,
+  serializeSanitizedDatabaseValue,
 } from "../scripts/development-data-sanitizer.mjs";
 
 function context() {
@@ -77,4 +78,11 @@ test("dataset validation rejects encrypted PII and non-development email address
   assert.equal(assertSanitizedDataset(base), true);
   assert.throws(() => assertSanitizedDataset({ ...base, note: "enc:v1:secret" }), /encrypted PII/);
   assert.throws(() => assertSanitizedDataset({ ...base, note: "person@real-domain.com" }), /non-development email/);
+});
+
+test("structured database values are serialized without expanding SQL placeholders", () => {
+  assert.equal(serializeSanitizedDatabaseValue(["video-3", "video-5"]), '["video-3","video-5"]');
+  assert.equal(serializeSanitizedDatabaseValue({ enabled: false }), '{"enabled":false}');
+  assert.equal(serializeSanitizedDatabaseValue("plain"), "plain");
+  assert.equal(serializeSanitizedDatabaseValue(null), null);
 });

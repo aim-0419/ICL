@@ -7,7 +7,11 @@ import mysql from "mysql2/promise";
 
 import { assertRuntimeEnvironment, env } from "../src/config/env.js";
 import { createMysqlConnectionOptions } from "../src/shared/db/connection-options.js";
-import { assertSanitizedDataset, EMPTY_IN_DEVELOPMENT_TABLES } from "./development-data-sanitizer.mjs";
+import {
+  assertSanitizedDataset,
+  EMPTY_IN_DEVELOPMENT_TABLES,
+  serializeSanitizedDatabaseValue,
+} from "./development-data-sanitizer.mjs";
 
 const TARGET_DATABASE = "homepage_dev";
 const TARGET_USER = "homepage_dev_user";
@@ -48,7 +52,9 @@ async function insertRows(connection, table, columns, rows) {
   const batchSize = 100;
   for (let offset = 0; offset < rows.length; offset += batchSize) {
     const batch = rows.slice(offset, offset + batchSize);
-    const values = batch.flatMap((row) => columns.map((column) => row[column] ?? null));
+    const values = batch.flatMap((row) => columns.map((column) => (
+      serializeSanitizedDatabaseValue(row[column] ?? null)
+    )));
     await connection.query(
       `INSERT INTO \`${table}\` (${quotedColumns}) VALUES ${placeholders(batch.length, columns.length)}`,
       values,

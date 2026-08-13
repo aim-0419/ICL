@@ -22,6 +22,11 @@ export const EMPTY_IN_DEVELOPMENT_TABLES = new Set([
   "studio_push_devices",
 ]);
 
+export function serializeSanitizedDatabaseValue(value) {
+  if (value !== null && typeof value === "object") return JSON.stringify(value);
+  return value;
+}
+
 const USER_REFERENCE_COLUMNS = new Set([
   "author_id",
   "created_by",

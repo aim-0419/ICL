@@ -13,6 +13,7 @@
     "db:provision:dev:local": "node scripts/provision-local-dev-db.mjs",
     "db:bootstrap:dev": "node scripts/bootstrap-development-db.mjs",
     "db:check:dev:isolation": "node scripts/check-development-db-isolation.mjs",
+    "db:seed:dev:accounts": "node scripts/seed-development-accounts.mjs",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/integration/*.test.js",
     "check": "node scripts/check-syntax.mjs && node --test test/*.test.js"

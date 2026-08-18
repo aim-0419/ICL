@@ -2,9 +2,11 @@
 import { query, queryOne, withTransaction } from "../../shared/db/mysql.js";
 import { decryptPii, decryptUserRow, normalizeEmail } from "../../shared/security/pii.js";
 import {
+  isPassCompatibleWithClass,
   normalizeClassInput,
   normalizeOptionalCount,
   resolveBookingStatus,
+  resolveIssuedPassType,
 } from "./studio.class-rules.js";
 import { normalizePassRefundRequest } from "./studio.refund-rules.js";
 import { parseJson } from "../../shared/utils/payload.js";
@@ -29,6 +31,42 @@ function normalizeBranchId(value) {
 
 function branchNameExpr(alias = "sc") {
   return `COALESCE(b.name, CASE ${alias}.branch_id WHEN 'branch-2' THEN '효천점' ELSE '장덕점' END)`;
+}
+
+// 지금 사용할 수 있는 수강권을 뽑는 공통 SELECT입니다.
+// 사용 가능 조건은 활성 상태, 잔여 횟수 1회 이상, 만료 전(만료일 없음 포함)입니다.
+// studio_pass_products를 LEFT JOIN 하는 이유는, 상품 연결 이전에 발급된 기존 수강권도
+// 함께 조회해야 하기 때문입니다. 그런 수강권은 productClassType이 null로 나옵니다.
+const USABLE_PASS_SELECT = `SELECT
+    sp.id,
+    sp.branch_id AS branchId,
+    sp.pass_type AS passType,
+    sp.remaining_count AS remainingCount,
+    spp.class_type AS productClassType,
+    spp.capacity AS productCapacity
+  FROM studio_passes sp
+  LEFT JOIN studio_pass_products spp ON spp.id = sp.pass_product_id
+  WHERE sp.user_id = ?
+    AND sp.status = 'active'
+    AND sp.remaining_count > 0
+    AND (sp.expires_at IS NULL OR sp.expires_at >= NOW())`;
+
+// 함수 역할: 이 수업에 실제로 쓸 수 있는 수강권 한 장을 트랜잭션 안에서 찾아 잠급니다.
+//
+// 지점이 같은 수강권을 만료 임박 순으로 정렬한 뒤, 수업 형태와 정원까지 맞는 첫 장을 고릅니다.
+// 정렬 기준은 만료일 없는 것을 뒤로, 만료일이 이른 것을 먼저 써서 소멸을 줄이는 것입니다.
+//
+// FOR UPDATE로 잠그는 이유는 동시에 두 번 예약이 들어와도 같은 수강권이
+// 두 번 차감되지 않게 하기 위해서입니다. 반드시 트랜잭션 커넥션으로 호출해야 합니다.
+async function findCompatiblePassWithConn(conn, { userId, classInfo }) {
+  const [rows] = await conn.execute(
+    `${USABLE_PASS_SELECT}
+     AND sp.branch_id = ?
+     ORDER BY sp.expires_at IS NULL DESC, sp.expires_at ASC, sp.created_at ASC
+     FOR UPDATE`,
+    [userId, normalizeBranchId(classInfo.branchId)],
+  );
+  return (Array.isArray(rows) ? rows : []).find((pass) => isPassCompatibleWithClass(pass, classInfo)) || null;
 }
 
 function normalizeDate(value) {
@@ -200,22 +238,46 @@ export async function listClasses({ from = "", to = "", userId = "", branchId = 
     params
   );
 
+  // 로그인 회원이면 내 예약 현황과 사용 가능 수강권을 함께 읽습니다.
+  // 두 조회는 서로 의존하지 않으므로 Promise.all로 동시에 보냅니다.
+  // 여기서는 목록 표시용이라 지점 조건 없이 전부 가져오고, 지점 비교는 아래에서 합니다.
   let myBookings = [];
+  let usablePasses = [];
   if (userId) {
-    myBookings = await query(
-      `SELECT class_id AS classId, status
-       FROM studio_bookings
-       WHERE user_id = ? AND status IN ('reserved','waitlisted')`,
-      [userId]
-    );
+    [myBookings, usablePasses] = await Promise.all([
+      query(
+        `SELECT class_id AS classId, status
+         FROM studio_bookings
+         WHERE user_id = ? AND status IN ('reserved','waitlisted')`,
+        [userId],
+      ),
+      query(
+        `${USABLE_PASS_SELECT}
+         ORDER BY sp.expires_at IS NULL DESC, sp.expires_at ASC, sp.created_at ASC`,
+        [userId],
+      ),
+    ]);
   }
   const myMap = new Map(myBookings.map((b) => [String(b.classId), String(b.status)]));
-  return (Array.isArray(rows) ? rows : []).map((row) => ({
-    ...row,
-    reservedCount: toCount(row.reservedCount),
-    waitlistCount: toCount(row.waitlistCount),
-    myStatus: myMap.get(String(row.id)) || "available",
-  }));
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => {
+      const myStatus = myMap.get(String(row.id)) || "available";
+      // canBook은 화면에서 예약 버튼을 열지 결정하는 표시용 값입니다.
+      // 비로그인 상태에서는 로그인 유도를 위해 true로 두고, 로그인 상태에서는
+      // 같은 지점에 이 수업에 맞는 수강권이 한 장이라도 있어야 true가 됩니다.
+      // 실제 차감 가능 여부는 예약 시점에 findCompatiblePassWithConn이 다시 확인합니다.
+      const canBook = !userId || (Array.isArray(usablePasses) && usablePasses.some(
+        (pass) => String(pass.branchId) === String(row.branchId) && isPassCompatibleWithClass(pass, row),
+      ));
+      return {
+        ...row,
+        reservedCount: toCount(row.reservedCount),
+        waitlistCount: toCount(row.waitlistCount),
+        myStatus,
+        canBook,
+      };
+    })
+    .filter((row) => !userId || row.myStatus !== "available" || row.canBook);
 }
 
 export async function listClassesForAdmin({ from = "", to = "", status = "", branchId = "" } = {}) {
@@ -283,9 +345,13 @@ export async function listMyPasses(userId, branchId = "") {
   const rows = await query(
     `SELECT sp.id, sp.branch_id AS branchId, ${branchNameExpr("sp")} AS branchName,
             sp.pass_name AS passName, sp.pass_type AS passType, sp.remaining_count AS remainingCount,
-            sp.total_count AS totalCount, sp.expires_at AS expiresAt, sp.status
+            sp.total_count AS totalCount, sp.expires_at AS expiresAt, sp.status,
+            sp.pass_product_id AS passProductId,
+            spp.class_type AS classType,
+            spp.capacity
      FROM studio_passes sp
      LEFT JOIN branches b ON b.id = sp.branch_id
+     LEFT JOIN studio_pass_products spp ON spp.id = sp.pass_product_id
      WHERE sp.user_id = ?
        ${branchWhere}
      ORDER BY sp.created_at DESC`,
@@ -422,7 +488,7 @@ export async function listMyBookings(userId, branchId = "") {
 export async function bookClass({ userId, classId }) {
   return withTransaction(async (conn) => {
     const classRows = await conn.execute(
-      `SELECT id, branch_id AS branchId, title, start_at, end_at, capacity, waitlist_capacity, booking_deadline_at, status
+      `SELECT id, branch_id AS branchId, class_type AS classType, title, start_at, end_at, capacity, waitlist_capacity, booking_deadline_at, status
        FROM studio_classes
        WHERE id = ?
        LIMIT 1
@@ -450,21 +516,8 @@ export async function bookClass({ userId, classId }) {
       throw createHttpError("이미 예약했거나 대기 신청한 수업입니다.", 409);
     }
 
-    const passRows = await conn.execute(
-      `SELECT id, remaining_count AS remainingCount
-       FROM studio_passes
-       WHERE user_id = ?
-         AND status = 'active'
-         AND branch_id = ?
-         AND remaining_count > 0
-         AND (expires_at IS NULL OR expires_at >= NOW())
-       ORDER BY expires_at IS NULL DESC, expires_at ASC, created_at ASC
-       LIMIT 1
-       FOR UPDATE`,
-      [userId, normalizeBranchId(classInfo.branchId)]
-    );
-    const pass = passRows?.[0]?.[0] || null;
-    if (!pass) throw createHttpError("사용 가능한 수강권이 없습니다.", 400);
+    const pass = await findCompatiblePassWithConn(conn, { userId, classInfo });
+    if (!pass) throw createHttpError("이 수업에 사용할 수 있는 수강권이 없습니다.", 400);
 
     const cntRows = await conn.execute(
       `SELECT
@@ -527,7 +580,8 @@ export async function bookClass({ userId, classId }) {
 export async function cancelMyBooking({ userId, classId }) {
   return withTransaction(async (conn) => {
     const classRows = await conn.execute(
-      `SELECT title, branch_id AS branchId, start_at AS startAt, cancellation_deadline_at AS cancellationDeadlineAt
+      `SELECT title, branch_id AS branchId, class_type AS classType, capacity,
+              start_at AS startAt, cancellation_deadline_at AS cancellationDeadlineAt
        FROM studio_classes
        WHERE id = ?
        LIMIT 1
@@ -589,20 +643,10 @@ export async function cancelMyBooking({ userId, classId }) {
       );
       const waiter = waitRows?.[0]?.[0] || null;
       if (waiter) {
-        const passRows = await conn.execute(
-          `SELECT id
-           FROM studio_passes
-           WHERE user_id = ?
-             AND status = 'active'
-             AND branch_id = ?
-             AND remaining_count > 0
-             AND (expires_at IS NULL OR expires_at >= NOW())
-           ORDER BY expires_at IS NULL DESC, expires_at ASC, created_at ASC
-           LIMIT 1
-           FOR UPDATE`,
-          [waiter.userId, normalizeBranchId(classInfo.branchId)]
-        );
-        const waiterPass = passRows?.[0]?.[0] || null;
+        const waiterPass = await findCompatiblePassWithConn(conn, {
+          userId: waiter.userId,
+          classInfo,
+        });
         if (waiterPass) {
           await conn.execute(
             `UPDATE studio_bookings SET status = 'reserved', pass_id = ? WHERE id = ?`,
@@ -1001,12 +1045,15 @@ export async function listAllBookingsForAdmin({ from = "", to = "", status = "",
 export async function createPassByAdmin(payload) {
   const id = randomUUID();
   const userId = String(payload?.userId || "").trim();
-  const branchId = normalizeBranchId(payload?.branchId);
-  const passName = String(payload?.passName || "").trim();
-  const totalCount = Math.max(0, Number(payload?.totalCount || 0));
-  const remainingCount = Math.max(0, Number(payload?.remainingCount || payload?.totalCount || 0));
+  const passProductId = String(payload?.passProductId || "").trim() || null;
+  let branchId = normalizeBranchId(payload?.branchId);
+  let passName = String(payload?.passName || "").trim();
+  let totalCount = Math.max(0, Number(payload?.totalCount || 0));
+  let remainingCount = Math.max(0, Number(payload?.remainingCount ?? payload?.totalCount ?? 0));
+  let passType = resolveIssuedPassType({ passType: payload?.passType });
+  let expiresAt = payload?.expiresAt || null;
   const amount = Math.max(0, Number(payload?.amount || 0));
-  if (!userId || !passName || totalCount <= 0) {
+  if (!userId) {
     throw createHttpError("수강권 생성 정보가 올바르지 않습니다.", 400);
   }
   await withTransaction(async (conn) => {
@@ -1018,19 +1065,47 @@ export async function createPassByAdmin(payload) {
       throw createHttpError("수강권을 부여할 회원을 찾을 수 없습니다.", 404);
     }
 
+    if (passProductId) {
+      const [productRows] = await conn.execute(
+        `SELECT id, branch_id AS branchId, name, class_type AS classType,
+                capacity, total_count AS totalCount, valid_days AS validDays
+         FROM studio_pass_products
+         WHERE id = ? AND status = 'active'
+         LIMIT 1`,
+        [passProductId],
+      );
+      const product = productRows?.[0] || null;
+      if (!product) throw createHttpError("사용 가능한 수강권 상품을 찾을 수 없습니다.", 404);
+
+      branchId = normalizeBranchId(product.branchId);
+      passName = String(product.name || passName).trim();
+      totalCount = totalCount > 0 ? totalCount : Math.max(0, Number(product.totalCount || 0));
+      remainingCount = Math.min(remainingCount || totalCount, totalCount);
+      passType = resolveIssuedPassType(product);
+      if (!expiresAt && Number(product.validDays) > 0) {
+        expiresAt = new Date(Date.now() + Number(product.validDays) * 86400000);
+      }
+    }
+
+    if (!passName || totalCount <= 0 || remainingCount > totalCount) {
+      throw createHttpError("수강권 생성 정보가 올바르지 않습니다.", 400);
+    }
+
     await conn.execute(
       `INSERT INTO studio_passes
-        (id, user_id, branch_id, pass_name, pass_type, remaining_count, total_count, expires_at, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
+        (id, user_id, branch_id, pass_name, pass_type, remaining_count, total_count, expires_at,
+         pass_product_id, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
       [
         id,
         userId,
         branchId,
         passName,
-        String(payload?.passType || "group").trim(),
+        passType,
         remainingCount,
         totalCount,
-        payload?.expiresAt || null,
+        expiresAt,
+        passProductId,
       ]
     );
 

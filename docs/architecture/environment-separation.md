@@ -28,11 +28,15 @@
 
 회사 Windows와 집의 macOS는 AWS 개발 백엔드와 개발 RDS `homepage_dev`를 공용으로 사용한다. 실제 비밀값은 각 컴퓨터의 비추적 파일에만 둔다.
 
+터널은 SSH가 아니라 AWS SSM Session Manager 포트포워딩으로 연다. 개발 EC2의 `22`를 열지 않고, 노트북에 개인키를 두지 않으며, 접속 위치가 바뀌어도 보안 그룹을 수정하지 않는다. 각 컴퓨터에 AWS CLI와 Session Manager plugin을 설치하고 `ssm:StartSession` 권한이 있는 자격증명을 준비한다.
+
 ```bash
 cd backend
 cp .env.development.example .env.development
 cp .env.development.tunnel.example .env.development.tunnel
 ```
+
+`.env.development.tunnel`에는 개발 리전, 개발 인스턴스 ID, 개발 RDS endpoint를 넣는다. 터널 스크립트는 개발이 아닌 DB 이름, 개발이 아닌 RDS endpoint, 약속된 포트가 아닌 값을 모두 거부하므로 운영으로 향하는 터널은 열리지 않는다.
 
 일반 프론트엔드 작업은 API 터널을 사용한다.
 
@@ -60,7 +64,7 @@ npm run db:check:dev:isolation
 npm run dev
 ```
 
-로컬 백엔드의 `DB_PORT`는 `13306`이며 SSH 터널이 AWS 개발 RDS `3306`으로 전달한다. EC2에서 실행하는 개발 백엔드는 서버 전용 `.env.development`로 RDS에 직접 연결하므로 `3306`을 사용한다.
+로컬 백엔드의 `DB_PORT`는 `13306`이며 SSM 포트포워딩이 AWS 개발 RDS `3306`으로 전달한다. EC2에서 실행하는 개발 백엔드는 서버 전용 `.env.development`로 RDS에 직접 연결하므로 `3306`을 사용한다.
 
 격리된 로컬 DB가 필요한 경우에만 아래 명령을 사용한다. 이 데이터는 다른 컴퓨터와 동기화되지 않는다.
 
@@ -125,6 +129,7 @@ npm run cap:sync:prod
 - 개발 EC2/서비스: 운영 EC2와 별도 경로, 포트, PM2 이름 사용
 - 개발 DB: 운영 DB와 별도 인스턴스 또는 최소한 별도 DB·전용 계정·전용 보안그룹 사용
 - MySQL `3306`을 인터넷 전체에 공개하지 않음
+- 개발 EC2의 SSH `22`를 개발자 IP에 개방하지 않음. 접속은 SSM Session Manager로만 함
 - 개발 DB 인바운드는 개발 백엔드 보안그룹에서만 허용
 - 개발 웹·앱은 개발 API의 HTTPS 주소만 사용
 - 운영 또는 로컬 DB dump를 개발 DB 동기화 수단으로 반복 사용하지 않음

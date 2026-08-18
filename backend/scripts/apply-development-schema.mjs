@@ -1,6 +1,13 @@
-// 개발 DB에 코드로 정의된 테이블과 컬럼 중 누락된 것만 추가합니다.
-// 서버 시작은 DB_INIT_MODE=safe라 스키마를 절대 건드리지 않으므로, 개발 배포에서
-// 이 스크립트가 그 간극을 메웁니다. 기존 행을 지우거나 바꾸는 작업은 모두 차단합니다.
+// 파일 역할: 개발 DB에 코드로 정의된 테이블과 컬럼 중 누락된 것만 추가합니다.
+//
+// 배경: 이 프로젝트에는 마이그레이션 체계가 없습니다. 스키마는 mysql.js의
+// CREATE TABLE IF NOT EXISTS와 ALTER TABLE ADD COLUMN 문에 코드로만 들어 있고,
+// 서버 시작은 DB_INIT_MODE=safe로 고정되어 그 문장들을 실행하지 않습니다.
+// 그래서 코드에 컬럼을 추가해도 개발 DB에는 반영되지 않고 Unknown column 오류가 납니다.
+// db:bootstrap:dev도 대안이 못 됩니다. 비어 있지 않은 DB를 거부하기 때문입니다.
+//
+// 이 스크립트가 그 간극만 메웁니다. 추가만 하고, 기존 행은 절대 건드리지 않습니다.
+// 개발 배포 workflow가 백엔드를 재시작하기 전에 실행합니다.
 import path from "node:path";
 
 import mysql from "mysql2/promise";
@@ -34,6 +41,9 @@ process.on("unhandledRejection", (reason) => {
   process.exit(1);
 });
 
+// 함수 역할: 위험한 조합으로 실행되고 있지 않은지 마지막으로 확인합니다.
+// 위에서 process.env로 값을 정했더라도, env.js가 다르게 해석했을 가능성까지 막습니다.
+// 운영 DB나 다른 계정으로 연결된 상태면 여기서 멈춥니다.
 function assertSafeEnvironment() {
   const errors = [];
 
@@ -57,6 +67,8 @@ function assertSafeEnvironment() {
   }
 }
 
+// 함수 역할: 현재 개발 DB의 테이블과 컬럼 구성을 읽어 Map으로 만듭니다.
+// 실행 전후로 한 번씩 찍어서 무엇이 추가되었는지 비교하는 데 씁니다.
 async function readSchemaSnapshot(connection) {
   const [rows] = await connection.query(
     `SELECT table_name AS tableName, column_name AS columnName
@@ -74,6 +86,7 @@ async function readSchemaSnapshot(connection) {
   return snapshot;
 }
 
+// 함수 역할: 스냅샷을 비교하기 쉬운 문자열 하나로 만듭니다. 변화 감지에만 사용합니다.
 function snapshotKey(snapshot) {
   return [...snapshot.entries()]
     .map(([table, columns]) => `${table}:${[...columns].sort().join(",")}`)
@@ -99,6 +112,8 @@ async function waitForSchemaToSettle(connection) {
   }
 }
 
+// 함수 역할: 실행 전후 스냅샷을 비교해 추가·삭제된 테이블과 컬럼을 뽑아냅니다.
+// 삭제 목록은 보고용이 아니라 안전장치입니다. 비어 있지 않으면 실패로 처리합니다.
 function diffSnapshots(before, after) {
   const addedTables = [...after.keys()].filter((table) => !before.has(table)).sort();
   const removedTables = [...before.keys()].filter((table) => !after.has(table)).sort();
@@ -126,6 +141,8 @@ function diffSnapshots(before, after) {
   };
 }
 
+// 함수 역할: 스냅샷을 찍고 스키마를 반영한 뒤, 추가된 항목을 JSON으로 보고합니다.
+// 배포 로그에 그대로 남으므로 무엇이 개발 DB에 들어갔는지 나중에 확인할 수 있습니다.
 async function main() {
   assertSafeEnvironment();
 

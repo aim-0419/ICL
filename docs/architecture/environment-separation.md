@@ -130,7 +130,9 @@ npm run cap:sync:prod
 - 운영 또는 로컬 DB dump를 개발 DB 동기화 수단으로 반복 사용하지 않음
 - 필요한 테스트 데이터는 가명 seed나 승인된 익명화 데이터로 생성
 
-`.github/workflows/deploy-development.yml`은 수동 실행 전용 예시다. AWS의 개발 인스턴스, DNS, 인증서, GitHub `DEV_EC2_*` secrets와 `~/ICL-dev/backend/.env.development`가 준비되기 전에는 실행하지 않는다. 워크플로우는 DB를 생성하거나 운영 DB를 변경하지 않는다.
+`.github/workflows/deploy-development.yml`은 `develop` push와 수동 실행으로 동작한다. GitHub OIDC로 AWS 역할을 assume하고 AWS SSM Run Command로 개발 EC2에 배포하므로, GitHub에 AWS 장기 Access Key나 SSH 개인키를 두지 않고 개발 EC2의 `22`를 GitHub에 열지 않는다. `development` 환경에 `DEV_AWS_ROLE_ARN`, `DEV_EC2_INSTANCE_ID`, `AWS_REGION`이 있어야 하고 개발 EC2에 `~/ICL-dev/backend/.env.development`가 있어야 한다. 워크플로우는 DB를 생성하지 않으며 누락된 개발 스키마만 추가하고, 운영 DB는 어느 단계에서도 건드리지 않는다.
+
+SSM은 전달한 스크립트를 `/bin/sh`로 실행한다. 배포 스크립트의 바깥 래퍼에는 `pipefail` 같은 bash 전용 문법을 쓰지 않는다.
 
 AWS 개발 RDS를 사용할 때 `backend/.env.development`에는 실제 값을 로컬에서 직접 입력하고 Git에 올리지 않는다.
 

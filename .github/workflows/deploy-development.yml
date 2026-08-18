@@ -1,3 +1,10 @@
+# 개발 환경 배포입니다. 운영 배포는 deploy.yml이며 이 파일과 분리되어 있습니다.
+#
+# 흐름: develop push -> verify(테스트/빌드) -> GitHub OIDC로 AWS 역할 assume
+#       -> SSM Run Command로 개발 EC2에 스크립트 전달 -> 스키마 반영 -> 백엔드 재시작
+#
+# SSH가 아니라 SSM을 쓰는 이유: GitHub에 AWS 장기 Access Key나 SSH 개인키를 두지 않고,
+# 개발 EC2의 22번 포트를 GitHub IP 대역에 열지 않기 위해서입니다.
 name: Deploy Development Environment
 
 on:
@@ -39,8 +46,10 @@ jobs:
     environment: development
     permissions:
       contents: read
+      # id-token: write 가 있어야 GitHub이 OIDC 토큰을 발급하고 AWS 역할을 assume할 수 있습니다.
       id-token: write
     steps:
+      # 개발 환경 배포에 main이 들어오는 사고를 막습니다.
       - name: Block production branch
         run: |
           if [ "${{ github.ref_name }}" = "main" ]; then
@@ -48,6 +57,8 @@ jobs:
             exit 1
           fi
 
+      # 저장소와 environment가 신뢰 정책 조건과 맞을 때만 AWS 임시 자격증명을 받습니다.
+      # 발급된 자격증명은 이 job이 끝나면 사라집니다.
       - name: Configure AWS credentials with GitHub OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -62,8 +73,12 @@ jobs:
         run: |
           set -euo pipefail
 
+          # 개발 EC2에서 실행할 스크립트를 파일로 만든 뒤 SSM 파라미터로 전달합니다.
+          # 따옴표가 섞인 스크립트를 명령줄에 직접 넣으면 깨지기 쉬워 파일과 jq를 씁니다.
           cat > /tmp/remote-deploy.sh <<'REMOTE_EOF'
-          # SSM AWS-RunShellScript runs this wrapper with /bin/sh, so keep it POSIX.
+          # 주의: SSM AWS-RunShellScript는 이 래퍼를 bash가 아니라 /bin/sh(개발 서버에서는 dash)로
+          # 실행합니다. 그래서 여기에는 pipefail 같은 bash 전용 문법을 쓰면 안 됩니다.
+          # 실제 배포 본문은 아래에서 bash로 명시적으로 실행하므로 그쪽은 제약이 없습니다.
           set -eu
 
           cat > /tmp/icl-dev-deploy.sh <<'INNER_EOF'
@@ -71,6 +86,8 @@ jobs:
 
           export NODE_ENV=development
           export APP_ENV=development
+          # SSM은 root로 실행되고 배포 본문은 ssm-user로 실행되는데, 비대화형 셸에서는
+          # .bashrc가 일찍 종료되어 nvm의 node가 PATH에 없을 수 있어 직접 불러옵니다.
           export NVM_DIR="$HOME/.nvm"
           if [ -s "$NVM_DIR/nvm.sh" ]; then . "$NVM_DIR/nvm.sh"; fi
 
@@ -94,6 +111,8 @@ jobs:
           npm ci
           npm run env:check:dev
           npm run db:check:dev:isolation
+          # 서버 시작은 스키마를 만들지 않으므로, 여기서 누락된 테이블·컬럼만 채웁니다.
+          npm run db:apply-schema:dev
 
           cd "$DEV_ROOT/frontend"
           npm ci
@@ -122,6 +141,8 @@ jobs:
           exit 1
           INNER_EOF
 
+          # 개발 백엔드는 ssm-user 소유의 pm2로 돌아가므로 root가 아니라 ssm-user로 실행합니다.
+          # runuser가 없는 배포판을 대비해 su로 물러섭니다.
           chmod 0644 /tmp/icl-dev-deploy.sh
           if command -v runuser > /dev/null 2>&1; then
             runuser -l ssm-user -c 'bash /tmp/icl-dev-deploy.sh'
@@ -135,6 +156,8 @@ jobs:
           jq -n --rawfile script /tmp/remote-deploy.sh \
             '{commands: [$script], executionTimeout: ["3600"]}' > /tmp/ssm-parameters.json
 
+          # 명령을 보내고 나면 완료를 직접 폴링합니다. aws ssm wait는 기본 대기 시간이
+          # npm ci와 프론트엔드 빌드를 감당하기에 너무 짧습니다.
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name AWS-RunShellScript \
@@ -158,6 +181,7 @@ jobs:
             esac
           done
 
+          # 성공이든 실패든 원격 출력을 남깁니다. 실패 원인을 서버에 들어가지 않고 확인하기 위해서입니다.
           echo "----- remote stdout -----"
           aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \

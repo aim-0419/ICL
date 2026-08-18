@@ -24,9 +24,45 @@
 
 실제 환경 파일은 Git에 커밋하지 않는다. `*.example`에는 placeholder와 안전한 기본 정책만 둔다.
 
-## 로컬 개발 시작
+## 공용 개발 시작
 
-최초 한 번만 격리된 로컬 개발 DB를 준비한다.
+회사 Windows와 집의 macOS는 AWS 개발 백엔드와 개발 RDS `homepage_dev`를 공용으로 사용한다. 실제 비밀값은 각 컴퓨터의 비추적 파일에만 둔다.
+
+```bash
+cd backend
+cp .env.development.example .env.development
+cp .env.development.tunnel.example .env.development.tunnel
+```
+
+일반 프론트엔드 작업은 API 터널을 사용한다.
+
+```bash
+# Terminal 1: development EC2 backend tunnel
+cd backend
+npm run tunnel:dev:api
+
+# Terminal 2: development web
+cd frontend
+npm run dev
+```
+
+백엔드 코드를 로컬에서 실행해야 할 때는 API 터널을 닫고 DB 터널을 사용한다.
+
+```bash
+# Terminal 1: development RDS tunnel
+cd backend
+npm run tunnel:dev:db
+
+# Terminal 2: local development API
+cd backend
+npm run env:check:dev
+npm run db:check:dev:isolation
+npm run dev
+```
+
+로컬 백엔드의 `DB_PORT`는 `13306`이며 SSH 터널이 AWS 개발 RDS `3306`으로 전달한다. EC2에서 실행하는 개발 백엔드는 서버 전용 `.env.development`로 RDS에 직접 연결하므로 `3306`을 사용한다.
+
+격리된 로컬 DB가 필요한 경우에만 아래 명령을 사용한다. 이 데이터는 다른 컴퓨터와 동기화되지 않는다.
 
 ```bash
 cd backend
@@ -34,24 +70,28 @@ npm run db:provision:dev:local
 npm run db:check:dev:isolation
 ```
 
-이 명령은 `homepage_dev`와 전용 DB 계정을 준비하고 `backend/.env.development`를 생성한다. 기존 `icl_pilates`의 스키마 정의만 복사하며 사용자·예약·결제 같은 데이터 행은 복사하지 않는다. 이미 존재하는 개발 DB의 테이블 구성이 불완전하면 자동 복구하거나 삭제하지 않고 중단한다.
+로컬 DB 준비 명령은 `homepage_dev`와 전용 DB 계정을 준비하고 `backend/.env.development`를 생성한다. 기존 `icl_pilates`의 스키마 정의만 복사하며 사용자·예약·결제 같은 데이터 행은 복사하지 않는다.
 
 Docker를 사용할 때는 `.env.docker.example`을 기반으로 별도 비밀값 파일을 만들고 `docker-compose.yml`의 `homepage_dev` 스택을 사용한다. Docker 개발 스택은 운영 DB 이름, 운영 업로드 경로, 외부 발송·결제 호출을 허용하지 않는다.
 
 `db:check:dev:isolation`은 개발 DB 연결과 전용 계정 권한을 read-only로 확인한다. 운영 DB 조회가 차단되지 않거나 전역 데이터 권한이 발견되면 실패한다.
 
-```bash
-# Terminal 1: development API, http://localhost:4001
-cd backend
-npm run env:check:dev
-npm run dev
+`npm run dev`는 `backend/.env.development`만 읽는다. 운영용 `backend/.env`로 fallback하지 않는다.
 
-# Terminal 2: development web, http://localhost:5173
-cd frontend
-npm run dev
+## 개발 DB 스키마 반영
+
+서버 시작은 `DB_INIT_MODE=safe`이므로 테이블이나 컬럼을 만들지 않는다. 별도 마이그레이션 체계도 없다. 따라서 코드에 테이블·컬럼을 추가한 변경은 개발 DB에 자동으로 반영되지 않는다.
+
+```bash
+cd backend
+npm run db:apply-schema:dev
 ```
 
-`npm run dev`는 `backend/.env.development`만 읽는다. 운영용 `backend/.env`로 fallback하지 않는다.
+이 명령은 코드에 정의된 테이블과 컬럼 중 개발 DB에 없는 것만 추가한다. 기존 행은 건드리지 않는다. 실행 중 `ALLOW_DESTRUCTIVE_MIGRATIONS`와 purge·drop 계열 플래그를 모두 `false`로 고정하므로 `DELETE`·`DROP` 경로는 진입할 수 없고, `ALLOW_STARTUP_SCHEMA_ALTER`도 `false`라 주석 재적용·PII 재암호화·mojibake 수리도 실행되지 않는다. 실행 후 사라진 테이블이나 컬럼이 있으면 실패로 처리한다.
+
+개발 배포 workflow가 백엔드를 재시작하기 전에 같은 명령을 실행하므로, `develop`에 push하면 개발 서버의 스키마도 함께 맞춰진다. 데이터는 `homepage_dev`를 공용으로 쓰므로 별도 반영이 필요 없다.
+
+운영 DB에는 이 명령을 사용하지 않는다. 개발 환경과 `homepage_dev`, 전용 계정이 아니면 시작 단계에서 중단한다.
 
 ## Android/iOS 개발
 
@@ -80,17 +120,19 @@ npm run cap:sync:prod
 
 ## 여러 컴퓨터에서 개발
 
-회사 Windows와 집의 macOS가 같은 개발 데이터를 사용해야 하면 AWS에 개발 전용 API와 개발 전용 DB를 둔다.
+회사 Windows와 집의 macOS는 AWS의 개발 전용 API와 개발 전용 DB를 사용한다.
 
 - 개발 EC2/서비스: 운영 EC2와 별도 경로, 포트, PM2 이름 사용
 - 개발 DB: 운영 DB와 별도 인스턴스 또는 최소한 별도 DB·전용 계정·전용 보안그룹 사용
 - MySQL `3306`을 인터넷 전체에 공개하지 않음
 - 개발 DB 인바운드는 개발 백엔드 보안그룹에서만 허용
 - 개발 웹·앱은 개발 API의 HTTPS 주소만 사용
-- 운영 데이터 dump를 개발 DB로 반복 복사하지 않음
+- 운영 또는 로컬 DB dump를 개발 DB 동기화 수단으로 반복 사용하지 않음
 - 필요한 테스트 데이터는 가명 seed나 승인된 익명화 데이터로 생성
 
-`.github/workflows/deploy-development.yml`은 수동 실행 전용 예시다. AWS의 개발 인스턴스, DNS, 인증서, GitHub `DEV_EC2_*` secrets와 `~/ICL-dev/backend/.env.development`가 준비되기 전에는 실행하지 않는다. 워크플로우는 DB를 생성하거나 운영 DB를 변경하지 않는다.
+`.github/workflows/deploy-development.yml`은 `develop` push와 수동 실행으로 동작한다. GitHub OIDC로 AWS 역할을 assume하고 AWS SSM Run Command로 개발 EC2에 배포하므로, GitHub에 AWS 장기 Access Key나 SSH 개인키를 두지 않고 개발 EC2의 `22`를 GitHub에 열지 않는다. `development` 환경에 `DEV_AWS_ROLE_ARN`, `DEV_EC2_INSTANCE_ID`, `AWS_REGION`이 있어야 하고 개발 EC2에 `~/ICL-dev/backend/.env.development`가 있어야 한다. 워크플로우는 DB를 생성하지 않으며 누락된 개발 스키마만 추가하고, 운영 DB는 어느 단계에서도 건드리지 않는다.
+
+SSM은 전달한 스크립트를 `/bin/sh`로 실행한다. 배포 스크립트의 바깥 래퍼에는 `pipefail` 같은 bash 전용 문법을 쓰지 않는다.
 
 AWS 개발 RDS를 사용할 때 `backend/.env.development`에는 실제 값을 로컬에서 직접 입력하고 Git에 올리지 않는다.
 

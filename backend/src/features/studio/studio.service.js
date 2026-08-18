@@ -33,6 +33,10 @@ function branchNameExpr(alias = "sc") {
   return `COALESCE(b.name, CASE ${alias}.branch_id WHEN 'branch-2' THEN '효천점' ELSE '장덕점' END)`;
 }
 
+// 지금 사용할 수 있는 수강권을 뽑는 공통 SELECT입니다.
+// 사용 가능 조건은 활성 상태, 잔여 횟수 1회 이상, 만료 전(만료일 없음 포함)입니다.
+// studio_pass_products를 LEFT JOIN 하는 이유는, 상품 연결 이전에 발급된 기존 수강권도
+// 함께 조회해야 하기 때문입니다. 그런 수강권은 productClassType이 null로 나옵니다.
 const USABLE_PASS_SELECT = `SELECT
     sp.id,
     sp.branch_id AS branchId,
@@ -47,6 +51,13 @@ const USABLE_PASS_SELECT = `SELECT
     AND sp.remaining_count > 0
     AND (sp.expires_at IS NULL OR sp.expires_at >= NOW())`;
 
+// 함수 역할: 이 수업에 실제로 쓸 수 있는 수강권 한 장을 트랜잭션 안에서 찾아 잠급니다.
+//
+// 지점이 같은 수강권을 만료 임박 순으로 정렬한 뒤, 수업 형태와 정원까지 맞는 첫 장을 고릅니다.
+// 정렬 기준은 만료일 없는 것을 뒤로, 만료일이 이른 것을 먼저 써서 소멸을 줄이는 것입니다.
+//
+// FOR UPDATE로 잠그는 이유는 동시에 두 번 예약이 들어와도 같은 수강권이
+// 두 번 차감되지 않게 하기 위해서입니다. 반드시 트랜잭션 커넥션으로 호출해야 합니다.
 async function findCompatiblePassWithConn(conn, { userId, classInfo }) {
   const [rows] = await conn.execute(
     `${USABLE_PASS_SELECT}
@@ -227,6 +238,9 @@ export async function listClasses({ from = "", to = "", userId = "", branchId = 
     params
   );
 
+  // 로그인 회원이면 내 예약 현황과 사용 가능 수강권을 함께 읽습니다.
+  // 두 조회는 서로 의존하지 않으므로 Promise.all로 동시에 보냅니다.
+  // 여기서는 목록 표시용이라 지점 조건 없이 전부 가져오고, 지점 비교는 아래에서 합니다.
   let myBookings = [];
   let usablePasses = [];
   if (userId) {
@@ -248,6 +262,10 @@ export async function listClasses({ from = "", to = "", userId = "", branchId = 
   return (Array.isArray(rows) ? rows : [])
     .map((row) => {
       const myStatus = myMap.get(String(row.id)) || "available";
+      // canBook은 화면에서 예약 버튼을 열지 결정하는 표시용 값입니다.
+      // 비로그인 상태에서는 로그인 유도를 위해 true로 두고, 로그인 상태에서는
+      // 같은 지점에 이 수업에 맞는 수강권이 한 장이라도 있어야 true가 됩니다.
+      // 실제 차감 가능 여부는 예약 시점에 findCompatiblePassWithConn이 다시 확인합니다.
       const canBook = !userId || (Array.isArray(usablePasses) && usablePasses.some(
         (pass) => String(pass.branchId) === String(row.branchId) && isPassCompatibleWithClass(pass, row),
       ));

@@ -63,7 +63,8 @@ jobs:
           set -euo pipefail
 
           cat > /tmp/remote-deploy.sh <<'REMOTE_EOF'
-          set -euo pipefail
+          # SSM AWS-RunShellScript runs this wrapper with /bin/sh, so keep it POSIX.
+          set -eu
 
           cat > /tmp/icl-dev-deploy.sh <<'INNER_EOF'
           set -euo pipefail
@@ -122,7 +123,11 @@ jobs:
           INNER_EOF
 
           chmod 0644 /tmp/icl-dev-deploy.sh
-          runuser -l ssm-user -c 'bash /tmp/icl-dev-deploy.sh'
+          if command -v runuser > /dev/null 2>&1; then
+            runuser -l ssm-user -c 'bash /tmp/icl-dev-deploy.sh'
+          else
+            su - ssm-user -c 'bash /tmp/icl-dev-deploy.sh'
+          fi
           REMOTE_EOF
 
           sed -i "s|__TARGET_REF__|${TARGET_REF}|g" /tmp/remote-deploy.sh

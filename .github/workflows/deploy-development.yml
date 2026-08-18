@@ -94,6 +94,7 @@ jobs:
           npm ci
           npm run env:check:dev
           npm run db:check:dev:isolation
+          npm run db:apply-schema:dev
 
           cd "$DEV_ROOT/frontend"
           npm ci

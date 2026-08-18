@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeClassInput, resolveBookingStatus } from "../src/features/studio/studio.class-rules.js";
+import {
+  isPassCompatibleWithClass,
+  normalizeClassInput,
+  resolveBookingStatus,
+  resolveIssuedPassType,
+} from "../src/features/studio/studio.class-rules.js";
 
 test("수업 입력값을 저장 가능한 형태로 정규화한다", () => {
   const result = normalizeClassInput({
@@ -51,4 +56,24 @@ test("대기 정원도 차면 예약을 거부한다", () => {
     () => resolveBookingStatus({ reservedCount: 4, capacity: 4, waitlistCount: 2, waitlistCapacity: 2 }),
     /예약 대기 가능 인원이 마감되었습니다/
   );
+});
+
+test("수강권 상품의 수업 형태와 정원으로 발급 타입을 결정한다", () => {
+  assert.equal(resolveIssuedPassType({ classType: "group", capacity: 6 }), "group");
+  assert.equal(resolveIssuedPassType({ classType: "private", capacity: 1 }), "personal");
+  assert.equal(resolveIssuedPassType({ classType: "private", capacity: 2 }), "duet");
+});
+
+test("상품 연결 수강권은 같은 수업 형태와 정원에만 사용할 수 있다", () => {
+  const pass = { productClassType: "private", productCapacity: 2 };
+  assert.equal(isPassCompatibleWithClass(pass, { classType: "private", capacity: 2 }), true);
+  assert.equal(isPassCompatibleWithClass(pass, { classType: "private", capacity: 1 }), false);
+  assert.equal(isPassCompatibleWithClass(pass, { classType: "group", capacity: 2 }), false);
+});
+
+test("기존 수강권도 개인·듀엣·그룹 수업 규칙을 유지한다", () => {
+  assert.equal(isPassCompatibleWithClass({ passType: "personal" }, { classType: "private", capacity: 1 }), true);
+  assert.equal(isPassCompatibleWithClass({ passType: "duet" }, { classType: "private", capacity: 2 }), true);
+  assert.equal(isPassCompatibleWithClass({ passType: "group" }, { classType: "group", capacity: 8 }), true);
+  assert.equal(isPassCompatibleWithClass({ passType: "group" }, { classType: "consulting", capacity: 1 }), false);
 });

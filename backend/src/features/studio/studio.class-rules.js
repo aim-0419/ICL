@@ -1,5 +1,6 @@
 const VALID_CLASS_TYPES = new Set(["private", "group", "consulting", "etc"]);
 const VALID_BRANCH_IDS = new Set(["branch-1", "branch-2"]);
+const VALID_ISSUED_PASS_TYPES = new Set(["personal", "duet", "group"]);
 
 function createRuleError(message, status = 400) {
   const error = new Error(message);
@@ -92,4 +93,37 @@ export function resolveBookingStatus({ reservedCount = 0, capacity = 0, waitlist
   if (waitlisted < waitCap) return "waitlisted";
 
   throw createRuleError("예약 대기 가능 인원이 마감되었습니다.", 409);
+}
+
+export function resolveIssuedPassType({ passType = "", classType = "", capacity = 0 } = {}) {
+  const normalizedPassType = String(passType || "").trim().toLowerCase();
+  if (VALID_ISSUED_PASS_TYPES.has(normalizedPassType)) return normalizedPassType;
+
+  const normalizedClassType = String(classType || "").trim().toLowerCase();
+  if (normalizedClassType === "group") return "group";
+  if (normalizedClassType === "private") {
+    return normalizeOptionalCount(capacity, 1, { min: 1, max: 100 }) === 2 ? "duet" : "personal";
+  }
+  return "group";
+}
+
+export function isPassCompatibleWithClass(pass = {}, classInfo = {}) {
+  const classType = String(classInfo.classType || classInfo.class_type || "").trim().toLowerCase();
+  const classCapacity = normalizeOptionalCount(classInfo.capacity, 0, { min: 0, max: 100 });
+  if (!VALID_CLASS_TYPES.has(classType) || !["private", "group"].includes(classType)) return false;
+
+  const productClassType = String(pass.productClassType || pass.product_class_type || "").trim().toLowerCase();
+  if (productClassType) {
+    const productCapacity = normalizeOptionalCount(
+      pass.productCapacity ?? pass.product_capacity,
+      0,
+      { min: 0, max: 100 },
+    );
+    return productClassType === classType && productCapacity > 0 && productCapacity === classCapacity;
+  }
+
+  const passType = resolveIssuedPassType({ passType: pass.passType ?? pass.pass_type });
+  if (passType === "group") return classType === "group";
+  if (passType === "personal") return classType === "private" && classCapacity === 1;
+  return classType === "private" && classCapacity === 2;
 }

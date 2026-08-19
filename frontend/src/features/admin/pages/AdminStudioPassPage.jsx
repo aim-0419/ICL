@@ -17,6 +17,7 @@ import {
   extendAdminIssuedPasses,
 } from "../../studio/api/studioApi.js";
 import { DEFAULT_STUDIO_BRANCH_ID, STUDIO_BRANCHES, getStudioBranchName } from "../../studio/constants/studioBranches.js";
+import { formatCapacityRatio } from "../../studio/constants/passDisplay";
 
 const PASS_TYPE_LABELS = { count: "횟수제", period: "기간제" };
 const CLASS_TYPE_LABELS = { private: "프라이빗", group: "그룹형" };
@@ -927,7 +928,7 @@ export function AdminStudioPassPage() {
                     <span>·</span>
                     <span>{CLASS_TYPE_LABELS[viewingPass.classType]}</span>
                     <span>·</span>
-                    <span>{viewingPass.capacity}:{viewingPass.capacity === 1 ? "1" : String(viewingPass.capacity)}</span>
+                    <span>{formatCapacityRatio(viewingPass.capacity)}</span>
                   </div>
                   <button
                     type="button"
@@ -1095,7 +1096,7 @@ export function AdminStudioPassPage() {
                         <span>·</span>
                         <span>{CLASS_TYPE_LABELS[item.classType]}</span>
                         <span>·</span>
-                        <span>{item.capacity}:{item.capacity === 1 ? "1" : String(item.capacity)}</span>
+                        <span>{formatCapacityRatio(item.capacity)}</span>
                       </div>
                       <button
                         type="button"

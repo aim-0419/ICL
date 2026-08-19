@@ -38,7 +38,7 @@ jobs:
 
       - name: Verify frontend
         working-directory: frontend
-        run: npm ci && npm run build && npm run test:env-isolation
+        run: npm ci && npm run build && npm run test:env-isolation && npm run test:unit
 
   deploy:
     needs: verify

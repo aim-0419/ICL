@@ -10,9 +10,11 @@ import {
   scrubStoredPii,
 } from "../../shared/security/pii.js";
 import {
+  cancelPortonePayment,
   markPaymentConfirmationConsumed,
   validateConfirmedPaymentForOrder,
 } from "../payments/payments.service.js";
+import { computeServerOrderTotal } from "./order-pricing.js";
 import { parsePayload } from "../../shared/utils/payload.js";
 import {
   normalizeBirthYear,
@@ -249,6 +251,73 @@ export async function createOrder(payload, authUser = null) {
     if (existing?.id) {
       await markPaymentConfirmationConsumed(conn, existing.id);
       return toPublicOrder(existing);
+    }
+
+    // 서버 권위 금액 검증. 여기서부터는 새 주문이다.
+    //
+    // 클라이언트가 보낸 금액(order.amount)은 신뢰하지 않는다. 상품 가격을 서버에서 직접 조회해
+    // 정당한 결제액을 계산하고, 실제 승인·결제된 금액(confirmation.amount, PortOne 검증 완료)과 대조한다.
+    // 가격원은 두 곳이다: 교육영상은 products, 스튜디오 수강권은 studio_pass_products.
+    const productQuantities = collectOrderProductQuantities(order);
+    const productIds = [...productQuantities.keys()];
+
+    const priceMap = new Map();
+    if (productIds.length > 0) {
+      const placeholders = productIds.map(() => "?").join(", ");
+      const [productRows] = await conn.execute(
+        `SELECT id, price FROM products WHERE id IN (${placeholders})`,
+        productIds,
+      );
+      for (const row of Array.isArray(productRows) ? productRows : []) {
+        priceMap.set(String(row.id), Number(row.price));
+      }
+      const [passRows] = await conn.execute(
+        `SELECT id, price FROM studio_pass_products WHERE id IN (${placeholders})`,
+        productIds,
+      );
+      for (const row of Array.isArray(passRows) ? passRows : []) {
+        if (!priceMap.has(String(row.id))) priceMap.set(String(row.id), Number(row.price));
+      }
+    }
+
+    // 포인트 할인은 실제 보유 잔액 안으로 제한한다. 결제 흐름이 포인트를 실제 차감하지 않으므로
+    // discountPoint 를 그대로 믿으면 잔액 없는 사용자가 유령 할인으로 결제액을 낮출 수 있다.
+    const [[pointRow]] = await conn.execute(
+      `SELECT points FROM users WHERE id = ? LIMIT 1`,
+      [String(authUser?.id || "")],
+    );
+    const pointBalance = Number(pointRow?.points ?? 0);
+    const requestedDiscount = Number(order?.discountPoint ?? 0);
+
+    const pricing = computeServerOrderTotal({
+      quantities: productQuantities,
+      priceOf: (id) => (priceMap.has(String(id)) ? priceMap.get(String(id)) : null),
+      discountPoint: requestedDiscount,
+      pointBalance,
+      paidAmount: Number(confirmation?.amount ?? order.amount),
+    });
+
+    if (!pricing.ok) {
+      // 정당한 결제액과 실제 결제액이 다르다. 주문을 만들지 않고, 이미 승인된 결제는 취소를 시도한다.
+      // 취소는 외부 결제 호출 게이트를 따르므로 개발/테스트(TEST_SAFE_MODE)에서는 호출 자체가 막힌다.
+      // 그 경우에도 관리자가 인지할 수 있도록 반드시 로그를 남긴다.
+      const detail = pricing.unresolved.length > 0
+        ? `가격을 확인할 수 없는 상품(${pricing.unresolved.join(", ")})`
+        : `기대 결제액 ${pricing.expectedAmount}원 vs 실제 결제액 ${Number(confirmation?.amount ?? order.amount)}원`;
+      console.error(
+        `[payment-amount] 주문 ${order.id} 금액 검증 실패: ${detail}. 결제 ${order.paymentId} 취소 시도.`,
+      );
+      try {
+        await cancelPortonePayment(order.paymentId, "결제 금액 검증 실패로 자동 취소");
+        console.error(`[payment-amount] 결제 ${order.paymentId} 취소 완료.`);
+      } catch (cancelError) {
+        console.error(
+          `[payment-amount] 결제 ${order.paymentId} 취소 실패: ${cancelError?.message || cancelError}. 관리자 수동 확인 필요.`,
+        );
+      }
+      const error = new Error("결제 금액이 상품 가격과 일치하지 않아 주문을 생성할 수 없습니다.");
+      error.status = 400;
+      throw error;
     }
 
     const confirmedAt =

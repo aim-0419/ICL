@@ -42,6 +42,10 @@ backend/uploads-dev/
 backend/uploads-test/
 backend/uploads/e2e-test/
 
+# Development database snapshots (must live outside the repository)
+*.json.gz
+icl-dev-snapshots/
+
 # Local upload archives / backups
 /backend/uploads.zip
 /backend/uploads/*.zip

@@ -32562,3 +32562,52 @@ body.native-app {
     flex-direction: column;
   }
 }
+
+/* 스토어 심사용 공개 문서 페이지(개인정보 처리방침·이용약관·계정 삭제 안내) */
+.legal-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+  line-height: 1.7;
+}
+
+.legal-page-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.legal-page-description {
+  margin: 0 0 24px;
+  color: #666;
+}
+
+.legal-page-body h2 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 28px 0 8px;
+}
+
+.legal-page-body ol,
+.legal-page-body ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.legal-page-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+/* 운동 전 건강 상태 확인 고지. 수업 예약과 영상 수강 진입점에 함께 노출한다. */
+.exercise-safety-notice {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border: 1px solid #e5e0d8;
+  border-radius: 10px;
+  background: #faf8f5;
+  color: #6b6257;
+  font-size: 13px;
+  line-height: 1.6;
+}

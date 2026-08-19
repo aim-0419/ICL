@@ -31,7 +31,7 @@ const INTRO_CLASS_TYPES = [
     badge: "1:1 PRIVATE",
     title: "1대1 개인 수업",
     desc: "개인의 체형과 목표에 맞게 설계된 수업으로 집중적인 케어로 빠른 변화를 경험하세요.",
-    points: ["체형 교정 & 통증 개선", "체형 & 컨디셔닝", "운동 수행 능력 향상"],
+    points: ["자세 개선 & 코어 강화", "체형 & 컨디셔닝", "운동 수행 능력 향상"],
   },
   {
     id: "duet",
@@ -173,8 +173,8 @@ export function BrandIntroPage() {
                     </svg>
                   </span>
                   <div>
-                    <strong>재활 &amp; 기능 회복 특화</strong>
-                    <span>재활 전문 지식을 바탕으로 통증 완화와 기능 회복을 돕는 안전한 수업을 진행합니다.</span>
+                    <strong>기능적 움직임 특화</strong>
+                    <span>움직임 분석에 기반해 무리 없는 강도로 안전하게 진행하는 수업입니다.</span>
                   </div>
                 </li>
                 <li>
@@ -244,7 +244,7 @@ export function BrandIntroPage() {
         <section className="intro-v2-instructors-section">
           <div className="intro-v2-section-head">
             <h2>전문성과 진심을 갖춘 강사진</h2>
-            <p>이끌림 필라테스는 체형 분석, 재활 운동, 움직임 교육 경험을 갖춘<br />전문 강사진이 함께합니다.</p>
+            <p>이끌림 필라테스는 체형 분석과 움직임 교육 경험을 갖춘<br />전문 강사진이 함께합니다.</p>
           </div>
           <div className="intro-v2-instructor-features">
             <div className="intro-v2-instructor-feature">
@@ -262,8 +262,8 @@ export function BrandIntroPage() {
                   <path d="M12 2c0 0-4 4-4 9s4 9 4 9 4-4 4-9-4-9-4-9z"/><path d="M12 8v8M9 11h6M9 14h6"/>
                 </svg>
               </div>
-              <strong>재활 특화</strong>
-              <p>재활 &amp; 기능 회복에 특화된 수업</p>
+              <strong>기능적 움직임</strong>
+              <p>기능적 움직임에 특화된 수업</p>
             </div>
             <div className="intro-v2-instructor-feature">
               <div className="intro-v2-instructor-feature-icon">
@@ -339,7 +339,7 @@ const DEFAULT_INSTRUCTORS = [
       "KIDS PILATES Certificate",
       "Individual & Group Class Program design combining Pilates and POWER PLATE®",
       "Solutions for functional flatness and ectopic hyperplasia",
-      "스포츠 재활마사지",
+      "스포츠 컨디셔닝 마사지",
       "스포츠 테이핑 지도사 2급",
     ],
   },
@@ -530,12 +530,12 @@ const DEFAULT_EQUIPMENT_ITEMS = [
   {
     id: "equipment-slot-2",
     name: "바렐",
-    tags: "#척추 교정 #유연성 #스트레칭",
+    tags: "#척추 정렬 #유연성 #스트레칭",
   },
   {
     id: "equipment-slot-3",
     name: "스프링보드 + 음파운동기",
-    tags: "#진동 운동 #재활 #체형 교정",
+    tags: "#진동 운동 #컨디셔닝 #자세 개선",
   },
   {
     id: "equipment-slot-4",

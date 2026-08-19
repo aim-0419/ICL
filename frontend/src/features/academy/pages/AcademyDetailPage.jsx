@@ -14,6 +14,7 @@ import {
 import { collectPurchasedVideoProductIds } from "../lib/purchases.js";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { isNativeApp } from "../../../shared/platform/runtime.js";
+import { ExerciseSafetyNotice } from "../../../shared/components/ExerciseSafetyNotice.jsx";
 
 // 함수 역할: detail 전체 재생 시간 값을 계산합니다.
 function calcDetailTotalDuration(chapters) {
@@ -98,7 +99,7 @@ const DETAIL_SUMMARY = {
     curriculum: [
       "리포머/체어 핵심 큐잉",
       "시퀀스 설계 구조",
-      "체형별 교정 플로우",
+      "체형별 밸런스 플로우",
       "실전 코칭 케이스 스터디",
     ],
   },
@@ -298,7 +299,7 @@ export function AcademyDetailPage() {
                   </button>
                 ) : store.currentUser ? (
                   <p className="academy-native-purchase-note">
-                    앱에서는 이미 구매한 교육영상만 수강할 수 있습니다. 웹에서 구매한 뒤 같은 계정으로 로그인해 주세요.
+                    앱에서는 이미 보유한 교육영상을 수강할 수 있습니다. 같은 계정으로 로그인하면 보유한 영상이 표시됩니다.
                   </p>
                 ) : (
                   <button type="button" className="pill-button" onClick={() => navigate("/login")}>
@@ -347,6 +348,7 @@ export function AcademyDetailPage() {
                 </button>
               </div>
             )}
+            <ExerciseSafetyNotice />
           </article>
         </section>
 

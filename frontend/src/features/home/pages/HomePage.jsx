@@ -54,7 +54,7 @@ const DEFAULT_SOCIAL_ITEMS = [
 const DEFAULT_EVENT_NEWS_ITEM = {
   source: "event",
   label: "현재 진행중인 이벤트",
-  title: "진행중인 이벤트를 준비 중입니다.",
+  title: "현재 진행 중인 이벤트가 없습니다.",
   url: "/community/events",
   publishedAt: "",
   thumbnail: "",
@@ -152,7 +152,7 @@ const SUNLIT_FEATURE_CARDS = [
   },
   {
     icon: "ladder",
-    title: "재활과 기능 회복\n전문 프로그램",
+    title: "기능적 움직임\n전문 프로그램",
     text: "단순한 운동이 아닌, 몸의 기능을 회복하고 강화하는 맞춤형 필라테스를 경험하세요.",
   },
   {
@@ -863,7 +863,7 @@ export function HomePage() {
               움직임을 설계합니다
             </h1>
             <p>
-              이끌림필라테스는 재활과 움직임 교육을 기반으로 개인의 몸을 이해하고,
+              이끌림필라테스는 움직임 교육을 기반으로 개인의 몸을 이해하고,
               건강한 움직임을 설계합니다.
             </p>
             <div className="sunlit-hero-buttons">

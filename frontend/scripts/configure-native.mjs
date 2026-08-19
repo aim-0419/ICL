@@ -7,6 +7,7 @@ const IOS_INFO_PLIST = path.resolve("ios/App/App/Info.plist");
 const ANDROID_MANIFEST = path.resolve("android/app/src/main/AndroidManifest.xml");
 const ANDROID_NOTIFICATION_ICON = path.resolve("android/app/src/main/res/drawable/ic_stat_icl.xml");
 const ANDROID_GRADLE_PROPERTIES = path.resolve("android/gradle.properties");
+const ANDROID_APP_GRADLE = path.resolve("android/app/build.gradle");
 const NATIVE_TARGET = String(process.env.VITE_APP_ENV || "production").trim().toLowerCase();
 const IOS_DEV_NETWORK_START = "<!-- ICL_DEV_LOCAL_NETWORK_START -->";
 const IOS_DEV_NETWORK_END = "<!-- ICL_DEV_LOCAL_NETWORK_END -->";
@@ -180,6 +181,46 @@ async function configureAndroidGradleProperties() {
   console.log("[capacitor] Android non-ASCII 경로 검사 override 설정 완료");
 }
 
+async function configureAndroidReleaseSigning() {
+  let source = await readOptional(ANDROID_APP_GRADLE);
+  if (!source || source.includes("signingConfigs")) return;
+
+  // Play는 서명된 AAB만 받습니다. 다만 키스토어는 저장소에 두면 안 되므로
+  // android/keystore.properties 가 있을 때만 서명 설정이 켜지게 합니다.
+  // 파일이 없으면 debug 빌드는 그대로 되고 release는 미서명으로 남아,
+  // 잘못된 키로 서명되는 사고 대신 눈에 띄는 실패로 이어집니다.
+  const anchor = `    buildTypes {
+        release {`;
+  if (!source.includes(anchor)) return;
+
+  const signing = `    def keystorePropertiesFile = rootProject.file("keystore.properties")
+    def keystoreProperties = new Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }`;
+
+  source = source.replace(anchor, signing);
+  await fs.writeFile(ANDROID_APP_GRADLE, source, "utf8");
+  console.log("[capacitor] Android release 서명 설정 연결 완료 (keystore.properties 존재 시 활성)");
+}
+
 async function reportFirebaseFiles() {
   const required = [
     "android/app/google-services.json",
@@ -204,4 +245,5 @@ await configureNativeNetworkPolicy();
 await configureAndroidManifest();
 await writeAndroidNotificationIcon();
 await configureAndroidGradleProperties();
+await configureAndroidReleaseSigning();
 await reportFirebaseFiles();

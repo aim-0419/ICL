@@ -42,6 +42,9 @@ const LoginPage = lazy(() => import("../features/auth/pages/LoginPage.jsx").then
 const FindIdPage = lazy(() => import("../features/auth/pages/FindIdPage.jsx").then((m) => ({ default: m.FindIdPage })));
 const ResetPasswordPage = lazy(() => import("../features/auth/pages/ResetPasswordPage.jsx").then((m) => ({ default: m.ResetPasswordPage })));
 const SignupPage = lazy(() => import("../features/auth/pages/SignupPage.jsx").then((m) => ({ default: m.SignupPage })));
+const PrivacyPolicyPage = lazy(() => import("../features/legal/pages/LegalPages.jsx").then((m) => ({ default: m.PrivacyPolicyPage })));
+const TermsPage = lazy(() => import("../features/legal/pages/LegalPages.jsx").then((m) => ({ default: m.TermsPage })));
+const AccountDeletionPage = lazy(() => import("../features/legal/pages/LegalPages.jsx").then((m) => ({ default: m.AccountDeletionPage })));
 const CartPage = NATIVE_APP_BUILD
   ? null
   : lazy(() => import("../features/cart/pages/CartPage.jsx").then((m) => ({ default: m.CartPage })));
@@ -130,6 +133,10 @@ export default function App() {
           <Route path="/find-id" element={<FindIdPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          {/* 스토어 심사용 공개 URL. 앱을 지운 사용자도 열 수 있어야 하므로 인증을 걸지 않는다. */}
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/account-deletion" element={<AccountDeletionPage />} />
           <Route path="/cart" element={nativeApp ? <NativePurchaseNotice /> : <CartPage />} />
           <Route path="/academy" element={<AcademyPage />} />
           <Route path="/academy/:videoId" element={<AcademyDetailPage />} />

@@ -9,6 +9,7 @@ import {
   deserializeSnapshotValue,
   serializeSnapshotValue,
   snapshotSchemaOf,
+  snapshotTypeCast,
 } from "../scripts/development-snapshot-format.mjs";
 
 function schemaOf(entries) {
@@ -98,4 +99,19 @@ test("스냅샷 파일에서 스키마 Map을 복원한다", () => {
 
   const schema = snapshotSchemaOf(snapshot);
   assert.deepEqual([...schema.get("users")].sort(), ["email", "id"]);
+});
+
+test("JSON 컬럼은 파싱하지 않고 utf8 원본 텍스트로 읽는다", () => {
+  // mysql2가 JSON 컬럼을 파싱해 버리면 JSON 문자열 값이 평범한 문자열이 되어
+  // 되돌릴 때 Invalid JSON text 로 거부된다. 원본 텍스트를 그대로 가져와야 한다.
+  const calls = [];
+  const jsonField = { type: "JSON", string: (encoding) => { calls.push(encoding); return '{"a":1}'; } };
+
+  assert.equal(snapshotTypeCast(jsonField, () => "parsed"), '{"a":1}');
+  assert.deepEqual(calls, ["utf8"], "BINARY로 읽으면 한글이 깨지므로 utf8을 넘겨야 한다");
+});
+
+test("JSON이 아닌 컬럼은 기본 변환을 그대로 쓴다", () => {
+  const textField = { type: "VAR_STRING", string: () => "raw" };
+  assert.equal(snapshotTypeCast(textField, () => "default"), "default");
 });

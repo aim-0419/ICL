@@ -17,6 +17,7 @@ import {
   DEVELOPMENT_SNAPSHOT_VERSION,
   buildSchemaFingerprint,
   serializeSnapshotValue,
+  snapshotTypeCast,
 } from "./development-snapshot-format.mjs";
 
 // env.js를 불러오기 전에 개발 환경으로 고정합니다.
@@ -77,6 +78,7 @@ async function main() {
     dateStrings: true,
     supportBigNumbers: true,
     bigNumberStrings: true,
+    typeCast: snapshotTypeCast,
   });
 
   try {

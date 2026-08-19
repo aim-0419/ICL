@@ -29,6 +29,18 @@ export function deserializeSnapshotValue(value) {
   return value;
 }
 
+// 함수 역할: JSON 컬럼을 파싱하지 않고 원본 텍스트 그대로 읽게 합니다.
+//
+// mysql2는 기본적으로 JSON 컬럼을 JS 값으로 파싱합니다. 그러면 JSON 문자열 값
+// `"안녕"` 이 평범한 JS 문자열 `안녕` 이 되어, 되돌릴 때 MySQL이 JSON 텍스트로
+// 인식하지 못하고 `Invalid JSON text` 로 거부합니다.
+//
+// field.string() 만 쓰면 JSON 컬럼을 BINARY로 읽어 한글이 깨지므로 utf8을 명시합니다.
+export function snapshotTypeCast(field, next) {
+  if (field.type === "JSON") return field.string("utf8");
+  return next();
+}
+
 // 함수 역할: 테이블과 컬럼 구성을 하나의 지문 문자열로 요약합니다.
 //
 // 스냅샷을 뜬 시점과 되돌리는 시점의 스키마가 다르면 조용히 이상하게 복원됩니다.

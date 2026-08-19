@@ -254,14 +254,14 @@ export const TERMS_CONTENT = {
           각 사업자가 공개한 privacy 문의 채널을 따릅니다.
         </p>
 
-        <p style={{ fontWeight: 700, marginTop: "18px", marginBottom: "6px" }}>6. 이용자의 권리</p>
+        <p style={{ fontWeight: 700, marginTop: "18px", marginBottom: "6px" }}>7. 이용자의 권리</p>
         <p style={{ margin: "0 0 6px" }}>이용자는 언제든지 자신의 개인정보에 대해 다음의 권리를 행사할 수 있습니다.</p>
         <ul style={{ margin: "0 0 8px", paddingLeft: "18px" }}>
           <li>개인정보 열람</li><li>개인정보 정정</li><li>개인정보 삭제</li><li>개인정보 처리정지 요청</li>
         </ul>
         <p style={{ margin: "0 0 4px" }}>회원은 마이페이지 또는 고객센터를 통해 위 권리를 행사할 수 있으며, 회사는 관계 법령에 따라 지체 없이 처리합니다.</p>
 
-        <p style={{ fontWeight: 700, marginTop: "18px", marginBottom: "6px" }}>7. 개인정보 보호책임자</p>
+        <p style={{ fontWeight: 700, marginTop: "18px", marginBottom: "6px" }}>8. 개인정보 보호책임자</p>
         <p style={{ margin: "0 0 6px" }}>회사는 개인정보 처리에 관한 업무를 총괄하여 책임지고 있으며, 개인정보 관련 문의를 위해 아래와 같이 개인정보 보호책임자를 지정하고 있습니다.</p>
         <ul style={{ margin: "0 0 10px", paddingLeft: "18px", listStyle: "none" }}>
           <li>성명 : 정지윤</li>
@@ -270,7 +270,7 @@ export const TERMS_CONTENT = {
           <li>전화 : 0507-1377-6302</li>
         </ul>
 
-        <p style={{ fontWeight: 700, marginTop: "18px", marginBottom: "6px" }}>8. 동의 거부 권리</p>
+        <p style={{ fontWeight: 700, marginTop: "18px", marginBottom: "6px" }}>9. 동의 거부 권리</p>
         <p style={{ margin: "0 0 4px" }}>이용자는 개인정보 수집 및 이용에 대한 동의를 거부할 권리가 있습니다.</p>
         <p style={{ margin: 0 }}>다만, 필수 개인정보 수집 및 이용에 동의하지 않는 경우 회원가입 및 서비스 이용이 제한될 수 있습니다.</p>
       </div>

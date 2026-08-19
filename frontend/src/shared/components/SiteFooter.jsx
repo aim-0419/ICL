@@ -2,6 +2,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
+// 통신판매업 신고번호 (전자상거래법 제10조 표시 의무).
+// TODO(사용자 입력 필요): 정부24 신고 후 발급받은 실제 번호로 교체하세요. 예: 제2026-광주광산-0000호
+// 값을 채우기 전까지는 화면에 "미기재 (신고번호 입력 필요)"로 표시됩니다. 임의의 번호를 넣지 마세요.
+const MAIL_ORDER_REPORT_NUMBER = "";
+
 // 컴포넌트 역할: 공통 푸터 영역을 렌더링합니다.
 export function SiteFooter() {
   return (
@@ -21,7 +26,9 @@ export function SiteFooter() {
       <div className="site-footer-info-grid">
         <p className="site-footer-info-line footer-left">
           <strong>대표</strong> 정지윤 <span aria-hidden="true">|</span>{" "}
-          <strong>Business License</strong> 589-85-01853
+          <strong>Business License</strong> 589-85-01853{" "}
+          <span aria-hidden="true">|</span>{" "}
+          <strong>통신판매업</strong> {MAIL_ORDER_REPORT_NUMBER || "미기재 (신고번호 입력 필요)"}
         </p>
         <p className="site-footer-info-line footer-right">
           <span className="footer-right-main">

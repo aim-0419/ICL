@@ -14,7 +14,7 @@
 외부 준비 필요:
 
 - Android `google-services.json`, iOS `GoogleService-Info.plist`, APNs 설정
-- Android JDK/SDK와 release keystore
+- Android release keystore
 - macOS/Xcode, Apple 인증서와 Provisioning Profile
 - 실제 Android/iPhone에서 푸시, 세션, 예약, 영상 재생 검증
 - 앱 아이콘, 스플래시, 스토어 스크린샷과 등록 문구
@@ -23,7 +23,12 @@
 
 - 웹 및 앱용 React 번들: 검증 완료
 - Capacitor Android/iOS 프로젝트 동기화: 검증 완료
-- Android 네이티브 compile: 현재 PC의 JDK 미설치로 미확인
+- Android 네이티브 compile: 검증 완료 (2026-08-19)
+  - Android Studio JBR OpenJDK 21, Android SDK build-tools 36.0.0, Gradle 8.14.3
+  - `npm run cap:sync:dev` 후 `gradlew assembleDebug` 성공, 경고 0건
+  - 산출물 `app-debug.apk` — `com.iclpilates.app`, 이끌림필라테스, minSdk 24, targetSdk 36
+  - `google-services.json`이 없으면 Capacitor 템플릿이 google-services 플러그인을 건너뛰므로
+    compile은 통과하고 푸시만 비활성됩니다. 실기기 푸시 검증에는 이 파일이 필요합니다.
 - iOS archive/TestFlight: Windows 환경이므로 미확인
 - 실제 FCM Push와 스토어 심사: 네이티브 키·계정 준비 전까지 미확인
 

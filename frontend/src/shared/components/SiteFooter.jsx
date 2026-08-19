@@ -15,6 +15,7 @@ export function SiteFooter() {
         <Link to="/privacy">개인정보 처리방침</Link>
         <Link to="/terms">이용약관</Link>
         <Link to="/account-deletion">계정 삭제</Link>
+        <Link to="/app-permissions">앱 접근권한</Link>
       </nav>
 
       <div className="site-footer-info-grid">

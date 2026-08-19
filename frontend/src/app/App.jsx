@@ -45,6 +45,7 @@ const SignupPage = lazy(() => import("../features/auth/pages/SignupPage.jsx").th
 const PrivacyPolicyPage = lazy(() => import("../features/legal/pages/LegalPages.jsx").then((m) => ({ default: m.PrivacyPolicyPage })));
 const TermsPage = lazy(() => import("../features/legal/pages/LegalPages.jsx").then((m) => ({ default: m.TermsPage })));
 const AccountDeletionPage = lazy(() => import("../features/legal/pages/LegalPages.jsx").then((m) => ({ default: m.AccountDeletionPage })));
+const AppPermissionsPage = lazy(() => import("../features/legal/pages/LegalPages.jsx").then((m) => ({ default: m.AppPermissionsPage })));
 const CartPage = NATIVE_APP_BUILD
   ? null
   : lazy(() => import("../features/cart/pages/CartPage.jsx").then((m) => ({ default: m.CartPage })));
@@ -137,6 +138,7 @@ export default function App() {
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/account-deletion" element={<AccountDeletionPage />} />
+          <Route path="/app-permissions" element={<AppPermissionsPage />} />
           <Route path="/cart" element={nativeApp ? <NativePurchaseNotice /> : <CartPage />} />
           <Route path="/academy" element={<AcademyPage />} />
           <Route path="/academy/:videoId" element={<AcademyDetailPage />} />

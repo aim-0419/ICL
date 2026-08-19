@@ -1,6 +1,9 @@
-// 파일 역할: 검증된 설정으로 시스템 ssh를 띄워 개발 환경 터널을 열고 유지합니다.
+// 파일 역할: 검증된 설정으로 AWS SSM 세션을 띄워 개발 환경 포트포워딩을 열고 유지합니다.
 // `npm run tunnel:dev:api`는 프론트엔드 작업용, `npm run tunnel:dev:db`는 백엔드 작업용입니다.
-// 비밀값은 .env.development.tunnel에만 두고 Git에 올리지 않습니다.
+//
+// 사전 준비물은 AWS CLI, Session Manager plugin, 그리고 ssm:StartSession 권한이 있는
+// AWS 자격증명입니다. 개발 EC2의 22번 포트나 개인키 파일은 필요하지 않습니다.
+// 접속 위치가 바뀌어도 보안 그룹을 수정할 필요가 없습니다.
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
@@ -9,7 +12,7 @@ import { spawn } from "node:child_process";
 import dotenv from "dotenv";
 
 import {
-  buildDevelopmentSshArgs,
+  buildDevelopmentSessionArgs,
   developmentTunnelLocalPort,
   resolveDevelopmentTunnelConfig,
 } from "./development-tunnel-config.mjs";
@@ -38,14 +41,8 @@ try {
   process.exit(1);
 }
 
-// 키 파일이 없으면 ssh가 암호를 물어보며 멈출 수 있으므로 먼저 확인하고 끝냅니다.
-if (!fs.existsSync(config.sshKeyPath)) {
-  console.error("[dev-tunnel] configured SSH private key file does not exist");
-  process.exit(1);
-}
-
 // 함수 역할: 로컬 포트가 비어 있는지 확인합니다.
-// 이미 다른 터널이 열려 있으면 ssh가 조용히 실패해 원인을 찾기 어려우므로 미리 막습니다.
+// 이미 다른 터널이 열려 있으면 세션이 조용히 실패해 원인을 찾기 어려우므로 미리 막습니다.
 function assertPortAvailable(port) {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -71,14 +68,19 @@ console.log(
 console.log("[dev-tunnel] keep this terminal open; press Ctrl+C to close the tunnel");
 
 // shell: false로 두어 설정값이 셸 명령으로 해석되지 않게 합니다.
-const child = spawn("ssh", buildDevelopmentSshArgs(config), {
+// 덕분에 --parameters JSON을 따옴표 없이 인자 하나로 그대로 넘길 수 있습니다.
+const child = spawn("aws", buildDevelopmentSessionArgs(config), {
   shell: false,
   stdio: "inherit",
   windowsHide: true,
 });
 
-child.once("error", () => {
-  console.error("[dev-tunnel] failed to start the system ssh client");
+child.once("error", (error) => {
+  if (error?.code === "ENOENT") {
+    console.error("[dev-tunnel] AWS CLI를 찾지 못했습니다. AWS CLI와 Session Manager plugin을 설치하세요.");
+  } else {
+    console.error("[dev-tunnel] failed to start the AWS CLI session");
+  }
   process.exit(1);
 });
 
@@ -87,7 +89,7 @@ child.once("exit", (code, signal) => {
   process.exit(code ?? 1);
 });
 
-// Ctrl+C로 이 프로세스를 끝낼 때 ssh 자식 프로세스가 남지 않도록 같이 정리합니다.
+// Ctrl+C로 이 프로세스를 끝낼 때 세션이 남지 않도록 자식 프로세스도 같이 정리합니다.
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.once(signal, () => {
     child.kill(signal);

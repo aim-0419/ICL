@@ -96,3 +96,41 @@ test("스튜디오 수강권도 같은 규칙으로 검증한다 (가격원 무�
   });
   assert.equal(r.ok, true);
 });
+
+test("차감액은 검증 통과 시 적용 할인액과 같다", () => {
+  const r = computeServerOrderTotal({
+    quantities: new Map([["v1", 1]]),
+    priceOf: priceMap([["v1", 100000]]),
+    discountPoint: 30000,
+    pointBalance: 50000,
+    paidAmount: 70000,
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.allowedDiscount, 30000); // 차감할 금액
+});
+
+test("포인트 미사용 주문은 차감액이 0이다", () => {
+  const r = computeServerOrderTotal({
+    quantities: new Map([["v1", 1]]),
+    priceOf: priceMap([["v1", 100000]]),
+    discountPoint: 0,
+    pointBalance: 50000,
+    paidAmount: 100000,
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.allowedDiscount, 0); // 차감 없음
+});
+
+test("잔액을 초과해 할인을 적용한 결제는 거부된다", () => {
+  // 잔액 10000인데 30000 할인받아 70000만 결제한 경우
+  const r = computeServerOrderTotal({
+    quantities: new Map([["v1", 1]]),
+    priceOf: priceMap([["v1", 100000]]),
+    discountPoint: 30000,
+    pointBalance: 10000,
+    paidAmount: 70000,
+  });
+  assert.equal(r.ok, false); // 거부
+  assert.equal(r.allowedDiscount, 10000);
+  assert.equal(r.expectedAmount, 90000); // 90000 냈어야 함
+});

@@ -199,6 +199,7 @@ export async function createOrder(payload, authUser = null) {
     createdAt: new Date().toISOString(),
     orderName: String(payload?.orderName || "").trim() || null,
     amount,
+    discountPoint: Math.max(0, Math.round(Number(payload?.discountPoint ?? 0)) || 0),
     paymentId,
     paymentMethod: String(payload?.paymentMethod || "").trim() || null,
     ...(sanitizedItems ? { items: sanitizedItems } : {}),
@@ -282,8 +283,10 @@ export async function createOrder(payload, authUser = null) {
 
     // 포인트 할인은 실제 보유 잔액 안으로 제한한다. 결제 흐름이 포인트를 실제 차감하지 않으므로
     // discountPoint 를 그대로 믿으면 잔액 없는 사용자가 유령 할인으로 결제액을 낮출 수 있다.
+    // FOR UPDATE 로 사용자 행을 잠근다. 같은 사용자가 동시에 여러 주문을 넣어도
+    // 잔액 조회~차감이 직렬화되어 같은 포인트를 두 주문에 이중 사용하지 못한다.
     const [[pointRow]] = await conn.execute(
-      `SELECT points FROM users WHERE id = ? LIMIT 1`,
+      `SELECT points FROM users WHERE id = ? LIMIT 1 FOR UPDATE`,
       [String(authUser?.id || "")],
     );
     const pointBalance = Number(pointRow?.points ?? 0);
@@ -318,6 +321,46 @@ export async function createOrder(payload, authUser = null) {
       const error = new Error("결제 금액이 상품 가격과 일치하지 않아 주문을 생성할 수 없습니다.");
       error.status = 400;
       throw error;
+    }
+
+    // 포인트 차감. 지금까지 결제 흐름은 discountPoint 로 결제액만 줄이고 잔액을 차감하지 않아,
+    // 같은 포인트를 매 주문마다 재사용할 수 있었다. 여기서 실제로 차감한다.
+    //
+    // allowedDiscount 는 검증 통과(pricing.ok) 경로에서 항상 실제 적용된 할인액이자 잔액 이하다.
+    //   ok ⟺ listTotal - allowedDiscount === paid, 그리고 고객은 listTotal - requestedDiscount 를 냈으므로
+    //   allowedDiscount === requestedDiscount ≤ balance 가 성립한다. 따라서 차감으로 잔액이 음수가 되지 않는다.
+    //
+    // adjustPoints() 는 트랜잭션 커넥션을 받지 못해 이 트랜잭션 밖에서 동작하므로 재사용하지 않고,
+    // 같은 conn 으로 차감과 이력 기록을 원자적으로 처리한다. 주문 INSERT 실패 시 함께 롤백된다.
+    // 기존 주문 재제출은 위 조기 반환으로 이 지점에 도달하지 않으므로 이중 차감이 없다(멱등).
+    if (pricing.allowedDiscount > 0) {
+      const [deductResult] = await conn.execute(
+        `UPDATE users SET points = points - ? WHERE id = ? AND points >= ?`,
+        [pricing.allowedDiscount, String(authUser?.id || ""), pricing.allowedDiscount],
+      );
+      if (Number(deductResult?.affectedRows || 0) !== 1) {
+        // FOR UPDATE 로 직렬화했으므로 정상 흐름에선 도달하지 않는다. 도달했다면 잔액이 부족한
+        // 경합 상황이므로 주문을 만들지 않고 결제 취소를 시도한 뒤 거부한다(금액 불일치와 동일 처리).
+        console.error(
+          `[payment-point] 주문 ${order.id} 포인트 차감 실패(잔액 부족 경합). 결제 ${order.paymentId} 취소 시도.`,
+        );
+        try {
+          await cancelPortonePayment(order.paymentId, "포인트 차감 실패로 자동 취소");
+          console.error(`[payment-point] 결제 ${order.paymentId} 취소 완료.`);
+        } catch (cancelError) {
+          console.error(
+            `[payment-point] 결제 ${order.paymentId} 취소 실패: ${cancelError?.message || cancelError}. 관리자 수동 확인 필요.`,
+          );
+        }
+        const error = new Error("포인트 잔액이 부족해 주문을 생성할 수 없습니다.");
+        error.status = 400;
+        throw error;
+      }
+      await conn.execute(
+        `INSERT INTO point_history (id, user_id, amount, reason, order_id, created_at)
+         VALUES (?, ?, ?, ?, ?, NOW())`,
+        [randomUUID(), String(authUser?.id || ""), -pricing.allowedDiscount, "주문 결제 포인트 사용", order.id],
+      );
     }
 
     const confirmedAt =

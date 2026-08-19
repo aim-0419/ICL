@@ -16,6 +16,8 @@
     "db:bootstrap:dev": "node scripts/bootstrap-development-db.mjs",
     "db:check:dev:isolation": "node scripts/check-development-db-isolation.mjs",
     "db:apply-schema:dev": "node scripts/apply-development-schema.mjs",
+    "db:snapshot:dev": "node scripts/snapshot-development-db.mjs",
+    "db:restore:dev": "node scripts/restore-development-db.mjs",
     "db:seed:dev:accounts": "node scripts/seed-development-accounts.mjs",
     "db:export:dev:sanitized": "node scripts/export-sanitized-development-data.mjs",
     "db:import:dev:sanitized": "node scripts/import-sanitized-development-data.mjs",

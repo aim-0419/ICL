@@ -199,9 +199,11 @@ export function SignupPage() {
               </h3>
               <button
                 onClick={() => setTermsModal(null)}
+                aria-label="약관 창 닫기"
                 style={{
                   background: "none", border: "none", fontSize: "18px",
-                  cursor: "pointer", color: "#888", padding: "0 4px", lineHeight: 1,
+                  /* 터치 영역 48dp 확보: 패딩 확장 + 음수 마진으로 레이아웃 상쇄 */
+                  cursor: "pointer", color: "#888", padding: "15px 17px", margin: "-15px -17px", lineHeight: 1,
                 }}
               >
                 ✕
@@ -266,9 +268,10 @@ export function SignupPage() {
             </label>
 
             <div>
-              <label>이메일</label>
+              <label htmlFor="signup-email">이메일</label>
               <div className="field-inline">
                 <input
+                  id="signup-email"
                   type="email"
                   required
                   placeholder="실제 사용하시는 이메일 주소"
@@ -299,6 +302,7 @@ export function SignupPage() {
                       type="text"
                       inputMode="numeric"
                       maxLength={6}
+                      aria-label="이메일 인증번호"
                       placeholder="인증번호 6자리 입력"
                       value={emailCode}
                       onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, "").slice(0, 6))}

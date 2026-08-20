@@ -344,6 +344,7 @@ export function CartPage() {
                     <input
                       type="text"
                       inputMode="numeric"
+                      aria-label="사용할 포인트"
                       placeholder="0"
                       value={pointInput}
                       onChange={(event) => setPointInput(event.target.value)}

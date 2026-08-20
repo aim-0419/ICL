@@ -627,7 +627,7 @@ export function HomePage() {
       <main className="sunlit-home">
         <section className="sunlit-hero home-section-card" id="hero" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("hero") }}>
           <header className="sunlit-header" aria-label="홈 메인 내비게이션">
-            <button className="sunlit-brand" type="button" onClick={() => navigate("/")}>
+            <button className="sunlit-brand" type="button" aria-label="메인 페이지로 이동" onClick={() => navigate("/")}>
               <img src="/assets/images/이끌림로고.png" alt="ICL Pilates" />
             </button>
 

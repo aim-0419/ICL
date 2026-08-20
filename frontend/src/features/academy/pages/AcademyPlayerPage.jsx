@@ -1318,6 +1318,7 @@ export function AcademyPlayerPage() {
               <input
                 className="qna-input"
                 type="text"
+                aria-label="질문 제목"
                 placeholder="질문 제목"
                 value={qnaForm.title}
                 onChange={(e) => setQnaForm((prev) => ({ ...prev, title: e.target.value }))}
@@ -1325,6 +1326,7 @@ export function AcademyPlayerPage() {
               />
               <textarea
                 className="qna-textarea"
+                aria-label="질문 내용"
                 placeholder="질문 내용을 입력하세요"
                 rows={4}
                 value={qnaForm.content}
@@ -1417,6 +1419,7 @@ export function AcademyPlayerPage() {
                           <div className="qna-reply-form">
                             <textarea
                               className="qna-textarea small"
+                              aria-label="답변 내용"
                               placeholder="답변을 입력하세요"
                               rows={3}
                               value={replyForms[post.id] || ""}

@@ -1017,7 +1017,7 @@ export function MyPage() {
     return (
       <div className="mypage-redesign-pager" aria-label={`${label} 페이지`}>
         {totalPages > 1 ? (
-          <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)}>‹</button>
+          <button type="button" aria-label="이전 페이지" disabled={page <= 1} onClick={() => onChange(page - 1)}>‹</button>
         ) : null}
         {Array.from({ length: totalPages }, (_, index) => index + 1).map((number) => (
           <button
@@ -1030,7 +1030,7 @@ export function MyPage() {
           </button>
         ))}
         {totalPages > 1 ? (
-          <button type="button" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>›</button>
+          <button type="button" aria-label="다음 페이지" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>›</button>
         ) : null}
       </div>
     );
@@ -1643,6 +1643,7 @@ export function MyPage() {
                       <div className="mypage-inline-field">
                         <input
                           type="email"
+                          aria-label="이메일"
                           value={form.email}
                           onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
                         />
@@ -1689,6 +1690,7 @@ export function MyPage() {
                         <div className="mypage-inline-field">
                           <input
                             type="text"
+                            aria-label="이메일 인증번호"
                             value={emailVerificationCode}
                             onChange={(event) =>
                               setEmailVerificationCode(event.target.value.replace(/\D/g, ""))
@@ -1819,7 +1821,7 @@ export function MyPage() {
           <div className="refund-modal withdraw-guide-modal" onClick={(e) => e.stopPropagation()}>
             <div className="refund-modal-header">
               <h2>탈퇴 전, 안내 사항</h2>
-              <button type="button" className="refund-modal-close" onClick={() => setWithdrawModalOpen(false)}>×</button>
+              <button type="button" className="refund-modal-close" aria-label="회원 탈퇴 안내 닫기" onClick={() => setWithdrawModalOpen(false)}>×</button>
             </div>
             <div className="refund-modal-body withdraw-guide-body">
               <ol className="withdraw-guide-list">
@@ -1855,10 +1857,11 @@ export function MyPage() {
               </div>
 
               <div className="withdraw-guide-password-section">
-                <label className="withdraw-guide-password-label">비밀번호</label>
+                <label className="withdraw-guide-password-label" htmlFor="withdraw-password">비밀번호</label>
                 <p className="withdraw-guide-password-desc">본인 확인을 위해 현재 계정의 비밀번호를 입력해주세요.</p>
                 <span className="mypage-password-wrap">
                   <input
+                    id="withdraw-password"
                     type={withdrawPasswordVisible ? "text" : "password"}
                     className="withdraw-guide-password-input"
                     placeholder="현재 비밀번호"
@@ -1899,7 +1902,7 @@ export function MyPage() {
           <div className="refund-modal" onClick={(e) => e.stopPropagation()}>
             <div className="refund-modal-header">
               <h2>환불 신청</h2>
-              <button type="button" className="refund-modal-close" onClick={closeRefundModal}>×</button>
+              <button type="button" className="refund-modal-close" aria-label="환불 요청 창 닫기" onClick={closeRefundModal}>×</button>
             </div>
             <div className="refund-modal-body">
               <p className="refund-modal-order-name">{refundModal.orderName}</p>
@@ -1963,7 +1966,7 @@ export function MyPage() {
           <div className="refund-modal" onClick={(e) => e.stopPropagation()}>
             <div className="refund-modal-header">
               <h2>수강권 환불 요청</h2>
-              <button type="button" className="refund-modal-close" onClick={() => { setPassRefundModal(null); setPassRefundReason(""); setPassRefundMessage({ type: "", text: "" }); }}>×</button>
+              <button type="button" className="refund-modal-close" aria-label="수강권 환불 창 닫기" onClick={() => { setPassRefundModal(null); setPassRefundReason(""); setPassRefundMessage({ type: "", text: "" }); }}>×</button>
             </div>
             <div className="refund-modal-body">
               <p className="refund-modal-order-name">{passRefundModal.title}</p>
@@ -2002,7 +2005,7 @@ export function MyPage() {
           <div className="refund-modal certificate-modal" onClick={(e) => e.stopPropagation()}>
             <div className="refund-modal-header">
               <h2>수료증</h2>
-              <button type="button" className="refund-modal-close" onClick={() => setCertificateModal(null)}>×</button>
+              <button type="button" className="refund-modal-close" aria-label="수료증 창 닫기" onClick={() => setCertificateModal(null)}>×</button>
             </div>
             <div className="certificate-paper">
               <img

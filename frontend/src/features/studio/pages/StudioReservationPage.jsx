@@ -524,7 +524,7 @@ export function StudioReservationPage() {
             </div>
             <p>{passRefundModal.branchName} · {passRefundModal.title} 환불 요청 사유를 입력해 주세요.</p>
             {passRefundMessage.text ? <p className={`refund-modal-message ${passRefundMessage.type}`}>{passRefundMessage.text}</p> : null}
-            <textarea value={passRefundReason} onChange={(event) => setPassRefundReason(event.target.value)} placeholder="환불 사유" rows={5} />
+            <textarea aria-label="환불 사유" value={passRefundReason} onChange={(event) => setPassRefundReason(event.target.value)} placeholder="환불 사유" rows={5} />
             <div className="refund-modal-actions">
               <button type="button" className="ghost-button" onClick={() => setPassRefundModal(null)}>취소</button>
               <button type="submit" className="pill-button small" disabled={passRefundSubmitting}>

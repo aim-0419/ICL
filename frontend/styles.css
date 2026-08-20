@@ -14139,6 +14139,13 @@ video::-webkit-media-controls-fullscreen-button {
   box-sizing: border-box;
 }
 
+/* 키보드 포커스 가시성: 테두리 변화만으로는 대비가 약해 아웃라인을 추가한다 (마우스·터치에는 미표시) */
+.refund-reason-input:focus-visible,
+.refund-amount-input:focus-visible {
+  outline: 2px solid #8d6841;
+  outline-offset: 2px;
+}
+
 .refund-reason-input:focus,
 .refund-amount-input:focus {
   border-color: rgba(141, 104, 65, 0.7);
@@ -19578,6 +19585,12 @@ select:focus,
   background: rgba(141, 104, 65, 0.1);
   color: #2f2720;
   outline: none;
+}
+
+/* 키보드 포커스 가시성: 배경 틴트만으로는 대비가 약해 아웃라인을 추가한다 (마우스·터치에는 미표시) */
+.sunlit-nav-menu button:focus-visible {
+  outline: 2px solid #8d6841;
+  outline-offset: 2px;
 }
 
 .sunlit-actions {
@@ -32610,4 +32623,36 @@ body.native-app {
   color: #6b6257;
   font-size: 13px;
   line-height: 1.6;
+}
+
+/* ===== 접근성: 터치 타겟 48dp 확보 =====
+   시각적 크기는 그대로 두고 ::after 가상 요소로 히트 영역만 48x48px 이상으로 확장한다.
+   (Play pre-launch report 터치 타겟 경고 예방 — docs/audits/accessibility-20260820.md) */
+.refund-modal-close,
+.mypage-redesign-pager button,
+.mobile-nav-toggle,
+.academy-video-cart-button {
+  position: relative;
+}
+
+/* scroll-top-fab은 position: fixed 라 별도 position 지정 없이 ::after만 확장한다. */
+.refund-modal-close::after,
+.mypage-redesign-pager button::after,
+.mobile-nav-toggle::after,
+.scroll-top-fab::after,
+.academy-video-cart-button::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 48px);
+  height: max(100%, 48px);
+  transform: translate(-50%, -50%);
+}
+
+/* 페이지네이션 예외: 버튼 간 간격이 6px라 48px 가로 확장 시 인접 히트영역이 12px 겹쳐
+   클릭이 옆 버튼으로 전달된다(실측 확인). 가로 확장을 간격 이내(±3px)로 제한한다.
+   세로는 인접 클릭 요소가 없어 48px를 유지한다. */
+.mypage-redesign-pager button::after {
+  width: calc(100% + 6px);
 }

@@ -913,12 +913,14 @@ export function CommunityReviewDetailPage() {
             >
               <input
                 type="text"
+                aria-label="댓글 작성자"
                 placeholder="작성자"
                 value={commentAuthor}
                 onChange={(e) => setCommentAuthor(e.target.value)}
               />
               <textarea
                 rows={3}
+                aria-label="댓글 내용"
                 placeholder="댓글을 입력해주세요."
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
@@ -1862,6 +1864,7 @@ export function CommunityInquiryDetailPage() {
                         <div className="inquiry-reply-edit-form">
                           <textarea
                             className="inquiry-reply-textarea"
+                            aria-label="답변 수정 내용"
                             value={editReplyText}
                             onChange={(e) => setEditReplyText(e.target.value)}
                             rows={4}
@@ -1904,6 +1907,7 @@ export function CommunityInquiryDetailPage() {
                 <h3>답변 작성</h3>
                 <textarea
                   className="inquiry-reply-textarea"
+                  aria-label="답변 내용"
                   placeholder="답변 내용을 입력하세요."
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}

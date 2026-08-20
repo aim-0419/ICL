@@ -402,6 +402,7 @@ export function AcademyDetailPage() {
               </div>
               <textarea
                 className="review-textarea"
+                aria-label="수강 후기"
                 placeholder="수강 후기를 남겨주세요 (최대 1000자)"
                 rows={4}
                 maxLength={1000}

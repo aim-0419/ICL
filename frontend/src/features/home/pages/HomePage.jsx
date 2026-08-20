@@ -63,7 +63,7 @@ const DEFAULT_EVENT_NEWS_ITEM = {
 };
 
 const HOME_IMAGES = {
-  hero: "/assets/images/home/main-hero/이끌림 필라테스 메인 페이지 상단 이미지.png",
+  hero: "/assets/images/home/main-hero/home-hero-main.webp",
   studio: "/assets/images/home/studio-main.jpg",
   window: "/assets/images/home/window-equipment.jpg",
   sun: "/assets/images/home/sun-window.jpg",
@@ -962,11 +962,11 @@ export function HomePage() {
                 </div>
                 {item.source === "blog" ? (
                   <div className="sunlit-news-platform-thumb sunlit-news-platform-thumb--blog">
-                    <img src="/assets/images/naver-blog-logo.webp" alt="Naver Blog" />
+                    <img src="/assets/images/naver-blog-logo.webp" alt="Naver Blog" loading="lazy" />
                   </div>
                 ) : item.source === "instagram" ? (
                   <div className="sunlit-news-platform-thumb sunlit-news-platform-thumb--instagram">
-                    <img src="/assets/images/instagram-logo.jpg" alt="Instagram" />
+                    <img src="/assets/images/instagram-logo.jpg" alt="Instagram" loading="lazy" />
                   </div>
                 ) : itemIndex > 0 || item.image ? (
                   <img src={resolveApiAssetUrl(item.image)} alt={item.title} loading="lazy" onError={handleSocialThumbnailError} />

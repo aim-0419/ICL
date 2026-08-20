@@ -279,7 +279,7 @@ export function CartPage() {
                         </label>
                         <div className="checkout-item-thumb">
                           {item.preview.image ? (
-                            <img src={resolveAcademyMediaUrl(item.preview.image)} alt={item.product.name} />
+                            <img src={resolveAcademyMediaUrl(item.preview.image)} alt={item.product.name} loading="lazy" />
                           ) : (
                             <span>이미지 없음</span>
                           )}

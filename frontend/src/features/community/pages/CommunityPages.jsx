@@ -793,7 +793,7 @@ export function CommunityReviewDetailPage() {
           </header>
 
           <div className="review-detail-media">
-            <img src={image} alt={review.title} />
+            <img src={image} alt={review.title} loading="lazy" />
           </div>
 
           {videoUrl ? (
@@ -1710,7 +1710,7 @@ export function CommunityInquiryDetailPage() {
             <div className="review-detail-media-stack">
               {post.imageUrl ? (
                 <div className="review-detail-media">
-                  <img src={resolveCommunityMediaUrl(post.imageUrl)} alt={`${post.title} 첨부 이미지`} />
+                  <img src={resolveCommunityMediaUrl(post.imageUrl)} alt={`${post.title} 첨부 이미지`} loading="lazy" />
                 </div>
               ) : null}
               {post.videoUrl ? (
@@ -2274,7 +2274,7 @@ export function CommunityEventsPage() {
                 }}
               >
                 <div className="event-card-media">
-                  <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} />
+                  <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} loading="lazy" />
                 </div>
                 <div className="event-card-copy">
                   <h3>{eventItem.title}</h3>
@@ -2435,7 +2435,7 @@ export function CommunityEventDetailPage() {
         ) : (
           <section className="event-detail-layout">
             <div className="event-detail-media">
-              <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} />
+              <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} loading="lazy" />
             </div>
 
             <article className="event-detail-info">

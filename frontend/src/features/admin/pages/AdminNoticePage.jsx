@@ -576,7 +576,7 @@ export function AdminNoticePage() {
                     <div className="admin-notice-photo-preview">
                       {form.images.map((src) => (
                         <div key={src} className="admin-notice-photo-thumb">
-                          <img src={src} alt="첨부" />
+                          <img src={src} alt="첨부" loading="lazy" />
                           <button
                             type="button"
                             className="admin-notice-photo-remove"

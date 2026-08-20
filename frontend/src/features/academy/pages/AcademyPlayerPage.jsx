@@ -928,7 +928,7 @@ export function AcademyPlayerPage() {
                 return (
                   <Link key={video.id} className="academy-player-list-item" to={`/academy/player/${video.id}`}>
                     {thumbnailUrl ? (
-                      <img src={thumbnailUrl} alt={video.title} />
+                      <img src={thumbnailUrl} alt={video.title} loading="lazy" />
                     ) : (
                       <span className="academy-player-list-thumb-placeholder" aria-hidden="true">16:9</span>
                     )}
@@ -1267,7 +1267,7 @@ export function AcademyPlayerPage() {
                       to={`/academy/player/${video.id}`}
                     >
                       {thumbnailUrl ? (
-                        <img src={thumbnailUrl} alt={video.title} />
+                        <img src={thumbnailUrl} alt={video.title} loading="lazy" />
                       ) : (
                         <span className="academy-player-list-thumb-placeholder" aria-hidden="true">16:9</span>
                       )}

@@ -322,6 +322,7 @@ export function AdminVideoGiftPage() {
                             className="video-gift-thumb"
                             src={resolveAcademyMediaUrl(video.image)}
                             alt={video.title}
+                            loading="lazy"
                           />
                         ) : (
                           <div className="video-gift-thumb video-gift-thumb-empty" />

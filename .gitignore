@@ -66,3 +66,6 @@ frontend/frontend/
 frontend/tmp-*.png
 test_*.mjs
 ICL.zip
+
+# 이미지 최적화 원본 백업 (저장소 밖으로 별도 백업 필요)
+frontend/_original-assets/

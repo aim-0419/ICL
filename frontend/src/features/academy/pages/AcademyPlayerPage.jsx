@@ -4,7 +4,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
-import { 
+import { resolveApiUrl } from "../../../shared/api/client.js";
+import {
   createAcademyPlaybackSession,
   heartbeatAcademyPlaybackSession,
   resolveAcademyMediaUrl,
@@ -729,7 +730,8 @@ export function AcademyPlayerPage() {
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!(videoElement instanceof HTMLVideoElement)) return;
-    const url = String(playbackSession?.playbackUrl || "").trim();
+    // 앱 WebView(origin https://localhost)에서는 상대경로가 API 서버를 못 가리키므로 절대화합니다.
+    const url = resolveApiUrl(String(playbackSession?.playbackUrl || "").trim());
     if (!url) return;
     resumeAppliedRef.current = false;
     videoElement.src = url;
@@ -962,7 +964,8 @@ export function AcademyPlayerPage() {
     resolveAcademyMediaUrl(activeChapter.videoUrl) ||
     resolveAcademyMediaUrl(activeVideo.videoUrl) ||
     getAcademyPlaybackSourceByVideoId(activeVideo.id);
-  const securePlaybackSource = String(playbackSession?.playbackUrl || "").trim();
+  // 앱 WebView(origin https://localhost)에서는 상대경로가 API 서버를 못 가리키므로 절대화합니다.
+  const securePlaybackSource = resolveApiUrl(String(playbackSession?.playbackUrl || "").trim());
   const playbackSource =
     securePlaybackSource ||
     (!playbackSessionLoading && !playbackSessionError ? fallbackPlaybackSource : "");

@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { PageHero } from "../../../shared/components/PageHero.jsx";
+import { ExerciseSafetyNotice } from "../../../shared/components/ExerciseSafetyNotice.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { canEditPage } from "../../../shared/auth/userRoles.js";
@@ -191,6 +192,8 @@ export function BrandIntroPage() {
               </ul>
             </div>
           </div>
+          {/* 원장 프로필(자격 사항 이미지)과 같은 화면에서 보이도록 안전 고지를 함께 배치합니다. */}
+          <ExerciseSafetyNotice className="intro-v2-safety-notice" />
         </section>
 
         {/* 수업 유형 */}
@@ -462,6 +465,8 @@ export function BrandInstructorsPage() {
           <p className="section-text">
             경력과 전문성, 그리고 코칭 철학을 바탕으로 구성된 강사진을 안내합니다.
           </p>
+          {/* 강사 자격 사항 카드와 같은 화면에서 보이도록 안전 고지를 목록 앞에 배치합니다. */}
+          <ExerciseSafetyNotice />
         </section>
 
         <section className="staff-split-list">

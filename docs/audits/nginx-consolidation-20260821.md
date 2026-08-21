@@ -29,7 +29,17 @@ certbot 관리 항목(`listen 443 ssl`, `ssl_certificate*`, `include options-ssl
 - server 블록에 두면 **certbot 관리 파일을 다시 손대야** 한다. 조각 안에 두면 저장소만 고치면 된다.
 - include 는 server 블록 안에서 이뤄지므로 조각 최상단의 지시어는 그 server 전체에 적용된다. 결과는 server 블록에 쓴 것과 같다.
 
-값은 **5120m**. 근거는 코드상 영상 업로드 상한이 5GB(`asset.service.js:24` `ACADEMY_VIDEO_UPLOAD_MAX_BYTES = 5 * 1024^3`)인데 현재 실서비스는 200M이라, nginx가 먼저 413을 반환해 코드 상한이 무의미해지기 때문이다. 커뮤니티 업로드는 별도로 100MB 제한(`community.routes.js:56`)이라 느슨해지지 않는다.
+**값은 기본 200M 을 유지하고, 5120m 는 업로드 엔드포인트에서만 올린다.**
+
+코드상 영상 업로드 상한은 5GB(`asset.service.js:24` `ACADEMY_VIDEO_UPLOAD_MAX_BYTES`)라 nginx 가 그보다 낮은 값으로 먼저 413 을 반환하면 코드 상한이 무의미해진다. 그러나 5GB 가 필요한 경로는 `POST /api/academy/uploads` **하나뿐**이다.
+
+전역에 5120m 를 두면 `location /`(정적 파일)을 포함한 모든 경로가 5GB 본문을 받아들인다. `location /` 에는 `proxy_request_buffering off` 가 걸려 있지 않아 nginx 가 405 를 돌려주기 전에 **본문을 디스크에 먼저 버퍼링**한다. 인증 없이도 디스크를 채울 수 있는 경로가 생기므로 전역값은 낮게 두고 필요한 곳만 올린다.
+
+경로 근거: `app.js:163` 이 `/api/academy` 에 라우터를 붙이고, `academy.routes.js:73` 이 `/uploads` 를 등록하며, 프론트는 `academyApi.js:186` 에서 `${API_BASE_URL}/academy/uploads?...` 를 호출한다 → 최종 `/api/academy/uploads`. 쿼리스트링은 location 매칭에 영향을 주지 않는다.
+
+`location = /api/academy/uploads` 는 **완전일치**라 접두사 매칭인 `location /api/` 보다 우선하며, 둘은 별개의 location 이라 중복 정의가 아니다.
+
+커뮤니티 업로드는 `community.routes.js:56` 에서 별도로 100MB 로 제한된다.
 
 ### 포함 항목과 근거
 
@@ -97,6 +107,55 @@ certbot 관리 항목(`listen 443 ssl`, `ssl_certificate*`, `include options-ssl
 
 ---
 
+## 0. 서버 사전 조사 결과 (2026-08-21 실측)
+
+실서버 EC2 에서 읽기 전용으로 확인한 사실이다. **다음 사람이 같은 조사를 반복하지 않도록** 남긴다.
+
+### 0-1. `sites-available/icl` 의 server 블록에 `add_header` 가 하나도 없다
+
+```
+sudo grep -n add_header /etc/nginx/sites-available/icl
+```
+
+결과 없음. 조각의 `/assets/` 블록이 `add_header` 를 써서 상속을 끊더라도 **잃을 헤더가 없다.** 따라서 이번 작업에서 `/assets/` 를 손볼 필요가 없다(주의 주석만 남겼다).
+
+### 0-2. 인증서 자동 갱신이 `default` 제거와 무관하다
+
+```
+sudo grep -nE "authenticator|installer" /etc/letsencrypt/renewal/*.conf
+sudo certbot renew --dry-run
+```
+
+`authenticator = nginx`, `installer = nginx` 이며 **dry-run 전부 성공**했다. `sites-enabled/default` 를 제거해도 갱신이 끊기지 않는다는 뜻이다.
+
+다만 `installer = nginx` 이므로 certbot 은 `icl` 파일을 직접 수정할 권한을 갖는다. 인증서를 재발급·확장하면 include 라인이 사라질 수 있어, 갱신 후 확인이 필요하다(5절 위험표).
+
+### 0-3. `sites-enabled/default` 가 실제로 트래픽을 받고 있다
+
+```
+sudo cat /etc/nginx/sites-enabled/default
+```
+
+```
+listen 80;            (443 없음)
+server_name _;
+root /home/ubuntu/ICL/frontend/dist;
+```
+
+`default_server` 키워드는 없지만 nginx 가 `sites-enabled/*` 를 **알파벳 순으로 읽어** `default` 가 `icl` 보다 먼저 로드된다. 그래서 80 포트의 **암묵적 기본 서버**가 되어, Host 가 도메인과 다른 HTTP 요청(IP 직접 접근, 봇 스캔)을 받아 **앱 dist 를 평문 HTTP 로 서빙**하고 있다. 443 에는 관여하지 않는다(icl 단독).
+
+→ 제거가 위험이 아니라 **개선**인 근거다(7단계).
+
+### 0-4. include 라인이 아직 없고 상한은 200M 이다
+
+```
+sudo grep -nE "include|client_max_body_size" /etc/nginx/sites-available/icl
+```
+
+include 라인 없음, `client_max_body_size 200M`. 조각의 기본값을 200M 으로 맞춘 이유이며(1절), 3단계에서 이 줄을 지우고 include 로 대체한다.
+
+---
+
 ## 3. 서버 1회 수동 작업 절차서
 
 AWS 콘솔 터미널(EC2 Instance Connect)에서 수행한다. **브라우저 터미널은 긴 붙여넣기가 깨지므로 명령을 짧게 나눴다.**
@@ -121,7 +180,14 @@ sudo cp /etc/nginx/sites-available/icl /home/ubuntu/icl.bak.$(date +%Y%m%d_%H%M%
 ```
 ls -l /home/ubuntu/icl.bak*
 ```
-Phase 1 백업(`/home/ubuntu/icl.bak`)과 별개로 하나 더 만든다.
+
+**여기서 방금 만들어진 파일명(`icl.bak.20260821_HHMMSS`)을 메모해 둔다.** 롤백할 때 이 파일을 써야 한다.
+
+> ⚠️ **확장자 없는 `/home/ubuntu/icl.bak` 는 롤백에 쓰지 마라.**
+> 그 파일은 Phase 1 작업 **이전** 상태라, 복원하면 Phase 1 에서 수동으로 넣은
+> `X-Forwarded-For` / `X-Forwarded-Proto` 가 함께 사라진다. 그러면 백엔드가 보는
+> `req.ip` 가 전부 `127.0.0.1` 로 찍혀 rate limit 이 전 사용자 공용 카운터가 되고,
+> S-2 보안 수정이 무효가 된다.
 
 ### 2단계 — 조각 파일이 서버에 있는지 확인
 
@@ -224,20 +290,40 @@ sudo systemctl reload nginx
 curl -I https://icl-pilates.com
 ```
 
-제거 후에는 도메인이 아닌 요청(IP 직접 접근 등)이 `icl` 블록으로 흘러간다. 이를 막고 싶으면 제거 대신 아래 내용으로 축소하는 대안이 있다.
+미매칭 HTTP 요청이 HTTPS 로 넘어가는지 확인한다.
 
 ```
-server { listen 80 default_server; server_name _; return 444; }
+curl -sI -H "Host: example.invalid" http://127.0.0.1/ | head -1
 ```
+
+기대값은 **301** 이다. 제거 전에는 `default` 가 이 요청을 받아 **200** 과 함께 앱 dist 를 평문으로 내주고 있었다.
+
+**제거가 위험이 아니라 개선인 이유** (서버 실측 근거, 0절 참조):
+
+- `default` 에는 `default_server` 키워드가 없지만, nginx 는 `sites-enabled/*` 를 알파벳 순으로 읽어 `default` 가 `icl` 보다 먼저 로드된다. 그래서 **80 포트의 암묵적 기본 서버**가 되어 있다.
+- 그 결과 Host 가 도메인과 다른 HTTP 요청(IP 직접 접근, 봇 스캔)을 실제로 받고 있고, **앱 `dist` 를 평문 HTTP 로 서빙**한다.
+- 제거하면 `icl` 의 80 블록이 기본이 되어 같은 요청이 **301 로 HTTPS 에 넘어간다.**
+- 443 은 원래 `icl` 단독이라 제거 전후가 같다.
 
 ### 롤백 (어느 단계든 실패 시)
 
+먼저 백업 파일명을 확인한다. 1단계에서 만든 **타임스탬프가 붙은** 파일을 써야 한다.
+
 ```
-sudo cp /home/ubuntu/icl.bak /etc/nginx/sites-available/icl
+ls -l /home/ubuntu/icl.bak*
+```
+
+위에서 확인한 이름으로 복원한다.
+
+```
+sudo cp /home/ubuntu/icl.bak.<확인한값> /etc/nginx/sites-available/icl
 ```
 ```
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+> ⚠️ **확장자 없는 `icl.bak` 로 복원하지 마라.** Phase 1 이전 상태라
+> `X-Forwarded-For` / `X-Forwarded-Proto` 가 빠져 rate limit 이 무력화된다.
 
 `default` 를 지운 뒤 되돌리려면:
 
@@ -274,8 +360,8 @@ docker run --rm -v "$PWD/deploy:/etc/nginx/conf.d/frag:ro" nginx:alpine nginx -t
 | 조각 문법 오류 | 위와 동일 (reload 차단) | 표준 지시어만 사용 | 3단계 검사 | 커밋 되돌리기 |
 | location 중복 정의 | 기동 실패 또는 예상과 다른 라우팅 | 3단계에서 기존 location 제거 | `nginx -t` / 502 | `icl.bak` 복구 |
 | `proxy_pass` 포트 오기(4000↔4001) | **전면 502** | 실서버 값 4000 그대로 사용 | 6단계 검증 | `icl.bak` 복구 |
-| certbot이 설정을 다시 씀 | include 라인이 사라질 수 있음 | TLS·앱 영역 분리 | 배포 후 헤더 확인 | include 라인 재삽입 |
-| `default` 제거 후 IP 접근 | `icl` 블록으로 흘러감 | 캐치올(return 444) 대안 | 접근 테스트 | 심볼릭 링크 재생성 |
+| certbot이 설정을 다시 씀 | include 라인이 사라질 수 있음 | TLS·앱 영역 분리. `renew` 는 설정을 고치지 않고 `--dry-run` 성공 확인(0절) → 위험 낮음. 다만 `installer = nginx` 라 certbot 이 `icl` 파일을 직접 고칠 권한은 있다 | 갱신 후 `sudo grep -n include /etc/nginx/sites-available/icl` | include 라인 재삽입 |
+| `default` 제거 후 미매칭 요청 | **개선됨** — 기존에는 `default` 가 앱 dist 를 평문 HTTP 로 서빙했고, 제거 후에는 `icl` 80 블록이 받아 301 로 HTTPS 에 넘긴다. 443 은 원래 `icl` 단독이라 변화 없음 | — | `curl -sI -H "Host: example.invalid" http://127.0.0.1/` 로 301 확인 | 심볼릭 링크 재생성 |
 | **최악**: 잘못된 설정이 reload됨 | HTTPS 상실 또는 502 | `nginx -t` 는 문법만 잡고 **의미 오류는 못 잡는다** | 6단계 즉시 확인 | `icl.bak` 즉시 복구 |
 
 `set -e` 추가로 인한 위험도 함께 본다: 기존에 조용히 무시되던 실패(예: seed 적용 실패)가 이제 배포를 중단시킨다. **배포가 더 자주 실패할 수 있으나, 깨진 상태가 운영에 올라가는 것보다 낫다.**
@@ -290,6 +376,15 @@ docker run --rm -v "$PWD/deploy:/etc/nginx/conf.d/frag:ro" nginx:alpine nginx -t
 4. `location /` HTML 무캐시 정책 — 별도 과제
 5. `/uploads/` 캐시 정책을 백엔드에서 어떻게 줄지 미정
 6. 로컬 nginx 부재로 조각 문법을 사전 검증하지 못했다 (4절)
+7. **`www.icl-pilates.com` 인증서 불일치 — 별도 브랜치로 처리**
+
+   `server_name` 은 `icl-pilates.com` 과 `www.icl-pilates.com` 을 모두 받는데,
+   `ssl_certificate` 는 `icl-pilates.com-0001`(단일 도메인)을 가리킨다.
+   www 를 포함한 인증서는 `icl-pilates.com`(`-0001` 아님) 쪽이며 현재 사용되지 않는다.
+   **인증서 2장이 각각 자동 갱신되고 있다.**
+
+   DNS 상 www 도 같은 IP(3.134.172.138)로 도달하므로 실사용자가 인증서 경고를 볼 수 있다.
+   certbot 관리 영역이라 이 브랜치에 섞지 않는다.
 
 ## 다음 세션이 해야 할 일
 

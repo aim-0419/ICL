@@ -13,21 +13,17 @@
  *
  * ─ 주요 규칙 ─────────────────────────────────────────────────────
  *  · 날짜·금액 포맷은 shared/utils/format.js 의 공통 함수를 사용합니다
- *  · 관리자(isAdminStaff)는 강의 편집·삭제 버튼이 추가로 노출됩니다
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { NativePushSettings } from "../../../shared/components/NativePushSettings.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import {
-  deleteAcademyVideo,
   issueAcademyCertificate,
   listAcademyCertificates,
   listMyAcademyQna,
   resolveAcademyMediaUrl,
-  updateAcademyVideo,
-  uploadAcademyAsset,
 } from "../../academy/api/academyApi.js";
 import { countPurchasedVideoItems, getPurchasedVideos } from "../../academy/lib/purchases.js";
 import { apiRequest } from "../../../shared/api/client.js";
@@ -42,10 +38,8 @@ import {
   requestStudioPassRefund,
 } from "../../studio/api/studioApi.js";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
-import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import {
   formatDate,
-  formatDateTime,
   formatCertificateDate,
   formatDuration,
   formatYmd,
@@ -246,18 +240,11 @@ function EyeIcon({ open }) {
   );
 }
 
-/** 문자열이나 숫자 형태의 값을 안전한 숫자로 변환합니다. 변환 불가 시 fallback 반환 */
-function toSafeNumber(value, fallback = 0) {
-  const parsed = Number(String(value || "").replace(/[^0-9.]/g, ""));
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
 // ─── MyPage 메인 컴포넌트 ─────────────────────────────────────────────────────
 export function MyPage() {
   const navigate = useNavigate();
   const store = useAppStore();
   const currentUser = store.currentUser || {};
-  const isAdmin = isAdminStaff(currentUser);
   const normalizedCurrentUserEmail = String(currentUser.email || "").trim().toLowerCase();
   const currentUserDisplayName = getUserDisplayName(currentUser);
 
@@ -348,7 +335,6 @@ export function MyPage() {
   const [activeVideoTab, setActiveVideoTab] = useState("purchased");
   const [activeTab, setActiveTab] = useState("courses");
   const [orderPage, setOrderPage] = useState(1);
-  const [pointPage, setPointPage] = useState(1);
   const [qnaPage, setQnaPage] = useState(1);
   const [myQnaItems, setMyQnaItems] = useState([]);
   const [myQnaLoading, setMyQnaLoading] = useState(false);
@@ -979,35 +965,16 @@ export function MyPage() {
 
   const unreadNotificationCount = memberNotifications.filter((item) => !item.readAt).length;
   const orderPageSize = 5;
-  const pointPageSize = 5;
   const qnaPageSize = 5;
   const orderTotalPages = Math.max(1, Math.ceil(userOrders.length / orderPageSize));
-  const pointHistoryRows = userOrders
-    .map((order) => {
-      const amount = Number(order.amount || 0);
-      const point = Math.max(0, Math.floor(amount * 0.01));
-      return {
-        id: order.orderId || order.id || `${order.createdAt}-${order.orderName}`,
-        date: order.createdAt,
-        content: `${order.orderName || "교육 영상"} 구매 적립`,
-        point,
-      };
-    })
-    .filter((item) => item.point > 0);
-  const pointTotalPages = Math.max(1, Math.ceil(pointHistoryRows.length / pointPageSize));
   const qnaTotalPages = Math.max(1, Math.ceil(myQnaItems.length / qnaPageSize));
   const pagedOrders = userOrders.slice((orderPage - 1) * orderPageSize, orderPage * orderPageSize);
-  const pagedPointRows = pointHistoryRows.slice((pointPage - 1) * pointPageSize, pointPage * pointPageSize);
   const pagedQnaItems = myQnaItems.slice((qnaPage - 1) * qnaPageSize, qnaPage * qnaPageSize);
   const accessibleVideoCount = learningHistory.length + grantedLearningHistory.length;
 
   useEffect(() => {
     setOrderPage((page) => Math.min(page, orderTotalPages));
   }, [orderTotalPages]);
-
-  useEffect(() => {
-    setPointPage((page) => Math.min(page, pointTotalPages));
-  }, [pointTotalPages]);
 
   useEffect(() => {
     setQnaPage((page) => Math.min(page, qnaTotalPages));

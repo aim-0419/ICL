@@ -3,7 +3,6 @@
  * 예약자 체크인, 미수금, 락커처럼 현장에서 자주 처리하는 업무를 한곳에 모읍니다.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
@@ -51,7 +50,6 @@ function formatCurrency(value) {
 }
 
 export function AdminOperationsPage() {
-  const navigate = useNavigate();
   const { currentUser } = useAppStore();
   const [activeTab, setActiveTab] = useState("checkin");
   const [message, setMessage] = useState({ type: "", text: "" });

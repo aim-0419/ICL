@@ -1950,7 +1950,6 @@ export function CommunityEventsPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [writeTitle, setWriteTitle] = useState("");
   const [writeSummary, setWriteSummary] = useState("");
-  const [writeStatus, setWriteStatus] = useState("진행중");
   const [writeStartDate, setWriteStartDate] = useState("");
   const [writeEndDate, setWriteEndDate] = useState("");
   const [writeImageFile, setWriteImageFile] = useState(null);
@@ -2027,7 +2026,6 @@ export function CommunityEventsPage() {
       setIsWriteOpen(false);
       setWriteTitle("");
       setWriteSummary("");
-      setWriteStatus("진행중");
       setWriteStartDate("");
       setWriteEndDate("");
       setWriteImageFile(null);

@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
@@ -76,7 +75,6 @@ const EMPTY_FORM = {
 
 export function AdminNoticePage() {
   const store = useAppStore();
-  const navigate = useNavigate();
   const currentUserName = getUserDisplayName(store.currentUser) || "관리자";
 
   const [view, setView] = useState("list");

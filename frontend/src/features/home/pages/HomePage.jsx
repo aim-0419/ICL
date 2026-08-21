@@ -71,38 +71,6 @@ const HOME_IMAGES = {
   room: "/assets/images/home/training-room.jpg",
 };
 
-const SERVICE_POINTS = [
-  {
-    icon: "01",
-    title: "상담",
-    description: "목표와 불편함을 먼저 듣습니다.",
-  },
-  {
-    icon: "02",
-    title: "체형 분석",
-    description: "움직임 패턴을 확인합니다.",
-  },
-  {
-    icon: "03",
-    title: "개인 맞춤",
-    description: "필요한 루틴을 설계합니다.",
-  },
-  {
-    icon: "04",
-    title: "기구 수업",
-    description: "안전한 난이도로 진행합니다.",
-  },
-  {
-    icon: "05",
-    title: "복습 영상",
-    description: "수업 후에도 이어갑니다.",
-  },
-  {
-    icon: "06",
-    title: "후기 기록",
-    description: "변화를 차분히 남깁니다.",
-  },
-];
 
 const SUNLIT_NAV_ITEMS = [
   { label: "메인", path: "/" },

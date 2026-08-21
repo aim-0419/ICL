@@ -996,36 +996,6 @@ function getSelectedTextTarget() {
   return findEditableTextTarget(anchorElement);
 }
 
-// 함수 역할: placeCaretAtEnd 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
-function placeCaretAtEnd(element) {
-  const selection = window.getSelection();
-  if (!selection) return;
-
-  const range = document.createRange();
-  range.selectNodeContents(element);
-  range.collapse(false);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
-// 함수 역할: insertLineBreakAtCaret 함수는 이 파일의 기능 흐름 중 하나를 담당합니다.
-function insertLineBreakAtCaret(container) {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return;
-
-  const range = selection.getRangeAt(0);
-  if (!container.contains(range.commonAncestorContainer)) return;
-
-  range.deleteContents();
-  const lineBreakNode = document.createTextNode("\n");
-  range.insertNode(lineBreakNode);
-
-  range.setStartAfter(lineBreakNode);
-  range.setEndAfter(lineBreakNode);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
 // 이 컴포넌트는 모든 페이지에 떠 있지만, 관리자0 + 페이지 수정 활성화 상태에서만 동작한다.
 // 컴포넌트 역할: 관리자 편집 모드에서 이미지/텍스트/크기 변경 UI와 저장 흐름을 렌더링합니다.
 export function AdminImageEditor() {

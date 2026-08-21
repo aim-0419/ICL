@@ -2,29 +2,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
-import { PageHero } from "../../../shared/components/PageHero.jsx";
 import { ExerciseSafetyNotice } from "../../../shared/components/ExerciseSafetyNotice.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { canEditPage } from "../../../shared/auth/userRoles.js";
 import { API_BASE_URL } from "../../../shared/api/client.js";
-
-// 컴포넌트 역할: BrandPageLayout 컴포넌트의 화면 구조와 상호작용 상태를 렌더링합니다.
-function BrandPageLayout({ kicker, title, description, points }) {
-  return (
-    <PageLayout>
-      <PageHero kicker={kicker} title={title} description={description} />
-      <section className="content-grid">
-        {points.map((point) => (
-          <article className="content-card" key={point.title}>
-            <h3>{point.title}</h3>
-            <p>{point.description}</p>
-          </article>
-        ))}
-      </section>
-    </PageLayout>
-  );
-}
 
 const INTRO_CLASS_TYPES = [
   {
@@ -95,8 +77,6 @@ export function BrandIntroPage() {
     title: "수업 소개",
     description: "이끌림 필라테스 수업 소개. 원장 직강, 1대1 개인·듀엣·그룹 수업 안내.",
   });
-  const [instructors, setInstructors] = useState(DEFAULT_INSTRUCTORS);
-
   useEffect(() => {
     try {
       const raw = localStorage.getItem("icl_admin_image_overrides_v1");
@@ -107,16 +87,6 @@ export function BrandIntroPage() {
       );
       localStorage.setItem("icl_admin_image_overrides_v1", JSON.stringify(cleaned));
     } catch {}
-  }, []);
-
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/brand/instructors`, { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const rows = Array.isArray(data?.instructors) ? data.instructors : Array.isArray(data) ? data : null;
-        if (rows?.length && !isPlaceholderInstructorRows(rows)) setInstructors(rows);
-      })
-      .catch(() => {});
   }, []);
 
   return (

@@ -6,7 +6,7 @@ import {
   normalizeOptionalCount,
   resolveBookingStatus,
 } from "./studio.class-rules.js";
-import { normalizePassRefundRequest } from "./studio.refund-rules.js";
+import { calculatePassRefundAmount, normalizePassRefundRequest } from "./studio.refund-rules.js";
 import { parseJson } from "../../shared/utils/payload.js";
 
 function toCount(value) {
@@ -2559,7 +2559,8 @@ export async function requestPassRefund(payload) {
   const id = randomUUID();
   return withTransaction(async (conn) => {
     const [passRows] = await conn.execute(
-      `SELECT id, status
+      `SELECT id, status, total_count AS totalCount, remaining_count AS remainingCount,
+              created_at AS createdAt, expires_at AS expiresAt
        FROM studio_passes
        WHERE id = ? AND user_id = ?
        LIMIT 1
@@ -2584,11 +2585,40 @@ export async function requestPassRefund(payload) {
       throw createHttpError("이미 처리 대기 중인 환불 요청이 있습니다.", 409);
     }
 
+    // 환불액은 클라이언트가 보낸 값을 쓰지 않고 서버가 직접 계산합니다.
+    // 요청 본문의 refundAmount 를 그대로 저장하면 금액을 위조해 과다 환불을 요구할 수 있고,
+    // 반대로 화면이 금액을 보내지 않으면 0원으로 기록되는 문제도 있었습니다.
+    const [paymentRows] = await conn.execute(
+      `SELECT COALESCE(SUM(amount), 0) AS totalAmount
+       FROM studio_pass_payments
+       WHERE pass_id = ?`,
+      [request.passId],
+    );
+    const totalAmount = Number(paymentRows?.[0]?.totalAmount || 0);
+
+    // 기간제 환산에 쓸 유효기간과 경과일수를 수강권 발급일 기준으로 구합니다.
+    const createdAt = pass.createdAt ? new Date(pass.createdAt) : null;
+    const expiresAt = pass.expiresAt ? new Date(pass.expiresAt) : null;
+    const dayMs = 24 * 60 * 60 * 1000;
+    const validDays =
+      createdAt && expiresAt && expiresAt > createdAt
+        ? Math.ceil((expiresAt.getTime() - createdAt.getTime()) / dayMs)
+        : 0;
+    const elapsedDays = createdAt ? Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / dayMs)) : 0;
+
+    const calculated = calculatePassRefundAmount({
+      totalAmount,
+      totalCount: pass.totalCount,
+      remainingCount: pass.remainingCount,
+      validDays,
+      elapsedDays,
+    });
+
     await conn.execute(
       `INSERT INTO studio_pass_refunds
         (id, pass_id, user_id, refund_amount, reason, status, requested_at)
        VALUES (?, ?, ?, ?, ?, 'requested', NOW())`,
-      [id, request.passId, request.userId, request.refundAmount, request.reason],
+      [id, request.passId, request.userId, calculated.refundAmount, request.reason],
     );
     const [rows] = await conn.execute(`SELECT * FROM studio_pass_refunds WHERE id = ?`, [id]);
     return rows?.[0] || null;

@@ -23,9 +23,9 @@ certbot 관리 항목(`listen 443 ssl`, `ssl_certificate*`, `include options-ssl
 
 ### `client_max_body_size` 배치 — server 블록이 아니라 조각 안에 둔다
 
-`location` 단위로도 지정할 수 있지만 **조각 최상단에 한 번만** 두는 방식을 택했다.
+기본값은 **조각 최상단**에 두고, 더 큰 값이 필요한 곳만 해당 `location` 에서 올린다.
 
-- 이 값이 필요한 곳은 `/api/`(영상·이미지 업로드)와 `/uploads/` 두 곳이다. 각 `location` 에 중복 기술하면 한쪽만 고치는 실수가 난다.
+- 처음에는 전역에 5120m 하나만 두는 방식을 검토했으나, 그러면 업로드와 무관한 경로까지 5GB 본문을 받아들이게 되어 기본값을 낮추고 업로드 `location` 에서만 올리는 방식으로 바꿨다(아래 상세).
 - server 블록에 두면 **certbot 관리 파일을 다시 손대야** 한다. 조각 안에 두면 저장소만 고치면 된다.
 - include 는 server 블록 안에서 이뤄지므로 조각 최상단의 지시어는 그 server 전체에 적용된다. 결과는 server 블록에 쓴 것과 같다.
 
@@ -358,11 +358,11 @@ docker run --rm -v "$PWD/deploy:/etc/nginx/conf.d/frag:ro" nginx:alpine nginx -t
 |---|---|---|---|---|
 | 조각 파일이 서버에 없는 상태로 include | `nginx -t` 실패 → reload 안 됨 | 2단계에서 파일 존재 확인 | 3단계 검사 | include 라인 제거 |
 | 조각 문법 오류 | 위와 동일 (reload 차단) | 표준 지시어만 사용 | 3단계 검사 | 커밋 되돌리기 |
-| location 중복 정의 | 기동 실패 또는 예상과 다른 라우팅 | 3단계에서 기존 location 제거 | `nginx -t` / 502 | `icl.bak` 복구 |
-| `proxy_pass` 포트 오기(4000↔4001) | **전면 502** | 실서버 값 4000 그대로 사용 | 6단계 검증 | `icl.bak` 복구 |
+| location 중복 정의 | 기동 실패 또는 예상과 다른 라우팅 | 3단계에서 기존 location 제거 | `nginx -t` / 502 | `icl.bak.<타임스탬프>` 복구 (롤백 절 참조) |
+| `proxy_pass` 포트 오기(4000↔4001) | **전면 502** | 실서버 값 4000 그대로 사용 | 6단계 검증 | `icl.bak.<타임스탬프>` 복구 (롤백 절 참조) |
 | certbot이 설정을 다시 씀 | include 라인이 사라질 수 있음 | TLS·앱 영역 분리. `renew` 는 설정을 고치지 않고 `--dry-run` 성공 확인(0절) → 위험 낮음. 다만 `installer = nginx` 라 certbot 이 `icl` 파일을 직접 고칠 권한은 있다 | 갱신 후 `sudo grep -n include /etc/nginx/sites-available/icl` | include 라인 재삽입 |
 | `default` 제거 후 미매칭 요청 | **개선됨** — 기존에는 `default` 가 앱 dist 를 평문 HTTP 로 서빙했고, 제거 후에는 `icl` 80 블록이 받아 301 로 HTTPS 에 넘긴다. 443 은 원래 `icl` 단독이라 변화 없음 | — | `curl -sI -H "Host: example.invalid" http://127.0.0.1/` 로 301 확인 | 심볼릭 링크 재생성 |
-| **최악**: 잘못된 설정이 reload됨 | HTTPS 상실 또는 502 | `nginx -t` 는 문법만 잡고 **의미 오류는 못 잡는다** | 6단계 즉시 확인 | `icl.bak` 즉시 복구 |
+| **최악**: 잘못된 설정이 reload됨 | HTTPS 상실 또는 502 | `nginx -t` 는 문법만 잡고 **의미 오류는 못 잡는다** | 6단계 즉시 확인 | `icl.bak.<타임스탬프>` 즉시 복구 (롤백 절 참조) |
 
 `set -e` 추가로 인한 위험도 함께 본다: 기존에 조용히 무시되던 실패(예: seed 적용 실패)가 이제 배포를 중단시킨다. **배포가 더 자주 실패할 수 있으나, 깨진 상태가 운영에 올라가는 것보다 낫다.**
 

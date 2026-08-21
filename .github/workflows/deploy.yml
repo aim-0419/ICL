@@ -52,6 +52,9 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           script: |
+            # 중간 명령이 실패하면 즉시 중단합니다.
+            # 이 가드가 없으면 빌드가 깨져도 다음 단계가 이어져 잘못된 배포가 끝까지 진행됩니다.
+            set -e
             mkdir -p ~/backups
             if [ -f ~/ICL/backend/.env ]; then
               DB_USER=$(grep "^DB_USER=" ~/ICL/backend/.env | cut -d= -f2)
@@ -90,5 +93,9 @@ jobs:
             fi
             pm2 describe icl-backend > /dev/null 2>&1 && pm2 restart icl-backend --update-env || pm2 start src/server.js --name icl-backend --cwd ~/ICL/backend --time
             pm2 save
-            sudo cp ~/ICL/deploy/nginx-prod.conf /etc/nginx/sites-enabled/default
-            sudo nginx -t && sudo nginx -s reload
+            # nginx 설정은 배포가 복사하지 않습니다.
+            # sites-available/icl 이 deploy/nginx-icl-app.conf 를 include 하므로
+            # git reset --hard 로 갱신된 내용을 reload 가 그대로 읽어갑니다.
+            # (심볼릭 링크인 sites-enabled/icl 에 cp 하면 certbot 관리 원본이 덮어써집니다)
+            sudo nginx -t
+            sudo nginx -s reload

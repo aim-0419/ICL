@@ -10,6 +10,7 @@ import { decryptPii } from "../../shared/security/pii.js";
 import { sanitizeRichTextHtml } from "../../shared/security/html.js";
 import { resolveSessionUser, isAdminUser } from "../../shared/middlewares/auth.js";
 import { parsePayload } from "../../shared/utils/payload.js";
+import { canViewMemberPii, maskMemberRows } from "../../shared/security/member-privacy.js";
 import { addDays, getMondayStart, parseDateFromYmd } from "../../shared/utils/date.js";
 import { toSafeAmount as toAmount } from "../../shared/utils/normalize.js";
 const DASHBOARD_RANGE_DAYS = {
@@ -248,7 +249,9 @@ export async function getMemberList(req, res, next) {
     const authUser = await requireAdminDashboardAccess(req, res, "member.read");
     if (!authUser) return;
     const members = await adminService.listMembersForAdmin();
-    res.json({ members });
+    // 운영 책임자가 아닌 요청자(강사 등)에게는 주소·생년월일을 비우고 연락처를 가립니다.
+    const canViewPii = await canViewMemberPii(authUser, studioService.resolveUserStudioRole);
+    res.json({ members: canViewPii ? members : maskMemberRows(members) });
   } catch (error) {
     next(error);
   }

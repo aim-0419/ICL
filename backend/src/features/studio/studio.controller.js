@@ -19,6 +19,7 @@
  *  settings.write              - 운영 설정 변경
  */
 import * as studioService from "./studio.service.js";
+import { canViewMemberPii, maskMemberRows } from "../../shared/security/member-privacy.js";
 import { registerPushDevice, unregisterPushDevice } from "../sms/notification-dispatch.service.js";
 import * as studioAssetService from "./studio.asset.service.js";
 import { resolveSessionToken, resolveSessionUser, isAdminUser as isAdmin } from "../../shared/middlewares/auth.js";
@@ -163,7 +164,9 @@ export async function listAllBookings(req, res, next) {
     const branchId = String(req.query.branchId || "").trim();
     const classStatus = String(req.query.classStatus || "").trim();
     const bookings = await studioService.listAllBookingsForAdmin({ from, to, status, branchId, classStatus });
-    res.json({ bookings });
+    // 예약자 연락처는 운영 책임자만 원문으로 봅니다.
+    const canViewPii = await canViewMemberPii(user, studioService.resolveUserStudioRole);
+    res.json({ bookings: canViewPii ? bookings : maskMemberRows(bookings) });
   } catch (error) {
     next(error);
   }
@@ -749,7 +752,8 @@ export async function listArrearsByUser(req, res, next) {
     if (!user?.id) return res.status(401).json({ message: "로그인이 필요합니다." });
     if (!(await canAccessStudioAdmin(user, "member.read"))) return res.status(403).json({ message: "관리자 권한이 필요합니다." });
     const rows = await studioService.listArrearsByUser(String(req.params.userId || "").trim());
-    res.json({ arrears: rows });
+    const canViewPii = await canViewMemberPii(user, studioService.resolveUserStudioRole);
+    res.json({ arrears: canViewPii ? rows : maskMemberRows(rows) });
   } catch (error) {
     next(error);
   }
@@ -1199,7 +1203,8 @@ export async function listConsultationsHandler(req, res, next) {
       search: req.query?.search,
       limit: req.query?.limit,
     });
-    res.json({ consultations });
+    const canViewPii = await canViewMemberPii(user, studioService.resolveUserStudioRole);
+    res.json({ consultations: canViewPii ? consultations : maskMemberRows(consultations) });
   } catch (error) { next(error); }
 }
 

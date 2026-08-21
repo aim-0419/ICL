@@ -50,9 +50,52 @@ function collectCommunityAssetPaths(rows = []) {
   return result;
 }
 
-async function cleanupCommunityAssets(paths = []) {
-  if (!Array.isArray(paths) || paths.length === 0) return;
-  await Promise.all(paths.map((assetPath) => deleteAssetFile(assetPath)));
+// 함수 역할: 삭제된 글이 쓰던 업로드 파일 중, 더 이상 아무도 참조하지 않는 것만 지웁니다.
+//
+// 업로드 파일에는 올린 사람 정보가 남지 않아서, 글에 적힌 경로만 보고 지우면
+// 남의 이미지 경로를 자기 글에 적어 넣고 그 글을 지우는 것만으로 타인의 파일을
+// 삭제할 수 있었습니다. 그래서 지우기 전에 후기·문의 글 전체를 훑어
+// 같은 경로를 쓰는 다른 글이 남아 있으면 파일을 그대로 둡니다.
+// deps 는 테스트에서 DB·파일시스템 대신 가짜 구현을 넣기 위한 자리입니다.
+export async function cleanupCommunityAssets(paths = [], deps = {}) {
+  const isReferenced = deps.isReferenced || isCommunityAssetReferenced;
+  const deleteFile = deps.deleteFile || deleteAssetFile;
+
+  if (!Array.isArray(paths) || paths.length === 0) return [];
+
+  const unusedPaths = [];
+  for (const assetPath of paths) {
+    if (await isReferenced(assetPath)) continue;
+    unusedPaths.push(assetPath);
+  }
+
+  if (unusedPaths.length === 0) return [];
+  await Promise.all(unusedPaths.map((assetPath) => deleteFile(assetPath)));
+  return unusedPaths;
+}
+
+// 함수 역할: 해당 업로드 경로를 아직 사용 중인 글이 남아 있는지 확인합니다.
+// 확인 중 오류가 나면 "참조 중"으로 보고 파일을 남깁니다. 잘못 지우는 쪽이 더 위험합니다.
+async function isCommunityAssetReferenced(assetPath) {
+  const target = String(assetPath || "").trim();
+  if (!target) return true;
+
+  try {
+    const row = await queryOne(
+      `SELECT 1 AS used FROM (
+         SELECT image_url, video_url FROM review_posts
+         UNION ALL
+         SELECT image_url, video_url FROM inquiry_posts
+       ) AS refs
+       WHERE refs.image_url = ? OR refs.video_url = ?
+       LIMIT 1`,
+      [target, target]
+    );
+    return Boolean(row?.used);
+  } catch (error) {
+    console.error("[community] 업로드 파일 참조 확인 실패:", error.message);
+    return true;
+  }
 }
 
 // 함수 역할: 후기 목록을 조회해 반환합니다.

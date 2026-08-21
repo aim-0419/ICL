@@ -52,7 +52,11 @@ function assertValidSessionState(sessionRow, tokenPayload, requestUserId = "") {
     throw createHttpError(401, "재생 토큰이 만료되었습니다.", "PLAYBACK_TOKEN_EXPIRED");
   }
 
-  if (toSafeText(tokenPayload.uid) && requestUserId && requestUserId !== toSafeText(tokenPayload.uid)) {
+  // 회원에게 발급한 토큰(uid 있음)은 그 회원의 로그인 상태에서만 사용할 수 있습니다.
+  // 이전에는 요청자가 비로그인이면(requestUserId 빈 값) 이 검사를 건너뛰어서,
+  // 재생 URL만 유출되면 로그인하지 않은 제3자도 영상을 볼 수 있었습니다.
+  // 미리보기처럼 uid 없이 발급한 토큰은 첫 조건에서 걸러져 그대로 재생됩니다.
+  if (toSafeText(tokenPayload.uid) && requestUserId !== toSafeText(tokenPayload.uid)) {
     throw createHttpError(401, "다른 계정에서는 재생할 수 없습니다.", "PLAYBACK_USER_MISMATCH");
   }
 }

@@ -31,13 +31,22 @@ export async function listAcademyQna(videoId, requestUserId = null, isAdmin = fa
         [String(post.id)]
       );
 
+      // 비밀 질문은 제목·본문뿐 아니라 답변까지 가립니다.
+      // 답변에는 질문 내용을 인용한 상담 답변이 담기므로, 본문만 가리고 답변을 내보내면
+      // 작성자가 아닌 사람도 비밀 질문의 내용을 사실상 읽을 수 있습니다.
+      // 커뮤니티 문의(community.controller.js 의 비밀글 답변 조회)와 같은 기준입니다.
+      const visibleReplies =
+        canSee && Array.isArray(replies)
+          ? replies.map((r) => ({ ...r, isAdmin: Boolean(r.isAdmin) }))
+          : [];
+
       return {
         ...post,
         isSecret: Boolean(post.isSecret),
         title: canSee ? post.title : "비공개 질문입니다.",
         content: canSee ? post.content : "",
         hidden: !canSee,
-        replies: Array.isArray(replies) ? replies.map((r) => ({ ...r, isAdmin: Boolean(r.isAdmin) })) : [],
+        replies: visibleReplies,
       };
     })
   );

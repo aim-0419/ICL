@@ -1,7 +1,11 @@
+// 함수 역할: rate limit 버킷을 나누는 요청자 식별 키를 만듭니다.
+//
+// X-Forwarded-For 헤더를 직접 읽으면 클라이언트가 값을 임의로 보낼 수 있어,
+// 매 요청 다른 IP를 위장하는 것만으로 제한을 우회할 수 있습니다.
+// Express 의 req.ip 는 app.set("trust proxy", 1) 설정에 따라 신뢰하는 프록시
+// (nginx) 한 단계만 인정하고 그 앞의 값은 무시하므로 위장이 통하지 않습니다.
 function resolveClientKey(req) {
-  const headerGetter = typeof req.get === "function" ? req.get.bind(req) : null;
-  const forwardedFor = String(headerGetter?.("x-forwarded-for") || "").split(",")[0].trim();
-  const ip = forwardedFor || req.ip || req.socket?.remoteAddress || "unknown";
+  const ip = req.ip || req.socket?.remoteAddress || "unknown";
   return `${ip}:${req.method}:${req.path}`;
 }
 

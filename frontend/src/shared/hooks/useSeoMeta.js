@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 const DEFAULT_TITLE = "이끌림 필라테스 | 광주 필라테스 스튜디오 & 교육 영상";
 const DEFAULT_DESCRIPTION =
-  "광주 필라테스 스튜디오 이끌림 필라테스. 장덕점·효천점 운영, 재활과 움직임 교육을 기반으로 개인 맞춤 수업과 전문 교육 영상을 제공합니다.";
+  "광주 필라테스 스튜디오 이끌림 필라테스. 장덕점·효천점 운영, 자세 개선과 움직임 교육을 기반으로 개인 맞춤 수업과 전문 교육 영상을 제공합니다.";
 
 function setMetaContent(selector, content) {
   const el = document.querySelector(selector);

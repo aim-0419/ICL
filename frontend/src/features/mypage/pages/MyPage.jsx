@@ -13,21 +13,17 @@
  *
  * ─ 주요 규칙 ─────────────────────────────────────────────────────
  *  · 날짜·금액 포맷은 shared/utils/format.js 의 공통 함수를 사용합니다
- *  · 관리자(isAdminStaff)는 강의 편집·삭제 버튼이 추가로 노출됩니다
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { NativePushSettings } from "../../../shared/components/NativePushSettings.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import {
-  deleteAcademyVideo,
   issueAcademyCertificate,
   listAcademyCertificates,
   listMyAcademyQna,
   resolveAcademyMediaUrl,
-  updateAcademyVideo,
-  uploadAcademyAsset,
 } from "../../academy/api/academyApi.js";
 import { countPurchasedVideoItems, getPurchasedVideos } from "../../academy/lib/purchases.js";
 import { apiRequest } from "../../../shared/api/client.js";
@@ -42,17 +38,15 @@ import {
   requestStudioPassRefund,
 } from "../../studio/api/studioApi.js";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
-import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import {
   formatDate,
-  formatDateTime,
   formatCertificateDate,
   formatDuration,
   formatYmd,
 } from "../../../shared/utils/format.js";
 
 const CERTIFICATE_TEMPLATE_IMAGE =
-  "/assets/images/home/certificate-template-a4.png";
+  "/assets/images/home/certificate-template-a4.webp";
 
 const MEMBER_CALENDAR_VIEW_OPTIONS = [
   { value: "day", label: "일" },
@@ -246,18 +240,11 @@ function EyeIcon({ open }) {
   );
 }
 
-/** 문자열이나 숫자 형태의 값을 안전한 숫자로 변환합니다. 변환 불가 시 fallback 반환 */
-function toSafeNumber(value, fallback = 0) {
-  const parsed = Number(String(value || "").replace(/[^0-9.]/g, ""));
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
 // ─── MyPage 메인 컴포넌트 ─────────────────────────────────────────────────────
 export function MyPage() {
   const navigate = useNavigate();
   const store = useAppStore();
   const currentUser = store.currentUser || {};
-  const isAdmin = isAdminStaff(currentUser);
   const normalizedCurrentUserEmail = String(currentUser.email || "").trim().toLowerCase();
   const currentUserDisplayName = getUserDisplayName(currentUser);
 
@@ -348,7 +335,6 @@ export function MyPage() {
   const [activeVideoTab, setActiveVideoTab] = useState("purchased");
   const [activeTab, setActiveTab] = useState("courses");
   const [orderPage, setOrderPage] = useState(1);
-  const [pointPage, setPointPage] = useState(1);
   const [qnaPage, setQnaPage] = useState(1);
   const [myQnaItems, setMyQnaItems] = useState([]);
   const [myQnaLoading, setMyQnaLoading] = useState(false);
@@ -979,35 +965,16 @@ export function MyPage() {
 
   const unreadNotificationCount = memberNotifications.filter((item) => !item.readAt).length;
   const orderPageSize = 5;
-  const pointPageSize = 5;
   const qnaPageSize = 5;
   const orderTotalPages = Math.max(1, Math.ceil(userOrders.length / orderPageSize));
-  const pointHistoryRows = userOrders
-    .map((order) => {
-      const amount = Number(order.amount || 0);
-      const point = Math.max(0, Math.floor(amount * 0.01));
-      return {
-        id: order.orderId || order.id || `${order.createdAt}-${order.orderName}`,
-        date: order.createdAt,
-        content: `${order.orderName || "교육 영상"} 구매 적립`,
-        point,
-      };
-    })
-    .filter((item) => item.point > 0);
-  const pointTotalPages = Math.max(1, Math.ceil(pointHistoryRows.length / pointPageSize));
   const qnaTotalPages = Math.max(1, Math.ceil(myQnaItems.length / qnaPageSize));
   const pagedOrders = userOrders.slice((orderPage - 1) * orderPageSize, orderPage * orderPageSize);
-  const pagedPointRows = pointHistoryRows.slice((pointPage - 1) * pointPageSize, pointPage * pointPageSize);
   const pagedQnaItems = myQnaItems.slice((qnaPage - 1) * qnaPageSize, qnaPage * qnaPageSize);
   const accessibleVideoCount = learningHistory.length + grantedLearningHistory.length;
 
   useEffect(() => {
     setOrderPage((page) => Math.min(page, orderTotalPages));
   }, [orderTotalPages]);
-
-  useEffect(() => {
-    setPointPage((page) => Math.min(page, pointTotalPages));
-  }, [pointTotalPages]);
 
   useEffect(() => {
     setQnaPage((page) => Math.min(page, qnaTotalPages));
@@ -1017,7 +984,7 @@ export function MyPage() {
     return (
       <div className="mypage-redesign-pager" aria-label={`${label} 페이지`}>
         {totalPages > 1 ? (
-          <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)}>‹</button>
+          <button type="button" aria-label="이전 페이지" disabled={page <= 1} onClick={() => onChange(page - 1)}>‹</button>
         ) : null}
         {Array.from({ length: totalPages }, (_, index) => index + 1).map((number) => (
           <button
@@ -1030,7 +997,7 @@ export function MyPage() {
           </button>
         ))}
         {totalPages > 1 ? (
-          <button type="button" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>›</button>
+          <button type="button" aria-label="다음 페이지" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>›</button>
         ) : null}
       </div>
     );
@@ -1335,7 +1302,7 @@ export function MyPage() {
                         const certificate = certificateByVideoId.get(String(video.id));
                         return (
                           <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card ${isExpired ? "is-expired" : ""}`}>
-                            <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
+                            <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" loading="lazy" />
                             <div className="mypage-video-copy">
                               <p className="mini-kicker">
                                 {isExpired ? "수강 기한 만료" : video.completed ? "수강 완료" : video.progressPercent > 0 ? "이어 학습" : "새 강의"}
@@ -1408,7 +1375,7 @@ export function MyPage() {
                         const certificate = certificateByVideoId.get(String(video.id));
                         return (
                           <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card mypage-granted-card ${isExpired ? "is-expired" : ""}`}>
-                            <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
+                            <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" loading="lazy" />
                             <div className="mypage-video-copy">
                               <p className="mini-kicker mypage-granted-badge">센터 제공</p>
                               <h3>{video.title}</h3>
@@ -1643,6 +1610,7 @@ export function MyPage() {
                       <div className="mypage-inline-field">
                         <input
                           type="email"
+                          aria-label="이메일"
                           value={form.email}
                           onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
                         />
@@ -1689,6 +1657,7 @@ export function MyPage() {
                         <div className="mypage-inline-field">
                           <input
                             type="text"
+                            aria-label="이메일 인증번호"
                             value={emailVerificationCode}
                             onChange={(event) =>
                               setEmailVerificationCode(event.target.value.replace(/\D/g, ""))
@@ -1819,7 +1788,7 @@ export function MyPage() {
           <div className="refund-modal withdraw-guide-modal" onClick={(e) => e.stopPropagation()}>
             <div className="refund-modal-header">
               <h2>탈퇴 전, 안내 사항</h2>
-              <button type="button" className="refund-modal-close" onClick={() => setWithdrawModalOpen(false)}>×</button>
+              <button type="button" className="refund-modal-close" aria-label="회원 탈퇴 안내 닫기" onClick={() => setWithdrawModalOpen(false)}>×</button>
             </div>
             <div className="refund-modal-body withdraw-guide-body">
               <ol className="withdraw-guide-list">
@@ -1855,10 +1824,11 @@ export function MyPage() {
               </div>
 
               <div className="withdraw-guide-password-section">
-                <label className="withdraw-guide-password-label">비밀번호</label>
+                <label className="withdraw-guide-password-label" htmlFor="withdraw-password">비밀번호</label>
                 <p className="withdraw-guide-password-desc">본인 확인을 위해 현재 계정의 비밀번호를 입력해주세요.</p>
                 <span className="mypage-password-wrap">
                   <input
+                    id="withdraw-password"
                     type={withdrawPasswordVisible ? "text" : "password"}
                     className="withdraw-guide-password-input"
                     placeholder="현재 비밀번호"
@@ -1899,7 +1869,7 @@ export function MyPage() {
           <div className="refund-modal" onClick={(e) => e.stopPropagation()}>
             <div className="refund-modal-header">
               <h2>환불 신청</h2>
-              <button type="button" className="refund-modal-close" onClick={closeRefundModal}>×</button>
+              <button type="button" className="refund-modal-close" aria-label="환불 요청 창 닫기" onClick={closeRefundModal}>×</button>
             </div>
             <div className="refund-modal-body">
               <p className="refund-modal-order-name">{refundModal.orderName}</p>
@@ -1963,7 +1933,7 @@ export function MyPage() {
           <div className="refund-modal" onClick={(e) => e.stopPropagation()}>
             <div className="refund-modal-header">
               <h2>수강권 환불 요청</h2>
-              <button type="button" className="refund-modal-close" onClick={() => { setPassRefundModal(null); setPassRefundReason(""); setPassRefundMessage({ type: "", text: "" }); }}>×</button>
+              <button type="button" className="refund-modal-close" aria-label="수강권 환불 창 닫기" onClick={() => { setPassRefundModal(null); setPassRefundReason(""); setPassRefundMessage({ type: "", text: "" }); }}>×</button>
             </div>
             <div className="refund-modal-body">
               <p className="refund-modal-order-name">{passRefundModal.title}</p>
@@ -2002,13 +1972,14 @@ export function MyPage() {
           <div className="refund-modal certificate-modal" onClick={(e) => e.stopPropagation()}>
             <div className="refund-modal-header">
               <h2>수료증</h2>
-              <button type="button" className="refund-modal-close" onClick={() => setCertificateModal(null)}>×</button>
+              <button type="button" className="refund-modal-close" aria-label="수료증 창 닫기" onClick={() => setCertificateModal(null)}>×</button>
             </div>
             <div className="certificate-paper">
               <img
                 className="certificate-template-image"
                 src={CERTIFICATE_TEMPLATE_IMAGE}
                 alt="이끌림 필라테스 수료증"
+                loading="lazy"
               />
               <span className="certificate-field certificate-name-field">
                 {certificateModal.recipientName}

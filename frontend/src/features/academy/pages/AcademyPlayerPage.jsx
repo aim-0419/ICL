@@ -4,7 +4,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { isAdminStaff } from "../../../shared/auth/userRoles.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
-import { 
+import { resolveApiUrl } from "../../../shared/api/client.js";
+import {
   createAcademyPlaybackSession,
   heartbeatAcademyPlaybackSession,
   resolveAcademyMediaUrl,
@@ -729,7 +730,8 @@ export function AcademyPlayerPage() {
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!(videoElement instanceof HTMLVideoElement)) return;
-    const url = String(playbackSession?.playbackUrl || "").trim();
+    // 앱 WebView(origin https://localhost)에서는 상대경로가 API 서버를 못 가리키므로 절대화합니다.
+    const url = resolveApiUrl(String(playbackSession?.playbackUrl || "").trim());
     if (!url) return;
     resumeAppliedRef.current = false;
     videoElement.src = url;
@@ -928,7 +930,7 @@ export function AcademyPlayerPage() {
                 return (
                   <Link key={video.id} className="academy-player-list-item" to={`/academy/player/${video.id}`}>
                     {thumbnailUrl ? (
-                      <img src={thumbnailUrl} alt={video.title} />
+                      <img src={thumbnailUrl} alt={video.title} loading="lazy" />
                     ) : (
                       <span className="academy-player-list-thumb-placeholder" aria-hidden="true">16:9</span>
                     )}
@@ -962,7 +964,8 @@ export function AcademyPlayerPage() {
     resolveAcademyMediaUrl(activeChapter.videoUrl) ||
     resolveAcademyMediaUrl(activeVideo.videoUrl) ||
     getAcademyPlaybackSourceByVideoId(activeVideo.id);
-  const securePlaybackSource = String(playbackSession?.playbackUrl || "").trim();
+  // 앱 WebView(origin https://localhost)에서는 상대경로가 API 서버를 못 가리키므로 절대화합니다.
+  const securePlaybackSource = resolveApiUrl(String(playbackSession?.playbackUrl || "").trim());
   const playbackSource =
     securePlaybackSource ||
     (!playbackSessionLoading && !playbackSessionError ? fallbackPlaybackSource : "");
@@ -1267,7 +1270,7 @@ export function AcademyPlayerPage() {
                       to={`/academy/player/${video.id}`}
                     >
                       {thumbnailUrl ? (
-                        <img src={thumbnailUrl} alt={video.title} />
+                        <img src={thumbnailUrl} alt={video.title} loading="lazy" />
                       ) : (
                         <span className="academy-player-list-thumb-placeholder" aria-hidden="true">16:9</span>
                       )}
@@ -1315,6 +1318,7 @@ export function AcademyPlayerPage() {
               <input
                 className="qna-input"
                 type="text"
+                aria-label="질문 제목"
                 placeholder="질문 제목"
                 value={qnaForm.title}
                 onChange={(e) => setQnaForm((prev) => ({ ...prev, title: e.target.value }))}
@@ -1322,6 +1326,7 @@ export function AcademyPlayerPage() {
               />
               <textarea
                 className="qna-textarea"
+                aria-label="질문 내용"
                 placeholder="질문 내용을 입력하세요"
                 rows={4}
                 value={qnaForm.content}
@@ -1414,6 +1419,7 @@ export function AcademyPlayerPage() {
                           <div className="qna-reply-form">
                             <textarea
                               className="qna-textarea small"
+                              aria-label="답변 내용"
                               placeholder="답변을 입력하세요"
                               rows={3}
                               value={replyForms[post.id] || ""}

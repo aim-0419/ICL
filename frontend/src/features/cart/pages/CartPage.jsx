@@ -279,7 +279,7 @@ export function CartPage() {
                         </label>
                         <div className="checkout-item-thumb">
                           {item.preview.image ? (
-                            <img src={resolveAcademyMediaUrl(item.preview.image)} alt={item.product.name} />
+                            <img src={resolveAcademyMediaUrl(item.preview.image)} alt={item.product.name} loading="lazy" />
                           ) : (
                             <span>이미지 없음</span>
                           )}
@@ -344,6 +344,7 @@ export function CartPage() {
                     <input
                       type="text"
                       inputMode="numeric"
+                      aria-label="사용할 포인트"
                       placeholder="0"
                       value={pointInput}
                       onChange={(event) => setPointInput(event.target.value)}

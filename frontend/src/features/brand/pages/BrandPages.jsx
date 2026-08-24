@@ -2,28 +2,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
-import { PageHero } from "../../../shared/components/PageHero.jsx";
+import { ExerciseSafetyNotice } from "../../../shared/components/ExerciseSafetyNotice.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import { useSeoMeta } from "../../../shared/hooks/useSeoMeta.js";
 import { canEditPage } from "../../../shared/auth/userRoles.js";
 import { API_BASE_URL } from "../../../shared/api/client.js";
-
-// 컴포넌트 역할: BrandPageLayout 컴포넌트의 화면 구조와 상호작용 상태를 렌더링합니다.
-function BrandPageLayout({ kicker, title, description, points }) {
-  return (
-    <PageLayout>
-      <PageHero kicker={kicker} title={title} description={description} />
-      <section className="content-grid">
-        {points.map((point) => (
-          <article className="content-card" key={point.title}>
-            <h3>{point.title}</h3>
-            <p>{point.description}</p>
-          </article>
-        ))}
-      </section>
-    </PageLayout>
-  );
-}
 
 const INTRO_CLASS_TYPES = [
   {
@@ -31,7 +14,7 @@ const INTRO_CLASS_TYPES = [
     badge: "1:1 PRIVATE",
     title: "1대1 개인 수업",
     desc: "개인의 체형과 목표에 맞게 설계된 수업으로 집중적인 케어로 빠른 변화를 경험하세요.",
-    points: ["체형 교정 & 통증 개선", "체형 & 컨디셔닝", "운동 수행 능력 향상"],
+    points: ["자세 개선 & 코어 강화", "체형 & 컨디셔닝", "운동 수행 능력 향상"],
   },
   {
     id: "duet",
@@ -94,8 +77,6 @@ export function BrandIntroPage() {
     title: "수업 소개",
     description: "이끌림 필라테스 수업 소개. 원장 직강, 1대1 개인·듀엣·그룹 수업 안내.",
   });
-  const [instructors, setInstructors] = useState(DEFAULT_INSTRUCTORS);
-
   useEffect(() => {
     try {
       const raw = localStorage.getItem("icl_admin_image_overrides_v1");
@@ -108,16 +89,6 @@ export function BrandIntroPage() {
     } catch {}
   }, []);
 
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/brand/instructors`, { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const rows = Array.isArray(data?.instructors) ? data.instructors : Array.isArray(data) ? data : null;
-        if (rows?.length && !isPlaceholderInstructorRows(rows)) setInstructors(rows);
-      })
-      .catch(() => {});
-  }, []);
-
   return (
     <PageLayout mainClass="intro-v2-page">
 
@@ -125,7 +96,7 @@ export function BrandIntroPage() {
         <section className="intro-v2-hero">
           <img
             className="intro-v2-hero-img"
-            src="/assets/images/intro/intro-main.png"
+            src="/assets/images/intro/intro-main.webp"
             alt="수업 소개 메인 이미지"
           />
           <div className="intro-v2-hero-copy">
@@ -173,8 +144,8 @@ export function BrandIntroPage() {
                     </svg>
                   </span>
                   <div>
-                    <strong>재활 &amp; 기능 회복 특화</strong>
-                    <span>재활 전문 지식을 바탕으로 통증 완화와 기능 회복을 돕는 안전한 수업을 진행합니다.</span>
+                    <strong>기능적 움직임 특화</strong>
+                    <span>움직임 분석에 기반해 무리 없는 강도로 안전하게 진행하는 수업입니다.</span>
                   </div>
                 </li>
                 <li>
@@ -191,6 +162,8 @@ export function BrandIntroPage() {
               </ul>
             </div>
           </div>
+          {/* 원장 프로필(자격 사항 이미지)과 같은 화면에서 보이도록 안전 고지를 함께 배치합니다. */}
+          <ExerciseSafetyNotice className="intro-v2-safety-notice" />
         </section>
 
         {/* 수업 유형 */}
@@ -244,7 +217,7 @@ export function BrandIntroPage() {
         <section className="intro-v2-instructors-section">
           <div className="intro-v2-section-head">
             <h2>전문성과 진심을 갖춘 강사진</h2>
-            <p>이끌림 필라테스는 체형 분석, 재활 운동, 움직임 교육 경험을 갖춘<br />전문 강사진이 함께합니다.</p>
+            <p>이끌림 필라테스는 체형 분석과 움직임 교육 경험을 갖춘<br />전문 강사진이 함께합니다.</p>
           </div>
           <div className="intro-v2-instructor-features">
             <div className="intro-v2-instructor-feature">
@@ -262,8 +235,8 @@ export function BrandIntroPage() {
                   <path d="M12 2c0 0-4 4-4 9s4 9 4 9 4-4 4-9-4-9-4-9z"/><path d="M12 8v8M9 11h6M9 14h6"/>
                 </svg>
               </div>
-              <strong>재활 특화</strong>
-              <p>재활 &amp; 기능 회복에 특화된 수업</p>
+              <strong>기능적 움직임</strong>
+              <p>기능적 움직임에 특화된 수업</p>
             </div>
             <div className="intro-v2-instructor-feature">
               <div className="intro-v2-instructor-feature-icon">
@@ -288,7 +261,7 @@ export function BrandIntroPage() {
 
         {/* CTA */}
         <section className="intro-v2-cta-section">
-          <img src="/assets/images/이끌림로고.png" alt="ICL Pilates" className="intro-v2-cta-logo" />
+          <img src="/assets/images/이끌림로고.png" alt="ICL Pilates" className="intro-v2-cta-logo" loading="lazy" />
           <div className="intro-v2-cta-copy">
             <h2>수업이 궁금하신가요?</h2>
             <p>상담을 통해 나에게 맞는 수업을 찾아보세요.</p>
@@ -339,7 +312,7 @@ const DEFAULT_INSTRUCTORS = [
       "KIDS PILATES Certificate",
       "Individual & Group Class Program design combining Pilates and POWER PLATE®",
       "Solutions for functional flatness and ectopic hyperplasia",
-      "스포츠 재활마사지",
+      "스포츠 컨디셔닝 마사지",
       "스포츠 테이핑 지도사 2급",
     ],
   },
@@ -462,6 +435,8 @@ export function BrandInstructorsPage() {
           <p className="section-text">
             경력과 전문성, 그리고 코칭 철학을 바탕으로 구성된 강사진을 안내합니다.
           </p>
+          {/* 강사 자격 사항 카드와 같은 화면에서 보이도록 안전 고지를 목록 앞에 배치합니다. */}
+          <ExerciseSafetyNotice />
         </section>
 
         <section className="staff-split-list">
@@ -530,12 +505,12 @@ const DEFAULT_EQUIPMENT_ITEMS = [
   {
     id: "equipment-slot-2",
     name: "바렐",
-    tags: "#척추 교정 #유연성 #스트레칭",
+    tags: "#척추 정렬 #유연성 #스트레칭",
   },
   {
     id: "equipment-slot-3",
     name: "스프링보드 + 음파운동기",
-    tags: "#진동 운동 #재활 #체형 교정",
+    tags: "#진동 운동 #컨디셔닝 #자세 개선",
   },
   {
     id: "equipment-slot-4",

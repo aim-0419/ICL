@@ -54,7 +54,7 @@ const DEFAULT_SOCIAL_ITEMS = [
 const DEFAULT_EVENT_NEWS_ITEM = {
   source: "event",
   label: "현재 진행중인 이벤트",
-  title: "진행중인 이벤트를 준비 중입니다.",
+  title: "현재 진행 중인 이벤트가 없습니다.",
   url: "/community/events",
   publishedAt: "",
   thumbnail: "",
@@ -63,7 +63,7 @@ const DEFAULT_EVENT_NEWS_ITEM = {
 };
 
 const HOME_IMAGES = {
-  hero: "/assets/images/home/main-hero/이끌림 필라테스 메인 페이지 상단 이미지.png",
+  hero: "/assets/images/home/main-hero/home-hero-main.webp",
   studio: "/assets/images/home/studio-main.jpg",
   window: "/assets/images/home/window-equipment.jpg",
   sun: "/assets/images/home/sun-window.jpg",
@@ -71,38 +71,6 @@ const HOME_IMAGES = {
   room: "/assets/images/home/training-room.jpg",
 };
 
-const SERVICE_POINTS = [
-  {
-    icon: "01",
-    title: "상담",
-    description: "목표와 불편함을 먼저 듣습니다.",
-  },
-  {
-    icon: "02",
-    title: "체형 분석",
-    description: "움직임 패턴을 확인합니다.",
-  },
-  {
-    icon: "03",
-    title: "개인 맞춤",
-    description: "필요한 루틴을 설계합니다.",
-  },
-  {
-    icon: "04",
-    title: "기구 수업",
-    description: "안전한 난이도로 진행합니다.",
-  },
-  {
-    icon: "05",
-    title: "복습 영상",
-    description: "수업 후에도 이어갑니다.",
-  },
-  {
-    icon: "06",
-    title: "후기 기록",
-    description: "변화를 차분히 남깁니다.",
-  },
-];
 
 const SUNLIT_NAV_ITEMS = [
   { label: "메인", path: "/" },
@@ -152,7 +120,7 @@ const SUNLIT_FEATURE_CARDS = [
   },
   {
     icon: "ladder",
-    title: "재활과 기능 회복\n전문 프로그램",
+    title: "기능적 움직임\n전문 프로그램",
     text: "단순한 운동이 아닌, 몸의 기능을 회복하고 강화하는 맞춤형 필라테스를 경험하세요.",
   },
   {
@@ -627,7 +595,7 @@ export function HomePage() {
       <main className="sunlit-home">
         <section className="sunlit-hero home-section-card" id="hero" data-admin-draggable-card="true" style={{ order: sectionOrder.indexOf("hero") }}>
           <header className="sunlit-header" aria-label="홈 메인 내비게이션">
-            <button className="sunlit-brand" type="button" onClick={() => navigate("/")}>
+            <button className="sunlit-brand" type="button" aria-label="메인 페이지로 이동" onClick={() => navigate("/")}>
               <img src="/assets/images/이끌림로고.png" alt="ICL Pilates" />
             </button>
 
@@ -863,7 +831,7 @@ export function HomePage() {
               움직임을 설계합니다
             </h1>
             <p>
-              이끌림필라테스는 재활과 움직임 교육을 기반으로 개인의 몸을 이해하고,
+              이끌림필라테스는 움직임 교육을 기반으로 개인의 몸을 이해하고,
               건강한 움직임을 설계합니다.
             </p>
             <div className="sunlit-hero-buttons">
@@ -962,11 +930,11 @@ export function HomePage() {
                 </div>
                 {item.source === "blog" ? (
                   <div className="sunlit-news-platform-thumb sunlit-news-platform-thumb--blog">
-                    <img src="/assets/images/naver-blog-logo.webp" alt="Naver Blog" />
+                    <img src="/assets/images/naver-blog-logo.webp" alt="Naver Blog" loading="lazy" />
                   </div>
                 ) : item.source === "instagram" ? (
                   <div className="sunlit-news-platform-thumb sunlit-news-platform-thumb--instagram">
-                    <img src="/assets/images/instagram-logo.jpg" alt="Instagram" />
+                    <img src="/assets/images/instagram-logo.jpg" alt="Instagram" loading="lazy" />
                   </div>
                 ) : itemIndex > 0 || item.image ? (
                   <img src={resolveApiAssetUrl(item.image)} alt={item.title} loading="lazy" onError={handleSocialThumbnailError} />

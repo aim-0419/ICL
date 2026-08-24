@@ -22,6 +22,7 @@
     "cap:sync": "node scripts/run-capacitor-sync.mjs development",
     "cap:sync:dev": "node scripts/run-capacitor-sync.mjs development",
     "cap:sync:prod": "node scripts/run-capacitor-sync.mjs production",
+    "build:android:aab": "node scripts/build-android-release.mjs",
     "cap:check": "node scripts/check-native-release.mjs",
     "android:reverse:dev": "node scripts/android-reverse.mjs",
     "cap:android": "npm run cap:sync:dev && npx cap open android",
@@ -53,6 +54,7 @@
     "@capacitor/ios": "^8.4.0",
     "@playwright/test": "^1.60.0",
     "@vitejs/plugin-react": "^6.0.2",
+    "sharp": "^0.35.3",
     "vite": "^8.0.16"
   }
 }

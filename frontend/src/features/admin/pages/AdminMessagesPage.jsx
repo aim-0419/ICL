@@ -4,7 +4,6 @@
  * 발송 이력과 자동 발송 이력을 확인하는 스튜디오 운영용 페이지입니다.
  */
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
@@ -856,7 +855,6 @@ function AutoHistoryTab() {
 
 export function AdminMessagesPage() {
   const { currentUser } = useAppStore();
-  const navigate = useNavigate();
   const [tab, setTab] = useState("send");
   const [config, setConfig] = useState(null);
 

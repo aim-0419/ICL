@@ -1,5 +1,4 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
@@ -8,7 +7,6 @@ import {
   listAdminPassProducts,
   createAdminPassProduct,
   updateAdminPassProduct,
-  deleteAdminPassProduct,
   listAdminGoods,
   createAdminGoods,
   updateAdminGoods,
@@ -105,7 +103,6 @@ function Stepper({ value, onChange, min = 0, unit = "회" }) {
 
 export function AdminStudioPassPage() {
   const store = useAppStore();
-  const navigate = useNavigate();
   const currentUserName = getUserDisplayName(store.currentUser) || "관리자";
 
   const [products, setProducts] = useState([]);
@@ -280,17 +277,6 @@ export function AdminStudioPassPage() {
     }
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("이 수강권 상품을 삭제할까요?")) return;
-    try {
-      await deleteAdminPassProduct(id);
-      setProducts((prev) => prev.filter((item) => item.id !== id));
-      setMessage({ type: "success", text: "삭제되었습니다." });
-    } catch (error) {
-      setMessage({ type: "error", text: error.message || "삭제에 실패했습니다." });
-    }
-  }
-
   async function handleToggleStatus(item) {
     try {
       const saved = await updateAdminPassProduct(item.id, { ...item, status: item.status === "active" ? "inactive" : "active" });
@@ -308,14 +294,6 @@ export function AdminStudioPassPage() {
     } catch (error) {
       setMessage({ type: "error", text: error.message || "변경에 실패했습니다." });
     }
-  }
-
-  function toggleSelect(id) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
   }
 
   function selectAll() {

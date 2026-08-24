@@ -793,7 +793,7 @@ export function CommunityReviewDetailPage() {
           </header>
 
           <div className="review-detail-media">
-            <img src={image} alt={review.title} />
+            <img src={image} alt={review.title} loading="lazy" />
           </div>
 
           {videoUrl ? (
@@ -913,12 +913,14 @@ export function CommunityReviewDetailPage() {
             >
               <input
                 type="text"
+                aria-label="댓글 작성자"
                 placeholder="작성자"
                 value={commentAuthor}
                 onChange={(e) => setCommentAuthor(e.target.value)}
               />
               <textarea
                 rows={3}
+                aria-label="댓글 내용"
                 placeholder="댓글을 입력해주세요."
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
@@ -1710,7 +1712,7 @@ export function CommunityInquiryDetailPage() {
             <div className="review-detail-media-stack">
               {post.imageUrl ? (
                 <div className="review-detail-media">
-                  <img src={resolveCommunityMediaUrl(post.imageUrl)} alt={`${post.title} 첨부 이미지`} />
+                  <img src={resolveCommunityMediaUrl(post.imageUrl)} alt={`${post.title} 첨부 이미지`} loading="lazy" />
                 </div>
               ) : null}
               {post.videoUrl ? (
@@ -1862,6 +1864,7 @@ export function CommunityInquiryDetailPage() {
                         <div className="inquiry-reply-edit-form">
                           <textarea
                             className="inquiry-reply-textarea"
+                            aria-label="답변 수정 내용"
                             value={editReplyText}
                             onChange={(e) => setEditReplyText(e.target.value)}
                             rows={4}
@@ -1904,6 +1907,7 @@ export function CommunityInquiryDetailPage() {
                 <h3>답변 작성</h3>
                 <textarea
                   className="inquiry-reply-textarea"
+                  aria-label="답변 내용"
                   placeholder="답변 내용을 입력하세요."
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
@@ -1946,7 +1950,6 @@ export function CommunityEventsPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [writeTitle, setWriteTitle] = useState("");
   const [writeSummary, setWriteSummary] = useState("");
-  const [writeStatus, setWriteStatus] = useState("진행중");
   const [writeStartDate, setWriteStartDate] = useState("");
   const [writeEndDate, setWriteEndDate] = useState("");
   const [writeImageFile, setWriteImageFile] = useState(null);
@@ -2023,7 +2026,6 @@ export function CommunityEventsPage() {
       setIsWriteOpen(false);
       setWriteTitle("");
       setWriteSummary("");
-      setWriteStatus("진행중");
       setWriteStartDate("");
       setWriteEndDate("");
       setWriteImageFile(null);
@@ -2274,7 +2276,7 @@ export function CommunityEventsPage() {
                 }}
               >
                 <div className="event-card-media">
-                  <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} />
+                  <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} loading="lazy" />
                 </div>
                 <div className="event-card-copy">
                   <h3>{eventItem.title}</h3>
@@ -2435,7 +2437,7 @@ export function CommunityEventDetailPage() {
         ) : (
           <section className="event-detail-layout">
             <div className="event-detail-media">
-              <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} />
+              <img src={eventItem.image || FALLBACK_EVENT_IMAGE} alt={eventItem.title} loading="lazy" />
             </div>
 
             <article className="event-detail-info">

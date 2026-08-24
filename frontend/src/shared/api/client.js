@@ -30,6 +30,18 @@ export function resolveApiAssetUrl(value) {
   return apiOrigin ? `${apiOrigin}${source}` : source;
 }
 
+// 서버가 상대 경로(`/api/...`)로 반환하는 API 엔드포인트 URL을 앱에서 절대 주소로 변환합니다.
+// <video>·<audio> 등 네이티브 로더는 CapacitorHttp base를 타지 않아 origin이 필요합니다.
+// 웹에서는 API base가 상대(`/api`)라 getApiOrigin()이 ""를 반환 → 상대 경로 그대로 유지됩니다.
+export function resolveApiUrl(value) {
+  const source = String(value || "").trim();
+  if (!source || /^https?:\/\//i.test(source)) return source;
+  if (!source.startsWith("/api/")) return source;
+
+  const apiOrigin = getApiOrigin();
+  return apiOrigin ? `${apiOrigin}${source}` : source;
+}
+
 const pendingGetRequests = new Map();
 
 function getRequestKey(path, method) {

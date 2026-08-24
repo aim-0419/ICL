@@ -32,6 +32,9 @@ Thumbs.db
 # Claude Code
 .claude/
 
+# 최적화 전 원본 이미지 백업 (frontend/public/assets/ 의 동일 파일 중복본, 약 34MB)
+frontend/_original-assets/
+
 # Local temp files
 frontend/_tmp_davenue.html
 frontend/_tmp_davenue_intro.html

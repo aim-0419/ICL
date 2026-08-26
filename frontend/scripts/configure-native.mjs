@@ -15,6 +15,11 @@ const KEYSTORE_PROPERTIES = path.resolve("keystore.properties");
 const RELEASE_GRADLE_APPLY = "apply from: 'icl-release.gradle'";
 const APP_LINK_START = "<!-- ICL_APP_LINK_START -->";
 const APP_LINK_END = "<!-- ICL_APP_LINK_END -->";
+const IOS_PBXPROJ = path.resolve("ios/App/App.xcodeproj/project.pbxproj");
+const IOS_ENTITLEMENTS = path.resolve("ios/App/App/App.entitlements");
+const NL = String.fromCharCode(10);
+const INDENT = String.fromCharCode(9).repeat(4);
+const IOS_ENTITLEMENTS_SETTING = "CODE_SIGN_ENTITLEMENTS = App/App.entitlements;";
 const NATIVE_TARGET = String(process.env.VITE_APP_ENV || "production").trim().toLowerCase();
 const IOS_DEV_NETWORK_START = "<!-- ICL_DEV_LOCAL_NETWORK_START -->";
 const IOS_DEV_NETWORK_END = "<!-- ICL_DEV_LOCAL_NETWORK_END -->";
@@ -369,12 +374,98 @@ ${hostTags}
   await fs.writeFile(ANDROID_MANIFEST, source, "utf8");
 }
 
+
+/*
+ * iOS 도 android 와 마찬가지로 ios/ 폴더가 .gitignore된 생성물입니다.
+ * 재생성해도 버전과 Universal Link 설정이 남아 있도록 여기서 다시 주입합니다.
+ *
+ * Universal Link 는 https 링크를 눌렀을 때 사파리 대신 앱이 열리게 하는 기능입니다.
+ * 실제로 동작하려면 세 가지가 모두 필요합니다.
+ *   1) 앱에 associated-domains 권한(entitlements)   <- 이 함수가 처리
+ *   2) Xcode 프로젝트가 그 entitlements 를 쓰도록 설정  <- 이 함수가 처리
+ *   3) 도메인에 apple-app-site-association 파일 배포   <- npm run aasa
+ *
+ * 개발 빌드에는 넣지 않습니다. 개발 빌드가 운영 도메인을 가로채면
+ * 실기기에서 웹 확인이 막히기 때문입니다.
+ */
+async function configureIosUniversalLinks() {
+  let pbxproj = await readOptional(IOS_PBXPROJ);
+  if (!pbxproj) return;
+
+  const hosts = String(process.env.VITE_APP_LINK_HOSTS || "")
+    .split(",")
+    .map((host) => host.trim())
+    .filter(Boolean);
+  const enabled = NATIVE_TARGET === "production" && hosts.length > 0;
+
+  if (enabled) {
+    const domains = hosts
+      .map((host) => "		<string>applinks:" + host + "</string>")
+      .join(NL);
+    const plist = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+      '<plist version="1.0">',
+      "<dict>",
+      "	<key>com.apple.developer.associated-domains</key>",
+      "	<array>",
+      domains,
+      "	</array>",
+      "</dict>",
+      "</plist>",
+      "",
+    ].join(NL);
+    await fs.mkdir(path.dirname(IOS_ENTITLEMENTS), { recursive: true });
+    await fs.writeFile(IOS_ENTITLEMENTS, plist, "utf8");
+
+    // Xcode 가 이 파일을 쓰도록 빌드 설정에 한 줄을 넣습니다.
+    if (!pbxproj.includes(IOS_ENTITLEMENTS_SETTING)) {
+      pbxproj = pbxproj.split("INFOPLIST_FILE = App/Info.plist;").join(
+        IOS_ENTITLEMENTS_SETTING + NL + INDENT + "INFOPLIST_FILE = App/Info.plist;",
+      );
+    }
+    console.log("[capacitor] iOS Universal Link 설정 완료 (" + hosts.join(", ") + ")");
+  } else {
+    await fs.rm(IOS_ENTITLEMENTS, { force: true });
+    pbxproj = pbxproj
+      .split(IOS_ENTITLEMENTS_SETTING + NL + INDENT)
+      .join("")
+      .split(IOS_ENTITLEMENTS_SETTING)
+      .join("");
+    console.log("[capacitor] iOS Universal Link 미적용 (운영 빌드에서만 적용)");
+  }
+
+  await fs.writeFile(IOS_PBXPROJ, pbxproj, "utf8");
+}
+
+/*
+ * iOS 앱 버전도 추적되는 app-version.json 을 원본으로 삼습니다.
+ * MARKETING_VERSION 이 사용자에게 보이는 버전, CURRENT_PROJECT_VERSION 이 빌드 번호입니다.
+ */
+async function configureIosVersion() {
+  let pbxproj = await readOptional(IOS_PBXPROJ);
+  if (!pbxproj) return;
+
+  const version = JSON.parse(await fs.readFile(APP_VERSION_FILE, "utf8"));
+  const versionName = String(version.versionName || "").trim();
+  const versionCode = Number(version.versionCode);
+
+  pbxproj = pbxproj
+    .replace(/MARKETING_VERSION = [^;]+;/g, "MARKETING_VERSION = " + versionName + ";")
+    .replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, "CURRENT_PROJECT_VERSION = " + versionCode + ";");
+
+  await fs.writeFile(IOS_PBXPROJ, pbxproj, "utf8");
+  console.log("[capacitor] iOS 버전 적용 (" + versionName + " / 빌드 " + versionCode + ")");
+}
+
 await configureIosAppDelegate();
 await configureIosUrlScheme();
 await configureNativeNetworkPolicy();
 await configureAndroidManifest();
 await writeAndroidNotificationIcon();
 await configureAndroidGradleProperties();
+await configureIosUniversalLinks();
+await configureIosVersion();
 await configureAndroidAppLinks();
 await configureAndroidRelease();
 await configureAndroidProguardRules();

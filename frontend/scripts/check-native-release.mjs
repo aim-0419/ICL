@@ -88,6 +88,28 @@ if (!fs.existsSync(assetlinksPath)) {
   }
 }
 
+// 4-2) iOS Universal Link 검증 파일
+const aasaPath = path.resolve("public/.well-known/apple-app-site-association");
+if (!fs.existsSync(aasaPath)) {
+  warnings.push(
+    "public/.well-known/apple-app-site-association 이 없어 iOS 에서 https 링크가 앱으로 열리지 않습니다. " +
+      "npm run aasa -- --team-id <TeamID> 로 생성하세요.",
+  );
+} else {
+  try {
+    const association = JSON.parse(fs.readFileSync(aasaPath, "utf8"));
+    const appIds = association?.applinks?.details?.[0]?.appIDs || [];
+    if (appIds.length === 0) problems.push("apple-app-site-association 에 appIDs 가 없습니다.");
+    else notes.push(`iOS Universal Link appID 확인 (${appIds.join(", ")})`);
+  } catch {
+    problems.push("apple-app-site-association 을 JSON 으로 읽을 수 없습니다.");
+  }
+  warnings.push(
+    "apple-app-site-association 은 확장자가 없어 웹 서버가 application/json 으로 내려보내지 않습니다. " +
+      "배포 서버에 별도 설정이 필요합니다(docs/development/mobile-app-setup.md 참고).",
+  );
+}
+
 // 5) 이미 빌드된 AAB 가 있으면 실제로 서명됐는지 확인
 const aabPath = path.resolve("android/app/build/outputs/bundle/release/app-release.aab");
 if (fs.existsSync(aabPath)) {

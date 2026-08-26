@@ -124,9 +124,40 @@ npm run assetlinks -- --fingerprint AA:BB:...:ZZ    # 지문을 직접 지정
 
 `cap:check`가 이 파일의 존재와 지문 형식을 확인한다.
 
-### iOS Universal Link
+### iOS Universal Link (https 링크로 앱 열기)
 
-아직 준비되지 않았다. iOS Associated Domains 설정과 `/.well-known/apple-app-site-association` 배포가 필요하며, Apple Team ID가 없으면 최종 값을 만들 수 없다.
+Android App Link와 같은 구조로 준비되어 있다. `cap:sync:prod`가 아래 둘을 자동으로 처리한다.
+
+- `ios/App/App/App.entitlements`에 `applinks:<host>` 권한을 만든다.
+- Xcode 프로젝트가 그 파일을 쓰도록 `CODE_SIGN_ENTITLEMENTS` 설정을 넣는다.
+
+**개발 빌드에는 넣지 않는다.** 개발 빌드가 운영 도메인을 가로채면 실기기에서 웹 확인이 막히기 때문이며, `cap:sync:dev`를 돌리면 자동으로 제거된다.
+
+검증 파일은 Apple Team ID로 만든다. Apple Developer 사이트의 Membership 페이지에서 확인할 수 있는 10자리 값이다.
+
+```bash
+cd frontend
+npm run aasa -- --team-id ABCDE12345
+```
+
+결과는 `frontend/public/.well-known/apple-app-site-association`에 생성되고 빌드 시 `dist/`로 복사된다.
+
+> **배포 서버 설정이 반드시 필요하다.** 이 파일은 확장자가 없어서 nginx가 `application/json`으로 내려보내지 않는다. 실제로 확인해 보면 Content-Type이 비어서 나가고, iOS는 이 경우 링크 검증에 실패한다. 아래 블록을 `deploy/nginx-prod.conf`의 `location /` **앞에** 추가해야 한다.
+>
+> ```nginx
+> location = /.well-known/apple-app-site-association {
+>   default_type application/json;
+>   add_header Cache-Control "public, max-age=3600";
+> }
+> ```
+>
+> Android의 `assetlinks.json`은 확장자가 있어 이 설정이 필요 없다.
+
+`cap:check`가 이 파일의 존재와 appID 형식을 확인하고, Content-Type 설정이 필요하다는 점을 함께 알린다.
+
+### iOS 앱 버전
+
+Android와 마찬가지로 `frontend/app-version.json`이 원본이다. `cap:sync`가 Xcode 프로젝트의 `MARKETING_VERSION`(사용자에게 보이는 버전)과 `CURRENT_PROJECT_VERSION`(빌드 번호)에 그 값을 넣는다. `ios/` 폴더도 `.gitignore` 대상이라 재생성해도 버전이 사라지지 않게 하기 위해서다.
 
 ## Android 릴리스
 

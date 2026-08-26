@@ -13,7 +13,6 @@
  *  · 각 항목의 [환불 승인] 또는 [거절] 버튼을 눌러 처리합니다
  */
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { AdminDashboardNav } from "../components/AdminDashboardNav.jsx";
 import { apiRequest } from "../../../shared/api/client.js";

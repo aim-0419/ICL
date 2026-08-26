@@ -12,7 +12,7 @@
  *  · 날짜·금액 포맷은 shared/utils/format.js 의 공통 함수를 사용합니다
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { AdminDashboardNav } from "../components/AdminDashboardNav.jsx";
 import { apiRequest } from "../../../shared/api/client.js";

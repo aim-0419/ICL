@@ -1,6 +1,6 @@
 // 파일 역할: 브랜드 도메인의 DB 조회와 비즈니스 로직을 처리합니다.
 import { randomUUID } from "node:crypto";
-import { query, queryOne } from "../../shared/db/mysql.js";
+import { query } from "../../shared/db/mysql.js";
 
 // ─── 강사 ─────────────────────────────────────────────────────────────────────
 

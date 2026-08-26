@@ -16,18 +16,15 @@
  *  · 관리자(isAdminStaff)는 강의 편집·삭제 버튼이 추가로 노출됩니다
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { NativePushSettings } from "../../../shared/components/NativePushSettings.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";
 import {
-  deleteAcademyVideo,
   issueAcademyCertificate,
   listAcademyCertificates,
   listMyAcademyQna,
   resolveAcademyMediaUrl,
-  updateAcademyVideo,
-  uploadAcademyAsset,
 } from "../../academy/api/academyApi.js";
 import { countPurchasedVideoItems, getPurchasedVideos } from "../../academy/lib/purchases.js";
 import { apiRequest } from "../../../shared/api/client.js";

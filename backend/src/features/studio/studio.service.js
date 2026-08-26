@@ -19,7 +19,6 @@ import { decryptPii, decryptUserRow, normalizeEmail } from "../../shared/securit
 import {
   isPassCompatibleWithClass,
   normalizeClassInput,
-  normalizeOptionalCount,
   resolveBookingStatus,
   resolveIssuedPassType,
 } from "./studio.class-rules.js";

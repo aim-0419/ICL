@@ -1,6 +1,5 @@
 ﻿// 파일 역할: 관리자가 상품을 조회, 추가, 수정, 삭제하는 페이지 컴포넌트입니다.
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { AdminDashboardNav } from "../components/AdminDashboardNav.jsx";
 import { apiRequest } from "../../../shared/api/client.js";

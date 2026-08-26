@@ -1,6 +1,6 @@
 ﻿// 파일 역할: 관리자가 특정 회원에게 강의 수강권을 지급하거나 회수하는 페이지 컴포넌트입니다.
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";
 import { AdminDashboardNav } from "../components/AdminDashboardNav.jsx";
 import { useAppStore } from "../../../shared/store/AppContext.jsx";

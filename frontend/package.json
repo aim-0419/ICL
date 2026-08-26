@@ -29,7 +29,9 @@
     "cap:ios": "npm run cap:sync:dev && npx cap open ios",
     "cap:ios:prod": "npm run cap:sync:prod && npx cap open ios",
     "assetlinks": "node scripts/generate-assetlinks.mjs",
-    "aasa": "node scripts/generate-aasa.mjs"
+    "aasa": "node scripts/generate-aasa.mjs",
+    "style:snapshot": "node scripts/style-snapshot.mjs",
+    "style:diff": "node scripts/style-diff.mjs"
   },
   "dependencies": {
     "@capacitor-firebase/messaging": "^8.3.0",

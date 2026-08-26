@@ -2,18 +2,20 @@
  * [문자·알림톡 발송기]
  *
  * 외부 문자 발송 업체(알리고)에 실제로 문자와 카카오 알림톡을 보내는 코드입니다.
- * 테스트 모드에서는 실제로 보내지 않고 보낸 척한 결과만 만들어 돌려줍니다.
+ * 운영 환경이 아니면 알리고에 테스트 모드로 요청해 실제 문자가 나가지 않습니다.
  *
- * ⚠ 현재 이 파일을 사용하는 곳이 없습니다.
+ * 누가 이 파일을 쓰나
+ *   자동 알림 처리기(notification-dispatch.service.js)가 발송 대기열에서
+ *   문자·알림톡 건을 꺼낼 때 이 함수들을 부릅니다.
  *
- *   관리자 화면에서 "문자 발송"을 누르면 `sms.routes.js`가 발송 대기열(DB)에 저장만 하고,
- *   그 대기열을 꺼내서 이 파일의 함수로 실제 발송하는 연결이 아직 없습니다.
- *   자동 알림 처리기(`notification-dispatch.service.js`)도 앱 푸시만 처리하고
- *   문자·알림톡 대기열은 처리하지 않습니다.
+ * 언제 실제로 나가나
+ *   아래 조건이 모두 맞아야 발송됩니다. 하나라도 빠지면 대기열에 그대로 남습니다.
+ *   - ALLOW_EXTERNAL_SMS_SEND (알림톡은 ALLOW_EXTERNAL_KAKAO_SEND) 가 켜져 있을 것
+ *   - 안전 모드(TEST_SAFE_MODE)가 아닐 것
+ *   - 알리고 계정 설정(ALIGO_API_KEY, ALIGO_USER_ID, ALIGO_SENDER)이 채워져 있을 것
+ *   - 자동 알림 스케줄러(NOTIFICATION_SCHEDULER_ENABLED)가 켜져 있을 것
  *
- *   즉 지금은 문자와 알림톡이 "쌓이기만 하고 나가지 않는" 상태입니다.
- *   실제 발송을 켜려면 대기열을 처리하는 연결과 알리고 계정 설정이 함께 필요합니다.
- *   쓰이지 않는다고 이 파일을 지우면 유일한 발송 구현이 사라지므로 남겨 둡니다.
+ *   기본값은 모두 꺼짐이므로, 설정을 켜기 전까지는 문자가 한 통도 나가지 않습니다.
  */
 import { env } from "../../config/env.js";
 
@@ -35,7 +37,6 @@ function cleanPhone(phone) {
  * receivers: [{ phone, name }]
  * 90바이트 이하 → SMS, 초과 → LMS 자동 전환
  */
-// [현재 미사용] 문자(SMS/LMS)를 실제로 보냅니다. 위 설명대로 현재 호출하는 곳이 없습니다.
 export async function sendSmsAligo({ receivers, message, title = "" }) {
   if (!env.aligoApiKey || !env.aligoUserId || !env.aligoSender) {
     throw new Error(
@@ -90,7 +91,6 @@ export async function sendSmsAligo({ receivers, message, title = "" }) {
  * receivers: [{ phone, name }]
  * templateCode: 알리고에 등록한 템플릿 코드 (예: TM_001)
  */
-// [현재 미사용] 카카오 알림톡을 실제로 보냅니다. 위 설명대로 현재 호출하는 곳이 없습니다.
 export async function sendKakaoAlimtok({ receivers, message, title = "", templateCode = "" }) {
   if (!env.kakaoSenderKey || !env.aligoApiKey || !env.aligoUserId) {
     throw new Error(

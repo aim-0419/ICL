@@ -8,12 +8,16 @@
  * - 보낼 때가 된 알림을 꺼내 발송하고, 실패하면 잠시 뒤 다시 시도합니다.
  * - 탈퇴했거나 알림을 끈 회원은 실패가 아니라 '제외'로 처리합니다.
  *
- * 현재 실제로 처리하는 것은 **앱 푸시뿐**입니다.
- * 문자와 카카오 알림톡은 대기열에 쌓이지만 아직 꺼내 보내는 연결이 없습니다.
+ * 앱 푸시, 문자, 카카오 알림톡을 각각 처리합니다.
+ * 문자와 알림톡은 외부 발송 설정이 켜져 있을 때만 실제로 나갑니다.
+ * 꺼져 있으면 대기열을 건드리지 않고 그대로 두므로, 나중에 켜면 이어서 발송됩니다.
  */
 import { randomUUID } from "node:crypto";
 import { query, queryOne, withTransaction } from "../../shared/db/mysql.js";
 import { sendFcmPush } from "./fcm.service.js";
+import { sendKakaoAlimtok, sendSmsAligo } from "./sms.service.js";
+import { decryptPii } from "../../shared/security/pii.js";
+import { env } from "../../config/env.js";
 // 스케줄러는 자동 알림 생성기를 이 모듈에서 가져갑니다.
 export { generateAutomaticNotifications } from "./notification-automation.service.js";
 import {
@@ -226,6 +230,7 @@ async function loadDeliveryContext(deliveryId) {
   const delivery = await queryOne(
     `SELECT d.id, d.notification_id AS notificationId, d.channel, d.attempts,
             d.recipient_user_id AS userId, d.template_code AS templateCode,
+            d.recipient_name AS recipientName, d.recipient_phone AS recipientPhone,
             n.title, n.message, n.type
      FROM studio_notification_deliveries d
      JOIN studio_notifications n ON n.id = d.notification_id
@@ -424,6 +429,142 @@ export async function processDueNotificationDeliveries({
       errorMessage: lastError?.message || "앱 푸시 발송에 실패했습니다.",
     });
     result.failedCount += 1;
+    await syncNotificationStatus(delivery.notificationId);
+  }
+
+  return result;
+}
+
+/*
+ * 문자와 카카오 알림톡 대기열 처리기.
+ *
+ * 지금까지는 앱 푸시만 실제로 발송되고, 문자와 알림톡은 대기열에 쌓이기만 했습니다.
+ * 이 함수가 그 대기열을 꺼내 실제 발송으로 연결합니다.
+ *
+ * ⚠ 기본값은 "보내지 않음" 입니다.
+ *   ALLOW_EXTERNAL_SMS_SEND / ALLOW_EXTERNAL_KAKAO_SEND 가 켜져 있고
+ *   안전 모드가 아닐 때만 동작합니다. 꺼져 있으면 대기열을 건드리지 않고 그대로 둡니다.
+ *   실패로 표시하지 않기 때문에, 나중에 설정을 켜면 밀려 있던 것부터 발송됩니다.
+ */
+export async function processDueTextDeliveries({
+  channel = "sms",
+  limit = DISPATCH_BATCH_LIMIT,
+  senders = { sms: sendSmsAligo, kakao: sendKakaoAlimtok },
+  maxAttempts = MAX_DELIVERY_ATTEMPTS,
+} = {}) {
+  const result = {
+    channel,
+    processedCount: 0,
+    sentCount: 0,
+    failedCount: 0,
+    retryCount: 0,
+    skippedCount: 0,
+    disabled: false,
+  };
+
+  if (channel !== "sms" && channel !== "kakao") return result;
+
+  const allowed = channel === "kakao" ? env.allowExternalKakaoSend : env.allowExternalSmsSend;
+  if (!allowed) {
+    // 설정이 꺼져 있으면 대기열을 그대로 둡니다. 나중에 켜면 이어서 발송됩니다.
+    result.disabled = true;
+    return result;
+  }
+
+  const sender = senders?.[channel];
+  if (typeof sender !== "function") {
+    result.disabled = true;
+    return result;
+  }
+
+  // 발송 업체 설정이 없으면 호출해 봐야 매번 실패하고 재시도만 쌓입니다.
+  // 이 경우에도 대기열을 건드리지 않고 그대로 둡니다.
+  const providerReady = Boolean(env.aligoApiKey && env.aligoUserId && env.aligoSender)
+    && (channel !== "kakao" || Boolean(env.kakaoSenderKey));
+  if (!providerReady) {
+    result.disabled = true;
+    result.reason = "provider-not-configured";
+    return result;
+  }
+
+  const attemptCeiling = Math.max(1, Math.min(MAX_DELIVERY_ATTEMPTS, Math.round(Number(maxAttempts) || MAX_DELIVERY_ATTEMPTS)));
+  const batchLimit = Math.max(1, Math.min(DISPATCH_BATCH_LIMIT, Math.round(Number(limit) || DISPATCH_BATCH_LIMIT)));
+
+  const candidates = await query(
+    `SELECT id
+     FROM studio_notification_deliveries
+     WHERE channel = ?
+       AND status IN ('pending','retry')
+       AND attempts < ${attemptCeiling}
+       AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+       AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
+     ORDER BY COALESCE(next_attempt_at, scheduled_at, created_at) ASC
+     LIMIT ${batchLimit}`,
+    [channel]
+  );
+
+  for (const candidate of candidates) {
+    const claim = await query(
+      `UPDATE studio_notification_deliveries
+       SET status = 'processing', attempts = attempts + 1, updated_at = NOW()
+       WHERE id = ? AND status IN ('pending','retry') AND attempts < ${attemptCeiling}`,
+      [candidate.id]
+    );
+    if (Number(claim?.affectedRows || 0) !== 1) continue;
+
+    result.processedCount += 1;
+    const context = await loadDeliveryContext(candidate.id);
+    if (!context) {
+      await finalizeDelivery({ deliveryId: candidate.id, status: "failed", errorMessage: "알림 정보를 찾을 수 없습니다." });
+      result.failedCount += 1;
+      continue;
+    }
+
+    const { delivery, member } = context;
+
+    // 회원 대상 발송인데 탈퇴·정지 상태면 실패가 아니라 제외로 처리합니다.
+    if (delivery.userId && (!member || String(member.accountStatus) !== "active")) {
+      await finalizeDelivery({ deliveryId: delivery.id, status: "skipped", errorMessage: "수신 대상 회원이 활성 상태가 아닙니다." });
+      result.skippedCount += 1;
+      await syncNotificationStatus(delivery.notificationId);
+      continue;
+    }
+
+    const phone = decryptPii(delivery.recipientPhone);
+    const name = decryptPii(delivery.recipientName);
+    if (!phone) {
+      await finalizeDelivery({ deliveryId: delivery.id, status: "skipped", errorMessage: "수신 전화번호가 없습니다." });
+      result.skippedCount += 1;
+      await syncNotificationStatus(delivery.notificationId);
+      continue;
+    }
+
+    try {
+      const sendResult = await sender({
+        receivers: [{ phone, name }],
+        message: delivery.message,
+        title: delivery.title || "",
+        templateCode: delivery.templateCode || "",
+      });
+      await finalizeDelivery({
+        deliveryId: delivery.id,
+        status: "sent",
+        providerMessageId: String(sendResult?.msgId || ""),
+      });
+      result.sentCount += 1;
+    } catch (error) {
+      const classification = classifySendError(error);
+      const canRetry = classification.retryable && delivery.attempts + 1 < attemptCeiling;
+      await finalizeDelivery({
+        deliveryId: delivery.id,
+        status: canRetry ? "retry" : "failed",
+        errorMessage: error?.message || "발송에 실패했습니다.",
+        nextAttemptAt: canRetry ? resolveNextAttemptAt(delivery.attempts + 1) : null,
+      });
+      if (canRetry) result.retryCount += 1;
+      else result.failedCount += 1;
+    }
+
     await syncNotificationStatus(delivery.notificationId);
   }
 

@@ -15,6 +15,7 @@ import {
   generateAutomaticNotifications,
   materializePendingNotifications,
   processDueNotificationDeliveries,
+  processDueTextDeliveries,
   restoreExpiredPassPauses,
 } from "./notification-dispatch.service.js";
 
@@ -35,7 +36,13 @@ export async function runNotificationSchedulerTick() {
     const generated = await generateAutomaticNotifications();
     const materialized = await materializePendingNotifications({ limit: 300 });
     const delivered = await processDueNotificationDeliveries({ limit: 300 });
-    return { ...restored, ...generated, ...materialized, ...delivered };
+
+    // 문자와 알림톡은 설정이 켜져 있을 때만 실제로 발송됩니다.
+    // 꺼져 있으면 대기열을 건드리지 않고 disabled 로 돌아옵니다.
+    const sms = await processDueTextDeliveries({ channel: "sms", limit: 100 });
+    const kakao = await processDueTextDeliveries({ channel: "kakao", limit: 100 });
+
+    return { ...restored, ...generated, ...materialized, ...delivered, sms, kakao };
   } finally {
     running = false;
   }

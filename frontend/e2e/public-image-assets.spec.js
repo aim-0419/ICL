@@ -25,9 +25,13 @@ test.describe("공개 페이지 이미지 무결성", () => {
       const consoleErrors = [];
 
       page.on("response", (response) => {
-        // API 응답은 백엔드 없이 실행하므로 이미지/정적 자산만 확인합니다.
+        // 이 테스트가 보는 것은 저장소에 함께 배포되는 자산입니다.
+        // /api/ 는 백엔드 없이도 돌 수 있어야 하므로 제외하고,
+        // /uploads/ 는 서버에 쌓인 사용자 업로드라 어느 환경에서 실행하느냐에 따라
+        // 있을 수도 없을 수도 있으므로 제외합니다.
         const url = response.url();
-        if (response.status() >= 400 && !url.includes("/api/")) {
+        const environmentDependent = url.includes("/api/") || url.includes("/uploads/");
+        if (response.status() >= 400 && !environmentDependent) {
           failedRequests.push(`${response.status()} ${url}`);
         }
       });
@@ -46,6 +50,8 @@ test.describe("공개 페이지 이미지 무결성", () => {
       const broken = await page.evaluate(() =>
         Array.from(document.images)
           .filter((img) => img.currentSrc && img.naturalWidth === 0)
+          // 사용자 업로드는 환경에 따라 없을 수 있어 이 테스트의 대상이 아닙니다.
+          .filter((img) => !img.currentSrc.includes("/uploads/"))
           .map((img) => img.currentSrc),
       );
 

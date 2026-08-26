@@ -34,9 +34,29 @@
 - `studio_info.rooms_enabled` / `roles_enabled` / `member_grades_enabled` 컬럼이 실제로 존재하고 조회되는 것을 확인했습니다. 스키마 변경이 필요 없다는 판단이 맞았습니다.
 - 연결 전 안전 확인: `productionDatabaseAccessDenied: true`. 개발 DB 계정은 운영 DB에 접근할 수 없습니다.
 
+권한별 동작 (2026-08-26 확인 완료):
+
+개발 DB에 개발 전용 관리자·일반회원 계정을 만들어 실제 HTTP 로그인 상태로 확인했습니다. 읽기 라우트 8종을 세 가지 상태에서 호출한 결과입니다.
+
+| 상태 | 기대 | 결과 |
+| --- | --- | --- |
+| 비로그인 | 401 | 8 / 8 |
+| 일반회원(member) | 403 | 8 / 8 |
+| 관리자(admin0) | 200 | 8 / 8 |
+
+관리자 응답의 형태가 프론트엔드가 기대하는 키와 일치하는 것도 함께 확인했습니다. `settings/rooms` → `{ roomsEnabled, rooms }`, `member-grades` → `{ memberGradesEnabled, grades }`, `class-categories` → `{ categories }`, `message-templates` → `{ templates }`, `arrears` → `{ arrears }`, `settings/info` → `{ info }`.
+
+개발 계정은 `backend/scripts/seed-development-accounts.mjs` 로 만듭니다. 계정 정보는 저장소에 두지 않고 환경변수로 주입합니다.
+
+```bash
+cd backend
+DEV_ADMIN_LOGIN_ID=... DEV_ADMIN_PASSWORD=... DEV_MEMBER_LOGIN_ID=... DEV_MEMBER_PASSWORD=... npm run db:seed:dev:accounts
+```
+
+이 스크립트는 고정된 두 계정만 갱신하므로 기존 회원 데이터를 건드리지 않습니다. 비밀번호는 대소문자·숫자·특수문자를 포함한 12자 이상이어야 합니다.
+
 **여전히 미확인:**
 
-- **권한별 200/403 동작.** 테스트 계정(`TEST_ADMIN_LOGIN_ID` 등)이 주입되어 있지 않아 로그인 상태로 호출하지 못했습니다. 권한 판정은 기존에 정상 동작하는 라우트들과 동일한 `canAccessStudioAdmin` 을 그대로 사용합니다.
 - 쓰기 동작(POST/PUT/DELETE)의 실제 결과. 공유 개발 DB의 데이터를 바꾸지 않기 위해 읽기만 확인했습니다.
 
 ## 권한과 범위

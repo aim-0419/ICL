@@ -60,6 +60,48 @@ studioRoutes.get("/admin/classes/:classId/checkins", studioController.listClassC
 studioRoutes.post("/admin/arrears", express.json(), studioController.createArrears);
 studioRoutes.patch("/admin/arrears/:arrearsId/resolve", studioController.resolveArrears);
 studioRoutes.get("/admin/users/:userId/arrears", studioController.listArrearsByUser);
+// 아래 라우트들은 컨트롤러와 서비스가 이미 구현돼 있었으나 등록이 빠져 있었습니다.
+// 관리자 설정 화면이 호출하면 404 로 실패하던 구간입니다.
+// 주의: "/enabled" 는 ":id" 보다 먼저 등록해야 파라미터로 잡히지 않습니다.
+studioRoutes.get("/admin/arrears", studioController.listArrears);
+studioRoutes.patch("/admin/checkins/:checkinId/cancel", studioController.cancelCheckIn);
+
+// 시설 기본정보
+studioRoutes.get("/admin/settings/info", studioController.getStudioInfo);
+studioRoutes.put("/admin/settings/info", express.json(), studioController.saveStudioInfo);
+
+// 룸 설정
+studioRoutes.get("/admin/settings/rooms", studioController.getRoomSettings);
+studioRoutes.put("/admin/settings/rooms/enabled", express.json(), studioController.saveRoomEnabled);
+studioRoutes.post("/admin/rooms", express.json(), studioController.createRoom);
+studioRoutes.put("/admin/rooms/:roomId", express.json(), studioController.updateRoom);
+studioRoutes.delete("/admin/rooms/:roomId", studioController.deleteRoom);
+
+// 역할 설정
+studioRoutes.get("/admin/settings/roles", studioController.getRoleSettings);
+studioRoutes.put("/admin/settings/roles/enabled", express.json(), studioController.saveRoleEnabled);
+studioRoutes.post("/admin/roles", express.json(), studioController.createRole);
+studioRoutes.put("/admin/roles/:roleId", express.json(), studioController.updateRole);
+studioRoutes.delete("/admin/roles/:roleId", studioController.deleteRole);
+
+// 회원 등급 설정
+studioRoutes.get("/admin/member-grades", studioController.getMemberGradeSettings);
+studioRoutes.put("/admin/member-grades/enabled", express.json(), studioController.saveMemberGradeEnabled);
+studioRoutes.post("/admin/member-grades", express.json(), studioController.createMemberGrade);
+studioRoutes.put("/admin/member-grades/:gradeId", express.json(), studioController.updateMemberGrade);
+studioRoutes.delete("/admin/member-grades/:gradeId", studioController.deleteMemberGrade);
+
+// 수업 구분 설정
+studioRoutes.get("/admin/class-categories", studioController.listClassCategories);
+studioRoutes.post("/admin/class-categories", express.json(), studioController.createClassCategory);
+studioRoutes.put("/admin/class-categories/:categoryId", express.json(), studioController.updateClassCategory);
+studioRoutes.delete("/admin/class-categories/:categoryId", studioController.deleteClassCategory);
+
+// 메시지 템플릿
+studioRoutes.get("/admin/message-templates", studioController.listMessageTemplates);
+studioRoutes.post("/admin/message-templates", express.json(), studioController.createMessageTemplate);
+studioRoutes.put("/admin/message-templates/:templateId", express.json(), studioController.updateMessageTemplate);
+studioRoutes.delete("/admin/message-templates/:templateId", studioController.deleteMessageTemplate);
 studioRoutes.post("/admin/lockers", express.json(), studioController.createLocker);
 studioRoutes.get("/admin/lockers", studioController.listLockers);
 studioRoutes.patch("/admin/lockers/:lockerId/status", express.json(), studioController.updateLockerStatus);

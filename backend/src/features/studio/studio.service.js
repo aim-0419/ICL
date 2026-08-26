@@ -1779,32 +1779,60 @@ export async function getRoomSettings() {
   };
 }
 
+// 화면에서 넘어온 사용 여부 값이 true/false 인지 확인합니다.
+// 문자열이 들어와도 참으로 취급되면 관리자가 끄려던 기능이 켜집니다.
+function requireBoolean(value, fieldName) {
+  if (typeof value !== "boolean") {
+    throw createHttpError(`${fieldName} 값은 true 또는 false여야 합니다.`, 400);
+  }
+  return value;
+}
+
+// 이름이 비어 있으면 목록에 빈 줄이 생겨 관리자가 구분할 수 없습니다.
+function requireName(value, fieldName) {
+  const name = String(value || "").trim();
+  if (!name) throw createHttpError(`${fieldName}을(를) 입력해 주세요.`, 400);
+  if (name.length > 160) throw createHttpError(`${fieldName}은(는) 160자 이하로 입력해 주세요.`, 400);
+  return name;
+}
+
+// 수정·삭제 대상이 없으면 조용히 성공하지 않고 알려 줍니다.
+function requireAffected(result, message) {
+  if (Number(result?.affectedRows || 0) === 0) throw createHttpError(message, 404);
+}
+
 export async function saveRoomEnabled(enabled) {
+  requireBoolean(enabled, "룸 사용 여부");
   await query(
-    `INSERT INTO studio_info (id, rooms_enabled, updated_at)
-     VALUES ('main', ?, NOW())
+    // phones 컬럼의 기본값이 깨져 있어, 값을 넣지 않으면 INSERT 자체가 실패합니다.
+    // 새 행을 만들 때만 쓰이는 값이므로 빈 목록을 직접 넣습니다.
+    `INSERT INTO studio_info (id, rooms_enabled, phones, updated_at)
+     VALUES ('main', ?, '[]', NOW())
      ON DUPLICATE KEY UPDATE rooms_enabled = VALUES(rooms_enabled), updated_at = NOW()`,
     [enabled ? 1 : 0]
   );
 }
 
 export async function createRoom(name) {
+  const safeName = requireName(name, "룸 이름");
   const id = randomUUID();
   const [countRow] = await query(`SELECT COUNT(*) AS cnt FROM studio_rooms`);
   const sortOrder = (countRow?.cnt || 0);
   await query(
     `INSERT INTO studio_rooms (id, name, is_active, sort_order, created_at) VALUES (?, ?, 1, ?, NOW())`,
-    [id, String(name || "").trim(), sortOrder]
+    [id, safeName, sortOrder]
   );
-  return { id, name: String(name || "").trim(), isActive: true, sortOrder };
+  return { id, name: safeName, isActive: true, sortOrder };
 }
 
 export async function deleteRoom(id) {
-  await query(`DELETE FROM studio_rooms WHERE id = ?`, [id]);
+  const result = await query(`DELETE FROM studio_rooms WHERE id = ?`, [id]);
+  requireAffected(result, "삭제할 룸을 찾을 수 없습니다.");
 }
 
 export async function updateRoom(id, name) {
-  await query(`UPDATE studio_rooms SET name = ? WHERE id = ?`, [String(name || "").trim(), id]);
+  const result = await query(`UPDATE studio_rooms SET name = ? WHERE id = ?`, [requireName(name, "룸 이름"), id]);
+  requireAffected(result, "수정할 룸을 찾을 수 없습니다.");
 }
 
 export async function getRoleSettings() {
@@ -1819,31 +1847,37 @@ export async function getRoleSettings() {
 }
 
 export async function saveRoleEnabled(enabled) {
+  requireBoolean(enabled, "역할 사용 여부");
   await query(
-    `INSERT INTO studio_info (id, roles_enabled, updated_at)
-     VALUES ('main', ?, NOW())
+    // phones 컬럼의 기본값이 깨져 있어, 값을 넣지 않으면 INSERT 자체가 실패합니다.
+    // 새 행을 만들 때만 쓰이는 값이므로 빈 목록을 직접 넣습니다.
+    `INSERT INTO studio_info (id, roles_enabled, phones, updated_at)
+     VALUES ('main', ?, '[]', NOW())
      ON DUPLICATE KEY UPDATE roles_enabled = VALUES(roles_enabled), updated_at = NOW()`,
     [enabled ? 1 : 0]
   );
 }
 
 export async function createRole(name) {
+  const safeName = requireName(name, "역할 이름");
   const id = randomUUID();
   const [countRow] = await query(`SELECT COUNT(*) AS cnt FROM studio_roles`);
   const sortOrder = (countRow?.cnt || 0);
   await query(
     `INSERT INTO studio_roles (id, name, sort_order, created_at) VALUES (?, ?, ?, NOW())`,
-    [id, String(name || "").trim(), sortOrder]
+    [id, safeName, sortOrder]
   );
-  return { id, name: String(name || "").trim(), sortOrder };
+  return { id, name: safeName, sortOrder };
 }
 
 export async function deleteRole(id) {
-  await query(`DELETE FROM studio_roles WHERE id = ?`, [id]);
+  const result = await query(`DELETE FROM studio_roles WHERE id = ?`, [id]);
+  requireAffected(result, "삭제할 역할을 찾을 수 없습니다.");
 }
 
 export async function updateRole(id, name) {
-  await query(`UPDATE studio_roles SET name = ? WHERE id = ?`, [String(name || "").trim(), id]);
+  const result = await query(`UPDATE studio_roles SET name = ? WHERE id = ?`, [requireName(name, "역할 이름"), id]);
+  requireAffected(result, "수정할 역할을 찾을 수 없습니다.");
 }
 
 export async function getMemberGradeSettings() {
@@ -1858,30 +1892,39 @@ export async function getMemberGradeSettings() {
 }
 
 export async function saveMemberGradeEnabled(enabled) {
+  requireBoolean(enabled, "회원 등급 사용 여부");
   await query(
-    `INSERT INTO studio_info (id, member_grades_enabled, updated_at)
-     VALUES ('main', ?, NOW())
+    // phones 컬럼의 기본값이 깨져 있어, 값을 넣지 않으면 INSERT 자체가 실패합니다.
+    // 새 행을 만들 때만 쓰이는 값이므로 빈 목록을 직접 넣습니다.
+    `INSERT INTO studio_info (id, member_grades_enabled, phones, updated_at)
+     VALUES ('main', ?, '[]', NOW())
      ON DUPLICATE KEY UPDATE member_grades_enabled = VALUES(member_grades_enabled), updated_at = NOW()`,
     [enabled ? 1 : 0]
   );
 }
 
 export async function createMemberGrade(name, color) {
+  const safeName = requireName(name, "등급 이름");
   const id = randomUUID();
   const [countRow] = await query(`SELECT COUNT(*) AS cnt FROM studio_member_grades`);
   await query(
     `INSERT INTO studio_member_grades (id, name, color, sort_order, created_at) VALUES (?, ?, ?, ?, NOW())`,
-    [id, String(name || "").trim(), String(color || "#f06292"), (countRow?.cnt || 0)]
+    [id, safeName, String(color || "#f06292"), (countRow?.cnt || 0)]
   );
-  return { id, name: String(name || "").trim(), color: String(color || "#f06292") };
+  return { id, name: safeName, color: String(color || "#f06292") };
 }
 
 export async function deleteMemberGrade(id) {
-  await query(`DELETE FROM studio_member_grades WHERE id = ?`, [id]);
+  const result = await query(`DELETE FROM studio_member_grades WHERE id = ?`, [id]);
+  requireAffected(result, "삭제할 회원 등급을 찾을 수 없습니다.");
 }
 
 export async function updateMemberGrade(id, name, color) {
-  await query(`UPDATE studio_member_grades SET name = ?, color = ? WHERE id = ?`, [String(name || "").trim(), String(color || "#f06292"), id]);
+  const result = await query(
+    `UPDATE studio_member_grades SET name = ?, color = ? WHERE id = ?`,
+    [requireName(name, "등급 이름"), String(color || "#f06292"), id]
+  );
+  requireAffected(result, "수정할 회원 등급을 찾을 수 없습니다.");
 }
 
 export async function listClassCategories() {
@@ -1890,19 +1933,25 @@ export async function listClassCategories() {
 }
 
 export async function createClassCategory(name) {
+  const safeName = requireName(name, "수업 구분 이름");
   const id = randomUUID();
   const [countRow] = await query(`SELECT COUNT(*) AS cnt FROM studio_class_categories`);
   const sortOrder = (countRow?.cnt || 0);
-  await query(`INSERT INTO studio_class_categories (id, name, sort_order, created_at) VALUES (?, ?, ?, NOW())`, [id, String(name || "").trim(), sortOrder]);
-  return { id, name: String(name || "").trim(), sortOrder };
+  await query(`INSERT INTO studio_class_categories (id, name, sort_order, created_at) VALUES (?, ?, ?, NOW())`, [id, safeName, sortOrder]);
+  return { id, name: safeName, sortOrder };
 }
 
 export async function deleteClassCategory(id) {
-  await query(`DELETE FROM studio_class_categories WHERE id = ?`, [id]);
+  const result = await query(`DELETE FROM studio_class_categories WHERE id = ?`, [id]);
+  requireAffected(result, "삭제할 수업 구분을 찾을 수 없습니다.");
 }
 
 export async function updateClassCategory(id, name) {
-  await query(`UPDATE studio_class_categories SET name = ? WHERE id = ?`, [String(name || "").trim(), id]);
+  const result = await query(
+    `UPDATE studio_class_categories SET name = ? WHERE id = ?`,
+    [requireName(name, "수업 구분 이름"), id]
+  );
+  requireAffected(result, "수정할 수업 구분을 찾을 수 없습니다.");
 }
 
 const NOTIFICATION_DEFAULTS = {

@@ -32293,6 +32293,42 @@ body,
   padding: 1rem 1.5rem; border-top: 1px solid #e8e0d6; display: flex; gap: 0.75rem; flex-shrink: 0;
 }
 
+/* 약관·개인정보 전문 페이지 (/terms, /privacy) */
+.legal-page-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 20px 72px;
+  color: #2c2c2c;
+}
+
+.legal-page-inner h1 {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.legal-page-body {
+  font-size: 14px;
+  line-height: 1.8;
+  word-break: keep-all;
+}
+
+/* 이용약관 본문은 원문 줄바꿈을 그대로 유지합니다. */
+.legal-page-text {
+  white-space: pre-wrap;
+}
+
+@media (max-width: 480px) {
+  .legal-page-inner {
+    padding: 24px 16px 56px;
+  }
+
+  .legal-page-inner h1 {
+    font-size: 19px;
+  }
+}
+
 /* Capacitor 앱 공통 UI: 웹 디자인은 유지하고 앱에서만 안전영역과 하단 탐색을 추가합니다. */
 html.native-app,
 body.native-app {
@@ -32313,6 +32349,15 @@ html.native-app {
 body.native-app {
   padding-top: calc(56px + env(safe-area-inset-top, 0px));
   padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+}
+
+/*
+ * 영상 플레이어, 관리자, 회원가입 화면은 하단 탐색을 숨깁니다.
+ * 이때 하단바 높이(72px)만큼의 여백이 그대로 남으면 화면 아래에 빈 띠가 생기므로
+ * 홈 인디케이터 안전영역만 남기고 여백을 해제합니다.
+ */
+body.native-app.native-app-no-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .native-app .topbar {

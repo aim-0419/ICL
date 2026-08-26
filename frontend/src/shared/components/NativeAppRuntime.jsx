@@ -1,3 +1,15 @@
+/**
+ * [앱 전용 화면 요소와 동작]
+ *
+ * 이 파일은 안드로이드·iOS 앱에서만 동작하고, 웹 브라우저에서는 아무것도 하지 않습니다.
+ *
+ * 앱에서만 필요한 것들을 담당합니다.
+ * - 위쪽 앱 바와 아래쪽 탭 메뉴(홈·예약·아카데미·마이)
+ * - 인터넷이 끊겼을 때 안내 띠 표시
+ * - 안드로이드 뒤로가기 버튼 처리
+ * - 알림을 눌렀을 때 해당 화면으로 이동
+ * - 문자나 링크로 앱을 열었을 때 알맞은 화면으로 이동
+ */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Network } from "@capacitor/network";
@@ -14,6 +26,15 @@ import {
 import { registerNativePushEventListeners } from "../notifications/pushNotifications.js";
 
 const ROOT_PATHS = new Set(["/", "/academy", "/pilates/reservation", "/mypage", "/login"]);
+
+// 하단 탐색을 숨기는 화면은 body의 하단 여백도 함께 해제해야 빈 띠가 남지 않습니다.
+function isBottomNavigationHidden(currentPath) {
+  return (
+    currentPath.startsWith("/academy/player/") ||
+    currentPath.startsWith("/admin") ||
+    currentPath === "/signup"
+  );
+}
 
 function isNavigationActive(currentPath, targetPath) {
   if (targetPath === "/") return currentPath === "/";
@@ -57,11 +78,7 @@ function NativeBottomNavigation() {
     [accountPath, currentUser],
   );
 
-  if (
-    location.pathname.startsWith("/academy/player/") ||
-    location.pathname.startsWith("/admin") ||
-    location.pathname === "/signup"
-  ) {
+  if (isBottomNavigationHidden(location.pathname)) {
     return null;
   }
 
@@ -107,6 +124,13 @@ export function NativeAppRuntime() {
       document.body.classList.remove("native-app");
     };
   }, [nativeApp]);
+
+  useEffect(() => {
+    if (!nativeApp) return undefined;
+    const hidden = isBottomNavigationHidden(location.pathname);
+    document.body.classList.toggle("native-app-no-bottom-nav", hidden);
+    return () => document.body.classList.remove("native-app-no-bottom-nav");
+  }, [nativeApp, location.pathname]);
 
   useEffect(() => {
     if (!nativeApp) return undefined;

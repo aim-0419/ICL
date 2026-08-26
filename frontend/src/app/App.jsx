@@ -19,6 +19,7 @@
  * /mypage                       → 마이페이지 (로그인 필요)
  * /admin, /admin/*              → 관리자 대시보드 (관리자 전용)
  * /success, /fail               → 결제 결과 페이지
+ * /terms, /privacy              → 이용약관·개인정보 전문 (스토어 심사·법적 고지용 고정 URL)
  */
 // 파일 역할: 프론트엔드 전체 라우팅 구조와 권한 보호 페이지 연결을 정의합니다.
 import React, { lazy, Suspense } from "react";
@@ -42,6 +43,7 @@ const LoginPage = lazy(() => import("../features/auth/pages/LoginPage.jsx").then
 const FindIdPage = lazy(() => import("../features/auth/pages/FindIdPage.jsx").then((m) => ({ default: m.FindIdPage })));
 const ResetPasswordPage = lazy(() => import("../features/auth/pages/ResetPasswordPage.jsx").then((m) => ({ default: m.ResetPasswordPage })));
 const SignupPage = lazy(() => import("../features/auth/pages/SignupPage.jsx").then((m) => ({ default: m.SignupPage })));
+const LegalPage = lazy(() => import("../shared/legal/LegalPage.jsx").then((m) => ({ default: m.LegalPage })));
 const CartPage = NATIVE_APP_BUILD
   ? null
   : lazy(() => import("../features/cart/pages/CartPage.jsx").then((m) => ({ default: m.CartPage })));
@@ -130,6 +132,10 @@ export default function App() {
           <Route path="/find-id" element={<FindIdPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          {/* 약관·개인정보 전문은 모달 밖에서도 고정 URL로 접근할 수 있어야 합니다. */}
+          <Route path="/terms" element={<LegalPage docKey="service" />} />
+          <Route path="/privacy" element={<LegalPage docKey="privacy" />} />
+          <Route path="/marketing-consent" element={<LegalPage docKey="marketing" />} />
           <Route path="/cart" element={nativeApp ? <NativePurchaseNotice /> : <CartPage />} />
           <Route path="/academy" element={<AcademyPage />} />
           <Route path="/academy/:videoId" element={<AcademyDetailPage />} />

@@ -12,6 +12,9 @@ export function SiteFooter() {
         <Link to="/academy">CLASSES</Link>
         <Link to="/community/events">NEWS & NOTICE</Link>
         <Link to="/community/inquiry">CONTACT</Link>
+        {/* 스토어 심사와 법적 고지를 위해 전문 링크를 상시 노출합니다. */}
+        <Link to="/terms">이용약관</Link>
+        <Link to="/privacy">개인정보처리방침</Link>
       </nav>
 
       <div className="site-footer-info-grid">

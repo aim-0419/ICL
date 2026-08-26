@@ -7,6 +7,14 @@ const IOS_INFO_PLIST = path.resolve("ios/App/App/Info.plist");
 const ANDROID_MANIFEST = path.resolve("android/app/src/main/AndroidManifest.xml");
 const ANDROID_NOTIFICATION_ICON = path.resolve("android/app/src/main/res/drawable/ic_stat_icl.xml");
 const ANDROID_GRADLE_PROPERTIES = path.resolve("android/gradle.properties");
+const ANDROID_APP_GRADLE = path.resolve("android/app/build.gradle");
+const ANDROID_RELEASE_GRADLE = path.resolve("android/app/icl-release.gradle");
+const ANDROID_PROGUARD_RULES = path.resolve("android/app/proguard-rules.pro");
+const APP_VERSION_FILE = path.resolve("app-version.json");
+const KEYSTORE_PROPERTIES = path.resolve("keystore.properties");
+const RELEASE_GRADLE_APPLY = "apply from: 'icl-release.gradle'";
+const APP_LINK_START = "<!-- ICL_APP_LINK_START -->";
+const APP_LINK_END = "<!-- ICL_APP_LINK_END -->";
 const NATIVE_TARGET = String(process.env.VITE_APP_ENV || "production").trim().toLowerCase();
 const IOS_DEV_NETWORK_START = "<!-- ICL_DEV_LOCAL_NETWORK_START -->";
 const IOS_DEV_NETWORK_END = "<!-- ICL_DEV_LOCAL_NETWORK_END -->";
@@ -198,10 +206,176 @@ async function reportFirebaseFiles() {
   }
 }
 
+
+/*
+ * android/ 는 .gitignore된 생성물이라 재생성하면 손으로 넣은 서명 설정과 versionCode 가 사라집니다.
+ * 그래서 버전은 추적되는 app-version.json, 서명은 저장소 밖 keystore.properties 를 원본으로 두고
+ * sync 할 때마다 android/app/icl-release.gradle 로 다시 주입합니다.
+ */
+async function configureAndroidRelease() {
+  const appGradle = await readOptional(ANDROID_APP_GRADLE);
+  if (!appGradle) return;
+
+  let version;
+  try {
+    version = JSON.parse(await fs.readFile(APP_VERSION_FILE, "utf8"));
+  } catch {
+    throw new Error("app-version.json 을 읽을 수 없습니다. 네이티브 앱 버전의 단일 소스입니다.");
+  }
+  const versionCode = Number(version.versionCode);
+  const versionName = String(version.versionName || "").trim();
+  if (!Number.isInteger(versionCode) || versionCode < 1) {
+    throw new Error("app-version.json 의 versionCode 는 1 이상의 정수여야 합니다.");
+  }
+  if (!/^\d+\.\d+(\.\d+)?$/.test(versionName)) {
+    throw new Error("app-version.json 의 versionName 형식을 확인해 주세요. 예: 1.0.0");
+  }
+
+  const hasKeystore = await fs
+    .access(KEYSTORE_PROPERTIES)
+    .then(() => true)
+    .catch(() => false);
+
+  // keystore.properties 가 없으면 서명 설정을 아예 만들지 않습니다.
+  // 잘못된 키로 서명되는 것보다 미서명으로 남아 검사에서 걸리는 편이 안전합니다.
+  const signingBlock = hasKeystore
+    ? `
+def iclKeystoreFile = file("${KEYSTORE_PROPERTIES.split(path.sep).join("/")}")
+def iclKeystore = new Properties()
+iclKeystore.load(new FileInputStream(iclKeystoreFile))
+
+android {
+    signingConfigs {
+        release {
+            storeFile file(iclKeystore['storeFile'])
+            storePassword iclKeystore['storePassword']
+            keyAlias iclKeystore['keyAlias']
+            keyPassword iclKeystore['keyPassword']
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+}
+`
+    : `
+// keystore.properties 가 없어 릴리스 서명 설정을 적용하지 않았습니다.
+// frontend/keystore.properties.example 을 참고해 설정한 뒤 다시 sync 하세요.
+`;
+
+  const generated = `// 이 파일은 scripts/configure-native.mjs 가 생성합니다. 직접 수정하지 마세요.
+// 버전 원본: frontend/app-version.json
+// 서명 원본: frontend/keystore.properties (커밋 금지)
+
+android {
+    defaultConfig {
+        versionCode ${versionCode}
+        versionName "${versionName}"
+    }
+}
+${signingBlock}`;
+  await fs.writeFile(ANDROID_RELEASE_GRADLE, generated, "utf8");
+
+  // 순정 build.gradle 로 재생성되어도 위 파일이 반드시 적용되도록 한 줄을 보장합니다.
+  if (!appGradle.includes(RELEASE_GRADLE_APPLY)) {
+    await fs.writeFile(
+      ANDROID_APP_GRADLE,
+      `${appGradle.trimEnd()}
+
+${RELEASE_GRADLE_APPLY}
+`,
+      "utf8",
+    );
+  }
+
+  console.log(
+    `[capacitor] Android 릴리스 설정 적용 (versionName ${versionName}, versionCode ${versionCode}, 서명 ${hasKeystore ? "설정됨" : "미설정"})`,
+  );
+}
+
+/*
+ * R8(minifyEnabled)은 현재 꺼져 있습니다. Capacitor 는 플러그인을 리플렉션으로 찾기 때문에
+ * keep 규칙 없이 켜면 실기기에서만 터집니다. 규칙은 미리 넣어 두고, 실기기 검증이 가능해지면
+ * android/app/icl-release.gradle 이 아니라 문서 절차에 따라 minifyEnabled 를 켭니다.
+ */
+async function configureAndroidProguardRules() {
+  const source = await readOptional(ANDROID_PROGUARD_RULES);
+  const marker = "# ICL_CAPACITOR_KEEP_RULES";
+  if (source.includes(marker)) return;
+
+  const rules = `${marker}
+# Capacitor 는 capacitor.plugins.json 을 읽어 플러그인 클래스를 리플렉션으로 로드합니다.
+# R8 을 켜면 아래 규칙이 없을 때 플러그인이 통째로 제거되어 실기기에서만 실패합니다.
+-keep class com.getcapacitor.** { *; }
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keep class * extends com.getcapacitor.Plugin { *; }
+-keepclassmembers class * { @com.getcapacitor.PluginMethod <methods>; }
+-keep class io.capawesome.capacitorjs.plugins.** { *; }
+-keep class com.google.firebase.** { *; }
+-dontwarn com.google.firebase.**
+`;
+  await fs.writeFile(ANDROID_PROGUARD_RULES, `${source.trimEnd()}
+
+${rules}`, "utf8");
+  console.log("[capacitor] Android R8 keep 규칙 준비 완료 (minifyEnabled 는 여전히 off)");
+}
+
+
+/*
+ * Android App Link: https 링크를 눌렀을 때 브라우저 대신 앱이 열리게 합니다.
+ * 개발 빌드가 운영 도메인을 가로채면 실기기에서 웹 확인이 막히므로 production 에서만 넣습니다.
+ * 실제 동작하려면 각 host 의 /.well-known/assetlinks.json 이 릴리스 서명 지문과 함께 배포돼야 합니다.
+ * (npm run assetlinks)
+ */
+async function configureAndroidAppLinks() {
+  let source = await readOptional(ANDROID_MANIFEST);
+  if (!source) return;
+
+  const existing = new RegExp("[\\s]*" + APP_LINK_START + "[\\s\\S]*?" + APP_LINK_END, "g");
+  source = source.replace(existing, "");
+
+  const hosts = String(process.env.VITE_APP_LINK_HOSTS || "")
+    .split(",")
+    .map((host) => host.trim())
+    .filter(Boolean);
+
+  if (NATIVE_TARGET === "production" && hosts.length > 0) {
+    const hostTags = hosts
+      .map((host) => `                <data android:scheme="https" android:host="${host}" />`)
+      .join("\n");
+    const block = `
+            ${APP_LINK_START}
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+${hostTags}
+            </intent-filter>
+            ${APP_LINK_END}
+`;
+    const anchor = '<data android:scheme="iclpilates" />';
+    const at = source.indexOf(anchor);
+    if (at < 0) throw new Error("AndroidManifest.xml 의 커스텀 scheme intent-filter 를 찾을 수 없습니다.");
+    const closeAt = source.indexOf("</intent-filter>", at);
+    const insertAt = closeAt + "</intent-filter>".length;
+    source = source.slice(0, insertAt) + block + source.slice(insertAt);
+    console.log(`[capacitor] Android App Link 설정 완료 (${hosts.join(", ")})`);
+  } else {
+    console.log("[capacitor] Android App Link 미적용 (production 빌드에서만 적용)");
+  }
+
+  await fs.writeFile(ANDROID_MANIFEST, source, "utf8");
+}
+
 await configureIosAppDelegate();
 await configureIosUrlScheme();
 await configureNativeNetworkPolicy();
 await configureAndroidManifest();
 await writeAndroidNotificationIcon();
 await configureAndroidGradleProperties();
+await configureAndroidAppLinks();
+await configureAndroidRelease();
+await configureAndroidProguardRules();
 await reportFirebaseFiles();

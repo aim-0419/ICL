@@ -49,6 +49,11 @@ backend/uploads/e2e-test/
 /backend/uploads.zip
 /backend/uploads/*.zip
 
+# Android 릴리스 서명 자산 (절대 커밋 금지)
+frontend/keystore.properties
+*.jks
+*.keystore
+
 # Capacitor native projects (generated — do not commit)
 frontend/ios/
 frontend/android/

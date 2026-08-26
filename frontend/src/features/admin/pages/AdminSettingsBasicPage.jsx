@@ -1,4 +1,11 @@
-﻿import React, { useEffect, useState } from "react";
+﻿/**
+ * [관리자 - 시설 기본정보 설정]
+ *
+ * 상호, 주소, 대표 전화번호, 문자 발신번호처럼
+ * 스튜디오의 기본 정보를 입력하는 화면입니다.
+ * 영업시간과 매출 화면 비밀번호도 여기서 관리합니다.
+ */
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getAdminStudioInfo, saveAdminStudioInfo, getAdminStudioSettings, saveAdminBusinessHours, getAdminSalesPin, saveAdminSalesPin } from "../../studio/api/studioApi.js";

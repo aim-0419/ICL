@@ -1,3 +1,9 @@
+/**
+ * [수업 예약 화면]
+ *
+ * 회원이 수업 일정을 보고 예약하거나 예약을 취소하는 화면입니다.
+ * 정원이 찼을 때는 대기 예약으로 처리됩니다.
+ */
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../../../shared/components/PageLayout.jsx";

@@ -154,6 +154,7 @@ export function getPurchasedVideos(orders = [], customerEmail = "", videos = [])
 }
 
 // 함수 역할: 미리보기 차시 존재 여부를 참/거짓으로 판별합니다.
+// [현재 미사용] 미리보기 차시가 있는지 확인합니다. 현재 화면에서 호출하지 않습니다.
 export function hasPreviewChapter(video) {
   if (!video || !Array.isArray(video.chapters)) return false;
   return video.chapters.some((chapter) => Boolean(chapter?.isPreview));

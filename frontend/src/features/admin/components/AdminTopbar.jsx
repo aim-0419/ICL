@@ -1,3 +1,9 @@
+/**
+ * [관리자 위쪽 막대]
+ *
+ * 관리자 화면 맨 위에 붙는 가로 막대입니다.
+ * 현재 위치, 로그인한 관리자 정보, 로그아웃 같은 공통 기능이 들어갑니다.
+ */
 import React, { useMemo, useState } from "react";
 import { Bell, ChevronDown, Search, UserPlus } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";

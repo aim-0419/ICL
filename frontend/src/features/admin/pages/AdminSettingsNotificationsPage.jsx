@@ -1,4 +1,11 @@
-﻿import React, { useEffect, useState } from "react";
+﻿/**
+ * [관리자 - 자동 알림 설정]
+ *
+ * 수업 리마인더, 수강권 만료 안내처럼 자동으로 나가는 알림을
+ * 종류별로 켜고 끄고, 보낼 문구를 고치는 화면입니다.
+ * 앱 푸시, 문자, 카카오 알림톡 중 어느 방법으로 보낼지 고를 수 있습니다.
+ */
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getAdminNotificationTemplates, saveAdminNotificationTemplate } from "../../studio/api/studioApi.js";

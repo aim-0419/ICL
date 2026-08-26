@@ -1,3 +1,10 @@
+/**
+ * [날짜 계산 도구]
+ *
+ * '2026-08-26' 같은 글자를 날짜로 바꾸거나,
+ * 며칠 뒤 날짜를 구하거나, 그 주의 월요일을 찾는 등
+ * 여러 곳에서 공통으로 쓰는 날짜 계산을 모아 두었습니다.
+ */
 function toDate(value) {
   if (value instanceof Date) return new Date(value.getTime());
   const date = new Date(value);

@@ -1,3 +1,10 @@
+/**
+ * [데이터베이스 연결 도구]
+ *
+ * 데이터베이스에 연결하고 질의를 보내는 공통 도구입니다.
+ * 연결을 미리 여러 개 만들어 두고 돌려쓰기 때문에
+ * 요청이 올 때마다 새로 연결하느라 느려지지 않습니다.
+ */
 import { AsyncLocalStorage } from "node:async_hooks";
 
 function normalizeRows(result) {

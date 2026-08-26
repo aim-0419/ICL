@@ -1,3 +1,13 @@
+/**
+ * [서버 통신 기본 도구]
+ *
+ * 화면에서 서버로 요청을 보낼 때 공통으로 거치는 창구입니다.
+ *
+ * - 서버 주소를 붙여 줍니다. 앱에서는 전체 주소가 필요하기 때문입니다.
+ * - 로그인 상태(쿠키)를 함께 보냅니다.
+ * - 서버가 오류를 돌려주면 화면에 보여 줄 수 있는 메시지로 정리합니다.
+ * - 서버에 올려 둔 사진·영상 주소를 앱에서도 열 수 있는 형태로 바꿔 줍니다.
+ */
 import { isNativeDevice } from "../platform/runtime.js";
 
 const configuredApiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || "/api").trim();
@@ -13,6 +23,7 @@ function getApiOrigin() {
   }
 }
 
+// [현재 미사용] 앱 빌드의 API 주소 설정이 올바른지 검사합니다. 현재 호출하는 곳이 없습니다.
 export function assertNativeApiConfiguration() {
   if (isNativeDevice() && !getApiOrigin()) {
     throw new Error("앱 API 주소가 설정되지 않았습니다. VITE_API_BASE_URL에 HTTPS 주소를 설정해 주세요.");

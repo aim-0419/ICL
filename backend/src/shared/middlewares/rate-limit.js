@@ -1,3 +1,10 @@
+/**
+ * [요청 횟수 제한]
+ *
+ * 같은 사람이 짧은 시간에 너무 많이 요청하면 잠시 막습니다.
+ * 로그인 비밀번호를 반복해서 찍어 보는 시도나
+ * 인증번호 발송을 남발하는 것을 막기 위한 안전장치입니다.
+ */
 function resolveClientKey(req) {
   const headerGetter = typeof req.get === "function" ? req.get.bind(req) : null;
   const forwardedFor = String(headerGetter?.("x-forwarded-for") || "").split(",")[0].trim();

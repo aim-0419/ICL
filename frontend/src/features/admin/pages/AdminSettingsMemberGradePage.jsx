@@ -1,4 +1,10 @@
-﻿import React, { useEffect, useRef, useState } from "react";
+﻿/**
+ * [관리자 - 회원 등급 설정]
+ *
+ * 회원 등급을 만들고 등급마다 색을 지정하는 화면입니다.
+ * 등급 기능 자체를 쓸지 말지도 여기서 켜고 끕니다.
+ */
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getAdminMemberGradeSettings, saveAdminMemberGradeEnabled, createAdminMemberGrade, updateAdminMemberGrade, deleteAdminMemberGrade } from "../../studio/api/studioApi.js";

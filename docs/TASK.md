@@ -1,5 +1,79 @@
 # TASK.md
 
+## 2차 작업: 취약점, 브라우저 검증, 기능 추가 (2026-08-25)
+
+의존성 (승인 후 진행):
+
+- react-router / react-router-dom 6.30.4 → 7.18.2. Open redirect → XSS 취약점 2건 해소.
+  - 이 저장소는 선언형 API만 쓰고 데이터 라우터 API(`createBrowserRouter`, loader, `json()`, `defer()`)를 쓰지 않아 파괴적 변경 노출이 적었다. splat 라우트는 최상위 `path="*"` 하나뿐이고 절대경로다.
+  - 초기 번들 gzip 73.8 → 78.0 kB (+4.2 kB).
+- body-parser 1.20.5 → 1.20.6. express 4.22.2가 `~1.20.5`를 요구하므로 express 변경 없이 적용됐다.
+- 결과: frontend·backend 모두 `npm audit` production 0건, backend는 dev 포함 0건.
+- frontend의 dev 전용 취약점 4건(tar, postcss, nanoid, brace-expansion)은 `@capacitor/cli`와 `vite`의 전이 의존성이며 이번 변경 전에도 lockfile에 있었다. 빌드 도구라 사용자에게 배포되지 않는다.
+
+브라우저 검증 (Level 2 → 부분 Level 4):
+
+- Playwright로 실제 렌더링을 확인했다. 백엔드 없이 정적 빌드 기준이다.
+- 추가한 테스트: `e2e/public-image-assets.spec.js`(이미지 무결성), `e2e/native-bottom-padding.spec.js`(앱 하단 여백 회귀), `e2e/routing-regression.spec.js`(라우팅 회귀).
+- 결과: 이미지 무결성 데스크톱·모바일 10/10, 라우팅 8/8, 앱 모드 기존 스펙 포함 30/30, backend 단위 테스트 91/91.
+- `e2e/smoke.spec.js` 6건 실패는 백엔드 미기동 때문이다. 실패한 요청 12건이 전부 `/api/`·`/uploads/`이고 그 외 0건임을 확인했다.
+
+기능 추가:
+
+- 업로드 이미지 자동 최적화 (`backend/src/shared/media/image-optimizer.js`). 커뮤니티·공지·아카데미 업로드에 적용. 실제 원본 기준 12.30MB → 0.12MB. 규칙은 `docs/PROJECT_RULES.md`.
+- 이미지 지연 로딩. img 28개 중 26개에 `loading="lazy" decoding="async"` 적용, 히어로 2개는 `fetchpriority="high"` 유지·추가.
+- Android App Link. `cap:sync:prod`가 `autoVerify` intent-filter를 넣고 `cap:sync:dev`가 제거한다. `npm run assetlinks`로 검증 파일 생성. 절차는 `docs/development/mobile-app-setup.md`.
+
+확인 결과 구현이 필요 없던 항목:
+
+- **수업 리마인더 푸시는 이미 전 구간 구현되어 있다.** `class_reminder` 템플릿, `notification-automation.service.js`, `notification.scheduler.js`, `fcm.service.js`, 디스패치, 통합 테스트가 모두 존재한다. 막고 있는 것은 코드가 아니라 `NOTIFICATION_SCHEDULER_ENABLED=false`, `ALLOW_EXTERNAL_PUSH_SEND=false`, 빈 FCM 자격증명, `google-services.json` 부재다.
+
+미확인 (환경 문제로 진행하지 못함):
+
+- **Level 3 API/DB 검증 보류.** 개발 DB SSM 터널의 로컬 포트 13306을 다른 프로젝트(WeeklyReportAutomation)의 로컬 MySQL 8.4.10이 점유해 터널이 열리지 않는다. 터널 스크립트는 운영으로 향하는 터널을 막기 위해 13306을 강제하므로 포트를 바꾸지 않았다.
+- 그 결과 관리자 라우트 27개의 실응답과 권한별 200/403, 삭제 후보 이미지의 DB 참조 확인이 여전히 미확인이다.
+- 이 충돌로 ICL 개발 백엔드가 무관한 로컬 MySQL에 접속을 시도했고, `db:check:dev:isolation`이 인증 거부로 막았다. 격리 검사가 의도대로 동작한 사례다.
+
+
+## 웹/AAB 실사용 점검과 후속 작업 (2026-08-24)
+
+검증한 것:
+
+- 웹 프로덕션 빌드 성공.
+- `cap:sync:prod` 성공. cleartext 제거와 운영 API(`https://icl-pilates.com/api`) 번들 반영 확인.
+- **Android 릴리스 AAB 빌드 성공.** 기존 "JDK 미설치로 미확인" 판정을 갱신합니다. 이 PC에 JDK 21, Android SDK platform 36, build-tools 36이 설치되어 있습니다.
+- 네이티브 폴더를 순정 상태로 되돌린 뒤 `configure-native.mjs`만으로 버전·서명 설정이 복원되고, 주입한 `versionName`이 병합된 매니페스트까지 반영되는 것을 확인했습니다.
+- 일회용 테스트 키로 서명 경로 전 구간(서명 주입 → 서명된 AAB → 프리플라이트 검출)을 확인한 뒤 키와 설정을 삭제했습니다.
+
+수정한 것:
+
+- 사용자 노출 이미지 20장을 webp로 변환했습니다. 35.06MB → 1.54MB(95.6% 감소). 원본은 `frontend/_original-assets/`에 보존합니다. 릴리스 AAB는 44.6MB → 11.8MB로 줄었습니다.
+- 네이티브 앱 버전·서명 원본을 `frontend/app-version.json`과 `frontend/keystore.properties`로 옮기고, `cap:sync` 때마다 재주입하도록 했습니다. 이전에는 gitignore된 `android/`에만 있어 재생성하면 사라졌습니다.
+- `cap:check`를 실제 프리플라이트로 다시 만들었습니다. 미서명 AAB, 버전 형식, keystore 누락을 잡습니다.
+- 이용약관·개인정보 전문을 `/terms`, `/privacy` 고정 URL로 열 수 있게 하고 푸터에 링크를 넣었습니다. 이전에는 회원가입 모달 안에만 있었습니다.
+- 앱에서 하단 탐색이 숨는 화면(영상 플레이어·관리자·회원가입)의 하단 72px 유령 여백을 해제했습니다.
+- 관리자 설정 라우트 27개를 등록했습니다. 컨트롤러·서비스는 이미 구현되어 있었고 등록만 빠져 있었습니다. 자세한 내용은 `docs/audits/known-limitations.md`.
+
+미확인 (반드시 남은 검증):
+
+- 브라우저 직접 실행, Console/Network 에러 확인을 하지 못했습니다.
+- 관리자 설정 API의 DB 연결 응답과 권한별 200/403 동작은 미확인입니다. 라우터 스모크 테스트로 401 도달까지만 확인했습니다.
+- webp 교체 후 실제 화면(강사소개·수업소개·수료증 인쇄)을 눈으로 확인하지 못했습니다.
+- 실기기 검증, 실제 푸시, 스토어 심사는 여전히 외부 자산이 필요합니다.
+
+남은 외부 차단 요소:
+
+- `google-services.json` / `GoogleService-Info.plist` 없음 → 앱 푸시 미작동.
+- 릴리스 keystore 미생성 → AAB 미서명. 생성 절차는 `docs/development/mobile-app-setup.md`.
+
+삭제 후보 (사용 여부가 불확실해 삭제하지 않음):
+
+- `frontend/public/assets/images/intro/수업소개 메인 이미지.png` — `intro-main.png`와 sha1 동일한 중복본, 코드 참조 0건.
+- `frontend/public/assets/images/home/certificate-template-clean.png` — 코드 참조 0건.
+- `frontend/public/assets/images/home/이끌림 수료증 최종.png` — 코드 참조 0건.
+
+세 파일 합계 약 4.5MB입니다. DB에 저장된 페이지 override가 참조할 가능성이 있어 확인 후 삭제해야 합니다.
+
 ## 웹·Android·iOS 공통 코드 전환 상태
 
 완료:

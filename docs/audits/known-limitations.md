@@ -4,36 +4,33 @@
 
 ## Studio API 연결 공백
 
-`frontend/src/features/studio/api/studioApi.js`에는 호출 래퍼가 있지만 `backend/src/features/studio/studio.routes.js`에서 같은 계약을 확인하지 못한 그룹입니다.
+### 해결: 관리자 설정 라우트 등록 (2026-08-24)
 
-| 구분 | 프론트엔드 계약 | 현재 판정 |
-| --- | --- | --- |
-| 미수금 전체 목록 | `GET /studio/admin/arrears` | `ROUTE_MISSING` |
-| 체크인 취소 | `PATCH /studio/admin/checkins/:id/cancel` | `ROUTE_MISSING` |
-| 시설 기본정보 | `GET/PUT /studio/admin/settings/info` | `ROUTE_MISSING` |
-| 룸 설정·CRUD | `/studio/admin/settings/rooms`, `/rooms` | `ROUTE_MISSING` |
-| 역할 설정·CRUD | `/studio/admin/settings/roles`, `/roles` | `ROUTE_MISSING` |
-| 회원 등급 | `/studio/admin/member-grades` | `ROUTE_MISSING` |
-| 수업 카테고리 | `/studio/admin/class-categories` | `ROUTE_MISSING` |
-| 알림 템플릿 | `/studio/admin/notification-templates` | `RESOLVED` — 아래 참고 |
-| 메시지 템플릿 | `/studio/admin/message-templates` | `ROUTE_MISSING` |
+`frontend/src/features/studio/api/studioApi.js`의 호출과 `backend/src/features/studio/studio.routes.js`를 다시 대조한 결과, 아래 기능은 **컨트롤러와 서비스가 이미 구현되어 있었고 라우트 등록만 빠져 있었습니다.** 관리자 설정 화면에서 호출하면 404로 실패하던 구간입니다.
 
-관련 화면은 실패 시 오류 또는 빈 상태를 표시해야 하며, 백엔드 구현은 별도 요구사항과 권한·DB 계약 승인이 필요합니다.
+| 구분 | 등록한 라우트 | 이전 판정 | 현재 |
+| --- | --- | --- | --- |
+| 미수금 전체 목록 | `GET /studio/admin/arrears` | `ROUTE_MISSING` | `RESOLVED` |
+| 체크인 취소 | `PATCH /studio/admin/checkins/:checkinId/cancel` | `ROUTE_MISSING` | `RESOLVED` |
+| 시설 기본정보 | `GET/PUT /studio/admin/settings/info` | `ROUTE_MISSING` | `RESOLVED` |
+| 룸 설정·CRUD | `GET /settings/rooms`, `PUT /settings/rooms/enabled`, `POST/PUT/DELETE /rooms` | `ROUTE_MISSING` | `RESOLVED` |
+| 역할 설정·CRUD | `GET /settings/roles`, `PUT /settings/roles/enabled`, `POST/PUT/DELETE /roles` | `ROUTE_MISSING` | `RESOLVED` |
+| 회원 등급 | `GET /member-grades`, `PUT /member-grades/enabled`, `POST/PUT/DELETE` | `ROUTE_MISSING` | `RESOLVED` |
+| 수업 카테고리 | `GET/POST /class-categories`, `PUT/DELETE /class-categories/:categoryId` | `ROUTE_MISSING` | `RESOLVED` |
+| 알림 템플릿 | `/studio/admin/notification-templates` | `RESOLVED` | 아래 참고 |
+| 메시지 템플릿 | `GET/POST /message-templates`, `PUT/DELETE /message-templates/:templateId` | `ROUTE_MISSING` | `RESOLVED` |
 
-### 해결: 알림 템플릿 관리 (2026-08-04)
+확인한 내용:
 
-자동 알림 8종의 발송 채널을 관리자 화면에서 조회·저장할 수 있도록 라우트를 등록했습니다.
+- DB 스키마 변경은 필요하지 않았습니다. `studio_rooms`, `studio_roles`, `studio_member_grades`, `studio_class_categories`, `studio_info`, `studio_message_templates`는 이미 정의되어 있고, `studio_info.rooms_enabled` / `roles_enabled` / `member_grades_enabled`도 멱등 `ALTER TABLE` 마이그레이션으로 추가됩니다.
+- 인증·권한은 기존 컨트롤러의 세션 인증과 `settings.read` / `settings.write` 권한을 그대로 사용합니다.
+- `PUT /member-grades/enabled`는 `PUT /member-grades/:gradeId`보다 먼저 등록해야 `enabled`가 경로 파라미터로 잡히지 않습니다. 등록 순서를 그렇게 맞췄습니다.
+- 응답 형태가 프론트 기대와 일치하는지 대조했습니다. 예: `getRoomSettings` → `{ roomsEnabled, rooms }`, `getMemberGradeSettings` → `{ memberGradesEnabled, grades }`.
 
-- 등록 라우트
-  - `GET /studio/admin/notification-templates` → `{ templates }`
-  - `PUT /studio/admin/notification-templates/:templateId` → `{ ok: true }`
-- 인증·권한: 기존 컨트롤러의 세션 인증과 스튜디오 관리자 권한을 그대로 사용합니다.
-  조회는 `settings.read`, 저장은 `settings.write`가 필요하며 비로그인은 401, 권한 없는 회원은 403입니다.
-- 부분 업데이트: 보내지 않은 항목은 기존 값을 유지합니다. 발송 채널만 껐다 켜도 문구·조건 값·다른 채널 설정이 사라지지 않습니다.
-- 입력 검증: 알 수 없는 템플릿 ID와 boolean이 아닌 채널 값은 400으로 거부합니다.
-- 부작용 없음: 템플릿 저장은 알림·발송 레코드를 만들지 않으며 스케줄러나 실제 발송을 유발하지 않습니다.
-- 추가 테스트: `backend/test/integration/notification-templates.mysql.test.js` (조회, 부분 저장 시 문구 보존, 전체 저장, 잘못된 ID·타입 거부, 부작용 없음)
-- 운영 영향: 알림 가동 전 자동 알림을 일시 중지할 때 DB를 직접 수정하지 않고 관리자 화면에서 처리할 수 있습니다.
+검증 범위:
+
+- 라우터만 마운트한 스모크 테스트로 27개 경로가 모두 404가 아닌 401을 반환하는 것을 확인했습니다(등록 + 인증 가드 도달). 미등록 대조 경로는 404를 유지했습니다.
+- **DB 연결·실데이터 응답·권한별 200/403 동작은 미확인입니다.** 개발 DB 연결 후 재검증이 필요합니다.
 
 ## 권한과 범위
 

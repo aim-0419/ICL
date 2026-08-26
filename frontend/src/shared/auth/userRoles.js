@@ -1,3 +1,4 @@
+// [현재 미사용] 회원 등급의 한글 표기 모음입니다. 현재 사용하는 화면이 없습니다.
 export const USER_GRADE_LABELS = {
   admin0: "관리자 0",
   admin1: "관리자 1",
@@ -15,6 +16,7 @@ function normalize(value) {
 }
 
 // 회원 등급과 과거 role/isAdmin 필드를 함께 해석해 최종 권한을 계산합니다.
+// [현재 미사용] 회원 등급 값을 꺼냅니다. 현재 호출하는 곳이 없습니다.
 export function getUserGrade(user) {
   const explicitGrade = normalize(user?.userGrade);
   if (USER_GRADE_OPTIONS.includes(explicitGrade)) {
@@ -40,6 +42,7 @@ export function isAdminStaff(user) {
   return activeStaff && ["owner", "manager", "staff", "instructor", "teacher"].includes(studioRole);
 }
 
+// [현재 미사용] 플랫폼 최고 관리자인지 판별합니다. 현재 호출하는 곳이 없습니다.
 export function isPlatformAdmin(user) {
   const grade = getUserGrade(user);
   return grade === "admin0" || grade === "admin1";

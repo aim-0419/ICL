@@ -1,4 +1,19 @@
-﻿import { randomUUID } from "node:crypto";
+﻿/**
+ * [스튜디오 기능 본체]
+ *
+ * 필라테스 스튜디오 운영에 필요한 실제 처리를 담당하는 가장 큰 파일입니다.
+ * 데이터베이스를 직접 다루며 다음 일들을 처리합니다.
+ *
+ * - 수업 일정 조회, 등록, 변경, 취소
+ * - 회원 예약과 예약 취소, 대기 처리
+ * - 수강권 발급·정지·양도·환불
+ * - 출석 체크인, 락커 배정, 미수금
+ * - 강사와 직원, 역할별 권한
+ * - 매출과 지출, 상담 기록
+ * - 공지사항과 자동 알림 설정
+ * - 시설 기본정보, 룸, 회원 등급, 수업 구분 같은 각종 설정
+ */
+import { randomUUID } from "node:crypto";
 import { query, queryOne, withTransaction } from "../../shared/db/mysql.js";
 import { decryptPii, decryptUserRow, normalizeEmail } from "../../shared/security/pii.js";
 import {
@@ -2268,6 +2283,7 @@ export async function createNotification(payload) {
   return queryOne(`SELECT * FROM studio_notifications WHERE id = ?`, [id]);
 }
 
+// [현재 미사용] 알림 발송 기록을 남깁니다. 현재 호출하는 곳이 없습니다.
 export async function appendNotificationLog(payload) {
   await query(
     `INSERT INTO studio_notification_logs

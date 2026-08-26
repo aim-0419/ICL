@@ -1,3 +1,8 @@
+/**
+ * [엑셀 파일로 내려받기]
+ *
+ * 관리자 화면의 표 내용을 엑셀 파일로 만들어 내려받게 해 줍니다.
+ */
 const encoder = new TextEncoder();
 
 function escapeXml(value) {
@@ -118,6 +123,7 @@ function sanitizeSheetName(value, index) {
   return cleaned || `시트${index + 1}`;
 }
 
+// [현재 미사용] 엑셀 파일 데이터를 만듭니다. 현재 직접 호출하는 곳이 없습니다.
 export function createXlsxBlob(sheets) {
   const normalizedSheets = (Array.isArray(sheets) ? sheets : []).map((sheet, index) => ({
     name: sanitizeSheetName(sheet?.name, index),

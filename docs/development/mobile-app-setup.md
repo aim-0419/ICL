@@ -102,38 +102,93 @@ Android emulator는 실행 후 `npm run android:reverse:dev`를 사용한다. �
 
 ## 딥링크
 
-- 앱 내부 커스텀 scheme: `iclpilates://` (`configure-native.mjs`로 적용되는 코드 준비 완료)
+- 앱 내부 커스텀 scheme: `iclpilates://` (`configure-native.mjs`로 적용)
 - 허용 HTTPS host: `VITE_APP_LINK_HOSTS`
-- 앱은 허용된 경로만 내부 라우트로 변환한다.
+- 앱은 허용된 경로만 내부 라우트로 변환한다 (`src/shared/platform/runtime.js`).
 
-Universal Link와 Android App Link는 아직 외부 설정이 필요한 단계다. 현재 자동 설정은 커스텀 scheme까지만 적용한다. HTTPS 링크를 완전히 활성화하려면 iOS Associated Domains와 Android HTTPS intent filter를 구성하고, 릴리스 서명 정보가 확정된 뒤 서버에 다음 파일을 배포해야 한다.
+### Android App Link (https 링크로 앱 열기)
 
-- `/.well-known/apple-app-site-association`
-- `/.well-known/assetlinks.json`
+`cap:sync:prod`가 `VITE_APP_LINK_HOSTS`의 host로 `android:autoVerify="true"` intent-filter를 매니페스트에 넣는다. **개발 빌드에는 넣지 않는다** — 개발 빌드가 운영 도메인을 가로채면 실기기에서 웹 확인이 막히기 때문이다. `cap:sync:dev`를 돌리면 자동으로 제거된다.
 
-Team ID, 앱 서명 인증서 SHA-256이 없으면 위 파일의 최종 값을 만들 수 없다.
+검증 파일은 아래로 만든다.
+
+```bash
+cd frontend
+npm run assetlinks                                  # keystore.properties 의 릴리스 키에서 지문 추출
+npm run assetlinks -- --fingerprint AA:BB:...:ZZ    # 지문을 직접 지정
+```
+
+결과는 `frontend/public/.well-known/assetlinks.json`에 생성되고 빌드 시 `dist/`로 복사되어 nginx가 그대로 서빙한다. 각 host에서 `https://<host>/.well-known/assetlinks.json`이 열려야 한다.
+
+> **Play 앱 서명을 쓰면 업로드 키 지문이 아니다.** Google이 최종 배포본을 다시 서명하므로 Play Console의 "앱 서명 키 인증서" SHA-256을 `--fingerprint`로 넣어야 한다. 업로드 키 지문을 넣으면 링크 검증이 조용히 실패한다.
+
+`cap:check`가 이 파일의 존재와 지문 형식을 확인한다.
+
+### iOS Universal Link
+
+아직 준비되지 않았다. iOS Associated Domains 설정과 `/.well-known/apple-app-site-association` 배포가 필요하며, Apple Team ID가 없으면 최종 값을 만들 수 없다.
 
 ## Android 릴리스
 
-필요 조건:
+### 버전과 서명의 원본 위치
 
-- JDK와 Android Studio 설치
-- Android SDK 설치
-- Firebase `google-services.json`
-- 릴리스 keystore와 안전한 비밀번호 관리
-- 앱 아이콘, 스플래시, 버전 코드 확정
+`frontend/android/`는 `.gitignore`된 생성물이라 재생성하면 손으로 넣은 설정이 사라집니다. 그래서 버전과 서명은 저장소에 남는 파일을 원본으로 두고, `cap:sync` 때마다 `scripts/configure-native.mjs`가 네이티브 프로젝트에 다시 주입합니다.
 
-JDK와 Android SDK의 세부 버전은 저장소 문서에 고정되어 있지 않다. 설치된 Capacitor/Gradle 요구사항과 Android Studio가 제안하는 호환 버전을 릴리스 전에 확인한다.
+| 항목 | 원본 파일 | Git |
+| --- | --- | --- |
+| versionCode / versionName | `frontend/app-version.json` | 추적함 |
+| 릴리스 서명 | `frontend/keystore.properties` | **커밋 금지** (`.gitignore` 등록) |
+| 서명 템플릿 | `frontend/keystore.properties.example` | 추적함 |
+| 생성 결과 | `frontend/android/app/icl-release.gradle` | 생성물 |
 
-검증 순서:
+`configure-native.mjs`는 순정 `build.gradle`에도 `apply from: 'icl-release.gradle'` 한 줄을 보장하므로, 네이티브 폴더를 통째로 지우고 다시 만들어도 버전과 서명이 복원됩니다.
+
+> `keystore.properties`가 없으면 서명 설정을 **아예 만들지 않습니다.** 잘못된 키로 서명되는 것보다 미서명으로 남아 `cap:check`에서 걸리는 편이 안전하기 때문입니다.
+
+### keystore 생성 (최초 1회, 사용자가 직접 실행)
+
+비밀번호가 로그에 남지 않도록 대화형으로 실행합니다.
 
 ```bash
-npm run cap:sync:prod
-npm run cap:check
-npx cap open android
+keytool -genkeypair -v   -keystore icl-release.jks   -alias icl-release   -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Android Studio에서 debug 빌드, 실제 기기 로그인·예약·영상 재생·푸시를 확인한 뒤 서명된 AAB를 만든다. keystore와 비밀번호는 저장소에 넣지 않는다.
+- 생성한 `.jks`는 저장소 밖 안전한 위치에 두고 비밀번호와 함께 오프라인 백업한다.
+- **이 키를 잃어버리면 같은 패키지명(`com.iclpilates.app`)으로 앱을 갱신할 수 없다.**
+- `frontend/keystore.properties.example`을 `frontend/keystore.properties`로 복사해 경로와 비밀번호를 채운다.
+
+### 버전 올리기
+
+Play에 올릴 때마다 `frontend/app-version.json`의 `versionCode`를 1 이상 올린다. 같은 값으로 다시 올리면 Play가 거부한다.
+
+### 릴리스 순서
+
+```bash
+cd frontend
+npm run cap:sync:prod          # 앱 번들 빌드 + 네이티브 동기화 + 버전/서명 주입
+cd android && ./gradlew bundleRelease
+cd .. && npm run cap:check     # 프리플라이트: Firebase, 버전, 서명, AAB 서명 검사
+```
+
+`cap:check`는 아래를 확인하고 하나라도 걸리면 종료코드 1로 막는다.
+
+- Firebase 설정 파일 존재 (`google-services.json`, `GoogleService-Info.plist`)
+- `app-version.json`의 versionCode/versionName 형식
+- `keystore.properties` 존재와 각 값, keystore 파일 실재 여부
+- `icl-release.gradle` 생성 여부와 `build.gradle` 적용 여부
+- **빌드된 AAB가 실제로 서명됐는지** (`jarsigner -verify` 출력 문구로 판정. 미서명 jar에도 종료코드 0이 나오므로 종료코드로 판정하면 안 된다)
+
+산출물은 `frontend/android/app/build/outputs/bundle/release/app-release.aab`.
+
+### R8(minifyEnabled)에 대해
+
+현재 `minifyEnabled false`다. Capacitor는 `capacitor.plugins.json`을 읽어 플러그인을 **리플렉션으로** 로드하므로, keep 규칙 없이 R8을 켜면 플러그인이 제거되어 **실기기에서만** 실패한다.
+
+`configure-native.mjs`가 필요한 keep 규칙을 `proguard-rules.pro`에 미리 넣어 두지만, 플래그는 켜지 않는다. 켜려면 실기기에서 로그인·예약·영상 재생·푸시를 모두 확인할 수 있는 상태에서 `icl-release.gradle`에 `minifyEnabled true`를 추가하고 재검증한다. 실기기 검증 없이 켜지 않는다.
+
+### 실기기 확인
+
+Android Studio에서 debug 빌드로 실제 기기 로그인·예약·영상 재생·푸시를 확인한 뒤 서명된 AAB를 만든다. keystore와 비밀번호는 저장소에 넣지 않는다.
 
 ## iOS 릴리스
 

@@ -1,3 +1,14 @@
+/**
+ * [로그인 확인 담당]
+ *
+ * 요청을 보낸 사람이 누구인지 확인하고, 그 사람이 이 기능을 쓸 수 있는지 판단합니다.
+ *
+ * - 브라우저가 보낸 로그인 쿠키에서 사용자를 찾아냅니다.
+ * - 로그인하지 않았으면 401(로그인 필요)을 돌려줍니다.
+ * - 로그인했지만 권한이 모자라면 403(권한 없음)을 돌려줍니다.
+ *
+ * 관리자 전용 기능과 스튜디오 직원용 기능을 구분해 검사합니다.
+ */
 import * as authService from "../../features/auth/auth.service.js";
 import { SESSION_COOKIE_NAME } from "../constants.js";
 
@@ -29,6 +40,7 @@ export function isAdminUser(user) {
   return role === "admin" || user.isAdmin === true || user.isAdmin === 1;
 }
 
+// [현재 미사용] 스튜디오 직원인지 판별합니다. 현재 호출하는 곳이 없습니다.
 export function isStudioStaffUser(user) {
   if (!user) return false;
 

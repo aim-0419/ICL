@@ -1,3 +1,8 @@
+/**
+ * [관리자 대시보드 안쪽 탭 메뉴]
+ *
+ * 관리자 대시보드 안에서 회원, 주문, 매출처럼 보고 싶은 항목을 골라 넘나드는 탭 줄입니다.
+ */
 import React from "react";
 import { Link } from "react-router-dom";
 

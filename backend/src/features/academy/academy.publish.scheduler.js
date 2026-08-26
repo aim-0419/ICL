@@ -54,6 +54,7 @@ export function startAcademyPublishScheduler() {
 }
 
 // 함수 역할: 아카데미 publish scheduler 동작을 중지합니다.
+// [현재 미사용] 예약 발행 작업을 멈춥니다. 서버를 끌 때 쓰려고 만들었으나 현재 호출하는 곳이 없습니다.
 export function stopAcademyPublishScheduler() {
   if (!schedulerTimer) return;
   clearInterval(schedulerTimer);

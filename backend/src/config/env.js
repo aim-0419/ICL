@@ -1,3 +1,15 @@
+/**
+ * [환경 설정 모음]
+ *
+ * 서버가 켜질 때 필요한 설정값(데이터베이스 주소, 외부 서비스 열쇠 등)을
+ * 한곳에 모아 정리하고, 값이 올바른지 검사합니다.
+ *
+ * 여기서 가장 중요한 일은 **개발 환경이 운영 데이터베이스에 붙지 못하게 막는 것**입니다.
+ * 지금 환경과 연결하려는 데이터베이스의 짝이 맞지 않으면 서버가 아예 켜지지 않습니다.
+ *
+ * 문자·카카오·푸시·결제 같은 외부 발송을 실제로 할지 여부도 여기서 결정하며,
+ * 기본값은 모두 '보내지 않음'입니다.
+ */
 import dotenv from "dotenv";
 import fs from "node:fs";
 import path from "node:path";
@@ -182,6 +194,7 @@ export const env = {
   fcmPrivateKey: String(process.env.FCM_PRIVATE_KEY ?? "").replace(/\\n/g, "\n"),
 };
 
+// [현재 미사용] 환경 설정이 올바른지 검사합니다. 현재 호출하는 곳이 없습니다.
 export function validateRuntimeEnvironment({ requireSafeDbMode = true } = {}) {
   const errors = [];
   const expectedDatabaseName = EXPECTED_DATABASES[env.appEnvironment];

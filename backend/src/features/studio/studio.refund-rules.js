@@ -1,3 +1,9 @@
+/**
+ * [수강권 환불 규칙]
+ *
+ * 환불 요청 내용이 올바른지 검사하고 저장할 수 있는 형태로 정리합니다.
+ * 환불 사유가 없거나 금액이 음수이면 받아들이지 않습니다.
+ */
 function createRuleError(message, status = 400) {
   const error = new Error(message);
   error.status = status;

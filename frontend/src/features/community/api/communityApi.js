@@ -1,3 +1,9 @@
+/**
+ * [커뮤니티 서버 통신 담당]
+ *
+ * 이벤트, 후기, 문의 같은 커뮤니티 화면이 서버와 주고받는 요청을 모아 둔 파일입니다.
+ * 글에 첨부하는 사진과 영상을 서버에 올리는 일도 여기서 처리합니다.
+ */
 import { API_BASE_URL, resolveApiAssetUrl } from "../../../shared/api/client.js";
 
 export function resolveCommunityMediaUrl(path) {

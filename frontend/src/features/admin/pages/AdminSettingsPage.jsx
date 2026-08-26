@@ -1,4 +1,10 @@
-﻿import React, { useState } from "react";
+﻿/**
+ * [관리자 - 설정 첫 화면]
+ *
+ * 여러 설정 화면으로 들어가는 입구입니다.
+ * 설정 항목을 분류해 보여 주고, 검색해서 바로 찾아갈 수도 있습니다.
+ */
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";

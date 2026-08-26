@@ -1,4 +1,9 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+﻿/**
+ * [관리자 - 수강권 관리 화면]
+ *
+ * 회원의 수강권을 발급하고, 정지하거나 양도하고, 환불 요청을 처리하는 화면입니다.
+ */
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";

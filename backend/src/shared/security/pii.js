@@ -1,3 +1,15 @@
+/**
+ * [개인정보 암호화 담당]
+ *
+ * 이름, 이메일, 전화번호처럼 민감한 개인정보를 암호화해서 저장하고,
+ * 필요할 때 다시 풀어서 사용합니다.
+ *
+ * 암호화된 값은 그대로는 검색할 수 없기 때문에,
+ * 검색에 쓸 수 있는 별도의 대조용 값도 함께 만듭니다.
+ *
+ * 암호화 열쇠를 바꾼 경우 예전 열쇠로 저장된 값도 읽을 수 있게 하고,
+ * 새 열쇠로 다시 저장해야 하는지 알려 줍니다.
+ */
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
 import { env } from "../../config/env.js";
 
@@ -159,6 +171,7 @@ export function normalizeBirthYear(value) {
 }
 
 // 함수 역할: 복호화 없이 중복 확인과 조회가 가능하도록 개인정보 검색용 HMAC 해시를 만듭니다.
+// [현재 미사용] 개인정보를 검색용 해시로 바꿉니다. 현재 호출하는 곳이 없습니다.
 export function hashPii(value, namespace = "default") {
   const normalized = String(value || "").trim();
   if (!normalized) return null;

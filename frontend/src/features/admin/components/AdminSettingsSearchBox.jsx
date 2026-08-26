@@ -1,3 +1,9 @@
+/**
+ * [관리자 설정 검색창]
+ *
+ * 설정 항목이 많아 어디에 있는지 찾기 어려울 때 쓰는 검색창입니다.
+ * "룸", "권한" 같은 말을 입력하면 해당 설정 화면으로 바로 이동합니다.
+ */
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 

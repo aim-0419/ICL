@@ -1,3 +1,13 @@
+/**
+ * [앱 푸시 발송기]
+ *
+ * 구글의 앱 알림 서비스(FCM)에 실제로 푸시 알림을 보내는 코드입니다.
+ *
+ * 앱을 지운 기기나 더 이상 쓰지 않는 기기는 발송이 실패하는데,
+ * 그런 경우를 구분해서 해당 기기 등록을 정리할 수 있게 알려 줍니다.
+ *
+ * 발송에 필요한 열쇠 값이 설정되어 있지 않으면 실제로 보내지 않습니다.
+ */
 import { createSign } from "node:crypto";
 import { env } from "../../config/env.js";
 
@@ -61,6 +71,7 @@ async function getGoogleAccessToken() {
   return cachedAccessToken;
 }
 
+// [현재 미사용] 앱 푸시 설정이 갖춰졌는지 알려줍니다. 지금은 sms.routes.js 가 같은 판정을 직접 하고 있어 호출되지 않습니다.
 export function getFcmConfigurationStatus() {
   return {
     configured: isConfigured(),

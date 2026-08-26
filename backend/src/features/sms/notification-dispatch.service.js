@@ -1,3 +1,16 @@
+/**
+ * [알림 처리기]
+ *
+ * 만들어진 알림을 실제로 보내기까지의 과정을 관리합니다.
+ *
+ * - 회원 기기를 알림 받을 기기로 등록하거나 해제합니다.
+ * - 보낼 알림을 대기열에 넣습니다.
+ * - 보낼 때가 된 알림을 꺼내 발송하고, 실패하면 잠시 뒤 다시 시도합니다.
+ * - 탈퇴했거나 알림을 끈 회원은 실패가 아니라 '제외'로 처리합니다.
+ *
+ * 현재 실제로 처리하는 것은 **앱 푸시뿐**입니다.
+ * 문자와 카카오 알림톡은 대기열에 쌓이지만 아직 꺼내 보내는 연결이 없습니다.
+ */
 import { randomUUID } from "node:crypto";
 import { query, queryOne, withTransaction } from "../../shared/db/mysql.js";
 import { sendFcmPush } from "./fcm.service.js";
@@ -13,6 +26,7 @@ import {
 } from "./notification-rules.js";
 
 // 워커가 한 번에 처리하는 최대 건수입니다. 한 번의 tick이 과도하게 길어지지 않도록 제한합니다.
+// [현재 미사용] 한 번에 처리할 발송 건수 상한입니다. 이 파일 안에서만 쓰입니다.
 export const DISPATCH_BATCH_LIMIT = 25;
 // processing 상태로 남은 채 프로세스가 종료되면 이 시간 뒤에 다시 처리 대상으로 되돌립니다.
 const STALE_PROCESSING_MINUTES = 10;

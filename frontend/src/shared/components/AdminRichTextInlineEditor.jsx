@@ -1,3 +1,9 @@
+/**
+ * [관리자용 글 편집기]
+ *
+ * 관리자가 홈페이지 글을 화면에서 바로 고칠 수 있게 해 주는 편집기입니다.
+ * 굵게, 색상, 정렬 같은 서식을 지원합니다.
+ */
 import React from "react";
 import { Extension } from "@tiptap/core";
 import { Color } from "@tiptap/extension-color";

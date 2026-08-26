@@ -1,4 +1,10 @@
-﻿import React, { useEffect, useState } from "react";
+﻿/**
+ * [관리자 - 운영 정책 설정]
+ *
+ * 예약을 언제까지 받을지, 취소는 몇 시간 전까지 가능한지 같은
+ * 운영 규칙과 휴무일을 정하는 화면입니다.
+ */
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getAdminStudioSettings, saveAdminBookingPolicy } from "../../studio/api/studioApi.js";

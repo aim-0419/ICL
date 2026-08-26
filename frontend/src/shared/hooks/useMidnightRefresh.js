@@ -1,3 +1,9 @@
+/**
+ * [자정에 화면 새로 고치기]
+ *
+ * 날짜가 바뀌는 자정에 화면 내용을 다시 불러옵니다.
+ * 브라우저를 켜 둔 채 날짜가 넘어가도 '오늘 수업'이 어제 것으로 남지 않게 합니다.
+ */
 import { useEffect, useState } from "react";
 
 function getDateKey() {

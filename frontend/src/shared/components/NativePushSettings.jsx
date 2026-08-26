@@ -1,3 +1,9 @@
+/**
+ * [앱 알림 설정]
+ *
+ * 마이페이지에서 앱 알림을 받을지 말지 켜고 끄는 부분입니다.
+ * 켜면 이 기기를 알림 받을 기기로 서버에 등록하고, 끄면 등록을 해제합니다.
+ */
 import React, { useCallback, useEffect, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { isNativeApp } from "../platform/runtime.js";

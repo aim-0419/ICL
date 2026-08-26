@@ -1,3 +1,13 @@
+/**
+ * [비밀번호 보관 담당]
+ *
+ * 비밀번호를 원래 글자 그대로 저장하지 않고,
+ * 되돌릴 수 없는 형태로 바꿔서 저장합니다.
+ * 데이터베이스가 유출되더라도 비밀번호를 알아낼 수 없게 하기 위해서입니다.
+ *
+ * 로그인할 때는 입력한 비밀번호를 같은 방식으로 바꿔 저장된 값과 비교합니다.
+ * 비교할 때 걸리는 시간이 항상 같도록 처리해, 시간 차이로 정답을 유추하는 공격을 막습니다.
+ */
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 

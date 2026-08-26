@@ -1,4 +1,10 @@
-﻿import React, { useEffect, useState } from "react";
+﻿/**
+ * [관리자 - 룸(강의실) 설정]
+ *
+ * 리포머룸, 바렐룸처럼 수업이 열리는 공간을 만들고 관리하는 화면입니다.
+ * 룸 기능 자체를 쓸지 말지도 여기서 켜고 끕니다.
+ */
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getAdminRoomSettings, saveAdminRoomEnabled, createAdminRoom, updateAdminRoom, deleteAdminRoom } from "../../studio/api/studioApi.js";

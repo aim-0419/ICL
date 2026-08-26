@@ -3,14 +3,19 @@ import { createHash } from "node:crypto";
 
 export const MAX_DELIVERY_ATTEMPTS = 3;
 // 1차 실패 후 1분, 2차 실패 후 5분. 3차 실패는 재시도하지 않습니다.
+// [현재 미사용] 발송 실패 후 다시 시도하기까지의 대기 시간입니다. 이 파일 안에서만 쓰입니다.
 export const RETRY_DELAY_MINUTES = [1, 5];
 
+// [현재 미사용] 야간 발송 제한이 시작되는 시각입니다. 이 파일 안에서만 쓰입니다.
 export const QUIET_HOURS_START = 21;
+// [현재 미사용] 야간 발송 제한이 끝나는 시각입니다. 이 파일 안에서만 쓰입니다.
 export const QUIET_HOURS_END = 8;
+// [현재 미사용] 야간에 미뤄둔 알림을 다시 보내기 시작하는 시각입니다. 이 파일 안에서만 쓰입니다.
 export const QUIET_HOURS_RESUME = 9;
 const SEOUL_TIME_ZONE = "Asia/Seoul";
 
 // 예약 확정·수업 취소·수업 임박 알림은 시간이 지나면 의미가 사라지므로 야간에도 즉시 보냅니다.
+// [현재 미사용] 야간에도 보내야 하는 긴급 알림 종류입니다. 이 파일 안에서만 쓰입니다.
 export const URGENT_TEMPLATE_IDS = new Set(["class_waitlist", "class_cancelled", "class_reminder"]);
 
 const PERMANENT_ERROR_CODES = new Set([

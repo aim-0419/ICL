@@ -1,3 +1,10 @@
+/**
+ * [스튜디오 서버 통신 담당]
+ *
+ * 필라테스 스튜디오 관련 화면이 서버와 주고받는 요청을 한곳에 모아 둔 파일입니다.
+ * 수업 조회와 예약, 수강권, 회원 관리, 매출, 각종 설정까지
+ * 스튜디오 기능 전반의 통신이 여기를 거칩니다.
+ */
 import { apiRequest, API_BASE_URL } from "../../../shared/api/client.js";
 
 export async function listStudioClasses(params = {}) {
@@ -126,6 +133,7 @@ export async function resolveStudioArrears(arrearsId) {
   return apiRequest(`/studio/admin/arrears/${encodeURIComponent(String(arrearsId))}/resolve`, { method: "PATCH" });
 }
 
+// [현재 미사용] 회원 한 명의 미수금 목록을 불러옵니다. 현재 화면에서 호출하지 않습니다.
 export async function listStudioArrearsByUser(userId) {
   const result = await apiRequest(`/studio/admin/users/${encodeURIComponent(String(userId))}/arrears`);
   return Array.isArray(result?.arrears) ? result.arrears : [];
@@ -156,6 +164,7 @@ export async function updateAdminPassStatus(passId, status) {
   });
 }
 
+// [현재 미사용] 회원 요약 목록을 불러옵니다. 현재 화면에서 호출하지 않습니다.
 export async function listAdminStudioMemberSummaries() {
   const result = await apiRequest("/studio/admin/member-summaries");
   return Array.isArray(result?.members) ? result.members : [];
@@ -221,6 +230,7 @@ export async function endStudioLockerAssignment(assignmentId) {
   return apiRequest(`/studio/admin/locker-assignments/${encodeURIComponent(String(assignmentId))}/end`, { method: "PATCH" });
 }
 
+// [현재 미사용] 관리자가 알림을 직접 만듭니다. 현재 화면에서 호출하지 않습니다.
 export async function createStudioNotification(payload) {
   return apiRequest("/studio/admin/notifications", { method: "POST", body: payload });
 }
@@ -243,6 +253,7 @@ export async function listAdminInstructorHours() {
   return Array.isArray(result?.items) ? result.items : [];
 }
 
+// [현재 미사용] 강사 근무시간을 저장합니다. 현재 화면에서 호출하지 않습니다.
 export async function saveAdminInstructorHours(items) {
   return apiRequest("/studio/admin/instructor-hours", { method: "PUT", body: { items } });
 }
@@ -324,11 +335,13 @@ export async function deleteAdminGoods(goodsId) {
   return apiRequest(`/admin/goods/${encodeURIComponent(String(goodsId))}`, { method: "DELETE" });
 }
 
+// [현재 미사용] 직원 근무시간을 불러옵니다. 현재 화면에서 호출하지 않습니다.
 export async function getAdminStaffWorkHours(staffId) {
   const result = await apiRequest(`/admin/studio-staff/${encodeURIComponent(String(staffId))}/work-hours`);
   return Array.isArray(result?.hours) ? result.hours : [];
 }
 
+// [현재 미사용] 직원 근무시간을 저장합니다. 현재 화면에서 호출하지 않습니다.
 export async function saveAdminStaffWorkHours(staffId, hours) {
   const result = await apiRequest(`/admin/studio-staff/${encodeURIComponent(String(staffId))}/work-hours`, {
     method: "PUT",
@@ -602,6 +615,7 @@ export async function createAdminMessageTemplate(payload) {
   return result?.template || result;
 }
 
+// [현재 미사용] 메시지 템플릿을 수정합니다. 현재 화면에서 호출하지 않습니다.
 export async function updateAdminMessageTemplate(templateId, payload) {
   const result = await apiRequest(`/studio/admin/message-templates/${encodeURIComponent(String(templateId))}`, {
     method: "PUT",

@@ -63,6 +63,7 @@ export function formatYmd(value) {
  * @param {string|Date} value - 변환할 날짜·시간 값
  * @returns {string} YYYY-MM-DD HH:MM 형식 문자열
  */
+// [현재 미사용] 날짜와 시간을 짧게 표기합니다. 현재 사용하는 화면이 없습니다.
 export function formatDateTimeCompact(value) {
   if (!value) return "-";
   const date = new Date(String(value).replace(" ", "T"));
@@ -93,6 +94,7 @@ export function formatCurrency(value) {
  * @param {number} amount - 변환할 금액
  * @returns {string} 한국 원화 형식 문자열
  */
+// [현재 미사용] 금액을 원화 표기로 바꿉니다. 현재 사용하는 화면이 없습니다.
 export function formatCurrencyKRW(amount) {
   return new Intl.NumberFormat("ko-KR", {
     style: "currency",

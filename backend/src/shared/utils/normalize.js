@@ -1,3 +1,10 @@
+/**
+ * [입력값 다듬기 도구]
+ *
+ * 화면에서 넘어온 값을 저장하기 좋은 형태로 정리합니다.
+ * 금액을 안전한 숫자로 바꾸고, 출생연도를 확인하고,
+ * 출생연도로 연령대를 구하는 등의 일을 합니다.
+ */
 export function toSafeAmount(value) {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : 0;

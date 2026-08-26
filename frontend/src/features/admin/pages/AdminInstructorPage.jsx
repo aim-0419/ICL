@@ -1,4 +1,10 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+﻿/**
+ * [관리자 - 강사 관리 화면]
+ *
+ * 강사 정보를 등록하고 수정하는 화면입니다.
+ * 담당 역할과 근무 조건을 함께 관리합니다.
+ */
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";

@@ -1,3 +1,9 @@
+/**
+ * [매출 추이 그래프]
+ *
+ * 기간별 매출이 오르내린 흐름을 선 그래프로 그려 보여 줍니다.
+ * 관리자 매출 화면에서 사용합니다.
+ */
 import React from "react";
 import "./SalesTrendChart.css";
 

@@ -1,4 +1,20 @@
-// 파일 역할: 외부 문자 발송사(알리고) API 호출과 테스트 모드 발송 결과 생성을 담당합니다.
+/**
+ * [문자·알림톡 발송기]
+ *
+ * 외부 문자 발송 업체(알리고)에 실제로 문자와 카카오 알림톡을 보내는 코드입니다.
+ * 테스트 모드에서는 실제로 보내지 않고 보낸 척한 결과만 만들어 돌려줍니다.
+ *
+ * ⚠ 현재 이 파일을 사용하는 곳이 없습니다.
+ *
+ *   관리자 화면에서 "문자 발송"을 누르면 `sms.routes.js`가 발송 대기열(DB)에 저장만 하고,
+ *   그 대기열을 꺼내서 이 파일의 함수로 실제 발송하는 연결이 아직 없습니다.
+ *   자동 알림 처리기(`notification-dispatch.service.js`)도 앱 푸시만 처리하고
+ *   문자·알림톡 대기열은 처리하지 않습니다.
+ *
+ *   즉 지금은 문자와 알림톡이 "쌓이기만 하고 나가지 않는" 상태입니다.
+ *   실제 발송을 켜려면 대기열을 처리하는 연결과 알리고 계정 설정이 함께 필요합니다.
+ *   쓰이지 않는다고 이 파일을 지우면 유일한 발송 구현이 사라지므로 남겨 둡니다.
+ */
 import { env } from "../../config/env.js";
 
 const ALIGO_SMS_URL = "https://apis.aligo.in/send/";
@@ -19,6 +35,7 @@ function cleanPhone(phone) {
  * receivers: [{ phone, name }]
  * 90바이트 이하 → SMS, 초과 → LMS 자동 전환
  */
+// [현재 미사용] 문자(SMS/LMS)를 실제로 보냅니다. 위 설명대로 현재 호출하는 곳이 없습니다.
 export async function sendSmsAligo({ receivers, message, title = "" }) {
   if (!env.aligoApiKey || !env.aligoUserId || !env.aligoSender) {
     throw new Error(
@@ -73,6 +90,7 @@ export async function sendSmsAligo({ receivers, message, title = "" }) {
  * receivers: [{ phone, name }]
  * templateCode: 알리고에 등록한 템플릿 코드 (예: TM_001)
  */
+// [현재 미사용] 카카오 알림톡을 실제로 보냅니다. 위 설명대로 현재 호출하는 곳이 없습니다.
 export async function sendKakaoAlimtok({ receivers, message, title = "", templateCode = "" }) {
   if (!env.kakaoSenderKey || !env.aligoApiKey || !env.aligoUserId) {
     throw new Error(

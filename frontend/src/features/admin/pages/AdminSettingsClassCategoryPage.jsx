@@ -1,4 +1,9 @@
-﻿import React, { useEffect, useState } from "react";
+﻿/**
+ * [관리자 - 수업 구분 설정]
+ *
+ * 프라이빗, 그룹, 상담처럼 수업 종류를 만들고 관리하는 화면입니다.
+ */
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { listAdminClassCategories, createAdminClassCategory, updateAdminClassCategory, deleteAdminClassCategory } from "../../studio/api/studioApi.js";

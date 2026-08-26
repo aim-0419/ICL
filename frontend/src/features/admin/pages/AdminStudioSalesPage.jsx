@@ -1,3 +1,9 @@
+/**
+ * [관리자 - 스튜디오 매출 화면]
+ *
+ * 스튜디오 매출과 지출을 기간별로 확인하는 화면입니다.
+ * 민감한 금액 정보라 별도 비밀번호를 확인한 뒤에 열립니다.
+ */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";

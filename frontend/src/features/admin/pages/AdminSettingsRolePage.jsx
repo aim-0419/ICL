@@ -1,4 +1,10 @@
-﻿import React, { useEffect, useState } from "react";
+﻿/**
+ * [관리자 - 역할 설정]
+ *
+ * '매니저', '강사'처럼 직원 역할을 만들고 관리하는 화면입니다.
+ * 역할 기능 자체를 쓸지 말지도 여기서 켜고 끕니다.
+ */
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getAdminRoleSettings, saveAdminRoleEnabled, createAdminRole, updateAdminRole, deleteAdminRole } from "../../studio/api/studioApi.js";

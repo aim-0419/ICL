@@ -1,3 +1,9 @@
+/**
+ * [앱에서 구매 대신 보여 주는 안내 화면]
+ *
+ * 앱에서는 교육영상을 새로 구매할 수 없고 이미 산 영상만 볼 수 있습니다.
+ * 그래서 장바구니나 결제 화면으로 들어오면 이 안내 화면을 대신 보여 줍니다.
+ */
 import React from "react";
 import { BookOpenCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";

@@ -43,6 +43,7 @@ export function getRefundStatusClass(status) {
  * @param {string} status - 상태 코드
  * @returns {string} 한글 상태 이름
  */
+// [현재 미사용] 수강권 환불 상태를 한글로 바꿉니다. 현재 사용하는 화면이 없습니다.
 export function getPassRefundStatusLabel(status) {
   const map = { requested: "검토 중", approved: "환불 완료", rejected: "거절됨" };
   return map[status] || status || "-";
@@ -58,6 +59,7 @@ export function getPassRefundStatusLabel(status) {
  * @param {string} status - 상태 코드
  * @returns {string} 한글 상태 이름
  */
+// [현재 미사용] 예약 상태를 한글로 바꿉니다. 현재 사용하는 화면이 없습니다.
 export function getBookingStatusLabel(status) {
   const map = { reserved: "예약 완료", waitlisted: "대기 중", cancelled: "취소됨" };
   return map[status] || status || "-";
@@ -74,6 +76,7 @@ export function getBookingStatusLabel(status) {
  * @param {string} status - 상태 코드
  * @returns {string} 한글 상태 이름
  */
+// [현재 미사용] 결제 상태를 한글로 바꿉니다. 현재 사용하는 화면이 없습니다.
 export function getPaymentStatusLabel(status) {
   const map = {
     paid: "결제 완료",

@@ -1,3 +1,9 @@
+/**
+ * [관리자 - 수업 목록 화면]
+ *
+ * 스튜디오에 등록된 수업을 한눈에 보고 관리하는 화면입니다.
+ * 수업을 새로 만들거나, 시간과 강사를 바꾸거나, 취소할 수 있습니다.
+ */
 import React, { useEffect, useMemo, useState } from "react";
 import { AdminLayout } from "../components/AdminLayout.jsx";
 import { getUserDisplayName } from "../../../shared/auth/userDisplay.js";

@@ -1,3 +1,9 @@
+/**
+ * [관리자 왼쪽 메뉴]
+ *
+ * 관리자 화면 왼쪽에 세로로 붙어 있는 메뉴입니다.
+ * 수업, 회원, 매출, 설정 같은 큰 분류를 눌러 이동합니다.
+ */
 import React, { useMemo } from "react";
 import {
   CalendarDays,

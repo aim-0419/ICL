@@ -1,3 +1,12 @@
+/**
+ * [수업과 수강권 규칙]
+ *
+ * 수업을 만들거나 예약할 때 지켜야 할 규칙을 모아 둔 곳입니다.
+ *
+ * - 입력한 수업 정보가 올바른지 검사합니다(끝나는 시간이 시작보다 빠르면 거부하는 등).
+ * - 정원이 남았으면 '예약 완료', 정원이 찼고 대기 자리가 있으면 '대기'로 정합니다.
+ * - 개인·듀엣·그룹 수업에 맞는 수강권인지 확인합니다.
+ */
 const VALID_CLASS_TYPES = new Set(["private", "group", "consulting", "etc"]);
 const VALID_BRANCH_IDS = new Set(["branch-1", "branch-2"]);
 const VALID_ISSUED_PASS_TYPES = new Set(["personal", "duet", "group"]);

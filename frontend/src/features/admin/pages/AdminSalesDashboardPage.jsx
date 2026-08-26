@@ -408,7 +408,7 @@ function AdminSalesVideoGiftPanel({ store }) {
                       <label key={video.id} className={`video-gift-item ${isSelected ? "is-selected" : ""}`}>
                         <input type="checkbox" checked={isSelected} onChange={() => toggleVideo(String(video.id))} />
                         {video.image ? (
-                          <img className="video-gift-thumb" src={resolveAcademyMediaUrl(video.image)} alt={video.title} />
+                          <img loading="lazy" decoding="async" className="video-gift-thumb" src={resolveAcademyMediaUrl(video.image)} alt={video.title} />
                         ) : (
                           <div className="video-gift-thumb video-gift-thumb-empty" />
                         )}
@@ -1739,11 +1739,11 @@ function AdminSalesBoardPanel() {
                 <>
                   {/* 이벤트 이미지 */}
                   {tab === "events" && drawer.details?.image && (
-                    <img className="adm-drawer-img" src={drawer.details.image} alt="" />
+                    <img loading="lazy" decoding="async" className="adm-drawer-img" src={drawer.details.image} alt="" />
                   )}
                   {/* 후기 이미지 */}
                   {tab === "reviews" && drawer.details?.imageUrl && (
-                    <img className="adm-drawer-img" src={drawer.details.imageUrl} alt="" />
+                    <img loading="lazy" decoding="async" className="adm-drawer-img" src={drawer.details.imageUrl} alt="" />
                   )}
 
                   {/* 본문 텍스트 */}

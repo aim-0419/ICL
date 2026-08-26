@@ -66,7 +66,7 @@ function AcademyMediaPreview({ source, title, loading }) {
   }
 
   return (
-    <img
+    <img loading="lazy" decoding="async"
       src={imageSource}
       alt={title}
       loading={loading}

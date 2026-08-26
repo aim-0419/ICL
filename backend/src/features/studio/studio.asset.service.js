@@ -1,8 +1,17 @@
+/**
+ * [스튜디오 공지 이미지 저장 담당]
+ *
+ * 스튜디오 공지사항에 넣는 이미지를 서버에 저장합니다.
+ *
+ * 파일 내용을 직접 열어 실제 형식이 맞는지 확인하고 용량 제한을 검사한 뒤,
+ * 화면에 맞는 크기로 줄이고 용량이 작은 형식으로 바꿔 저장합니다.
+ */
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { env } from "../../config/env.js";
+import { optimizeImageBuffer } from "../../shared/media/image-optimizer.js";
 
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const MIME_TO_EXTENSION = {
@@ -85,7 +94,11 @@ export async function uploadNoticeImage(buffer, fileName, mimeType) {
   }
 
   await mkdir(NOTICE_UPLOAD_ROOT, { recursive: true });
-  const savedName = `${Date.now()}-${randomUUID()}${extension}`;
+
+  // 용량 제한과 형식 검증은 위에서 원본 기준으로 끝냈습니다. 그 뒤에만 변환합니다.
+  const stored = await optimizeImageBuffer(buffer, extension);
+
+  const savedName = `${Date.now()}-${randomUUID()}${stored.extension}`;
   const targetPath = path.resolve(NOTICE_UPLOAD_ROOT, savedName);
 
   const relativeFromRoot = path.relative(NOTICE_UPLOAD_ROOT, targetPath);
@@ -93,6 +106,6 @@ export async function uploadNoticeImage(buffer, fileName, mimeType) {
     throw createUploadError("업로드 경로가 올바르지 않습니다.", 400);
   }
 
-  await writeFile(targetPath, buffer);
+  await writeFile(targetPath, stored.buffer);
   return `/uploads/notices/${savedName}`;
 }

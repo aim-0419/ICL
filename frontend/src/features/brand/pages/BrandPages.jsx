@@ -125,8 +125,10 @@ export function BrandIntroPage() {
         <section className="intro-v2-hero">
           <img
             className="intro-v2-hero-img"
-            src="/assets/images/intro/intro-main.png"
+            src="/assets/images/intro/intro-main.webp"
             alt="수업 소개 메인 이미지"
+            decoding="async"
+            fetchpriority="high"
           />
           <div className="intro-v2-hero-copy">
             <h1>
@@ -288,7 +290,7 @@ export function BrandIntroPage() {
 
         {/* CTA */}
         <section className="intro-v2-cta-section">
-          <img src="/assets/images/이끌림로고.png" alt="ICL Pilates" className="intro-v2-cta-logo" />
+          <img loading="lazy" decoding="async" src="/assets/images/이끌림로고.png" alt="ICL Pilates" className="intro-v2-cta-logo" />
           <div className="intro-v2-cta-copy">
             <h2>수업이 궁금하신가요?</h2>
             <p>상담을 통해 나에게 맞는 수업을 찾아보세요.</p>

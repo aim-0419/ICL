@@ -1,8 +1,22 @@
+/**
+ * [교육영상 파일 저장 담당]
+ *
+ * 교육영상과 썸네일 이미지를 서버에 저장하는 일을 맡습니다.
+ *
+ * 안전을 위해 저장 전에 확인하는 것들이 있습니다.
+ * - 허용한 형식(JPG, PNG, MP4 등)이 맞는지 파일 내용을 직접 열어 확인합니다.
+ *   확장자만 바꿔치기한 파일을 걸러 내기 위해서입니다.
+ * - 정해진 최대 용량을 넘지 않는지 확인합니다.
+ * - 이미지는 화면에 맞는 크기로 줄이고 용량이 작은 형식으로 바꿔 저장합니다.
+ *
+ * 큰 영상 파일은 통째로 메모리에 올리지 않고 조금씩 나눠 받아 저장합니다.
+ */
 import { mkdir, open, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { env } from "../../../config/env.js";
+import { optimizeImageBuffer } from "../../../shared/media/image-optimizer.js";
 
 const FILE_EXTENSIONS = {
   image: new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]),
@@ -20,6 +34,7 @@ const MIME_TO_EXTENSION = {
   "video/x-m4v": ".m4v",
 };
 
+// [현재 미사용] 교육영상 이미지 업로드 최대 용량입니다. 이 파일 안에서만 쓰입니다.
 export const ACADEMY_IMAGE_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
 export const ACADEMY_VIDEO_UPLOAD_MAX_BYTES = 5 * 1024 * 1024 * 1024;
 
@@ -199,23 +214,39 @@ export async function saveAcademyAsset({
 
   const safeVideoId = String(videoId || "").replace(/[^a-zA-Z0-9-_]/g, "").slice(0, 80);
   const safeOrder = String(chapterOrder || "").replace(/\D/g, "").slice(0, 4);
+  // 이 파일은 기록 후에 형식을 검증하지만, 변환은 검증된 원본에만 적용해야 합니다.
+  // 그래서 이미지 buffer 경로에서는 용량과 매직 바이트를 먼저 원본 기준으로 확인합니다.
+  let storedExtension = extension;
+  let storedBuffer = buffer;
+  if (kind === "image" && Buffer.isBuffer(buffer) && buffer.length > 0) {
+    if (buffer.length > maxBytes) {
+      throw createHttpError(`업로드 가능한 최대 용량은 ${formatMaxBytes(maxBytes)}입니다.`, 413);
+    }
+    if (!validateMagicBytes(buffer.subarray(0, HEADER_BYTES_TO_VALIDATE), extension)) {
+      throw createHttpError("파일 형식이 올바르지 않습니다.");
+    }
+    const optimized = await optimizeImageBuffer(buffer, extension);
+    storedBuffer = optimized.buffer;
+    storedExtension = optimized.extension;
+  }
+
   const savedName =
     kind === "video" && safeVideoId && safeOrder
-      ? `${safeVideoId}-ch${safeOrder}${extension}`
-      : `${Date.now()}-${randomUUID()}${extension}`;
+      ? `${safeVideoId}-ch${safeOrder}${storedExtension}`
+      : `${Date.now()}-${randomUUID()}${storedExtension}`;
 
   const targetPath = path.resolve(targetDir, savedName);
-  const tempPath = path.resolve(targetDir, `.upload-${Date.now()}-${randomUUID()}${extension}`);
+  const tempPath = path.resolve(targetDir, `.upload-${Date.now()}-${randomUUID()}${storedExtension}`);
   const result = stream
     ? await writeStreamToFile({ stream, targetPath: tempPath, maxBytes, contentLength })
-    : await writeBufferToFile({ buffer, targetPath: tempPath, maxBytes });
+    : await writeBufferToFile({ buffer: storedBuffer, targetPath: tempPath, maxBytes });
 
   if (!result.bytesWritten) {
     await removeFileQuietly(tempPath);
     throw createHttpError("업로드할 파일이 비어 있습니다.");
   }
 
-  if (!validateMagicBytes(result.header, extension)) {
+  if (!validateMagicBytes(result.header, storedExtension)) {
     await removeFileQuietly(tempPath);
     throw createHttpError("파일 형식이 올바르지 않습니다.");
   }

@@ -1,3 +1,12 @@
+/**
+ * [페이지 기본 이미지 목록]
+ *
+ * 관리자가 홈페이지 사진을 아직 바꾸지 않았을 때 대신 보여 줄
+ * 기본 사진들의 위치를 적어 둔 파일입니다.
+ *
+ * 예전에 저장된 사진 주소가 지금 서버에 없더라도 화면이 깨지지 않도록
+ * 기본 사진으로 바꿔 주는 역할도 합니다.
+ */
 import { resolveApiAssetUrl } from "../api/client.js";
 
 const ADMIN_DEFAULT_ASSET_ROOT = "/assets/admin-defaults";
@@ -5,25 +14,25 @@ const ADMIN_DEFAULT_ASSET_ROOT = "/assets/admin-defaults";
 // 예전 DB 값이 업로드 경로를 가리켜도 배포 서버에 기본 이미지가 없어서 깨지지 않도록
 // 페이지 편집기에서 사용하는 기본 이미지 경로로 보정합니다.
 export const DEFAULT_PAGE_IMAGE_OVERRIDES = {
-  "/ikleulrim/intro::director-photo": `${ADMIN_DEFAULT_ASSET_ROOT}/intro/director-photo.jpg`,
+  "/ikleulrim/intro::director-photo": `${ADMIN_DEFAULT_ASSET_ROOT}/intro/director-photo.webp`,
 
-  "/ikleulrim/equipment::equipment-image-equipment-slot-1": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-01.jpg`,
-  "/ikleulrim/equipment::equipment-image-equipment-slot-2": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-02.jpg`,
-  "/ikleulrim/equipment::equipment-image-equipment-slot-3": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-03.jpg`,
-  "/ikleulrim/equipment::equipment-image-equipment-slot-4": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-04.jpg`,
-  "/ikleulrim/equipment::equipment-image-1782196291464": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-05.jpg`,
-  "/ikleulrim/equipment::equipment-image-1782196292616": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-06.jpg`,
-  "/ikleulrim/equipment::equipment-image-1782196293020": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-07.jpg`,
-  "/ikleulrim/equipment::equipment-image-1782196293174": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-08.jpg`,
-  "/ikleulrim/equipment::equipment-image-1782196293582": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-09.jpg`,
-  "/ikleulrim/equipment::equipment-image-1782196295244": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-10.jpg`,
+  "/ikleulrim/equipment::equipment-image-equipment-slot-1": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-01.webp`,
+  "/ikleulrim/equipment::equipment-image-equipment-slot-2": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-02.webp`,
+  "/ikleulrim/equipment::equipment-image-equipment-slot-3": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-03.webp`,
+  "/ikleulrim/equipment::equipment-image-equipment-slot-4": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-04.webp`,
+  "/ikleulrim/equipment::equipment-image-1782196291464": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-05.webp`,
+  "/ikleulrim/equipment::equipment-image-1782196292616": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-06.webp`,
+  "/ikleulrim/equipment::equipment-image-1782196293020": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-07.webp`,
+  "/ikleulrim/equipment::equipment-image-1782196293174": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-08.webp`,
+  "/ikleulrim/equipment::equipment-image-1782196293582": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-09.webp`,
+  "/ikleulrim/equipment::equipment-image-1782196295244": `${ADMIN_DEFAULT_ASSET_ROOT}/equipment/equipment-10.webp`,
 
-  "/ikleulrim/instructors::staff-image-1": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-01.jpg`,
-  "/ikleulrim/instructors::staff-image-2": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-02.jpg`,
-  "/ikleulrim/instructors::staff-image-3": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-03.jpg`,
-  "/ikleulrim/instructors::staff-image-4": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-04.jpg`,
-  "/ikleulrim/instructors::staff-image-5": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-05.jpg`,
-  "/ikleulrim/instructors::staff-image-6": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-06.jpg`,
+  "/ikleulrim/instructors::staff-image-1": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-01.webp`,
+  "/ikleulrim/instructors::staff-image-2": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-02.webp`,
+  "/ikleulrim/instructors::staff-image-3": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-03.webp`,
+  "/ikleulrim/instructors::staff-image-4": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-04.webp`,
+  "/ikleulrim/instructors::staff-image-5": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-05.webp`,
+  "/ikleulrim/instructors::staff-image-6": `${ADMIN_DEFAULT_ASSET_ROOT}/instructors/instructor-06.webp`,
 };
 
 const LEGACY_UPLOAD_ASSET_MAP = {
@@ -48,7 +57,14 @@ const LEGACY_UPLOAD_ASSET_MAP = {
   "/uploads/community/images/1782088730124-3015875c-5f99-459e-8bbb-486489958463.jpg": DEFAULT_PAGE_IMAGE_OVERRIDES["/ikleulrim/instructors::staff-image-6"],
 };
 
+// 기본 이미지는 webp로 교체했습니다. DB에 예전 jpg/png 경로가 저장돼 있어도
+// 화면이 깨지지 않도록 기본 이미지 폴더에 한해 확장자를 webp로 보정합니다.
+function upgradeDefaultAssetExtension(value) {
+  if (!value.startsWith(`${ADMIN_DEFAULT_ASSET_ROOT}/`)) return value;
+  return value.replace(/\.(jpe?g|png)$/i, ".webp");
+}
+
 export function normalizePageOverrideAsset(value) {
   if (typeof value !== "string") return value;
-  return resolveApiAssetUrl(LEGACY_UPLOAD_ASSET_MAP[value] || value);
+  return resolveApiAssetUrl(upgradeDefaultAssetExtension(LEGACY_UPLOAD_ASSET_MAP[value] || value));
 }

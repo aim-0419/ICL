@@ -52,7 +52,7 @@ import {
 } from "../../../shared/utils/format.js";
 
 const CERTIFICATE_TEMPLATE_IMAGE =
-  "/assets/images/home/certificate-template-a4.png";
+  "/assets/images/home/certificate-template-a4.webp";
 
 const MEMBER_CALENDAR_VIEW_OPTIONS = [
   { value: "day", label: "일" },
@@ -1335,7 +1335,7 @@ export function MyPage() {
                         const certificate = certificateByVideoId.get(String(video.id));
                         return (
                           <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card ${isExpired ? "is-expired" : ""}`}>
-                            <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
+                            <img loading="lazy" decoding="async" src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
                             <div className="mypage-video-copy">
                               <p className="mini-kicker">
                                 {isExpired ? "수강 기한 만료" : video.completed ? "수강 완료" : video.progressPercent > 0 ? "이어 학습" : "새 강의"}
@@ -1408,7 +1408,7 @@ export function MyPage() {
                         const certificate = certificateByVideoId.get(String(video.id));
                         return (
                           <article key={video.id} className={`dashboard-card mypage-course-card mypage-video-card mypage-granted-card ${isExpired ? "is-expired" : ""}`}>
-                            <img src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
+                            <img loading="lazy" decoding="async" src={resolveAcademyMediaUrl(video.image)} alt={video.title} className="mypage-video-thumb" />
                             <div className="mypage-video-copy">
                               <p className="mini-kicker mypage-granted-badge">센터 제공</p>
                               <h3>{video.title}</h3>
@@ -2005,7 +2005,7 @@ export function MyPage() {
               <button type="button" className="refund-modal-close" onClick={() => setCertificateModal(null)}>×</button>
             </div>
             <div className="certificate-paper">
-              <img
+              <img loading="lazy" decoding="async"
                 className="certificate-template-image"
                 src={CERTIFICATE_TEMPLATE_IMAGE}
                 alt="이끌림 필라테스 수료증"

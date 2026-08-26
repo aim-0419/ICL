@@ -55,7 +55,7 @@ function AcademyVideoThumbnail({ video }) {
   return (
     <div className="academy-video-thumb">
       {shouldShowImage ? (
-        <img
+        <img loading="lazy" decoding="async"
           src={imageSrc}
           alt={`${title} 썸네일`}
           loading="lazy"

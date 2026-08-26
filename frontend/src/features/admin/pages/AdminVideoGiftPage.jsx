@@ -318,7 +318,7 @@ export function AdminVideoGiftPage() {
                           onChange={() => toggleVideo(String(video.id))}
                         />
                         {video.image ? (
-                          <img
+                          <img loading="lazy" decoding="async"
                             className="video-gift-thumb"
                             src={resolveAcademyMediaUrl(video.image)}
                             alt={video.title}

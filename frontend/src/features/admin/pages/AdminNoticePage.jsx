@@ -1,3 +1,9 @@
+/**
+ * [관리자 - 공지사항 관리 화면]
+ *
+ * 회원에게 보여 줄 공지사항을 쓰고 고치고 지우는 화면입니다.
+ * 공지에 넣을 이미지도 여기서 올립니다.
+ */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "../components/AdminLayout.jsx";
@@ -576,7 +582,7 @@ export function AdminNoticePage() {
                     <div className="admin-notice-photo-preview">
                       {form.images.map((src) => (
                         <div key={src} className="admin-notice-photo-thumb">
-                          <img src={src} alt="첨부" />
+                          <img loading="lazy" decoding="async" src={src} alt="첨부" />
                           <button
                             type="button"
                             className="admin-notice-photo-remove"

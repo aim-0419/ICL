@@ -1,8 +1,17 @@
+/**
+ * [커뮤니티 첨부 파일 저장 담당]
+ *
+ * 이벤트·후기·문의 글에 첨부하는 사진과 영상을 서버에 저장하고 삭제합니다.
+ *
+ * 파일 내용을 직접 열어 실제 형식이 맞는지 확인한 뒤에만 저장하며,
+ * 이미지는 화면에 맞는 크기로 줄이고 용량이 작은 형식으로 바꿔 저장합니다.
+ */
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { env } from "../../config/env.js";
+import { optimizeImageBuffer } from "../../shared/media/image-optimizer.js";
 
 const FILE_EXTENSIONS = {
   image: new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]),
@@ -120,9 +129,16 @@ export async function saveCommunityAsset({ kind, fileName, mimeType, buffer }) {
   const targetDir = path.resolve(UPLOAD_ROOT, subDir);
   await mkdir(targetDir, { recursive: true });
 
-  const savedName = `${Date.now()}-${randomUUID()}${extension}`;
+  // 형식 검증을 원본에 마친 뒤에 최적화합니다.
+  // 검증 전에 변환하면 매직 바이트 검사가 무의미해집니다.
+  const stored =
+    kind === "image"
+      ? await optimizeImageBuffer(buffer, extension)
+      : { buffer, extension, optimized: false };
+
+  const savedName = `${Date.now()}-${randomUUID()}${stored.extension}`;
   const targetPath = path.resolve(targetDir, savedName);
-  await writeFile(targetPath, buffer);
+  await writeFile(targetPath, stored.buffer);
 
   return `/uploads/community/${subDir}/${savedName}`;
 }

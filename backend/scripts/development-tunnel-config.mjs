@@ -26,7 +26,9 @@ function normalizePort(value, fallback) {
 
 // 함수 역할: 터널 설정값을 정규화하고 개발 환경 조건을 모두 만족하는지 검사합니다.
 // api 모드는 프론트엔드 작업용으로 개발 EC2의 백엔드 4001을 로컬 4001로 당겨옵니다.
-// db 모드는 백엔드를 로컬에서 실행할 때 개발 RDS 3306을 로컬 13306으로 당겨옵니다.
+// db 모드는 백엔드를 로컬에서 실행할 때 개발 RDS 3306을 로컬 13307로 당겨옵니다.
+// 로컬 포트를 고정하는 것은 운영으로 향하는 터널을 막기 위한 안전장치입니다.
+// 13306 은 다른 프로그램이 쓰는 경우가 많아 13307 을 사용합니다.
 // 하나라도 어긋나면 세션을 열지 않고 이유를 모아서 예외로 던집니다.
 export function resolveDevelopmentTunnelConfig(environment, mode) {
   const normalizedMode = String(mode || "").trim().toLowerCase();
@@ -42,7 +44,7 @@ export function resolveDevelopmentTunnelConfig(environment, mode) {
     instanceId: String(environment.ICL_DEV_INSTANCE_ID || "").trim().toLowerCase(),
     apiLocalPort: normalizePort(environment.ICL_DEV_API_LOCAL_PORT, 4001),
     apiRemotePort: normalizePort(environment.ICL_DEV_API_REMOTE_PORT, 4001),
-    dbLocalPort: normalizePort(environment.ICL_DEV_DB_LOCAL_PORT, 13306),
+    dbLocalPort: normalizePort(environment.ICL_DEV_DB_LOCAL_PORT, 13307),
     dbRemoteHost: String(environment.ICL_DEV_DB_REMOTE_HOST || "").trim(),
     dbRemotePort: normalizePort(environment.ICL_DEV_DB_REMOTE_PORT, 3306),
   };
@@ -55,8 +57,8 @@ export function resolveDevelopmentTunnelConfig(environment, mode) {
   if (config.apiLocalPort !== 4001 || config.apiRemotePort !== 4001) {
     errors.push("development API tunnel must use port 4001");
   }
-  if (config.dbLocalPort !== 13306 || config.dbRemotePort !== 3306) {
-    errors.push("development DB tunnel must map local 13306 to remote 3306");
+  if (config.dbLocalPort !== 13307 || config.dbRemotePort !== 3306) {
+    errors.push("development DB tunnel must map local 13307 to remote 3306");
   }
   // db 모드에서만 RDS로 나가므로, RDS endpoint 검사도 db 모드에서만 의미가 있습니다.
   // 다만 설정 파일 자체가 잘못된 것을 일찍 알리기 위해 모드와 무관하게 검사합니다.

@@ -64,7 +64,7 @@ npm run db:check:dev:isolation
 npm run dev
 ```
 
-로컬 백엔드의 `DB_PORT`는 `13306`이며 SSM 포트포워딩이 AWS 개발 RDS `3306`으로 전달한다. EC2에서 실행하는 개발 백엔드는 서버 전용 `.env.development`로 RDS에 직접 연결하므로 `3306`을 사용한다.
+로컬 백엔드의 `DB_PORT`는 `13307`이며 SSM 포트포워딩이 AWS 개발 RDS `3306`으로 전달한다. 예전에는 `13306`을 썼으나 다른 프로그램이 그 포트를 점유하는 경우가 있어 옮겼다. **각 컴퓨터의 `backend/.env.development`와 `backend/.env.development.tunnel`은 Git에 올라가지 않으므로, 이미 설정해 둔 컴퓨터에서는 두 파일의 포트를 직접 `13307`로 고쳐야 한다.** EC2에서 실행하는 개발 백엔드는 서버 전용 `.env.development`로 RDS에 직접 연결하므로 `3306`을 사용한다.
 
 격리된 로컬 DB가 필요한 경우에만 아래 명령을 사용한다. 이 데이터는 다른 컴퓨터와 동기화되지 않는다.
 

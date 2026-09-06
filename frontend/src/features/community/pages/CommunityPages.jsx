@@ -906,8 +906,6 @@ export function CommunityReviewDetailPage() {
                   setCommentText("");
                 } catch (error) {
                   alert(error.message);
-                } finally {
-                  setWriteSubmitting(false);
                 }
               }}
             >

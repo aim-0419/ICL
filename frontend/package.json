@@ -16,7 +16,11 @@
     "cap:sync": "npm run build:app && node scripts/ensure-native-projects.mjs && npx cap sync && node scripts/configure-native.mjs",
     "cap:check": "node scripts/check-native-release.mjs",
     "cap:android": "npm run cap:sync && npx cap open android",
-    "cap:ios": "npm run cap:sync && npx cap open ios"
+    "cap:ios": "npm run cap:sync && npx cap open ios",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@capacitor-firebase/messaging": "^8.3.0",
@@ -40,8 +44,15 @@
     "@capacitor/android": "^8.4.0",
     "@capacitor/cli": "^8.4.0",
     "@capacitor/ios": "^8.4.0",
+    "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.60.0",
     "@vitejs/plugin-react": "^6.0.2",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.6",
     "vite": "^8.0.16"
   }
 }

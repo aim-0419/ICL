@@ -24,6 +24,7 @@
     "@capacitor/core": "^8.4.0",
     "@capacitor/network": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.1",
+    "@designcodeio/threeui": "^1.2.0",
     "@portone/browser-sdk": "^0.1.3",
     "@tiptap/extension-color": "^3.27.1",
     "@tiptap/extension-text-align": "^3.27.1",
@@ -34,7 +35,8 @@
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.0"
+    "react-router-dom": "^6.30.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@capacitor/android": "^8.4.0",
